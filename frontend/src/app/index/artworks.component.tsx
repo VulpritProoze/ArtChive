@@ -207,7 +207,7 @@ export default function PopularArtworks() {
         </div>
 
         {/* Navigation controls */}
-        <div className="flex flex-col items-center mt-16">
+        <div className="flex flex-col items-center mt-8">
           <div className="flex space-x-4 mb-4">
             <button
               onClick={handlePrev}

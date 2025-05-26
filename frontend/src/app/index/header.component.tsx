@@ -1,6 +1,7 @@
 // components/Header.tsx
 import { useState, useEffect } from "react";
-import useToggleDarkMode from "@src/utils/dark-mode";
+import { ChevronDown } from "lucide-react";
+import useToggleTheme from "@src/utils/use-theme";
 import Hamburger from "hamburger-react";
 import {
   motion,
@@ -56,7 +57,7 @@ const navItems = [
 ];
 
 export default function Header() {
-  const { isDarkMode, toggleDarkMode } = useToggleDarkMode();
+  const { isDarkMode, toggleDarkMode, setTheme } = useToggleTheme();
   const [isOpen, setOpen] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
@@ -67,16 +68,16 @@ export default function Header() {
 
   // Close menu when clicking on a link
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-
+    document.body.style.overflow = isOpen ? "hidden" : "auto";
     return () => {
       document.body.style.overflow = "auto";
     };
   }, [isOpen]);
+
+  const getBackgroundColor = () => {
+    if (!isScrolled) return "transparent";
+    return isDarkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.7)";
+  };
 
   return (
     <motion.header
@@ -85,11 +86,7 @@ export default function Header() {
       animate={{
         height: isScrolled ? "70px" : "90px",
         backdropFilter: isScrolled ? "blur(10px)" : "blur(0px)",
-        backgroundColor: isScrolled
-          ? isDarkMode
-            ? "rgba(0, 0, 0, 0.7)"
-            : "rgba(255, 255, 255, 0.7)"
-          : "transparent",
+        backgroundColor: getBackgroundColor(),
         boxShadow: isScrolled ? "0 4px 30px rgba(0, 0, 0, 0.1)" : "none",
       }}
       transition={{ type: "spring", damping: 20, stiffness: 300 }}
@@ -117,6 +114,7 @@ export default function Header() {
       {/* Right Side - Buttons & Hamburger */}
       <div className="navbar-end z-10">
         <div className="flex flex-row items-center gap-4">
+          {/* Dark mode toggle */}
           <motion.button
             className="btn btn-ghost btn-circle"
             onClick={toggleDarkMode}
@@ -155,6 +153,42 @@ export default function Header() {
             </div>
           </motion.button>
 
+          {/* Theme selector dropdown */}
+          <motion.div
+            className="dropdown dropdown-end"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <div tabIndex={0} role="button" className="btn btn-ghost m-1">
+              Theme
+              <ChevronDown className="w-4 h-4 ml-1" />
+            </div>
+            <ul
+              tabIndex={0}
+              className="dropdown-content z-[1] menu p-2 shadow-2xl bg-base-300 rounded-box w-52"
+            >
+              <li>
+                <button onClick={() => setTheme("cupcake")}>
+                  <span className="badge badge-primary badge-xs mr-2"></span>
+                  Cupcake
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setTheme("synthwave")}>
+                  <span className="badge badge-secondary badge-xs mr-2"></span>
+                  Synthwave
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setTheme("halloween")}>
+                  <span className="badge badge-accent badge-xs mr-2"></span>
+                  Halloween
+                </button>
+              </li>
+            </ul>
+          </motion.div>
+
+          {/* Hamburger */}
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
             <Hamburger size={20} toggled={isOpen} toggle={setOpen} />
           </motion.div>
@@ -164,8 +198,7 @@ export default function Header() {
       {/* Full Page Drawer Menu */}
       <AnimatePresence>
         {isOpen && (
-          <div
-            className="fixed inset-0 bg-base-100 flex flex-col h-screen justify-center items-center">
+          <div className="fixed inset-0 bg-base-100 flex flex-col h-screen justify-center items-center">
             <nav className="text-center space-y-8">
               {navItems.map((item, index) => (
                 <motion.a

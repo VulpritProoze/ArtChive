@@ -4,14 +4,11 @@
 @plugin "daisyui";
 @plugin "@tailwindcss/typography";
 
-@custom-variant dark (&:where(
-    [data-theme=dark],
-    [data-theme=dark] *
-));
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 /* base daisyui configs */
 @plugin "daisyui" {
-    themes: light --default, dark --prefersdark;
+    themes: light --default, dark --prefersdark, cupcake, synthwave, halloween;
     root: ":root";
     include: ;
     exclude: ;
@@ -59,3 +56,21 @@ html {
 }
 
 /* customizing tailwindcss variables */
+
+
+
+
+
+
+/* other styles */
+.theme-selector .dropdown-content {
+    @apply transition-all duration-200 ease-out;
+  }
+  
+  .theme-selector button {
+    @apply transition-colors duration-100;
+  }
+  
+  .theme-selector .badge {
+    @apply transition-all duration-200;
+  }
