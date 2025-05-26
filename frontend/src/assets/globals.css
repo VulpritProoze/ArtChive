@@ -1,0 +1,61 @@
+/* globals css */
+
+@import "tailwindcss";
+@plugin "daisyui";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(
+    [data-theme=dark],
+    [data-theme=dark] *
+));
+
+/* base daisyui configs */
+@plugin "daisyui" {
+    themes: light --default, dark --prefersdark;
+    root: ":root";
+    include: ;
+    exclude: ;
+    prefix: ;
+    logs: true;
+}
+
+/* customize existing daisyui themes */
+@plugin "daisyui/theme" {
+    name: "light";
+
+    --color-primary: #6a5acd;
+    --color-primary-content: white;
+}
+
+@plugin "daisyui/theme" {
+    name: "dark";
+
+    --color-primary: #443893;
+}
+
+
+/* base styles */
+body {
+    @apply bg-base-300
+}
+
+
+/* customizing daisyui components */
+
+html {
+    @apply scroll-smooth
+}
+
+@utility btn {
+    @apply shadow-none
+}
+
+@utility card-body {
+    @apply bg-base-100 rounded-md border border-base-300 shadow-sm
+}
+
+@utility navbar-primary {
+    @apply navbar bg-primary text-primary-content
+}
+
+/* customizing tailwindcss variables */
