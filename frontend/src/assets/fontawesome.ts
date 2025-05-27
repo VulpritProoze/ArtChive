@@ -3,7 +3,12 @@ import {
   faPortrait, 
   faUsers, 
   faComments, 
-  faChartLine
+  faChartLine,
+  faEnvelope,
+  faLock,
+  faEye,
+  faEyeSlash,
+  faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   faInstagram, 
@@ -17,6 +22,11 @@ library.add(
   faUsers, 
   faComments, 
   faChartLine,
+  faEnvelope,
+  faLock,
+  faEye,
+  faEyeSlash,
+  faUser,
   faInstagram,
   faTwitter,
   faBehance,

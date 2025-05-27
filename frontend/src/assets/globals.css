@@ -55,6 +55,14 @@ html {
     @apply navbar bg-primary text-primary-content
 }
 
+@utility input {
+    @apply focus:outline-2 focus:outline-primary focus:outline-offset-0 focus:shadow-md focus:shadow-primary/20 focus:border-0
+}
+
+@utility text-error {
+    @apply text-sm
+}
+
 /* customizing tailwindcss variables */
 
 

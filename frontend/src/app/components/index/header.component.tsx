@@ -1,7 +1,7 @@
 // components/Header.tsx
 import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
-import useToggleTheme from "@src/utils/use-theme";
+import { useToggleTheme, oklchToRgba, getCssVariableValue } from "@src/utils";
 import Hamburger from "hamburger-react";
 import {
   motion,
@@ -61,6 +61,7 @@ export default function Header() {
   const [isOpen, setOpen] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
+  const [bgColor, setBgColor] = useState("transparent");
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setIsScrolled(latest > 10);
@@ -74,10 +75,26 @@ export default function Header() {
     };
   }, [isOpen]);
 
-  const getBackgroundColor = () => {
-    if (!isScrolled) return "transparent";
-    return isDarkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.7)";
-  };
+  // const getBackgroundColor = () => {
+  //   if (!isScrolled) return "transparent";
+  //   return oklchToRgba(getCssVariableValue("--color-base-200"), 0.7)
+  // };
+
+  // Update background color when theme changes or scroll state changes
+  useEffect(() => {
+    const updateColor = () => {
+      if (!isScrolled) {
+        setBgColor("transparent");
+      } else {
+        // Use setTimeout to ensure theme has been applied
+        setTimeout(() => {
+          setBgColor(oklchToRgba(getCssVariableValue("--color-base-200"), 0.7));
+        }, 50); // Small delay to ensure theme is applied
+      }
+    };
+
+    updateColor();
+  }, [isDarkMode, isScrolled, setTheme]);
 
   return (
     <motion.header
@@ -86,7 +103,7 @@ export default function Header() {
       animate={{
         height: isScrolled ? "70px" : "90px",
         backdropFilter: isScrolled ? "blur(10px)" : "blur(0px)",
-        backgroundColor: getBackgroundColor(),
+        backgroundColor: bgColor,
         boxShadow: isScrolled ? "0 4px 30px rgba(0, 0, 0, 0.1)" : "none",
       }}
       transition={{ type: "spring", damping: 20, stiffness: 300 }}
@@ -213,15 +230,16 @@ export default function Header() {
                   {item.name}
                 </motion.a>
               ))}
-              <motion.button
+              <motion.a
                 className="btn btn-secondary mt-6 text-lg"
+                href="/register"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                onClick={() => setOpen(false)}
+                onClick={() => setOpen(false) }
               >
                 Sign Up
-              </motion.button>
+              </motion.a>
             </nav>
           </div>
         )}
