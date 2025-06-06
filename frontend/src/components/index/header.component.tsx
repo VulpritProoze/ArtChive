@@ -1,7 +1,8 @@
 // components/Header.tsx
 import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
-import { useToggleTheme, oklchToRgba, getCssVariableValue } from "@src/utils";
+import { useToggleTheme } from "@hooks";
+import { oklchToRgba, getCssVariableValue } from "@utils"
 import Hamburger from "hamburger-react";
 import {
   motion,
