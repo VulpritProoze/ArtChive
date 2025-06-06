@@ -2,9 +2,7 @@
 
 import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Index, Login, Register } from "@app/index";
-import { ThemeProvider } from "@src/components";
-import "@src/assets/fontawesome";
+import { ThemeProvider, Index, Login, Register } from "@components";
 
 function App() {
   useEffect(() => {
