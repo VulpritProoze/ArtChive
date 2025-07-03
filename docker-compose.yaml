@@ -1,0 +1,23 @@
+services:
+  frontend:
+    build:
+      dockerfile: frontend/Dockerfile
+      context: .
+    ports: 
+      - "5173:5173"
+    volumes: 
+      - ./frontend:/frontend/
+      - /frontend/node_modules
+    depends_on:
+      - backend
+  
+  backend:
+    build:
+      dockerfile: backend/Dockerfile
+      context: .
+    ports: 
+      - "8000:8000"
+    volumes:
+      - ./backend:/backend/
+
+# docker-compose up -d 

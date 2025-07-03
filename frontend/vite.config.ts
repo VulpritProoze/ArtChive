@@ -5,6 +5,18 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // allow vite to accept code changes from other hosts
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    watch: {
+      usePolling: true,
+      interval: 100
+    },
+    hmr: {
+      port: 5173
+    }
+  },
   plugins: [
     react(),
     tailwindcss()

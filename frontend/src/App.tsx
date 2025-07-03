@@ -2,7 +2,13 @@
 
 import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { ThemeProvider, Index, Login, Register } from "@components";
+import {
+  ThemeProvider,
+  Index,
+  Login,
+  Register,
+  GalleryIndex,
+} from "@components";
 
 function App() {
   useEffect(() => {
@@ -16,6 +22,7 @@ function App() {
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/gallery" element={<GalleryIndex />} />
         </Routes>
       </Router>
     </ThemeProvider>
