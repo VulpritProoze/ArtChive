@@ -1,4 +1,13 @@
 services:
+  db:
+    image: postgres:17-alpine
+    env_file: .env
+    ports:
+      - "5432"
+    # mount dbdata to a named volume
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
   frontend:
     build:
       dockerfile: frontend/Dockerfile
@@ -6,18 +15,25 @@ services:
     ports: 
       - "5173:5173"
     volumes: 
+      # mount frontend files to a volume so that live reload works
       - ./frontend:/frontend/
+      # mount node_modules to an anonymous volume so that the volume above doesn't replace container node_modules
       - /frontend/node_modules
-    depends_on:
-      - backend
   
   backend:
     build:
       dockerfile: backend/Dockerfile
       context: .
+    env_file: .env
     ports: 
       - "8000:8000"
     volumes:
       - ./backend:/backend/
+    depends_on:
+      - db
 
+volumes:
+  dbdata:
+  
 # docker-compose up -d 
+# docker-compose --env-file ./backend/.env up

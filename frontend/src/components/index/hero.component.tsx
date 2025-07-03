@@ -27,7 +27,7 @@ export default function Hero() {
           className="flex-1"
         >
           <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-            A social platform{" "}
+            A social platform {" "}
             <span className="text-primary">for artists, by artists.</span>
           </h1>
           <motion.p

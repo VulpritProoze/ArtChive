@@ -27,7 +27,8 @@ COPY backend /backend
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# wait for postgresql instance to finish before running backend
+CMD ["sh", "-c", "./wait-for-it.sh db:5432 && python manage.py runserver 0.0.0.0:8000"]
 
 # build with docker build -t artchive_backend .
 # run with docker run -d -p 8000:8000 --name dev artchive_backend
