@@ -7,6 +7,11 @@ services:
     # mount dbdata to a named volume
     volumes:
       - dbdata:/var/lib/postgresql/data
+  
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
 
   frontend:
     build:
@@ -31,6 +36,7 @@ services:
       - ./backend:/backend/
     depends_on:
       - db
+      - redis
 
 volumes:
   dbdata:
