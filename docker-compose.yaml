@@ -7,11 +7,21 @@ services:
     # mount dbdata to a named volume
     volumes:
       - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d artchive_1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -35,8 +45,10 @@ services:
     volumes:
       - ./backend:/backend/
     depends_on:
-      - db
-      - redis
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
 
 volumes:
   dbdata:
