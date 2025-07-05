@@ -39,3 +39,4 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 # build with docker build -t artchive_backend .
 # run with docker run -d -p 8000:8000 --name dev artchive_backend
+# docker exec -it artchive-backend-1 /bin/bash (run bash shell)

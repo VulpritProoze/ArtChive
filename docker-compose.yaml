@@ -44,6 +44,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/backend/
+      # mount installed packages to an anonymous volume so that pip install does not freak up!
+      - /usr/local/lib/python3.12/site-packages
     depends_on:
       redis:
         condition: service_healthy
