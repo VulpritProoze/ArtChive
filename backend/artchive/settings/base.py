@@ -27,8 +27,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'account',
     'notification',
+    'post',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -68,9 +70,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'artchive.wsgi.application'
 ASGI_APPLICATION = 'artchive.asgi.application'
 
-
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
+AUTH_USER_MODEL = 'account.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -100,13 +100,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_URL = 'static/'
-
 from datetime import timedelta
-from common.utils.read_key import read_key
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
@@ -114,9 +108,9 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': False,
-    'ALGORITHM': config('JWT_ALGORITHM', default='RS256'),
-    'SIGNING_KEY': read_key('JWT_PRIVATE_KEY_PATH'),
-    'VERIFYING_KEY': read_key('JWT_PUBLIC_KEY_PATH'),
+    'ALGORITHM': config('JWT_ALGORITHM', default='HS256'),
+    'SIGNING_KEY': config('JWT_SECRET_KEY'),
+    'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
     'AUTH_HEADER_TYPES': ('Bearer',),
