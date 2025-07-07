@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'silk', # remove in prod
+    'drf_spectacular'   # idk if iremove? creates api documentation. maybe dont remove
 ]
 
 MIDDLEWARE = [
@@ -48,8 +49,10 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'artchive.urls'
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'rest_framework.authentication.SessionAuthentication',
     )
 }
 
@@ -125,6 +128,15 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'ArtChive API',
+    'DESCRIPTION': 'This serves as the official API documentation of ArtChive\'s API. Do not reproduce, and do not distribute. For internal usage only.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# py manage.py spectacular --color --file schema.yml
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

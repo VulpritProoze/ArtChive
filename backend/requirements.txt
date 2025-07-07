@@ -12,10 +12,14 @@ django-redis==6.0.0
 django-silk==5.4.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
+drf-spectacular==0.28.0
 gprof2dot==2025.4.14
 hyperlink==21.0.0
 idna==3.10
 incremental==24.7.2
+inflection==0.5.1
+jsonschema==4.24.0
+jsonschema-specifications==2025.4.1
 pillow==11.3.0
 psycopg2-binary==2.9.10
 pyasn1==0.6.1
@@ -24,7 +28,10 @@ pycparser==2.22
 PyJWT==2.9.0
 pyOpenSSL==25.1.0
 python-decouple==3.8
+PyYAML==6.0.2
 redis==6.2.0
+referencing==0.36.2
+rpds-py==0.26.0
 service-identity==24.2.0
 setuptools==80.9.0
 sqlparse==0.5.3
@@ -32,4 +39,5 @@ Twisted==25.5.0
 txaio==25.6.1
 typing_extensions==4.14.0
 tzdata==2025.2
+uritemplate==4.2.0
 zope.interface==7.2
