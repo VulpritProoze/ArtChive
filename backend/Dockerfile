@@ -29,13 +29,17 @@ RUN pip install -r requirements.txt
 # copy all /backend local to /backend container
 COPY backend /backend
 
+COPY backend/start.sh /backend
+
+RUN chmod +x /backend/start.sh
+
 RUN chown -R user:user /backend
 
 USER user   
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["/backend/start.sh"]
 
 # build with docker build -t artchive_backend .
 # run with docker run -d -p 8000:8000 --name dev artchive_backend

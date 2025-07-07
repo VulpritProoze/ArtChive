@@ -1,6 +1,6 @@
 from django.db import models
 from account.models import User
-
+from common.utils import choices
 
 class PostType(models.Model):
     name = models.CharField(max_length=128)
@@ -15,19 +15,13 @@ class Post(models.Model):
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
-    post_type = models.ForeignKey(PostType, on_delete=models.RESTRICT)
-
-class ImagePost(models.Model):
-    post_id = models.OneToOneField(Post, primary_key=True, on_delete=models.CASCADE, related_name='image_post')
-    image_url = models.ImageField(upload_to='posts/images/')
-
-class VideoPost(models.Model):
-    post_id = models.OneToOneField(Post, primary_key=True, on_delete=models.CASCADE, related_name='video_post')
-    video_url = models.FileField(upload_to='posts/videos/')
+    image_url = models.ImageField(upload_to='posts/images/', blank=True, null=True)
+    video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True)
+    post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
 
 class NovelPost(models.Model):
-    chapter = models.PositiveIntegerField(unique=True)
+    chapter = models.PositiveIntegerField()
     content = models.TextField()
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='novel_post')
 
