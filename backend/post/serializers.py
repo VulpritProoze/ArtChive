@@ -100,7 +100,6 @@ class PostCreateSerializer(serializers.ModelSerializer):
                     'post_type': 'Novel posts must contain both chapter and content'
                 })
 
-        
         return data
     
     def create(self, validated_data):

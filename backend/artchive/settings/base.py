@@ -28,11 +28,13 @@ INSTALLED_APPS = [
     'account',
     'notification',
     'post',
+    'collective',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'silk', # remove in prod
-    'drf_spectacular'   # idk if iremove? creates api documentation. maybe dont remove
+    'drf_spectacular'   
+    # idk if iremove? creates api documentation. maybe dont remove
 ]
 
 MIDDLEWARE = [
@@ -98,7 +100,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
 
