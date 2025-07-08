@@ -1,0 +1,26 @@
+[
+    {
+        "model": "collective.trophytype",
+        "pk": 1,
+        "fields": {
+            "trophy": "bronze_stroke",
+            "brush_drip_points": 5
+        }
+    },
+    {
+        "model": "collective.trophytype",
+        "pk": 2,
+        "fields": {
+            "trophy": "golden_bristle",
+            "brush_drip_points": 10
+        }
+    },
+    {
+        "model": "collective.trophytype",
+        "pk": 3,
+        "fields": {
+            "trophy": "diamond_canvas",
+            "brush_drip_points": 20
+        }
+    }
+]

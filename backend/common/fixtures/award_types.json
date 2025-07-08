@@ -1,0 +1,42 @@
+[
+    {
+        "model": "gallery.awardtype",
+        "pk": 1,
+        "fields": {
+            "award": "apprentice_brush",
+            "brush_drip_points": 10
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 2,
+        "fields": {
+            "award": "impressionist_ink",
+            "brush_drip_points": 20
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 3,
+        "fields": {
+            "award": "cubist_crystal",
+            "brush_drip_points": 50
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 4,
+        "fields": {
+            "award": "surreal_sapphire",
+            "brush_drip_points": 100
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 5,
+        "fields": {
+            "award": "da_vinci_diamond",
+            "brush_drip_points": 150
+        }
+    }
+]
