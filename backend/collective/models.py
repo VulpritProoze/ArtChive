@@ -10,7 +10,7 @@ class Collective(models.Model):
     
     collective_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=100, unique=True)
-    description = models.CharField(max_length=256)
+    description = models.CharField(max_length=4096)
     status = models.CharField(max_length=100, choices=choices.COLLECTIVE_STATUS)
     rules = ArrayField(models.CharField(max_length=100), blank=True, default=default_rules)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -22,7 +22,7 @@ class CollectiveMember(models.Model):
 
 class Channel(models.Model):
     channel_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=100)
-    description = models.CharField(max_length=256)
+    title = models.CharField(max_length=512)
+    description = models.CharField(max_length=4096)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

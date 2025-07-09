@@ -4,7 +4,7 @@
         "pk": 1,
         "fields": {
             "award": "apprentice_brush",
-            "brush_drip_points": 10
+            "brush_drip_value": 10
         }
     },
     {
@@ -12,7 +12,7 @@
         "pk": 2,
         "fields": {
             "award": "impressionist_ink",
-            "brush_drip_points": 20
+            "brush_drip_value": 20
         }
     },
     {
@@ -20,7 +20,7 @@
         "pk": 3,
         "fields": {
             "award": "cubist_crystal",
-            "brush_drip_points": 50
+            "brush_drip_value": 50
         }
     },
     {
@@ -28,7 +28,7 @@
         "pk": 4,
         "fields": {
             "award": "surreal_sapphire",
-            "brush_drip_points": 100
+            "brush_drip_value": 100
         }
     },
     {
@@ -36,7 +36,7 @@
         "pk": 5,
         "fields": {
             "award": "da_vinci_diamond",
-            "brush_drip_points": 150
+            "brush_drip_value": 150
         }
     }
 ]

@@ -32,3 +32,9 @@ FACEBOOK_RULES = [
     "Respect privacy — no sharing personal information without consent.",
     "Follow Facebook Community Guidelines.",
 ]
+
+FELLOW_STATUS = [
+    ('pending', 'pending'),
+    ('accepted', 'accepted'),
+    ('blocked', 'blocked')
+]

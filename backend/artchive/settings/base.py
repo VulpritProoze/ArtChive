@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     'post',
     'collective',
     'gallery',
+    'avatar',
+    'conversation',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',

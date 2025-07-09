@@ -60,6 +60,8 @@ class Critique(models.Model):
 
 class Event(models.Model):
     event_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=512)
+    description = models.CharField(max_length=4096)
     start = models.DateTimeField()
     end = models.DateTimeField()
     details = models.TextField()
@@ -70,6 +72,22 @@ class EventComment(models.Model):
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    post_id = models.ForeignKey(Post, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
+    event_id = models.ForeignKey(Event, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
     replying_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
+    
+class ArtChallenge(models.Model):
+    challenge_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=512)
+    description = models.CharField(max_length=4096)
+    details = models.TextField()
+    start = models.DateTimeField()
+    end = models.DateTimeField()
+    brush_drip_reward = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class ArtChallengeParticipant(models.Model):
+    challenge_id = models.ForeignKey(ArtChallenge, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    joined_at = models.DateTimeField(auto_now_add=True)

@@ -5,8 +5,8 @@ import uuid
 
 class Gallery(models.Model):
     gallery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=100)
-    description = models.CharField(max_length=256)
+    title = models.CharField(max_length=512)
+    description = models.CharField(max_length=4096)
     status = models.CharField(choices=choices.COLLECTIVE_STATUS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
