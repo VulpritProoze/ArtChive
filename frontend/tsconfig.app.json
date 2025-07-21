@@ -31,10 +31,16 @@
       "@src": ["./src"],
       "@assets/*": ["./src/assets/*"],
       "@assets": ["./src/assets"],
+      "@context/*": ["./src/context/*"],
+      "@context": ["./src/context"],
       "@components/*": ["./src/components/*"],
       "@components": ["./src/components"],
       "@hooks/*": ["./src/hooks/*"],
       "@hooks": ["./src/hooks"],
+      "@lib/*": ["./src/lib/*"],
+      "@lib": ["./src/lib"],
+      "@types/*": ["./src/types/*"],
+      "@types": ["./src/types"],
       "@utils/*": ["./src/utils/*"],
       "@utils": ["./src/utils"]
     }

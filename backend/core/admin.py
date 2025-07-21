@@ -1,5 +1,5 @@
 from django.contrib import admin
-from account.models import User
+from core.models import User
 
 admin.site.register(User)
 

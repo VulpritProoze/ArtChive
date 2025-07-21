@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { useNavigate } from 'react-router-dom'
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +12,9 @@ import {
   faEyeSlash,
   faCircleNotch,
 } from "@fortawesome/free-solid-svg-icons";
+import api from "@lib/api";
+import axios from 'axios'
+import { AuthContext } from '@context/auth-context'
 
 // Zod schema for form validation
 const loginSchema = z.object({
@@ -24,29 +28,38 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState("");
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
+  const authContext = useContext(AuthContext)
+
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (data: LoginFormData) => {
+    if(!authContext) {
+      setLoginError("Auth system is not yet ready")
+      return
+    }
+
     setIsSubmitting(true);
     setLoginError("");
-    
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Login data:", data);
+      await authContext.login({ email: data.email, password: data.password })
+
+      navigate('/home')
+
       // Handle successful login here
-    } catch (error) {
-      setLoginError("Invalid email or password. Please try again.");
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        // Handle error from API
+        const message = error.response?.data?.message || "Invalid email or password.";
+        setLoginError(message);
+      } else {
+        setLoginError("An unexpected error occurred.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -257,7 +270,10 @@ export default function Login() {
             <div className="text-center mt-6">
               <p className="text-base-content/70">
                 Don't have an account?{" "}
-                <a href="/register" className="link link-hover text-primary font-medium">
+                <a
+                  href="/register"
+                  className="link link-hover text-primary font-medium"
+                >
                   Sign up
                 </a>
               </p>

@@ -5,7 +5,7 @@ from decouple import config
 
 def create_initial_data(apps, schema_editor):
     Collective = apps.get_model('collective', 'Collective')
-    User = apps.get_model('account', 'User')
+    User = apps.get_model('core', 'User')
 
     default_collectives = [
         {
@@ -37,7 +37,7 @@ def create_initial_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('account', '0001_initial'),
+        ('core', '0001_initial'),
     ]
 
     operations = [
@@ -46,4 +46,4 @@ class Migration(migrations.Migration):
         )
     ]
 
-# python manage.py makemigrations --empty account --name seed_initial_data
+# python manage.py makemigrations --empty core --name seed_initial_data

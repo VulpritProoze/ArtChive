@@ -1,5 +1,5 @@
 from django.db import models
-from account.models import User
+from core.models import User
 import uuid
 
 class Avatar(models.Model):

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
-from account.models import User
+from core.models import User
 from common.utils import choices
 from PIL import Image 
 from .models import *

@@ -1,6 +1,6 @@
 from django.db import models
 from common.utils import choices
-from account.models import User
+from core.models import User
 import uuid
 
 class Gallery(models.Model):
