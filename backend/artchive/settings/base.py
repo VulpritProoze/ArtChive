@@ -23,6 +23,8 @@ AUTHENTICATION_BACKENDS = [
 
 INSTALLED_APPS = [
     'daphne',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,8 +40,6 @@ INSTALLED_APPS = [
     'conversation',
     'corsheaders',
     'rest_framework',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
     'silk', # remove in prod
     'drf_spectacular'   
     # idk if iremove? creates api documentation. maybe dont remove
@@ -62,7 +62,7 @@ ROOT_URLCONF = 'artchive.urls'
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.authentication.CookieJWTAuthentication',
         # 'rest_framework.authentication.SessionAuthentication',
     )
 }
