@@ -1,8 +1,8 @@
 // components/index
 
 export { default as ThemeProvider } from './theme-provider'
-export { default as ProtectedRoute } from './protected-route'
 export { default as Index } from './index/index.component'
+export { default as ProtectedRoute } from './protected-route'
 
 // Account
 export { default as Login } from './account/login.component'

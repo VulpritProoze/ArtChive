@@ -1,15 +1,16 @@
 import { useNavigate } from 'react-router-dom'
-import { useContext } from 'react'
-import { AuthContext } from '@context/auth-context'
+import { useAuth } from '@context/auth-context'
 
 export const LogoutButton = () => {
-    const authContext = useContext(AuthContext)
     const navigate = useNavigate()
+    const { logout } = useAuth()
 
     const handleLogout = async () => {
-        if (authContext && typeof authContext.logout === 'function') {
-            await authContext.logout()
+        try {
+            await logout()
             navigate('/login')
+        } catch (error) {
+            console.error('Logout failed', error)
         }
     }
 

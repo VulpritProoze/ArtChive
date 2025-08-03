@@ -11,6 +11,7 @@ import {
   Register,
   GalleryIndex,
 } from "@components";
+import { AuthProvider } from "@context/auth-context";
 
 function App() {
   useEffect(() => {
@@ -18,21 +19,23 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/home" element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          } />
-          <Route path="/register" element={<Register />} />
-          <Route path="/gallery" element={<GalleryIndex />} />
-        </Routes>
-      </Router>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/home" element={<Home />} />
+              <Route path="/gallery" element={<GalleryIndex />} />
+            </Route>
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

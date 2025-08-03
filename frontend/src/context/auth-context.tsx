@@ -1,57 +1,106 @@
-import { createContext, useState, useEffect } from "react";
-import axios from "axios";
+import { createContext, useState, useEffect, useContext } from 'react'
+import type { ReactNode } from 'react'
 import api from '@lib/api'
-import type { AuthContextType, User } from "@src/types";
+import type { AuthContextType, User } from '@src/types'
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined)
+type AuthProviderProps = {
+    children: ReactNode;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+const AuthContext = createContext<AuthContextType>({
+    user: null,
+    login: async () => {},
+    logout: async () => {},
+    refreshToken: async () => {},
+    loading: true,
+})
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await axios.get("/api/core/auth/me");
-        setUser(res.data.user);
-        setIsAuthenticated(true);
-      } catch (err) {
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+    const [user, setUser] = useState<User>(null)
+    const [loading, setLoading] = useState<boolean>(true)
 
-    checkAuth();
-  }, []);
+    const fetchUser = async () => {
+        try {
+            const response = await api.get('api/core/auth/me/', {
+                withCredentials: true,
+            })
 
-  const login = async (credentials: { email: string; password: string }) => {
-    const res = await api.post("/api/core/auth/login/", credentials);
-    setUser(res.data.user);
-    setIsAuthenticated(true);
-  };
+            setUser(response.data)
+        } catch (error) {
+            console.error('Failed to fetch user: ', error)
+            throw error
+        }
+    }
 
-  const logout = async () => {
-    await api.post("/api/core/auth/logout/");
-    setUser(null);
-    setIsAuthenticated(false);
-  };
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                await api.post('api/core/auth/token/verify/', {}, {
+                    withCredentials: true
+                })
+                await fetchUser()
+            } catch (error) {
+                console.error('Auth check failed: ', error)
+            } finally {
+                setLoading(false)
+            }
+        }
 
-  const contextValue: AuthContextType = {
-    user,
-    isAuthenticated,
-    loading,
-    login,
-    logout,
-  };
+        checkAuth()
+    }, [])
 
-  return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-  );
-};
+    const login = async (email: string, password: string) => {
+        try {
+            await api.post('api/core/auth/login/', {email, password}, {
+                withCredentials: true
+            })
+            await fetchUser()
+        } catch (error) {
+            console.error('Login failed: ', error)
+            throw error
+        }
+    }
 
-// needs to be fixed smh.
+    const logout = async () => {
+        try {
+            await api.post('api/core/auth/logout/', {}, {
+                withCredentials: true
+            })
+        } catch (error) {
+            console.error('Logout failed: ', error)
+        } finally {
+            setUser(null)
+        }
+    }
+
+    const refreshToken = async () => {
+        try {
+            await api.post('api/core/auth/token/refresh/', {}, {
+                withCredentials: true
+            })
+            await fetchUser()
+        } catch (error) {
+            console.error('Token refresh failed: ', error)
+            throw error
+        }
+    }
+
+    const value: AuthContextType = {
+        user, login, logout, refreshToken, loading
+    }
+
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+        </AuthContext.Provider>
+    )
+}
+
+export const useAuth = (): AuthContextType => {
+    const context = useContext(AuthContext)
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider')
+    }
+
+    return context
+}

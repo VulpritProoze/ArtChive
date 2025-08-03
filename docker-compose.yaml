@@ -31,6 +31,7 @@ services:
     build:
       dockerfile: frontend/Dockerfile
       context: .
+    env_file: .env
     ports: 
       - "5173:5173"
     environment:

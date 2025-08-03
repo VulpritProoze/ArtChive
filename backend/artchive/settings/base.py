@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'core',
     'notification',
     'post',
@@ -38,7 +39,6 @@ INSTALLED_APPS = [
     'gallery',
     'avatar',
     'conversation',
-    'corsheaders',
     'rest_framework',
     'silk', # remove in prod
     'drf_spectacular'   
