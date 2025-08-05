@@ -40,7 +40,7 @@ services:
       # mount frontend files to a volume so that live reload works
       - ./frontend:/frontend/
       # mount node_modules to an anonymous volume so that the volume above doesn't replace container node_modules
-      - /frontend/node_modules
+      - node_modules:/frontend/node_modules
   
   backend:
     build:
@@ -51,8 +51,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/backend/
-      # mount installed packages to an anonymous volume so that pip install does not freak up!
-      - /usr/local/lib/python3.12/site-packages
+      # mount installed packages to a named volume so that pip install does not freak up!
+      - pylibs:/usr/local/lib/python3.12/site-packages
     environment:
       - TZ=Asia/Shanghai
     depends_on:
@@ -63,6 +63,8 @@ services:
 
 volumes:
   dbdata:
+  node_modules:
+  pylibs:
   
 # docker-compose up -d 
 # docker-compose --env-file ./backend/.env up

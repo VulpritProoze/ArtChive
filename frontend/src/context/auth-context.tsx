@@ -32,12 +32,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
     }
 
+    // verify user auth on page visit
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                await api.post('api/core/auth/token/verify/', {}, {
-                    withCredentials: true
-                })
                 await fetchUser()
             } catch (error) {
                 console.error('Auth check failed: ', error)

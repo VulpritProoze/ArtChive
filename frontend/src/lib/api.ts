@@ -1,6 +1,28 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+import type { AxiosResponse, AxiosRequestConfig } from 'axios'
 
-export default axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
     withCredentials: true,
 })
+
+api.interceptors.response.use(
+    (response: AxiosResponse) => response,
+    async (error: AxiosError) => {
+        const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
+
+        // if unauthorized, retry request
+        if (
+            error.response?.status === 401 &&
+            !originalRequest._retry &&
+            !originalRequest.url?.includes('/auth/')
+        ) {
+            originalRequest._retry = true
+            return api(originalRequest)
+        }
+        
+        return Promise.reject(error)
+    }
+)
+
+export default api
