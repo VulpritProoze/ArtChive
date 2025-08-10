@@ -4,6 +4,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from 'react-hook-form'
+import { toast } from 'react-toastify'
 
 export default function Login() {
   const { login } = useAuth();
@@ -34,7 +35,8 @@ export default function Login() {
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
       await login(data.email, data.password);
-      navigate("/home");
+      toast.success('Login successful! Redirecting...')
+      setTimeout(() => navigate("/home"), 2000)
     } catch (error) {
       setError("root", {
         message: error,
