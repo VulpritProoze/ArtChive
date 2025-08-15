@@ -113,7 +113,7 @@ const ReviewCarousel = () => {
 
   // Calculate visible cards
   const getVisibleCards = () => {
-    const cards = [];
+    const cards: Review[] = [];
     for (let i = -1; i <= 1; i++) {
       const index = (currentIndex + i + reviews.length) % reviews.length;
       cards.push(reviews[index]);
@@ -177,7 +177,7 @@ const ReviewCarousel = () => {
                     <div className="flex items-center mb-4">
                       <div className="avatar">
                         <div className="w-16 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                          <img src={card.avatar} alt={card.name} />
+                          <img src={card.avatar.trim()} alt={card.name} loading='lazy'/>
                         </div>
                       </div>
                       <div className="ml-4">

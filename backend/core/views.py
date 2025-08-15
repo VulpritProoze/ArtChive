@@ -8,9 +8,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from .serializers import UserSerializer, LoginSerializer
+from .throttle import LoginThrottle
 from decouple import config
 
 class LoginView(APIView):
+    throttle_classes = [LoginThrottle]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
 

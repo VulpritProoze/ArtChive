@@ -3,16 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart, faEye, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import type { ArtistType } from "./artist-type.type";
+import type { Artwork } from "./artwork.type"; // Ensure Artwork type is imported
 import { artworks } from "./artworks";
 
 export default function PopularArtworks() {
-  const [currentArtistType, setCurrentArtistType] =
-    useState<ArtistType>("visual arts");
+  const [currentArtistType, setCurrentArtistType] = useState<ArtistType>("visual arts");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
-  // Filter artworks by current artist type
-  const filteredArtworks = artworks.filter(
+  const filteredArtworks: Artwork[] = artworks.filter(
     (artwork) => artwork.artistType === currentArtistType
   );
 
@@ -46,7 +45,7 @@ export default function PopularArtworks() {
 
   // Calculate visible cards
   const getVisibleCards = () => {
-    const cards = [];
+    const cards: Artwork[] = [];
     for (let i = -1; i <= 1; i++) {
       const index =
         (currentIndex + i + filteredArtworks.length) % filteredArtworks.length;
@@ -159,6 +158,7 @@ export default function PopularArtworks() {
                           src={artwork.imageUrl}
                           alt={artwork.title}
                           className="w-full h-64 object-cover"
+                          loading='lazy'
                         />
                         {isCenter && (
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">

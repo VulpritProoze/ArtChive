@@ -17,3 +17,4 @@ CMD ["npm", "run", "dev"]
 
 # build with docker build -t artchive_frontend .
 # run with docker run -d -p 5173:5173 --name dev2 artchive_frontend  
+# docker exec -it artchive-frontend-1 sh
