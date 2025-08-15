@@ -19,8 +19,12 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    tailwindcss()
+    tailwindcss(),
   ],
+  build: {
+    sourcemap: true,
+    chunkSizeWarningLimit: 1600,
+  },
   resolve: {
     alias: {
       '@src': path.resolve(__dirname, './src'),

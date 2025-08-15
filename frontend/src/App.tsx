@@ -6,7 +6,10 @@ import { ThemeProvider, ProtectedRoute } from "@components";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 
-const Index = lazy(() => import("@components/index/index.component"));
+const Index = lazy(() => import("@components/index/index.component").then(module => {
+  console.log('Index chunk loaded')
+  return module
+}));
 const Login = lazy(() => import("@components/account/login.component"));
 const Home = lazy(() => import("@components/home/index.component"));
 const Register = lazy(() => import("@components/account/register.component"));

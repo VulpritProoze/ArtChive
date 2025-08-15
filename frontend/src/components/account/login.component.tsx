@@ -24,7 +24,7 @@ export default function Login() {
     register,
     handleSubmit,
     setError,
-    formState: { errors }, // destructuring formState
+    formState: { errors, isSubmitting }, // destructuring formState
   } = useForm<FormFields>({
     // defaultValues: {
     //   email: "johndoe@gmail.com",
@@ -60,13 +60,16 @@ export default function Login() {
           {errors.password && (
             <div className="text-red-500">{errors.password.message}</div>
           )}
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
             Submit
           </button>
           {errors.root && (
             <div className="text-red-500">{errors.root.message}</div>
           )}
         </form>
+        {isSubmitting && (
+          <div>Loading...</div>
+        )}
       </div>
     </div>
   );
