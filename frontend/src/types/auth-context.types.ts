@@ -6,4 +6,5 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   loading: boolean;
+  shouldSkipAuth: (path: string) => boolean
 };
