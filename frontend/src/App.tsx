@@ -1,5 +1,5 @@
 // App.tsx
-import { useEffect, lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import { ThemeProvider, ProtectedRoute } from "@components";
@@ -16,10 +16,6 @@ const Register = lazy(() => import("@components/account/register.component"));
 const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
 
 function App() {
-  useEffect(() => {
-    document.title = "ArtChive";
-  }, []);
-
   return (
     <AuthProvider>
       <ThemeProvider>

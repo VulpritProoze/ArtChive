@@ -30,15 +30,12 @@ export default function Hero() {
             A social platform {" "}
             <span className="text-primary">for artists, by artists.</span>
           </h1>
-          <motion.p
+          <p
             className="py-6 text-lg opacity-70"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.7 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
           >
             Join the creative revolution. Showcase your portfolio. Discover
             others.
-          </motion.p>
+          </p>
           <motion.div
             className="flex flex-col sm:flex-row gap-4"
             initial={{ opacity: 0 }}
@@ -84,7 +81,7 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <motion.img
-            src="https://images.unsplash.com/photo-1547891654-e66ed7ebb968?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            src="/landing-page/artworks/artwork2.avif"
             alt="Artist showcase"
             className="rounded-lg shadow-2xl w-full"
             whileHover={{ scale: 1.02 }}

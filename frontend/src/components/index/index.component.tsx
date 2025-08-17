@@ -2,16 +2,17 @@
 
 // import Artworks from "./artworks.component";
 // import ReviewCarousel from "./reviews-section.component";
-import Features from "./features.component";
+// import Features from "./features.component";
 import CallToAction from "./cta.component";
 import Hero from "./hero.component";
 import Header from "./header.component";
 import Footer from "./footer.component";
 import { lazy, Suspense } from "react";
+import { ImageCacheProvider } from "@context/image-cache-context";
 
 const Artworks = lazy(() => import("./artworks.component"));
 // const Hero = lazy(() => lazyWithRetry(() => import('./hero.component')))
-// const Features = lazy(() => lazyWithRetry(() => import('./features.component')))
+const Features = lazy(() => import('./features.component'))
 const ReviewCarousel = lazy(() => import("./reviews-section.component"));
 // const CallToAction = lazy(() => lazyWithRetry(() => import('./cta.component')))
 // // const Header = lazy(() => lazyWithRetry(() => import('./header.component')))
@@ -28,7 +29,9 @@ export default function Index() {
 
       <Suspense fallback={<div className="p-5">Loading...</div>}>
         {/* Artworks Section */}
-        <Artworks />
+        <ImageCacheProvider>
+          <Artworks />
+        </ImageCacheProvider>
       </Suspense>
 
       <Suspense fallback={<div className="p-5">Loading...</div>}>

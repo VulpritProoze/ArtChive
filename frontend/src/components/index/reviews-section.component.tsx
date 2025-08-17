@@ -1,9 +1,10 @@
 // index/reviews-section
 
-import { motion } from 'framer-motion';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faQuoteLeft } from '@fortawesome/free-solid-svg-icons';
-import { useState, useEffect } from 'react';
+import { motion } from "framer-motion";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faQuoteLeft } from "@fortawesome/free-solid-svg-icons";
+import { useState, useEffect, useMemo } from "react";
+import { ImageWithSkeleton } from "../image-with-skeleton";
 
 interface Review {
   id: number;
@@ -17,66 +18,74 @@ interface Review {
 const reviews: Review[] = [
   {
     id: 1,
-    name: 'Sarah Chen',
-    artistType: 'Traditional Painter',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    review: 'ArtChive helped me connect with galleries I never thought would notice my work. My first exhibition was booked within 3 months of joining!',
+    name: "Sarah Chen",
+    artistType: "Traditional Painter",
+    avatar: "/landing-page/random-user/woman1.jpg",
+    review:
+      "ArtChive helped me connect with galleries I never thought would notice my work. My first exhibition was booked within 3 months of joining!",
     rating: 5,
   },
   {
     id: 2,
-    name: 'Jamal Williams',
-    artistType: 'Digital Artist',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    review: 'The feedback I get from other digital artists has improved my skills tremendously. The community is so supportive and knowledgeable.',
+    name: "Jamal Williams",
+    artistType: "Digital Artist",
+    avatar: "/landing-page/random-user/man1.jpg",
+    review:
+      "The feedback I get from other digital artists has improved my skills tremendously. The community is so supportive and knowledgeable.",
     rating: 5,
   },
   {
     id: 3,
-    name: 'Elena Rodriguez',
-    artistType: 'Dance Professional',
-    avatar: 'https://randomuser.me/api/portraits/women/63.jpg',
-    review: 'As a dancer, I love how ArtChive lets me showcase my performances visually. Ive booked several gigs through connections made here.',
+    name: "Elena Rodriguez",
+    artistType: "Dance Professional",
+    avatar: "/landing-page/random-user/woman2.jpg",
+    review:
+      "As a dancer, I love how ArtChive lets me showcase my performances visually. Ive booked several gigs through connections made here.",
     rating: 4,
   },
   {
     id: 4,
-    name: 'Thomas Kim',
-    artistType: 'Writer',
-    avatar: 'https://randomuser.me/api/portraits/men/75.jpg',
-    review: 'The writing community on ArtChive is vibrant. Ive found beta readers and even a publisher for my poetry collection through this platform.',
+    name: "Thomas Kim",
+    artistType: "Writer",
+    avatar: "/landing-page/random-user/man2.jpg",
+    review:
+      "The writing community on ArtChive is vibrant. Ive found beta readers and even a publisher for my poetry collection through this platform.",
     rating: 5,
   },
   {
     id: 5,
-    name: 'Olivia Martin',
-    artistType: 'Sculptor',
-    avatar: 'https://randomuser.me/api/portraits/women/28.jpg',
-    review: 'Displaying my sculptures in 3D on ArtChive has brought me international clients. The portfolio tools are perfect for my medium.',
+    name: "Olivia Martin",
+    artistType: "Sculptor",
+    avatar: "/landing-page/random-user/man3.jpg",
+    review:
+      "Displaying my sculptures in 3D on ArtChive has brought me international clients. The portfolio tools are perfect for my medium.",
     rating: 5,
   },
   {
     id: 6,
-    name: 'Diego Sanchez',
-    artistType: 'Tattoo Artist',
-    avatar: 'https://randomuser.me/api/portraits/men/91.jpg',
-    review: 'My appointment bookings doubled after joining ArtChive. Clients love being able to browse my portfolio and book directly through my profile.',
+    name: "Diego Sanchez",
+    artistType: "Tattoo Artist",
+    avatar: "/landing-page/random-user/man4.jpg",
+    review:
+      "My appointment bookings doubled after joining ArtChive. Clients love being able to browse my portfolio and book directly through my profile.",
     rating: 4,
   },
   {
     id: 7,
-    name: 'Aisha Johnson',
-    artistType: 'Musician',
-    avatar: 'https://randomuser.me/api/portraits/women/85.jpg',
-    review: 'Sharing my compositions and connecting with visual artists for collaborations has been game-changing. The audio integration works beautifully.',
+    name: "Aisha Johnson",
+    artistType: "Musician",
+    avatar: "/landing-page/random-user/woman3.jpg",
+    review:
+      "Sharing my compositions and connecting with visual artists for collaborations has been game-changing. The audio integration works beautifully.",
     rating: 5,
   },
   {
     id: 8,
-    name: 'Liam Park',
-    artistType: 'Floral Artist',
-    avatar: 'https://randomuser.me/api/portraits/men/67.jpg',
-    review: 'ArtChive understands that floral art is more than just flowers - its temporary installations need proper documentation. Perfect platform for us.',
+    name: "Liam Park",
+    artistType: "Floral Artist",
+    avatar: "/landing-page/random-user/woman4.jpg",
+    review:
+      "ArtChive understands that floral art is more than just flowers - its temporary installations need proper documentation. Perfect platform for us.",
     rating: 4,
   },
 ];
@@ -85,24 +94,40 @@ const ReviewCarousel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
+  // Memoize filtered reviews if you had filtering logic
+  const memoizedReviews = useMemo(() => reviews, []);
+
+  // Preload all images when component mounts
+  useEffect(() => {
+    const uniqueAvatars = [
+      ...new Set(reviews.map((review) => review.avatar.trim())),
+    ];
+    uniqueAvatars.forEach((avatar) => {
+      const img = new Image();
+      img.src = avatar;
+    });
+  }, []);
+
   // Auto-advance carousel
   useEffect(() => {
     if (!isAutoPlaying) return;
-    
+
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % reviews.length);
+      setCurrentIndex((prev) => (prev + 1) % memoizedReviews.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  }, [isAutoPlaying, memoizedReviews.length]);
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
+    setCurrentIndex(
+      (prev) => (prev - 1 + memoizedReviews.length) % memoizedReviews.length
+    );
     setIsAutoPlaying(false);
   };
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % reviews.length);
+    setCurrentIndex((prev) => (prev + 1) % memoizedReviews.length);
     setIsAutoPlaying(false);
   };
 
@@ -111,17 +136,16 @@ const ReviewCarousel = () => {
     setIsAutoPlaying(false);
   };
 
-  // Calculate visible cards
-  const getVisibleCards = () => {
+  // Memoize visible cards calculation
+  const visibleCards = useMemo(() => {
     const cards: Review[] = [];
     for (let i = -1; i <= 1; i++) {
-      const index = (currentIndex + i + reviews.length) % reviews.length;
-      cards.push(reviews[index]);
+      const index =
+        (currentIndex + i + memoizedReviews.length) % memoizedReviews.length;
+      cards.push(memoizedReviews[index]);
     }
     return cards;
-  };
-
-  const visibleCards = getVisibleCards();
+  }, [currentIndex, memoizedReviews]);
 
   return (
     <section className="py-20 bg-base-100">
@@ -142,44 +166,49 @@ const ReviewCarousel = () => {
           viewport={{ once: true }}
           transition={{ delay: 0.2, duration: 0.6 }}
         >
-          Hear what artists from all disciplines are saying about their ArtChive experience.
+          Hear what artists from all disciplines are saying about their ArtChive
+          experience.
         </motion.p>
 
         <div className="relative h-[350px]">
           <div className="absolute inset-0 flex items-center justify-center">
             {visibleCards.map((card, i) => {
-              const position = i - 1; // -1 (left), 0 (center), 1 (right)
+              const position = i - 1;
               const isCenter = position === 0;
 
               return (
                 <motion.div
-                  key={card.id}
-                  className={`absolute w-full max-w-md ${isCenter ? 'z-10' : 'z-0'}`}
-                  initial={{ 
+                  key={`review-${card.id}`}
+                  className={`absolute w-full max-w-md ${
+                    isCenter ? "z-10" : "z-0"
+                  }`}
+                  initial={{
                     x: position * 300,
                     scale: isCenter ? 1 : 0.85,
                     opacity: isCenter ? 1 : 0.7,
-                    filter: isCenter ? 'none' : 'blur(1px)'
                   }}
-                  animate={{ 
+                  animate={{
                     x: position * 300,
                     scale: isCenter ? 1 : 0.85,
                     opacity: isCenter ? 1 : 0.7,
-                    filter: isCenter ? 'none' : 'blur(1px)'
                   }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   style={{
-                    transformOrigin: 'center',
+                    transformOrigin: "center",
+                    willChange: "transform, opacity",
                   }}
-                  whileHover={isCenter ? {} : { scale: 0.9 }}
                 >
-                  <div className={`card bg-base-200 shadow-xl p-6 ${!isCenter && 'h-[90%]'}`}>
+                  <div
+                    className={`card bg-base-200 shadow-xl p-6 ${
+                      !isCenter && "h-[90%]"
+                    }`}
+                  >
                     <div className="flex items-center mb-4">
-                      <div className="avatar">
-                        <div className="w-16 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                          <img src={card.avatar.trim()} alt={card.name} loading='lazy'/>
-                        </div>
-                      </div>
+                      <ImageWithSkeleton
+                        src={card.avatar.trim()}
+                        alt={card.name}
+                        className=""
+                      />
                       <div className="ml-4">
                         <h3 className="font-bold text-lg">{card.name}</h3>
                         <p className="text-sm opacity-70">{card.artistType}</p>
@@ -211,7 +240,6 @@ const ReviewCarousel = () => {
           </div>
         </div>
 
-        {/* Navigation controls */}
         <div className="flex flex-col items-center">
           <div className="flex space-x-4 mb-4">
             <button
@@ -230,11 +258,13 @@ const ReviewCarousel = () => {
             </button>
           </div>
           <div className="flex space-x-2">
-            {reviews.map((_, index) => (
+            {memoizedReviews.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToIndex(index)}
-                className={`w-3 h-3 rounded-full ${currentIndex === index ? 'bg-primary' : 'bg-base-300'}`}
+                className={`w-3 h-3 rounded-full ${
+                  currentIndex === index ? "bg-primary" : "bg-base-300"
+                }`}
                 aria-label={`Go to review ${index + 1}`}
               />
             ))}
