@@ -193,6 +193,70 @@ class PostViewSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
 class CommentSerializer(serializers.ModelSerializer):
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    post_title = serializers.CharField(source='post_id.title', read_only=True)
+
     class Meta:
         model = Comment
-        fields = '__all__'
+        fields = [
+            'comment_id',
+            'text',
+            'created_at',
+            'updated_at',
+            'post_id',
+            'author',
+            'author_username',
+            'post_title'
+        ]
+        extra_kwargs = {
+            'author': {'write_only': True},  # Hide in output, but needed for creation
+            'post_id': {'write_only': True}  # Hide in output, but needed for creation
+        }
+
+class CommentCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text', 'post_id']  # Only expose fields needed for creation/update
+
+    def validate(self, data):
+        # Ensure the post exists and is not deleted
+        post = data.get('post_id')
+        if post and post.is_deleted:  # Assuming you have an is_deleted field
+            raise serializers.ValidationError("Cannot comment on deleted post")
+        
+        # Auto-set the author to current user
+        if self.context['request'].method == 'POST':
+            data['author'] = self.context['request'].user
+        
+        return data
+
+    def to_representation(self, instance):
+        # When returning data after create/update, use the full serializer
+        return CommentSerializer(instance, context=self.context).data
+
+class CommentDeleteSerializer(serializers.ModelSerializer):
+    confirm = serializers.BooleanField(
+        required=True,
+        write_only=True,
+        help_text="Must be True to confirm deletion"
+    )
+
+    class Meta:
+        model = Comment
+        fields = ['confirm']
+
+    def validate_confirm(self, value):
+        if not value:
+            raise serializers.ValidationError("Must confirm deletion")
+        return value
+
+    def validate(self, data):
+        if not self.instance:
+            raise serializers.ValidationError("Comment not found")
+        
+        # Ensure user owns the comment or is admin
+        user = self.context['request'].user
+        if not (user == self.instance.author or user.is_staff):
+            raise serializers.ValidationError("You can only delete your own comments")
+        
+        return data

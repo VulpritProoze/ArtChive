@@ -8,12 +8,38 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from .serializers import UserSerializer, LoginSerializer
 from decouple import config
 
+@extend_schema(
+    tags=['Authentication'],
+    description="Authenticate user and set JWT cookies",
+    examples=[
+        OpenApiExample(
+            'Example Request',
+            value={'email': 'user@example.com', 'password': 'string'},
+            request_only=True
+        ),
+        OpenApiExample(
+            'Example Response',
+            value={'user': {'id': 1, 'email': 'user@example.com'}},
+            response_only=True
+        )
+    ],
+    responses={
+        200: OpenApiResponse(
+            description='Login successful',
+            response=UserSerializer
+        ),
+        400: OpenApiResponse(description='Invalid credentials'),
+        429: OpenApiResponse(description='Too many requests')
+    }
+)
 class LoginView(APIView):
     throttle_scope = 'login'
     throttle_classes = [ScopedRateThrottle]
+    serializer_class = LoginSerializer
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -40,7 +66,17 @@ class LoginView(APIView):
             return response
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(
+    tags=['Authentication'],
+    description="Logout user by clearing cookies",
+    responses={
+        200: OpenApiResponse(description='Logout successful'),
+        400: OpenApiResponse(description='Invalid token')
+    }
+)
 class LogoutView(APIView):
+    serializer_class = None
+
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
         if refresh_token:
@@ -55,6 +91,14 @@ class LogoutView(APIView):
 
         return response
 
+@extend_schema(
+    tags=['Authentication'],
+    description="Refresh access token using refresh token cookie",
+    responses={
+        200: OpenApiResponse(description='Token refreshed'),
+        401: OpenApiResponse(description='Invalid or expired refresh token')
+    },
+)
 class CookieTokenRefreshView(TokenRefreshView):
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
@@ -77,6 +121,14 @@ class CookieTokenRefreshView(TokenRefreshView):
         except InvalidToken:
             return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
 
+@extend_schema(
+    tags=['Users'],
+    description='Get current authenticated user information',
+    responses={
+        200: UserSerializer,
+        401: OpenApiResponse(description='Unauthorized')
+    }
+)
 class UserInfoView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer

@@ -1,5 +1,4 @@
 from rest_framework import permissions
-from rest_framework.exceptions import PermissionsDenied
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
@@ -32,3 +31,13 @@ class IsOwnerOrSuperAdmin(permissions.BasePermission):
             return True
         # Regular users can only access their own objects
         return obj.author == request.user        # Check if the object's owner matches the requesting user
+
+class IsSuperAdmin(permissions.BasePermission):
+    """
+    Allows access only to superadmin users (is_superuser=True).
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_object_permission(self, request, view, obj):
+        return bool(request.user and request.user.is_superuser)

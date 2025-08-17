@@ -73,7 +73,7 @@ REST_FRAMEWORK = {
         'anon': '1000/hr',
         'user': '1000/hr',
         'login': '10/min',
-    }
+    },
 }
 
 TEMPLATES = [
@@ -162,6 +162,27 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'This serves as the official API documentation of ArtChive\'s API. Do not reproduce, and do not distribute. For internal usage only.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'COMPONENTS': {
+        'SECURITY_SCHEMES': {
+            'cookieJWTAuth': {  # Changed from 'cookieAuth' to match extension
+                'type': 'apiKey',
+                'in': 'cookie',
+                'name': 'access_token',
+                'description': 'Cookie-based JWT authentication'
+            },
+            'refreshJWTAuth': {  # Changed from 'refreshAuth'
+                'type': 'apiKey',
+                'in': 'cookie',
+                'name': 'refresh_token',
+                'description': 'Refresh token cookie'
+            }
+        }
+    },
+    'AUTHENTICATION_EXTENSIONS': [
+        'core.spectacular.CookieJWTAuthExtension',
+    ],
 }
 
 # py manage.py spectacular --color --file schema.yml
