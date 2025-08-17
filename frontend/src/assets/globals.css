@@ -8,77 +8,88 @@
 
 /* base daisyui configs */
 @plugin "daisyui" {
-    themes: light --default, dark --prefersdark, cupcake, synthwave, halloween;
-    root: ":root";
-    include: ;
-    exclude: ;
-    prefix: ;
-    logs: true;
+  themes: light --default, dark --prefersdark, cupcake, synthwave, halloween;
+  root: ":root";
+  include: ;
+  exclude: ;
+  prefix: ;
+  logs: true;
 }
 
 /* customize existing daisyui themes */
 @plugin "daisyui/theme" {
-    name: "light";
+  name: "light";
 
-    --color-primary: #6a5acd;
-    --color-primary-content: white;
+  --color-primary: #6a5acd;
+  --color-primary-content: white;
 }
 
 @plugin "daisyui/theme" {
-    name: "dark";
+  name: "dark";
 
-    --color-primary: #443893;
+  --color-primary: #443893;
 }
-
 
 /* base styles */
 body {
-    @apply bg-base-300
+  @apply bg-base-300;
 }
-
 
 /* customizing daisyui components */
 
 html {
-    @apply scroll-smooth
+  @apply scroll-smooth;
 }
 
 @utility btn {
-    @apply shadow-none
+  @apply shadow-none;
 }
 
 @utility card-body {
-    @apply bg-base-100 rounded-md border border-base-300 shadow-sm
+  @apply bg-base-100 rounded-md border border-base-300 shadow-sm;
 }
 
 @utility navbar-primary {
-    @apply navbar bg-primary text-primary-content
+  @apply navbar bg-primary text-primary-content;
 }
 
 @utility input {
-    @apply focus:outline-2 focus:outline-primary focus:outline-offset-0 focus:shadow-md focus:shadow-primary/20 focus:border-0
+  @apply focus:outline-2 focus:outline-primary focus:outline-offset-0 focus:shadow-md focus:shadow-primary/20 focus:border-0;
 }
 
 @utility text-error {
-    @apply text-sm
+  @apply text-sm;
+}
+
+
+/* toast container (react-toastify) */
+.Toastify__toast {
+    font-family: sans-serif;
+    @apply text-xs;
+}
+/* toast.css */
+.Toastify__toast-theme--dark,
+.Toastify__toast-theme--dark.Toastify__toast--default,
+.Toastify__toast-theme--dark.Toastify__toast--info {
+  @apply !bg-base-200 !text-base-content;
+}
+
+/* Progress bar customization */
+.Toastify__progress-bar-theme--dark {
+  @apply !bg-primary;
 }
 
 /* customizing tailwindcss variables */
 
-
-
-
-
-
 /* other styles */
 .theme-selector .dropdown-content {
-    @apply transition-all duration-200 ease-out;
-  }
-  
-  .theme-selector button {
-    @apply transition-colors duration-100;
-  }
-  
-  .theme-selector .badge {
-    @apply transition-all duration-200;
-  }
+  @apply transition-all duration-200 ease-out;
+}
+
+.theme-selector button {
+  @apply transition-colors duration-100;
+}
+
+.theme-selector .badge {
+  @apply transition-all duration-200;
+}

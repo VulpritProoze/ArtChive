@@ -41,6 +41,7 @@ export default function Login() {
       setError("root", {
         message: error,
       });
+      toast.error('Login failed')
       console.error("Login failed ", error);
     }
   };

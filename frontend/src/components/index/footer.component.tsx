@@ -1,6 +1,10 @@
-// index/footer
-
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { 
+  faInstagram, 
+  faXTwitter, 
+  faBehance, 
+  faLinkedinIn 
+} from "@fortawesome/free-brands-svg-icons";
 
 export default function Footer() {
   return (
@@ -21,25 +25,25 @@ export default function Footer() {
             <div className="mt-4 flex gap-4">
               <a href="#" aria-label="Instagram">
                 <FontAwesomeIcon 
-                  icon={['fab', 'instagram']} 
+                  icon={faInstagram} 
                   className="text-xl hover:text-primary transition-colors" 
                 />
               </a>
-              <a href="#" aria-label="Twitter">
+              <a href="#" aria-label="XTwitter">
                 <FontAwesomeIcon 
-                  icon={['fab', 'twitter']} 
+                  icon={faXTwitter} 
                   className="text-xl hover:text-primary transition-colors" 
                 />
               </a>
               <a href="#" aria-label="Behance">
                 <FontAwesomeIcon 
-                  icon={['fab', 'behance']} 
+                  icon={faBehance} 
                   className="text-xl hover:text-primary transition-colors" 
                 />
               </a>
               <a href="#" aria-label="LinkedIn">
                 <FontAwesomeIcon 
-                  icon={['fab', 'linkedin-in']} 
+                  icon={faLinkedinIn} 
                   className="text-xl hover:text-primary transition-colors" 
                 />
               </a>
@@ -70,7 +74,7 @@ export default function Footer() {
                   <li key={linkIndex}>
                     <a 
                       href="#" 
-                      className="opacity-80 hover:opacity-100 hover:text-primary transition-all flex items-center gap-2"
+                      className="opacity-80 hover:opacity-100 hover:text-primary transition-all flex items-center gap-2 group"
                     >
                       <span className="w-2 h-2 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-all"></span>
                       {link}

@@ -1,42 +1,12 @@
-import {
-  createContext,
-  useState,
-  useEffect,
-  useContext,
-  useCallback,
-} from "react";
-import type { ReactNode } from "react";
-import api from "@lib/api";
+import { createContext, useState, useEffect, useContext } from "react";
+import api from '@lib/api'
 import type { AuthContextType, User } from "@src/types";
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  login: async () => {},
-  logout: async () => {},
-  refreshToken: async () => {},
-  loading: true,
-  shouldSkipAuth: () => false,
-});
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-type AuthProviderProps = {
-  children: ReactNode;
-  skipPaths?: string[]; // Optional array of paths to skip auth
-};
-
-export const AuthProvider = ({
-  children,
-  skipPaths = ["/", "/login", "/register"], // Default paths to skip auth
-}: AuthProviderProps) => {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<User>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // Function to check if current path should skip auth
-  const shouldSkipAuth = useCallback(
-    (path: string): boolean => {
-      return skipPaths.includes(path);
-    },
-    [skipPaths]
-  );
+  const [isLoading, setIsLoading] = useState(true)
 
   const fetchUser = async (): Promise<boolean> => {
     try {
@@ -52,34 +22,21 @@ export const AuthProvider = ({
     }
   };
 
-  // Auth check with path-based skipping
   useEffect(() => {
-    const currentPath = window.location.pathname;
-    if (shouldSkipAuth(currentPath)) {
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
     const checkAuth = async () => {
       try {
-        await fetchUser();
-      } catch (error) {
-        console.error("Auth check failed: ", error);
+        await fetchUser()
+        console.log('authenticated')
+      } catch (err) {
+        console.error('not authenticated', err)
+        throw err
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setIsLoading(false)
       }
     };
 
     checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [shouldSkipAuth]);
+  }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
@@ -94,6 +51,7 @@ export const AuthProvider = ({
       throw error;
     }
   };
+
 
   const logout = async (): Promise<void> => {
     try {
@@ -119,22 +77,24 @@ export const AuthProvider = ({
     }
   };
 
-  const value: AuthContextType = {
+  const contextValue: AuthContextType = {
     user,
     login,
     logout,
+    isLoading,
     refreshToken,
-    loading,
-    shouldSkipAuth, // Expose this to other components
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider')
   }
-  return context;
-};
+
+  return context
+}

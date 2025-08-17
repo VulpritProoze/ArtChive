@@ -10,16 +10,5 @@ import 'react-toastify/dist/ReactToastify.css'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
       <App />
-      <ToastContainer 
-        position='top-right'
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        pauseOnHover
-        theme='light'
-      />
   </StrictMode>
 )

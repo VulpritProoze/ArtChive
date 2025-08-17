@@ -2,9 +2,8 @@ import type { User } from '@types'
 
 export type AuthContextType = {
   user: User;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  isLoading: boolean;
   refreshToken: () => Promise<void>;
-  loading: boolean;
-  shouldSkipAuth: (path: string) => boolean
 };

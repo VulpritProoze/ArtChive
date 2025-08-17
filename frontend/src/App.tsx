@@ -1,10 +1,12 @@
 // App.tsx
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
-import { ThemeProvider, ProtectedRoute } from "@components";
+import { ThemeProvider, ProtectedRoute, GuestRoute } from "@components";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
+import { useToggleTheme } from "@hooks";
+import { ToastContainer } from "react-toastify";
 
 const Index = lazy(() => import("@components/index/index.component").then(module => {
   console.log('Index chunk loaded')
@@ -15,6 +17,29 @@ const Home = lazy(() => import("@components/home/index.component"));
 const Register = lazy(() => import("@components/account/register.component"));
 const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
 
+function ThemedToastContainer() {
+  const { isDarkMode } = useToggleTheme()
+  const [toastTheme, setToastTheme] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    setToastTheme(isDarkMode ? 'dark' : 'light' )
+  }, [isDarkMode])
+
+  return (
+    <ToastContainer 
+      position='top-right'
+      autoClose={20000}
+      hideProgressBar={false}
+      newestOnTop={false}
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      pauseOnHover
+      theme={toastTheme}
+    />
+  )
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -23,10 +48,13 @@ function App() {
           <Router>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
-                {/* Public routes (no auth check) */}
                 <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                
+                {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
+                <Route element={<GuestRoute />}>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                </Route>
 
                 {/* Protected routes (with auth check) */}
                 <Route element={<ProtectedRoute />}>
@@ -35,6 +63,7 @@ function App() {
                 </Route>
               </Routes>
             </Suspense>
+            <ThemedToastContainer />
           </Router>
         </LoadingProvider>
       </ThemeProvider>

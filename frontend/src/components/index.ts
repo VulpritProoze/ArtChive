@@ -2,7 +2,8 @@
 
 export { default as ThemeProvider } from './theme-provider'
 export { default as Index } from './index/index.component'
-export { default as ProtectedRoute } from './protected-route'
+export { default as ProtectedRoute } from './auth/protected-route'
+export { GuestRoute } from './auth/guest-route'
 
 // Account
 export { default as Login } from './account/login.component'

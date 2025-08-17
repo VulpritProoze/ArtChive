@@ -1,4 +1,4 @@
-// utils/use-theme.ts
+// hooks/use-theme.ts
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 

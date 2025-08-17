@@ -12,7 +12,7 @@ from .throttle import LoginThrottle
 from decouple import config
 
 class LoginView(APIView):
-    throttle_classes = [LoginThrottle]
+    # throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
