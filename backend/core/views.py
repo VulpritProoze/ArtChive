@@ -7,12 +7,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework.throttling import ScopedRateThrottle
 from .serializers import UserSerializer, LoginSerializer
-from .throttle import LoginThrottle
 from decouple import config
 
 class LoginView(APIView):
-    # throttle_classes = [LoginThrottle]
+    throttle_scope = 'login'
+    throttle_classes = [ScopedRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)

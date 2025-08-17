@@ -1,6 +1,8 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import api from '@lib/api'
 import type { AuthContextType, User } from "@src/types";
+import { isAxiosError } from "axios";
+import { toast } from "react-toastify";
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -18,7 +20,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Failed to fetch user: ", error);
       setUser(null);
-      return false;
+      throw error
     }
   };
 
@@ -42,13 +44,31 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post(
         "api/core/auth/login/",
-        { email, password },
-        { withCredentials: true }
+        { email, password }
       );
       await fetchUser();
+      toast.success('Login successful! Redirecting...')
     } catch (error) {
+      let errorMessage = 'Login failed. Please try again'
+      
+      if (isAxiosError(error)) {
+        // Now TypeScript knows error.response exists
+        if (error.response?.status === 401) {
+          errorMessage = "Invalid email or password. Please try again.";
+        } 
+        else if (error.response) {
+          errorMessage = error.response.data?.message || 
+          error.response.data?.detail || 
+          `Error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "No response from server. Please check your connection.";
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage)
       console.error("Login failed: ", error);
-      throw error;
     }
   };
 

@@ -65,7 +65,7 @@ html {
 /* toast container (react-toastify) */
 .Toastify__toast {
     font-family: sans-serif;
-    @apply text-xs;
+    @apply text-sm font-light;
 }
 /* toast.css */
 .Toastify__toast-theme--dark,
