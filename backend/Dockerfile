@@ -2,9 +2,9 @@ FROM python:3.12-slim
 
 
 ENV PYTHONBUFFERED=1 \
-PYTHONDEFAULTHANDLER=1 \
-PYTHONHASHSEED=random \
-PIP_NO_CACHE_DIR=off
+    PYTHONDEFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=off
 
 # Run container as non-root user
 RUN groupadd user && useradd --create-home --home-dir /home/user -g user user
@@ -19,27 +19,23 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # dir in container
-WORKDIR /backend
+WORKDIR /app
     
-COPY ./backend/requirements.txt /backend
+COPY backend/requirements.txt .
 
 # Add --no-cache-dir for production
 RUN pip install -r requirements.txt
 
-# copy all /backend local to /backend container
-COPY backend /backend
+COPY backend/start.sh .
 
-COPY backend/start.sh /backend
-
-RUN chmod +x /backend/start.sh
-
-RUN chown -R user:user /backend
+RUN chmod +x start.sh && \
+    chown user:user start.sh
 
 USER user   
 
 EXPOSE 8000
 
-CMD ["/backend/start.sh"]
+CMD ["./start.sh"]
 
 # build with docker build -t artchive_backend .
 # run with docker run -d -p 8000:8000 --name dev artchive_backend

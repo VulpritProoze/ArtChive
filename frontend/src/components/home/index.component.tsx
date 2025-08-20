@@ -17,7 +17,7 @@ export default function Index() {
 
     return (
         <div>
-            <div>homie</div>
+            <div>homie iz ril</div>
             <button className='btn btn-secondary' onClick={handleClick}>toast test</button>
             <LogoutButton />
         </div>

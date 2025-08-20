@@ -1,13 +1,10 @@
 FROM node:22-alpine
 
-WORKDIR /frontend
+WORKDIR /app
 
-COPY ./frontend/package*.json /frontend
+COPY ./frontend/package*.json .
 
 RUN npm install
-
-# copy all /frontend local to /frontend container
-COPY ./frontend /frontend
 
 EXPOSE 5173
 
