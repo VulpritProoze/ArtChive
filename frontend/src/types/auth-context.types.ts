@@ -6,4 +6,5 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   isLoading: boolean;
   refreshToken: () => Promise<void>;
+  getUserId: () => number | null;
 };

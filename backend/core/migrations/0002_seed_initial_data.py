@@ -23,6 +23,7 @@ def create_initial_data(apps, schema_editor):
     
     for collective in default_collectives:
         Collective.objects.get_or_create(
+            collective_id=collective['collective_id'],
             title=collective['title'],
             description=collective['description'],
         )

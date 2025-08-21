@@ -1,7 +1,7 @@
 POST_TYPE_CHOICES = (
     ('default', 'default'),
     ('novel', 'novel'),
-    ('photo', 'photo'),
+    ('image', 'image'),
     ('video', 'video'),
 )
 

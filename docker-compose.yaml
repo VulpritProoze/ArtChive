@@ -1,9 +1,10 @@
 services:
   db:
     image: postgres:17-alpine
+    restart: always
     env_file: .env
     ports:
-      - "5432"
+      - "5432:5432"
     # mount dbdata to a named volume
     volumes:
       - dbdata:/var/lib/postgresql/data
@@ -11,6 +12,9 @@ services:
       - TZ=Asia/Shanghai
       - PGTZ=Asia/Shanghai
       - POSTGRES_INITDB_ARGS=--data-checksums --locale=en_US.UTF_8
+      - POSTGRES_DB=artchive_1
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d artchive_1"]
       interval: 5s
@@ -39,8 +43,8 @@ services:
     environment:
       - TZ=Asia/Shanghai
     volumes: 
-      - ./frontend:/app # mount frontend files to anonymous volume so that live reload works
-      - node_modules:/app/node_modules # mount node_modules to a volume so that the volume above doesn't replace container node_modules
+      - ./frontend:/app # bind mounting to enable live reload
+      - /app/node_modules # mount node_modules to an anonymous volume so that the volume above doesn't replace container node_modules
   
   backend:
     build:
@@ -51,7 +55,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - pylibs:/usr/local/lib/python3.12/site-packages # mount installed packages to a named volume so that pip install does not freak up!
+      - /usr/local/lib/python3.12/site-packages # mount installed packages to a named volume so that pip install does not freak up!
     environment:
       - TZ=Asia/Shanghai
     depends_on:
@@ -63,9 +67,8 @@ services:
 
 volumes:
   dbdata:
-  node_modules:
-  pylibs:
   
 # docker-compose up -d 
 # docker-compose --env-file ./backend/.env up
 # docker-compose build --no-cache --parallel
+# docker-compose down -v (removes all mounted volumes) then docker-compose up --build

@@ -12,14 +12,40 @@ class NovelPostSerializer(serializers.ModelSerializer):
         fields = ['chapter', 'content',]
 
 class PostCreateUpdateSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for Posts creation and update. A post can either be default, novel, image, or video.
+    
+    Default post fields:
+    - description
+    - post type (default)
+    - author
+    - collective (public by default)
+
+    Image post fields:
+    - all default post fields
+    - image url
+
+    Video post fields:
+    - all default post fields
+    - video url
+
+    Novel post fields:
+    - all default post fields
+    - chapter
+    - content
+    '''
     image_url = serializers.ImageField(required=False, allow_null=True, write_only=True, validators=[
         FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])
     ])
     video_url = serializers.FileField(required=False, allow_null=True, write_only=True, validators=[
         FileExtensionValidator(allowed_extensions=['mp4', 'mov', 'avi', 'webm', 'mkv'])
     ])
-    chapter = serializers.IntegerField(required=False, allow_null=True, write_only=True)
-    content = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    chapters = serializers.ListField(
+        child=serializers.DictField(child=serializers.CharField()),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
     
     class Meta:
         model = Post
@@ -61,18 +87,38 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Invalid post type')
         return value
     
+    def validate_chapters(self, value):
+        if value is None:
+            return value
+        
+        for chapter_data in value:
+            if 'chapter' not in chapter_data or 'content' not in chapter_data:
+                raise serializers.ValidationError('Each chapter must have both chapter number and content')
+
+            try:
+                chapter_number = int(chapter_data['chapter'])
+                if chapter_number < 1:
+                    raise serializers.ValidationError('Chapter number must be a postive integer')
+
+            except (ValueError, TypeError):
+                raise serializers.ValidationError('Chapter number must be a valid integer')
+        
+        return value
+
     # For non-field specific validation
     def validate(self, data):
         post_type = data.get('post_type')
         
+        # Default posts should not have an image url, video url, chapter, or content fields
         if post_type == 'default':
-            if data.get('image_url') or data.get('video_url') or data.get('chapter') or data.get('content'):
+            if data.get('image_url') or data.get('video_url') or data.get('chapters'):
                 raise serializers.ValidationError({
                     'post_type': 'Default posts must not contain additional fields'
                 })
                 
+        # Video posts should not have an image url, chapter, or content fields
         if post_type == 'video':
-            if data.get('image_url') or data.get('chapter') or data.get('content'): 
+            if data.get('image_url') or data.get('chapters'): 
                 raise serializers.ValidationError({
                     'post_type': 'Video posts must not contain fields from other post type'
                 })
@@ -81,9 +127,10 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'post_type': 'Video posts must contain a video_url'
                 })
-            
+
+        # Image posts should not have a video url, chapter, or content fields 
         if post_type == 'image':
-            if data.get('video_url') or data.get('chapter') or data.get('content'):
+            if data.get('video_url') or data.get('chapters'):
                 raise serializers.ValidationError({
                     'post_type': 'Video posts must not contain fields from other post type'
                 })
@@ -93,34 +140,39 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
                     'post_type': 'Image posts must contain an image_url'
                 })
             
+        # Novel posts should not have an image url or video url fields
         if post_type == 'novel':
             if data.get('image_url') or data.get('video_url'):
                 raise serializers.ValidationError({
                     'post_type': 'Novel posts must not contain fields from other post type'
                 })
                 
-            if not data.get('chapter') and not data.get('content'):
+            if not data.get('chapters'):
                 raise serializers.ValidationError({
-                    'post_type': 'Novel posts must contain both chapter and content'
+                    'post_type': 'Novel posts must contain at least one chapter'
                 })
 
         return data
     
     def create(self, validated_data):
-        chapter = validated_data.pop('chapter', None)
-        content = validated_data.pop('content', None)
+        chapters_data = validated_data.pop('chapters', [])
         post_type = validated_data.get('post_type')
 
         post = Post.objects.create(**validated_data)
             
-        if post_type == 'novel' and chapter is not None and content is not None:
-            NovelPost.objects.create(post_id=post, chapter=chapter, content=content)
+        if post_type == 'novel' and chapters_data:
+            for chapter_data in chapters_data:
+                NovelPost.objects.create(
+                    post_id=post,
+                    chapter=chapter_data['chapter'],
+                    content=chapter_data['content'],
+                )
+            # NovelPost.objects.create(post_id=post, chapter=chapter, content=content)
             
         return post
     
     def update(self, instance, validated_data):
-        chapter = validated_data.pop('chapter', None)
-        content = validated_data.pop('content', None)
+        chapters_data = validated_data.pop('chapters', None)
         post_type = validated_data.get('post_type', instance.post_type)
         
         # Update main post fields
@@ -128,15 +180,18 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         
         # Handle novel post updates
-        if post_type == 'novel':
-            if chapter is not None or content is not None:
-                novel_post, created = NovelPost.objects.get_or_create(post_id=instance)
-                if chapter is not None:
-                    novel_post.chapter = chapter
-                if content is not None:
-                    novel_post.content = content
-                novel_post.save()
-        elif instance.post_type == 'novel':  # Clean up if changing from novel type
+        if post_type == 'novel' and chapters_data is not None:
+            # Delete existing novel posts
+            NovelPost.objects.filter(post_id=instance).delete()
+            
+            # Create new novel posts
+            for chapter_data in chapters_data:
+                NovelPost.objects.create(
+                    post_id=instance,
+                    chapter=chapter_data['chapter'],
+                    content=chapter_data['content']
+                )
+        elif instance.post_type == 'novel' and post_type != 'novel':  # Clean up if changing from novel type
             NovelPost.objects.filter(post_id=instance).delete()
         
         # Clean up old media files when changing types
@@ -148,6 +203,16 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        
+        # Add novel posts to representation if post type is novel
+        if instance.post_type == 'novel':
+            novel_posts = NovelPost.objects.filter(post_id=instance)
+            representation['chapters'] = NovelPostSerializer(novel_posts, many=True).data
+        
+        return representation
 
 class PostDeleteSerializer(serializers.ModelSerializer):
     confirm = serializers.BooleanField(

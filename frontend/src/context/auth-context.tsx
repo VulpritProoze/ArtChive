@@ -10,11 +10,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<User>(null);
   const [isLoading, setIsLoading] = useState(true)
 
+  const getUserId = () => {
+    return user?.id || null
+  }
+
   const fetchUser = async (): Promise<boolean> => {
     try {
       const response = await api.get("api/core/auth/me/", {
         withCredentials: true,
       });
+      console.log(response.data)
       setUser(response.data);
       return true;
     } catch (error) {
@@ -42,10 +47,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
+      await logout();
+
       await api.post(
         "api/core/auth/login/",
         { email, password }
       );
+
       await fetchUser();
       toast.success('Login successful! Redirecting...')
     } catch (error) {
@@ -103,6 +111,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isLoading,
     refreshToken,
+    getUserId,
   };
 
   return (
@@ -117,4 +126,9 @@ export const useAuth = (): AuthContextType => {
   }
 
   return context
+}
+
+export const useUserId = () => {
+  const { user } = useAuth()
+  return user?.id || null
 }
