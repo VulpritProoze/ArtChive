@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@context/auth-context'
+import { toast } from 'react-toastify'
 
 export const LogoutButton = () => {
     const navigate = useNavigate()
@@ -9,6 +10,7 @@ export const LogoutButton = () => {
         try {
             await logout()
             navigate('/login')
+            toast.success('Logout succesful!')
         } catch (error) {
             console.error('Logout failed', error)
         }

@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import api from '@lib/api'
-import type { AuthContextType, User } from "@src/types";
+import type { AuthContextType, User } from "@types";
 import { isAxiosError } from "axios";
 import { toast } from "react-toastify";
 
@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
       const response = await api.get("api/core/auth/me/", {
         withCredentials: true,
       });
-      console.log(response.data)
       setUser(response.data);
       return true;
     } catch (error) {

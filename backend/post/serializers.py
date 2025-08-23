@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
+from django.core.exceptions import PermissionDenied
 from core.models import User
 from common.utils import choices
 from PIL import Image 
@@ -51,7 +52,9 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
         model = Post
         fields = '__all__'
         extra_kwargs = {
-            'post_type': {'required': False}  # Make optional for updates
+            'post_type': {'required': False},  # Make optional for updates
+            'description': {'required': False},
+            'author': {'read_only': True}
         }
         
     def validate_video_url(self, value):
@@ -174,7 +177,7 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         chapters_data = validated_data.pop('chapters', None)
         post_type = validated_data.get('post_type', instance.post_type)
-        
+
         # Update main post fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -235,20 +238,6 @@ class PostDeleteSerializer(serializers.ModelSerializer):
         if not self.instance:
             raise serializers.ValidationError("No post found to delete")
         return data
-
-    def delete(self):
-        # Handle media file cleanup
-        if self.instance.image_url:
-            self.instance.image_url.delete(save=False)
-        if self.instance.video_url:
-            self.instance.video_url.delete(save=False)
-
-        # Delete related novel post if exists
-        if hasattr(self.instance, 'novel_post'):
-            self.instance.novel_post.delete()
-
-        # Perform the deletion
-        self.instance.delete()
     
 class PostViewSerializer(serializers.ModelSerializer):
     novel_post = NovelPostSerializer(many=True)
@@ -273,10 +262,6 @@ class CommentSerializer(serializers.ModelSerializer):
             'author_username',
             'post_title'
         ]
-        extra_kwargs = {
-            'author': {'write_only': True},  # Hide in output, but needed for creation
-            'post_id': {'write_only': True}  # Hide in output, but needed for creation
-        }
 
 class CommentCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -284,11 +269,6 @@ class CommentCreateUpdateSerializer(serializers.ModelSerializer):
         fields = ['text', 'post_id']  # Only expose fields needed for creation/update
 
     def validate(self, data):
-        # Ensure the post exists and is not deleted
-        post = data.get('post_id')
-        if post and post.is_deleted:  # Assuming you have an is_deleted field
-            raise serializers.ValidationError("Cannot comment on deleted post")
-        
         # Auto-set the author to current user
         if self.context['request'].method == 'POST':
             data['author'] = self.context['request'].user

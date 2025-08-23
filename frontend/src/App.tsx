@@ -5,7 +5,7 @@ import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import { ThemeProvider, ProtectedRoute, GuestRoute } from "@components";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
-import { useToggleTheme } from "@hooks";
+import useToggleTheme from "@hooks/use-theme";
 import { ToastContainer } from "react-toastify";
 
 const Index = lazy(() => import("@components/index/index.component").then(module => {

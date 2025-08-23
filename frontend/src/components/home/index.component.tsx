@@ -2,35 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
-
-interface NovelPost {
-  chapter: number;
-  content: string;
-}
-
-interface Post {
-  post_id: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  image_url?: string;
-  video_url?: string;
-  post_type: string;
-  author?: number;
-  collective: string;
-  novel_post?: NovelPost[];
-}
-
-interface Comment {
-  comment_id: string;
-  text: string;
-  created_at: string;
-  updated_at: string;
-  post_id: string;
-  author: string;
-  author_username: string;
-  post_title: string;
-}
+import { LogoutButton } from '@components/account/logout';
+import type { Post, Comment } from '@types';
 
 const Index: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -50,7 +23,6 @@ const Index: React.FC = () => {
     post_type: 'default',
     image_url: null as File | null,
     video_url: null as File | null,
-    author: '',
     chapters: [{ chapter: '', content: '' }], // multiple chapters
   });
 
@@ -138,6 +110,17 @@ const Index: React.FC = () => {
   const createPost = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to create a post');
+        return;
+      }
+      
       const formData = new FormData();
       formData.append('description', postForm.description);
       formData.append('post_type', postForm.post_type);
@@ -150,28 +133,13 @@ const Index: React.FC = () => {
         formData.append('video_url', postForm.video_url);
       }
 
-      if (user) {
-        const userId = getUserId();
-        if (userId !== null) {
-          formData.append('author', userId.toString());
-        } else {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to create a post');
-        return;
-      }
       
       if (postForm.post_type === 'novel') {
-        // For novel posts, we need to send chapter and content
-        // Since backend expects single values, we'll use the first chapter
-        // In a real app, you might want to handle multiple chapters differently
-        const firstChapter = postForm.chapters[0];
-        if (firstChapter.chapter && firstChapter.content) {
-          formData.append('chapter', firstChapter.chapter);
-          formData.append('content', firstChapter.content);
-        }
+        // Put in a list 'chapters'
+        postForm.chapters.forEach((chapter, index) => {
+          formData.append(`chapters[${index}].chapter`, chapter.chapter)
+          formData.append(`chapters[${index}].content`, chapter.content)
+        })
       }
 
       await post.post('/create/', formData, {
@@ -187,7 +155,6 @@ const Index: React.FC = () => {
         post_type: 'default',
         image_url: null,
         video_url: null,
-        author: '',
         chapters: [{ chapter: '', content: '' }]
       });
       fetchPosts();
@@ -203,6 +170,17 @@ const Index: React.FC = () => {
     if (!selectedPost) return;
     
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to perform this action');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('description', postForm.description);
       formData.append('post_type', postForm.post_type);
@@ -216,14 +194,11 @@ const Index: React.FC = () => {
       }
       
       if (postForm.post_type === 'novel') {
-        // For updates, use the first chapter (backend expects single values)
-        const firstChapter = postForm.chapters[0];
-        if (firstChapter.chapter) {
-          formData.append('chapter', firstChapter.chapter);
-        }
-        if (firstChapter.content) {
-          formData.append('content', firstChapter.content);
-        }
+        // Put in a list 'chapters'
+        postForm.chapters.forEach((chapter, index) => {
+          formData.append(`chapters[${index}].chapter`, chapter.chapter)
+          formData.append(`chapters[${index}].content`, chapter.content)
+        })
       }
 
       await post.put(`/update/${selectedPost.post_id}/`, formData, {
@@ -241,7 +216,6 @@ const Index: React.FC = () => {
         post_type: 'default',
         image_url: null,
         video_url: null,
-        author: '',
         chapters: [{ chapter: '', content: '' }]
       });
       fetchPosts();
@@ -256,6 +230,17 @@ const Index: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
     
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to perform this action');
+        return;
+      }
+
       await post.delete(`/delete/${postId}/`, {
         data: { confirm: true }
       });
@@ -271,6 +256,16 @@ const Index: React.FC = () => {
   const createComment = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to comment');
+        return;
+      }
       await post.post('/comment/create/', commentForm);
       toast.success('Comment created successfully');
       setShowCommentForm(false);
@@ -288,6 +283,17 @@ const Index: React.FC = () => {
     if (!selectedComment) return;
     
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to perform this action');
+        return;
+      }
+
       await post.put(`/comment/update/${selectedComment.comment_id}/`, {
         text: commentForm.text
       });
@@ -309,6 +315,17 @@ const Index: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     
     try {
+      if (user) {
+        const userId = getUserId();
+        if (userId == null) {
+          toast.error('User ID is not available');
+          return;
+        }
+      } else {
+        toast.error('You must be logged in to perform this action');
+        return;
+      }
+
       await post.delete(`/comment/delete/${commentId}/`, {
         data: { confirm: true }
       });
@@ -328,7 +345,6 @@ const Index: React.FC = () => {
       post_type: postItem.post_type,
       image_url: null,
       video_url: null,
-      author: '',
       chapters: postItem.novel_post?.map(np => ({
         chapter: np.chapter.toString(),
         content: np.content
@@ -349,16 +365,13 @@ const Index: React.FC = () => {
     setShowCommentForm(true);
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64">
-      <span className="loading loading-spinner loading-lg"></span>
-    </div>;
-  }
-
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-8">Posts and Comments</h1>
-      
+      <div className='mb-8'>
+        <h1 className="text-3xl font-bold">Home Page Mock-up</h1>
+        <h2>Posts + Comments</h2>
+      </div>
+      <LogoutButton />
       {/* Post Creation/Edit Form */}
       {showPostForm && (
         <div className="modal modal-open">
@@ -376,7 +389,6 @@ const Index: React.FC = () => {
                   name="description"
                   value={postForm.description}
                   onChange={handlePostFormChange}
-                  required
                 />
               </div>
               
@@ -446,7 +458,6 @@ const Index: React.FC = () => {
                   {postForm.chapters.map((chapter, index) => (
                     <div key={index} className="card bg-base-200 p-4 mb-4">
                       <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium">Chapter {index + 1}</h4>
                         {postForm.chapters.length > 1 && (
                           <button 
                             type="button"
@@ -504,7 +515,6 @@ const Index: React.FC = () => {
                       post_type: 'default',
                       image_url: null,
                       video_url: null,
-                      author: '',
                       chapters: [{ chapter: '', content: '' }]
                     });
                   }}
@@ -593,6 +603,7 @@ const Index: React.FC = () => {
             <div key={post.post_id} className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <h3 className="card-title">{post.description.substring(0, 30)}...</h3>
+                <p>Id: {post.post_id}</p>
                 <p>Type: {post.post_type}</p>
                 <p>Author: {post.author}</p>
                 <p>Created: {new Date(post.created_at).toLocaleDateString()}</p>
@@ -670,7 +681,8 @@ const Index: React.FC = () => {
             <div key={comment.comment_id} className="card bg-base-100 shadow">
               <div className="card-body">
                 <h3 className="card-title">By: {comment.author_username}</h3>
-                <p>On Post: {comment.post_title}</p>
+                <p>Id: {comment.comment_id}</p>
+                <p>On Post: {comment.post_id}</p>
                 <p>{comment.text}</p>
                 <p className="text-sm text-gray-500">
                   {new Date(comment.created_at).toLocaleString()}

@@ -25,24 +25,18 @@
 
     /* Added by Alin  */
     "strictNullChecks": true,
-    "baseUrl": ".",
+    "baseUrl": "./src", 
     "paths": {
-      "@src/*": ["./src/*"],
-      "@src": ["./src"],
-      "@assets/*": ["./src/assets/*"],
-      "@assets": ["./src/assets"],
-      "@context/*": ["./src/context/*"],
-      "@context": ["./src/context"],
-      "@components/*": ["./src/components/*"],
-      "@components": ["./src/components"],
-      "@hooks/*": ["./src/hooks/*"],
-      "@hooks": ["./src/hooks"],
-      "@lib/*": ["./src/lib/*"],
-      "@lib": ["./src/lib"],
-      "@types/*": ["./src/types/*"],
-      "@types": ["./src/types"],
-      "@utils/*": ["./src/utils/*"],
-      "@utils": ["./src/utils"]
+      "@/*": ["./*"],           // For files within src
+      "@assets/*": ["./assets/*"],
+      "@context/*": ["./context/*"],
+      "@components/*": ["./components/*"],
+      "@components": ["./components"],
+      "@hooks/*": ["./hooks/*"],
+      "@lib/*": ["./lib/*"],
+      "@types/*": ["./types/*"],
+      "@types": ["./types"],
+      "@utils/*": ["./utils/*"]
     }
   },
   "include": ["src/**/*"]
