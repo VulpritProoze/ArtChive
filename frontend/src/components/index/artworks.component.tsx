@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart, faEye, faBookmark } from "@fortawesome/free-solid-svg-icons";
-import type { ArtistType } from "./artist-type.type";
-import type { Artwork } from "./artwork.type"; // Ensure Artwork type is imported
+import type { ArtistType } from "@types";
+import type { Artwork } from "@types"; // Ensure Artwork type is imported
 import { artworks } from "./artworks";
 import { ImageWithSkeleton } from "../image-with-skeleton";
 

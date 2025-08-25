@@ -8,5 +8,7 @@ export default function ProtectedRoute() {
         return null
     }
 
+    console.log('Navigating to Home page...')
+
     return user ? <Outlet /> : <Navigate to='/login' replace />
 }

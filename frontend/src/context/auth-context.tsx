@@ -3,6 +3,7 @@ import api from '@lib/api'
 import type { AuthContextType, User } from "@types";
 import { isAxiosError } from "axios";
 import { toast } from "react-toastify";
+import formatFieldName from '@utils/format-fieldname'
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -43,6 +44,82 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, []);
+
+  const register = async (
+    username: string,
+    email: string,
+    password: string,
+    confirmPassword: string,
+    firstName: string,
+    middleName: string,
+    lastName: string,
+    city: string,
+    country: string,
+    birthday: string | null,
+    artistTypes: string[]
+  ): Promise<boolean> => {
+    try {
+      try {
+        await logout()
+      } catch (logoutError) {
+        console.log('No active session to logout from')
+      }
+
+      await api.post(
+        'api/core/auth/register/',
+        { username, email, password, confirmPassword, firstName, middleName, lastName, city, country, birthday, artistTypes }
+      )
+
+      await login(email, password)
+      await fetchUser()
+      toast.success('Registration successful! Redirecting...')
+      return true
+    } catch (error) {
+      let errorMessage = 'Registration failed. Please try again';
+      
+      if (isAxiosError(error)) {
+        // Handle specific error cases
+        if (error.response?.status === 400) {
+          const errorData = error.response.data;
+      
+          if (typeof errorData === 'object' && errorData !== null) {
+            // Loop through each field and show a separate toast
+            Object.entries(errorData).forEach(([field, messages]) => {
+              const fieldName = formatFieldName(field); // Optional: make field names user-friendly
+              const messageList = Array.isArray(messages) ? messages : [messages];
+              
+              messageList.forEach(msg => {
+                toast.error(`${fieldName}: ${msg}`);
+              });
+            });
+          } else {
+            toast.error("Please check your registration details.");
+          }
+      
+          return false; // Exit early after showing toasts
+        }
+        else if (error.response?.status === 401) {
+          errorMessage = "Please fill up the registration form properly";
+        } 
+        else if (error.response?.status === 409) {
+          errorMessage = "User with this email or username already exists";
+        }
+        else if (error.response) {
+          errorMessage = error.response.data?.message || 
+            error.response.data?.detail || 
+            `Error: ${error.response.status}`;
+        } else if (error.request) {
+          errorMessage = "No response from server. Please check your connection.";
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+      console.error("Registration failed: ", error);
+      return false
+    }
+  }
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
@@ -108,6 +185,7 @@ export const AuthProvider = ({ children }) => {
     user,
     login,
     logout,
+    register,
     isLoading,
     refreshToken,
     getUserId,

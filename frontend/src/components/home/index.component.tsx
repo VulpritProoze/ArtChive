@@ -3,6 +3,7 @@ import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
 import { LogoutButton } from '@components/account/logout';
+import axios from 'axios';
 import type { Post, Comment } from '@types';
 
 const Index: React.FC = () => {
@@ -220,8 +221,24 @@ const Index: React.FC = () => {
       });
       fetchPosts();
     } catch (error) {
-      toast.error('Failed to update post');
-      console.error(error);
+      // Status code specific error messages
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          toast.error('You do not have permission to edit this post');
+        } else if (error.response?.status === 404) {
+          toast.error('Post not found');
+        } else if (error.response?.status === 400) {
+          toast.error('Invalid data. Please check your input.');
+        } else if (error.response?.status === 500) {
+          toast.error('Server error. Please try again later.');
+        } else {
+          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
+        }
+      } else {
+        toast.error('Failed to update post');
+      }
+  
+      console.error('Update post error:', error);
     }
   };
 
@@ -247,8 +264,24 @@ const Index: React.FC = () => {
       toast.success('Post deleted successfully');
       fetchPosts();
     } catch (error) {
-      toast.error('Failed to delete post');
-      console.error(error);
+      // Status code specific error messages
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          toast.error('You do not have permission to delete this post');
+        } else if (error.response?.status === 404) {
+          toast.error('Post not found');
+        } else if (error.response?.status === 400) {
+          toast.error('Invalid data. Please check your input.');
+        } else if (error.response?.status === 500) {
+          toast.error('Server error. Please try again later.');
+        } else {
+          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
+        }
+      } else {
+        toast.error('Failed to delete post');
+      }
+  
+      console.error('Delete post error:', error);
     }
   };
 
@@ -305,8 +338,24 @@ const Index: React.FC = () => {
       setCommentForm({ text: '', post_id: '' });
       fetchComments();
     } catch (error) {
-      toast.error('Failed to update comment');
-      console.error(error);
+      // Status code specific error messages
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          toast.error('You do not have permission to edit this comment');
+        } else if (error.response?.status === 404) {
+          toast.error('Comment not found');
+        } else if (error.response?.status === 400) {
+          toast.error('Invalid data. Please check your input.');
+        } else if (error.response?.status === 500) {
+          toast.error('Server error. Please try again later.');
+        } else {
+          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
+        }
+      } else {
+        toast.error('Failed to update comment');
+      }
+  
+      console.error('Update comment error:', error);
     }
   };
 
@@ -332,8 +381,24 @@ const Index: React.FC = () => {
       toast.success('Comment deleted successfully');
       fetchComments();
     } catch (error) {
-      toast.error('Failed to delete comment');
-      console.error(error);
+      // Status code specific error messages
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          toast.error('You do not have permission to delete this comment');
+        } else if (error.response?.status === 404) {
+          toast.error('Comment not found');
+        } else if (error.response?.status === 400) {
+          toast.error('Invalid data. Please check your input.');
+        } else if (error.response?.status === 500) {
+          toast.error('Server error. Please try again later.');
+        } else {
+          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
+        }
+      } else {
+        toast.error('Failed to delete comment');
+      }
+  
+      console.error('Delete comment error:', error);
     }
   };
 
@@ -371,6 +436,7 @@ const Index: React.FC = () => {
         <h1 className="text-3xl font-bold">Home Page Mock-up</h1>
         <h2>Posts + Comments</h2>
       </div>
+      <p className='text-xl font-semibold'>Welcome, {user?.username || 'Guest'}!</p>
       <LogoutButton />
       {/* Post Creation/Edit Form */}
       {showPostForm && (

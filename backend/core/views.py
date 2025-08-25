@@ -1,15 +1,16 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
+from rest_framework.views import APIView
+from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework.throttling import ScopedRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
-from .serializers import UserSerializer, LoginSerializer
+from .serializers import UserSerializer, LoginSerializer, RegistrationSerializer
 from decouple import config
 
 @extend_schema(
@@ -129,9 +130,102 @@ class CookieTokenRefreshView(TokenRefreshView):
         401: OpenApiResponse(description='Unauthorized')
     }
 )
-class UserInfoView(generics.RetrieveAPIView):
+class UserInfoView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
     
     def get_object(self):
         return self.request.user
+
+@extend_schema(
+    tags=['Authentication'],
+    description="Register a new user account",
+    examples=[
+        OpenApiExample(
+            'Example Request',
+            value={
+                'username': 'azurialequinox',
+                'email': 'admin@gmail.com',
+                'password': 'asdasdasd',
+                'confirmPassword': 'asdasdasd',
+                'firstName': '',
+                'middleName': '',
+                'lastName': '',
+                'city': '',
+                'country': '',
+                'birthday': '',
+                'artistTypes': [
+                    "visual arts",
+                    "digital & new media arts",
+                    "environmental art",
+                    "music art",
+                    "film art"
+                ]
+            },
+            request_only=True
+        ),
+        OpenApiExample(
+            'Example Response',
+            value={
+                'message': 'User registered successfully',
+                'user': {
+                    'id': 1,
+                    'username': 'azurialequinox',
+                    'email': 'admin@gmail.com',
+                    'first_name': '',
+                    'middle_name': '',
+                    'last_name': '',
+                    'city': '',
+                    'country': '',
+                    'birthday': None
+                },
+                'artist': {
+                    'artist_types': [
+                        "visual arts",
+                        "digital & new media arts",
+                        "environmental art",
+                        "music art",
+                        "film art"
+                    ]
+                }
+            },
+            response_only=True
+        )
+    ],
+    responses={
+        201: OpenApiResponse(description='User registered successfully'),
+        400: OpenApiResponse(description='Invalid input data'),
+        500: OpenApiResponse(description='Internal server error')
+    }
+)
+class RegistrationView(APIView):
+    def post(self, request):
+        serializer = RegistrationSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                user = serializer.save()
+
+                # Prepare response data
+                response_data = {
+                    'message': 'User registered successfully',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'first_name': user.first_name,
+                        'middle_name': user.middle_name,
+                        'last_name': user.last_name,
+                        'city': user.city,
+                        'country': user.country,
+                        'birthday': user.birthday
+                    },
+                    'artist': {
+                        'artist_types': user.artist.artist_types
+                    }
+                }
+            
+                return Response(response_data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response({ 'error': f'Error creating user: {str(e)}' }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
