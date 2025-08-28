@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
@@ -16,7 +16,7 @@ const Index: React.FC = () => {
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [editing, setEditing] = useState(false);
   
-  const { user, getUserId } = useAuth()
+  const { user, getUserId } = useAuth();
 
   // Form states
   const [postForm, setPostForm] = useState({
@@ -24,7 +24,7 @@ const Index: React.FC = () => {
     post_type: 'default',
     image_url: null as File | null,
     video_url: null as File | null,
-    chapters: [{ chapter: '', content: '' }], // multiple chapters
+    chapters: [{ chapter: '', content: '' }],
   });
 
   const [commentForm, setCommentForm] = useState({
@@ -32,8 +32,8 @@ const Index: React.FC = () => {
     post_id: ''
   });
 
-  // Fetch all posts
-  const fetchPosts = async () => {
+  // Fetch data functions
+  const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await post.get('/');
@@ -44,10 +44,9 @@ const Index: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Fetch all comments
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const response = await post.get('/comment/');
       setComments(response.data.results || response.data);
@@ -55,14 +54,14 @@ const Index: React.FC = () => {
       toast.error('Failed to fetch comments');
       console.error(error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPosts();
     fetchComments();
-  }, []);
+  }, [fetchPosts, fetchComments]);
 
-  // Handle post form changes
+  // Handle form changes
   const handlePostFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setPostForm(prev => ({ ...prev, [name]: value }));
@@ -70,14 +69,10 @@ const Index: React.FC = () => {
 
   const handleChapterChange = (index: number, field: 'chapter' | 'content', value: string) => {
     const updatedChapters = [...postForm.chapters];
-    updatedChapters[index] = {
-      ...updatedChapters[index],
-      [field]: value
-    };
+    updatedChapters[index] = { ...updatedChapters[index], [field]: value };
     setPostForm(prev => ({ ...prev, chapters: updatedChapters }));
   };
 
-  // Add a new chapter field
   const addChapter = () => {
     setPostForm(prev => ({
       ...prev,
@@ -85,7 +80,6 @@ const Index: React.FC = () => {
     }));
   };
 
-  // Remove a chapter field
   const removeChapter = (index: number) => {
     if (postForm.chapters.length > 1) {
       const updatedChapters = postForm.chapters.filter((_, i) => i !== index);
@@ -93,122 +87,72 @@ const Index: React.FC = () => {
     }
   };
 
-  // Handle post file uploads
   const handlePostFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
-    if (files && files[0]) {
-      setPostForm(prev => ({ ...prev, [name]: files[0] }));
-    }
+    if (files?.[0]) setPostForm(prev => ({ ...prev, [name]: files[0] }));
   };
 
-  // Handle comment form changes
   const handleCommentFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setCommentForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Create a new post
-  const createPost = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to create a post');
-        return;
-      }
-      
-      const formData = new FormData();
-      formData.append('description', postForm.description);
-      formData.append('post_type', postForm.post_type);
-      
-      if (postForm.image_url) {
-        formData.append('image_url', postForm.image_url);
-      }
-      
-      if (postForm.video_url) {
-        formData.append('video_url', postForm.video_url);
-      }
-
-      
-      if (postForm.post_type === 'novel') {
-        // Put in a list 'chapters'
-        postForm.chapters.forEach((chapter, index) => {
-          formData.append(`chapters[${index}].chapter`, chapter.chapter)
-          formData.append(`chapters[${index}].content`, chapter.content)
-        })
-      }
-
-      await post.post('/create/', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      toast.success('Post created successfully');
-      setShowPostForm(false);
-      setPostForm({
-        description: '',
-        post_type: 'default',
-        image_url: null,
-        video_url: null,
-        chapters: [{ chapter: '', content: '' }]
-      });
-      fetchPosts();
-    } catch (error) {
-      toast.error('Failed to create post');
-      console.error(error);
+  // Auth check helper
+  const checkAuth = useCallback(() => {
+    if (!user) {
+      toast.error('You must be logged in to perform this action');
+      return false;
     }
+    if (!getUserId()) {
+      toast.error('User ID is not available');
+      return false;
+    }
+    return true;
+  }, [user, getUserId]);
+
+  // Handle API errors
+  const handleApiError = (error: unknown, defaultMessage: string) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      if (status === 403) toast.error('You do not have permission');
+      else if (status === 404) toast.error('Not found');
+      else if (status === 400) toast.error('Invalid data');
+      else if (status === 500) toast.error('Server error');
+      else toast.error(`Error: ${status || 'Unknown'}`);
+    } else {
+      toast.error(defaultMessage);
+    }
+    console.error(defaultMessage, error);
   };
 
-  // Update a post
-  const updatePost = async (e: React.FormEvent) => {
+  // Post operations
+  const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPost) return;
-    
-    try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to perform this action');
-        return;
-      }
+    if (!checkAuth()) return;
 
+    try {
       const formData = new FormData();
       formData.append('description', postForm.description);
       formData.append('post_type', postForm.post_type);
       
-      if (postForm.image_url) {
-        formData.append('image_url', postForm.image_url);
-      }
-      
-      if (postForm.video_url) {
-        formData.append('video_url', postForm.video_url);
-      }
+      if (postForm.image_url) formData.append('image_url', postForm.image_url);
+      if (postForm.video_url) formData.append('video_url', postForm.video_url);
       
       if (postForm.post_type === 'novel') {
-        // Put in a list 'chapters'
         postForm.chapters.forEach((chapter, index) => {
-          formData.append(`chapters[${index}].chapter`, chapter.chapter)
-          formData.append(`chapters[${index}].content`, chapter.content)
-        })
+          formData.append(`chapters[${index}].chapter`, chapter.chapter);
+          formData.append(`chapters[${index}].content`, chapter.content);
+        });
       }
 
-      await post.put(`/update/${selectedPost.post_id}/`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const url = editing ? `/update/${selectedPost?.post_id}/` : '/create/';
+      const method = editing ? 'put' : 'post';
+      
+      await post[method](url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       
-      toast.success('Post updated successfully');
+      toast.success(`Post ${editing ? 'updated' : 'created'} successfully`);
       setShowPostForm(false);
       setEditing(false);
       setSelectedPost(null);
@@ -221,188 +165,60 @@ const Index: React.FC = () => {
       });
       fetchPosts();
     } catch (error) {
-      // Status code specific error messages
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 403) {
-          toast.error('You do not have permission to edit this post');
-        } else if (error.response?.status === 404) {
-          toast.error('Post not found');
-        } else if (error.response?.status === 400) {
-          toast.error('Invalid data. Please check your input.');
-        } else if (error.response?.status === 500) {
-          toast.error('Server error. Please try again later.');
-        } else {
-          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
-        }
-      } else {
-        toast.error('Failed to update post');
-      }
-  
-      console.error('Update post error:', error);
+      handleApiError(error, `Failed to ${editing ? 'update' : 'create'} post`);
     }
   };
 
-  // Delete a post
   const deletePost = async (postId: string) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    if (!window.confirm('Are you sure you want to delete this post?') || !checkAuth()) return;
     
     try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to perform this action');
-        return;
-      }
-
-      await post.delete(`/delete/${postId}/`, {
-        data: { confirm: true }
-      });
+      await post.delete(`/delete/${postId}/`, { data: { confirm: true } });
       toast.success('Post deleted successfully');
       fetchPosts();
     } catch (error) {
-      // Status code specific error messages
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 403) {
-          toast.error('You do not have permission to delete this post');
-        } else if (error.response?.status === 404) {
-          toast.error('Post not found');
-        } else if (error.response?.status === 400) {
-          toast.error('Invalid data. Please check your input.');
-        } else if (error.response?.status === 500) {
-          toast.error('Server error. Please try again later.');
-        } else {
-          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
-        }
-      } else {
-        toast.error('Failed to delete post');
-      }
-  
-      console.error('Delete post error:', error);
+      handleApiError(error, 'Failed to delete post');
     }
   };
 
-  // Create a new comment
-  const createComment = async (e: React.FormEvent) => {
+  // Comment operations
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to comment');
-        return;
-      }
-      await post.post('/comment/create/', commentForm);
-      toast.success('Comment created successfully');
-      setShowCommentForm(false);
-      setCommentForm({ text: '', post_id: '' });
-      fetchComments();
-    } catch (error) {
-      toast.error('Failed to create comment');
-      console.error(error);
-    }
-  };
+    if (!checkAuth()) return;
 
-  // Update a comment
-  const updateComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedComment) return;
-    
     try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
+      if (editing) {
+        await post.put(`/comment/update/${selectedComment?.comment_id}/`, {
+          text: commentForm.text
+        });
       } else {
-        toast.error('You must be logged in to perform this action');
-        return;
+        await post.post('/comment/create/', commentForm);
       }
-
-      await post.put(`/comment/update/${selectedComment.comment_id}/`, {
-        text: commentForm.text
-      });
       
-      toast.success('Comment updated successfully');
+      toast.success(`Comment ${editing ? 'updated' : 'created'} successfully`);
       setShowCommentForm(false);
       setEditing(false);
       setSelectedComment(null);
       setCommentForm({ text: '', post_id: '' });
       fetchComments();
     } catch (error) {
-      // Status code specific error messages
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 403) {
-          toast.error('You do not have permission to edit this comment');
-        } else if (error.response?.status === 404) {
-          toast.error('Comment not found');
-        } else if (error.response?.status === 400) {
-          toast.error('Invalid data. Please check your input.');
-        } else if (error.response?.status === 500) {
-          toast.error('Server error. Please try again later.');
-        } else {
-          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
-        }
-      } else {
-        toast.error('Failed to update comment');
-      }
-  
-      console.error('Update comment error:', error);
+      handleApiError(error, `Failed to ${editing ? 'update' : 'create'} comment`);
     }
   };
 
-  // Delete a comment
   const deleteComment = async (commentId: string) => {
-    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+    if (!window.confirm('Are you sure you want to delete this comment?') || !checkAuth()) return;
     
     try {
-      if (user) {
-        const userId = getUserId();
-        if (userId == null) {
-          toast.error('User ID is not available');
-          return;
-        }
-      } else {
-        toast.error('You must be logged in to perform this action');
-        return;
-      }
-
-      await post.delete(`/comment/delete/${commentId}/`, {
-        data: { confirm: true }
-      });
+      await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
       toast.success('Comment deleted successfully');
       fetchComments();
     } catch (error) {
-      // Status code specific error messages
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 403) {
-          toast.error('You do not have permission to delete this comment');
-        } else if (error.response?.status === 404) {
-          toast.error('Comment not found');
-        } else if (error.response?.status === 400) {
-          toast.error('Invalid data. Please check your input.');
-        } else if (error.response?.status === 500) {
-          toast.error('Server error. Please try again later.');
-        } else {
-          toast.error(`Error: ${error.response?.status ?? 'Unknown'}`);
-        }
-      } else {
-        toast.error('Failed to delete comment');
-      }
-  
-      console.error('Delete comment error:', error);
+      handleApiError(error, 'Failed to delete comment');
     }
   };
 
-  // Set up form for editing a post
+  // Setup edit forms
   const setupEditPost = (postItem: Post) => {
     setSelectedPost(postItem);
     setPostForm({
@@ -419,7 +235,6 @@ const Index: React.FC = () => {
     setShowPostForm(true);
   };
 
-  // Set up form for editing a comment
   const setupEditComment = (comment: Comment) => {
     setSelectedComment(comment);
     setCommentForm({
@@ -430,6 +245,113 @@ const Index: React.FC = () => {
     setShowCommentForm(true);
   };
 
+  // Form reset
+  const resetForms = () => {
+    setShowPostForm(false);
+    setShowCommentForm(false);
+    setEditing(false);
+    setSelectedPost(null);
+    setSelectedComment(null);
+    setPostForm({
+      description: '',
+      post_type: 'default',
+      image_url: null,
+      video_url: null,
+      chapters: [{ chapter: '', content: '' }]
+    });
+    setCommentForm({ text: '', post_id: '' });
+  };
+
+  // Render functions
+  const renderChapterFields = () => (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Chapters</h3>
+        <button type="button" className="btn btn-sm btn-primary" onClick={addChapter}>
+          Add Chapter
+        </button>
+      </div>
+      
+      {postForm.chapters.map((chapter, index) => (
+        <div key={index} className="card bg-base-200 p-4 mb-4">
+          {postForm.chapters.length > 1 && (
+            <div className="flex justify-end mb-2">
+              <button type="button" className="btn btn-sm btn-error" onClick={() => removeChapter(index)}>
+                Remove
+              </button>
+            </div>
+          )}
+          
+          <div className="form-control mb-4">
+            <label className="label">
+              <span className="label-text">Chapter Number</span>
+            </label>
+            <input 
+              type="number"
+              className="input input-bordered"
+              value={chapter.chapter}
+              onChange={(e) => handleChapterChange(index, 'chapter', e.target.value)}
+              min="1"
+              required
+            />
+          </div>
+          
+          <div className="form-control mb-4">
+            <label className="label">
+              <span className="label-text">Content</span>
+            </label>
+            <textarea 
+              className="textarea textarea-bordered h-32"
+              value={chapter.content}
+              onChange={(e) => handleChapterChange(index, 'content', e.target.value)}
+              required
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderMediaField = () => {
+    if (postForm.post_type === 'image') {
+      return (
+        <div className="form-control mb-4">
+          <label className="label">
+            <span className="label-text">Image</span>
+          </label>
+          <input 
+            type="file"
+            className="file-input file-input-bordered"
+            name="image_url"
+            onChange={handlePostFileChange}
+            accept="image/*"
+            required={!editing}
+          />
+        </div>
+      );
+    }
+    
+    if (postForm.post_type === 'video') {
+      return (
+        <div className="form-control mb-4">
+          <label className="label">
+            <span className="label-text">Video</span>
+          </label>
+          <input 
+            type="file"
+            className="file-input file-input-bordered"
+            name="video_url"
+            onChange={handlePostFileChange}
+            accept="video/*"
+            required={!editing}
+          />
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className='mb-8'>
@@ -438,14 +360,13 @@ const Index: React.FC = () => {
       </div>
       <p className='text-xl font-semibold'>Welcome, {user?.username || 'Guest'}!</p>
       <LogoutButton />
-      {/* Post Creation/Edit Form */}
+      
+      {/* Post Form Modal */}
       {showPostForm && (
         <div className="modal modal-open">
           <div className="modal-box max-w-4xl">
-            <h2 className="text-2xl font-bold mb-4">
-              {editing ? 'Edit Post' : 'Create Post'}
-            </h2>
-            <form onSubmit={editing ? updatePost : createPost}>
+            <h2 className="text-2xl font-bold mb-4">{editing ? 'Edit Post' : 'Create Post'}</h2>
+            <form onSubmit={handlePostSubmit}>
               <div className="form-control mb-4">
                 <label className="label">
                   <span className="label-text">Description</span>
@@ -476,115 +397,14 @@ const Index: React.FC = () => {
                 </select>
               </div>
               
-              {postForm.post_type === 'image' && (
-                <div className="form-control mb-4">
-                  <label className="label">
-                    <span className="label-text">Image</span>
-                  </label>
-                  <input 
-                    type="file"
-                    className="file-input file-input-bordered"
-                    name="image_url"
-                    onChange={handlePostFileChange}
-                    accept="image/*"
-                    required={!editing}
-                  />
-                </div>
-              )}
-              
-              {postForm.post_type === 'video' && (
-                <div className="form-control mb-4">
-                  <label className="label">
-                    <span className="label-text">Video</span>
-                  </label>
-                  <input 
-                    type="file"
-                    className="file-input file-input-bordered"
-                    name="video_url"
-                    onChange={handlePostFileChange}
-                    accept="video/*"
-                    required={!editing}
-                  />
-                </div>
-              )}
-              
-              {postForm.post_type === 'novel' && (
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">Chapters</h3>
-                    <button 
-                      type="button" 
-                      className="btn btn-sm btn-primary"
-                      onClick={addChapter}
-                    >
-                      Add Chapter
-                    </button>
-                  </div>
-                  
-                  {postForm.chapters.map((chapter, index) => (
-                    <div key={index} className="card bg-base-200 p-4 mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        {postForm.chapters.length > 1 && (
-                          <button 
-                            type="button"
-                            className="btn btn-sm btn-error"
-                            onClick={() => removeChapter(index)}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      
-                      <div className="form-control mb-4">
-                        <label className="label">
-                          <span className="label-text">Chapter Number</span>
-                        </label>
-                        <input 
-                          type="number"
-                          className="input input-bordered"
-                          value={chapter.chapter}
-                          onChange={(e) => handleChapterChange(index, 'chapter', e.target.value)}
-                          min="1"
-                          required
-                        />
-                      </div>
-                      
-                      <div className="form-control mb-4">
-                        <label className="label">
-                          <span className="label-text">Content</span>
-                        </label>
-                        <textarea 
-                          className="textarea textarea-bordered h-32"
-                          value={chapter.content}
-                          onChange={(e) => handleChapterChange(index, 'content', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {renderMediaField()}
+              {postForm.post_type === 'novel' && renderChapterFields()}
               
               <div className="modal-action">
                 <button type="submit" className="btn btn-primary">
                   {editing ? 'Update' : 'Create'}
                 </button>
-                <button 
-                  type="button" 
-                  className="btn"
-                  onClick={() => {
-                    setShowPostForm(false);
-                    setEditing(false);
-                    setSelectedPost(null);
-                    setPostForm({
-                      description: '',
-                      post_type: 'default',
-                      image_url: null,
-                      video_url: null,
-                      chapters: [{ chapter: '', content: '' }]
-                    });
-                  }}
-                >
+                <button type="button" className="btn" onClick={resetForms}>
                   Cancel
                 </button>
               </div>
@@ -593,14 +413,12 @@ const Index: React.FC = () => {
         </div>
       )}
       
-      {/* Comment Creation/Edit Form */}
+      {/* Comment Form Modal */}
       {showCommentForm && (
         <div className="modal modal-open">
           <div className="modal-box">
-            <h2 className="text-2xl font-bold mb-4">
-              {editing ? 'Edit Comment' : 'Create Comment'}
-            </h2>
-            <form onSubmit={editing ? updateComment : createComment}>
+            <h2 className="text-2xl font-bold mb-4">{editing ? 'Edit Comment' : 'Create Comment'}</h2>
+            <form onSubmit={handleCommentSubmit}>
               <div className="form-control mb-4">
                 <label className="label">
                   <span className="label-text">Comment Text</span>
@@ -635,15 +453,7 @@ const Index: React.FC = () => {
                 <button type="submit" className="btn btn-primary">
                   {editing ? 'Update' : 'Create'}
                 </button>
-                <button 
-                  type="button" 
-                  className="btn"
-                  onClick={() => {
-                    setShowCommentForm(false);
-                    setEditing(false);
-                    setSelectedComment(null);
-                  }}
-                >
+                <button type="button" className="btn" onClick={resetForms}>
                   Cancel
                 </button>
               </div>
@@ -656,10 +466,7 @@ const Index: React.FC = () => {
       <div className="mb-12">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">Posts</h2>
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowPostForm(true)}
-          >
+          <button className="btn btn-primary" onClick={() => setShowPostForm(true)}>
             Create Post
           </button>
         </div>
@@ -711,16 +518,10 @@ const Index: React.FC = () => {
                 )}
                 
                 <div className="card-actions justify-end mt-4">
-                  <button 
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => setupEditPost(post)}
-                  >
+                  <button className="btn btn-sm btn-secondary" onClick={() => setupEditPost(post)}>
                     Edit
                   </button>
-                  <button 
-                    className="btn btn-sm btn-error"
-                    onClick={() => deletePost(post.post_id)}
-                  >
+                  <button className="btn btn-sm btn-error" onClick={() => deletePost(post.post_id)}>
                     Delete
                   </button>
                 </div>
@@ -734,10 +535,7 @@ const Index: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">Comments</h2>
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowCommentForm(true)}
-          >
+          <button className="btn btn-primary" onClick={() => setShowCommentForm(true)}>
             Create Comment
           </button>
         </div>
@@ -755,16 +553,10 @@ const Index: React.FC = () => {
                 </p>
                 
                 <div className="card-actions justify-end mt-2">
-                  <button 
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => setupEditComment(comment)}
-                  >
+                  <button className="btn btn-sm btn-secondary" onClick={() => setupEditComment(comment)}>
                     Edit
                   </button>
-                  <button 
-                    className="btn btn-sm btn-error"
-                    onClick={() => deleteComment(comment.comment_id)}
-                  >
+                  <button className="btn btn-sm btn-error" onClick={() => deleteComment(comment.comment_id)}>
                     Delete
                   </button>
                 </div>
