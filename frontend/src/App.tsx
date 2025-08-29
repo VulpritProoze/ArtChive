@@ -2,7 +2,7 @@
 import { lazy, Suspense, useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
-import { ThemeProvider, ProtectedRoute, GuestRoute } from "@components";
+import { ThemeProvider, ProtectedRoute, GuestRoute, Collective, Home, GalleryIndex, Profile } from "@components";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 import useToggleTheme from "@hooks/use-theme";
@@ -13,9 +13,7 @@ const Index = lazy(() => import("@components/index/index.component").then(module
   return module
 }));
 const Login = lazy(() => import("@components/account/login.component"));
-const Home = lazy(() => import("@components/home/index.component"));
 const Register = lazy(() => import("@components/account/register.component"));
-const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
 
 function ThemedToastContainer() {
   const { isDarkMode } = useToggleTheme()
@@ -59,6 +57,8 @@ function App() {
                 {/* Protected routes (with auth check) */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/home" element={<Home />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/collective" element={<Collective /> } />
                   <Route path="/gallery" element={<GalleryIndex />} />
                 </Route>
               </Routes>

@@ -12,6 +12,10 @@ export { default as Register } from './account/register.component'
 
 // Home
 export { default as Home } from './home/index.component'
+export { default as Profile } from './profile/index.component'
+
+// Collective
+export { default as Collective } from './collective/index.component'
 
 // Gallery
 export { default as GalleryIndex } from './gallery/index.component'

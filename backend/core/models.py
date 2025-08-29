@@ -12,11 +12,16 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     # Custom fields
+    first_name = models.CharField(max_length=255, blank=True, null=True)
     middle_name = models.CharField(max_length=100, blank=True, null=True)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100, default='N/A', blank=True)
     country = models.CharField(max_length=100, default='N/A', blank=True)
-    contact_no = models.CharField(default='N/A', blank=True)
+    contact_no = models.CharField(max_length=20, default='N/A',blank=True)
     birthday = models.DateField(blank=True, null=True, help_text='Enter user\'s date of birth')
+
+    # profile
+    profile_picture = models.ImageField(default='profile/images/default-pic-min.jpg', upload_to='profile/images/')
 
     objects = CustomUserManager()
 

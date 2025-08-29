@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
@@ -359,6 +360,11 @@ const Index: React.FC = () => {
         <h2>Posts + Comments</h2>
       </div>
       <p className='text-xl font-semibold'>Welcome, {user?.username || 'Guest'}!</p>
+      <nav className='flex-col flex gap-1 mb-2'>
+        <Link to='/profile' className='btn btn-accent'>Profile</Link>
+        <Link to='/collective' className='btn btn-accent'>Collective</Link>
+        <Link to='/gallery' className='btn btn-accent'>Gallery</Link>
+      </nav>
       <LogoutButton />
       
       {/* Post Form Modal */}

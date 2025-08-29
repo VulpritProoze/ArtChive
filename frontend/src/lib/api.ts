@@ -11,6 +11,11 @@ export const post = axios.create({
     withCredentials: true,
 })
 
+export const core = axios.create({
+    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/core/`,
+    withCredentials: true,
+})
+
 api.interceptors.response.use(
     (response: AxiosResponse) => response,
     async (error: AxiosError) => {

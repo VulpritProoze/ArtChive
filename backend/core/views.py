@@ -1,5 +1,7 @@
 from django.shortcuts import render
+from django.conf import settings
 from django.contrib.auth import authenticate
+from django.core.files.storage import default_storage
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.views import APIView
@@ -10,8 +12,10 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework.throttling import ScopedRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
-from .serializers import UserSerializer, LoginSerializer, RegistrationSerializer
+from .serializers import UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer
+from .models import User
 from decouple import config
+import os
 
 @extend_schema(
     tags=['Authentication'],
@@ -229,3 +233,29 @@ class RegistrationView(APIView):
             except Exception as e:
                 return Response({ 'error': f'Error creating user: {str(e)}' }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = ProfileViewUpdateSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+
+    # Delete old profile picture before updating
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        new_profile_picture = self.request.FILES.get('profilePicture', None)
+
+        if new_profile_picture and instance.profile_picture:
+            try:
+                # Check if file is in media/profile/images
+                profile_images_path = os.path.join(settings.MEDIA_ROOT, 'profile', 'images')
+                file_path = instance.profile_picture.path
+
+                if (file_path.startswith(profile_images_path)) and instance.profile_picture.name != 'profile/images/default-pic-min.jpg':
+                    if default_storage.exists(instance.profile_picture.name):
+                        default_storage.delete(instance.profile_picture.name)
+
+            except Exception as e:
+                print(f'Error deleting old profile picture: {e}')
+        
+        serializer.save()
