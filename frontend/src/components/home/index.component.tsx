@@ -1,23 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
 import { LogoutButton } from '@components/account/logout';
-import axios from 'axios';
 import type { Post, Comment } from '@types';
+import axios from 'axios';
 
 const Index: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [allComments, setAllComments] = useState<Comment[]>([])
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [expandedPost, setExpandedPost] = useState<string | null>(null)
   
   const { user, getUserId } = useAuth();
+
+  // Pagination states  (stopped here)
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalCount: 0,
+    hasNext: false,
+    hasPrevious: false
+  })
+
+  const observerTarget = useRef<HTMLDivElement>(null)
 
   // Form states
   const [postForm, setPostForm] = useState({
@@ -34,23 +47,71 @@ const Index: React.FC = () => {
   });
 
   // Fetch data functions
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (
+    page: number = 1,
+    append: boolean = false
+  ) => {
     try {
-      setLoading(true);
-      const response = await post.get('/');
-      setPosts(response.data.results || response.data);
+      if (append) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
+
+      const response = await post.get('/', {
+        params: { page, page_size: 10 }
+      });
+
+      if (append) {
+        setPosts(prev => [...prev, ...response.data.results]);
+      } else {
+        setPosts(response.data.results || [])
+      }
+
+      setPagination(prev => ({
+        ...prev,
+        currentPage: page,
+        totalCount: response.data.count,
+        hasNext: response.data.next !== null,
+        hasPrevious: response.data.previous !== null
+      }))
     } catch (error) {
       toast.error('Failed to fetch posts');
       console.error(error);
     } finally {
       setLoading(false);
+      setLoadingMore(false)
     }
   }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          pagination.hasNext &&
+          !loadingMore && !loading
+        ) {
+          fetchPosts(pagination.currentPage + 1, true)
+        }
+      }, { threshold: 1.0 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current)
+      }
+    }
+  }, [pagination.hasNext, loadingMore, loading, fetchPosts])
 
   const fetchComments = useCallback(async () => {
     try {
       const response = await post.get('/comment/');
-      setComments(response.data.results || response.data);
+      setAllComments(response.data.results || response.data);
     } catch (error) {
       toast.error('Failed to fetch comments');
       console.error(error);
@@ -58,9 +119,13 @@ const Index: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(1);
     fetchComments();
   }, [fetchPosts, fetchComments]);
+
+  const refreshPosts = useCallback(() => {
+    fetchPosts(1, false)
+  }, [fetchPosts])
 
   // Handle form changes
   const handlePostFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -164,7 +229,8 @@ const Index: React.FC = () => {
         video_url: null,
         chapters: [{ chapter: '', content: '' }]
       });
-      fetchPosts();
+      
+      refreshPosts()
     } catch (error) {
       handleApiError(error, `Failed to ${editing ? 'update' : 'create'} post`);
     }
@@ -176,11 +242,51 @@ const Index: React.FC = () => {
     try {
       await post.delete(`/delete/${postId}/`, { data: { confirm: true } });
       toast.success('Post deleted successfully');
-      fetchPosts();
+      
+      // Refresh posts (could optimize by filtering locally)
+      refreshPosts();
     } catch (error) {
       handleApiError(error, 'Failed to delete post');
     }
   };
+
+  // Render loading indicators for infinite scroll
+  const renderLoadingIndicator = () => {
+    if (loadingMore) {
+      return (
+        <div className="flex justify-center py-4">
+          <div className="loading loading-spinner loading-lg"></div>
+          <span className="ml-2">Loading more posts...</span>
+        </div>
+      );
+    }
+
+    if (pagination.hasNext && !loadingMore) {
+      return (
+        <div ref={observerTarget} className="h-10 flex justify-center items-center">
+          <div className="loading loading-spinner"></div>
+        </div>
+      );
+    }
+
+    if (!pagination.hasNext && posts.length > 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          You've reached the end! {pagination.totalCount} posts total.
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const getCommentsForPost = (postId: string) => {
+    return allComments.filter(comment => comment.post_id == postId)
+  }
+
+  const toggleComments = (postId: string) => {
+    setExpandedPost(expandedPost === postId ? null : postId)
+  }
 
   // Comment operations
   const handleCommentSubmit = async (e: React.FormEvent) => {
@@ -218,6 +324,13 @@ const Index: React.FC = () => {
       handleApiError(error, 'Failed to delete comment');
     }
   };
+
+  const setupNewComment = (postId: string) => {
+    setCommentForm({ text: '', post_id: postId })
+    setEditing(false)
+    setSelectedComment(null)
+    setShowCommentForm(true)
+  }
 
   // Setup edit forms
   const setupEditPost = (postItem: Post) => {
@@ -353,6 +466,59 @@ const Index: React.FC = () => {
     return null;
   };
 
+  // Render comments for a post
+  const renderComments = (postId: string) => {
+    const comments = getCommentsForPost(postId);
+    
+    return (
+      <div className="mt-4 border-t pt-4">
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="font-semibold">Comments ({comments.length})</h4>
+          <button 
+            className="btn btn-sm btn-primary"
+            onClick={() => setupNewComment(postId)}
+          >
+            Add Comment
+          </button>
+        </div>
+        
+        {comments.length === 0 ? (
+          <p className="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
+        ) : (
+          <div className="space-y-3">
+            {comments.map(comment => (
+              <div key={comment.comment_id} className="bg-base-200 p-3 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-sm">{comment.author_username}</p>
+                    <p className="text-sm">{comment.text}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(comment.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex space-x-1">
+                    <button 
+                      className="btn btn-xs btn-secondary"
+                      onClick={() => setupEditComment(comment)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="btn btn-xs btn-error"
+                      onClick={() => deleteComment(comment.comment_id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className='mb-8'>
@@ -477,99 +643,94 @@ const Index: React.FC = () => {
           </button>
         </div>
         
+        {loading && posts.length === 0 && (
+          <div className="text-center py-8">
+            <div className="loading loading-spinner loading-lg"></div>
+            <p className="mt-2">Loading posts...</p>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {posts.map(post => (
-            <div key={post.post_id} className="card bg-base-100 shadow-xl">
+          {posts.map(postItem => (
+            <div key={postItem.post_id} className="card bg-base-100 shadow-xl">
               <div className="card-body">
-                <h3 className="card-title">{post.description.substring(0, 30)}...</h3>
-                <p>Id: {post.post_id}</p>
-                <p>Type: {post.post_type}</p>
-                <p>Author: {post.author}</p>
-                <p>Created: {new Date(post.created_at).toLocaleDateString()}</p>
+                <h3 className="card-title">{postItem.description?.substring(0, 30)}...</h3>
+                <p>Id: {postItem.post_id}</p>
+                <p>Type: {postItem.post_type}</p>
+                <p>Author: {postItem.author}</p>
+                <p>Created: {new Date(postItem.created_at).toLocaleDateString()}</p>
                 
-                {post.post_type === 'image' && post.image_url && (
+                {postItem.post_type === 'image' && postItem.image_url && (
                   <div className="mt-4">
                     <img 
-                      src={post.image_url} 
-                      alt={post.description} 
+                      src={postItem.image_url} 
+                      alt={postItem.description} 
                       className="rounded-lg max-h-48 object-cover"
                     />
                   </div>
                 )}
                 
-                {post.post_type === 'video' && post.video_url && (
+                {postItem.post_type === 'video' && postItem.video_url && (
                   <div className="mt-4">
                     <video controls className="rounded-lg max-h-48 w-full">
-                      <source src={post.video_url} type="video/mp4" />
+                      <source src={postItem.video_url} type="video/mp4" />
                       Your browser does not support the video tag.
                     </video>
                   </div>
                 )}
                 
-                {post.post_type === 'novel' && post.novel_post && post.novel_post.length > 0 && (
+                {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
                   <div className="mt-4">
-                    <p className="font-semibold">Chapters: {post.novel_post.length}</p>
-                    {post.novel_post.slice(0, 3).map((novelPost, index) => (
+                    <p className="font-semibold">Chapters: {postItem.novel_post.length}</p>
+                    {postItem.novel_post.slice(0, 3).map((novelPost, index) => (
                       <div key={index} className="mt-2 p-2 bg-base-200 rounded">
                         <p className="text-sm font-medium">Chapter {novelPost.chapter}</p>
-                        <p className="text-sm mt-1">{novelPost.content.substring(0, 80)}...</p>
+                        <p className="text-sm mt-1">{novelPost.content?.substring(0, 80)}...</p>
                       </div>
                     ))}
-                    {post.novel_post.length > 3 && (
+                    {postItem.novel_post.length > 3 && (
                       <p className="text-sm text-gray-500 mt-2">
-                        +{post.novel_post.length - 3} more chapters...
+                        +{postItem.novel_post.length - 3} more chapters...
                       </p>
                     )}
                   </div>
                 )}
-                
+
+                {/* Comments Toggle Button */}
+                <div className="mt-4">
+                  <button
+                    className="btn btn-sm btn-outline w-full"
+                    onClick={() => toggleComments(postItem.post_id)}
+                  >
+                    {expandedPost === postItem.post_id ? 'Hide' : 'Show'} Comments (
+                    {getCommentsForPost(postItem.post_id).length})
+                  </button>
+                </div>
+
+                {/* Comments Section */}
+                {expandedPost === postItem.post_id && renderComments(postItem.post_id)}
+
                 <div className="card-actions justify-end mt-4">
-                  <button className="btn btn-sm btn-secondary" onClick={() => setupEditPost(post)}>
+                  <button className="btn btn-sm btn-secondary" onClick={() => setupEditPost(postItem)}>
                     Edit
                   </button>
-                  <button className="btn btn-sm btn-error" onClick={() => deletePost(post.post_id)}>
+                  <button className="btn btn-sm btn-error" onClick={() => deletePost(postItem.post_id)}>
                     Delete
                   </button>
                 </div>
               </div>
             </div>
           ))}
-        </div>
-      </div>
-      
-      {/* Comments Section */}
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Comments</h2>
-          <button className="btn btn-primary" onClick={() => setShowCommentForm(true)}>
-            Create Comment
-          </button>
+
         </div>
         
-        <div className="grid grid-cols-1 gap-4">
-          {comments.map(comment => (
-            <div key={comment.comment_id} className="card bg-base-100 shadow">
-              <div className="card-body">
-                <h3 className="card-title">By: {comment.author_username}</h3>
-                <p>Id: {comment.comment_id}</p>
-                <p>On Post: {comment.post_id}</p>
-                <p>{comment.text}</p>
-                <p className="text-sm text-gray-500">
-                  {new Date(comment.created_at).toLocaleString()}
-                </p>
-                
-                <div className="card-actions justify-end mt-2">
-                  <button className="btn btn-sm btn-secondary" onClick={() => setupEditComment(comment)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-sm btn-error" onClick={() => deleteComment(comment.comment_id)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {posts.length === 0 && !loading && (
+          <div className="text-center py-8 text-gray-500">
+            No posts found. Be the first to create one!
+          </div>
+        )}
+        
+        {renderLoadingIndicator()}
       </div>
     </div>
   );
