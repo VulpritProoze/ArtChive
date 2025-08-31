@@ -2,7 +2,7 @@
 import { lazy, Suspense, useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
-import { ThemeProvider, ProtectedRoute, GuestRoute, Collective, Home, GalleryIndex, Profile } from "@components";
+import { ThemeProvider, ProtectedRoute, GuestRoute, Collective, Home, GalleryIndex, Profile, Timeline } from "@components";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 import useToggleTheme from "@hooks/use-theme";
@@ -57,7 +57,8 @@ function App() {
                 {/* Protected routes (with auth check) */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/home" element={<Home />} />
-                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile" element={<Timeline />} />
+                  <Route path="/profile/me" element={<Profile />} />
                   <Route path="/collective" element={<Collective /> } />
                   <Route path="/gallery" element={<GalleryIndex />} />
                 </Route>

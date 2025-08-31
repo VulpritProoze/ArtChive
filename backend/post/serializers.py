@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from core.models import User
 from common.utils import choices
 from PIL import Image 
+from .pagination import CommentPagination
 from .models import *
 import io
         

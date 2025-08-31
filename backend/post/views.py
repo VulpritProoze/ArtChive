@@ -1,10 +1,14 @@
-from rest_framework import generics
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     PostViewSerializer, PostCreateUpdateSerializer, PostDeleteSerializer,
-    CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer
+    CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
 )
 from core.permissions import IsOwnerOrSuperAdmin
+from core.models import User
 from .models import Post, Comment, NovelPost
 from .pagination import PostPagination, CommentPagination
 
@@ -26,14 +30,60 @@ class PostListView(generics.ListAPIView):
     - /posts/?page=2 (next 10 posts)
     - /posts/?page_size=20 (20 posts per page)
     """
-    queryset = Post.objects.prefetch_related(
+    serializer_class = PostViewSerializer
+    pagination_class = PostPagination  
+
+    def get_queryset(self):
+        return Post.objects.prefetch_related(
             'novel_post',
         ).select_related(
             'author',
-        )
+        ).order_by('-created_at')
+
+class OwnPostsListView(generics.ListAPIView):
+    """
+    Fetch user's list of posts
+    Example URLs:
+    - /posts/me/1/ (first 10 posts)
+    - /posts/me/1/?page=2 (next 10 posts)
+    - /posts/me/1/?page_size=20 (20 posts per page)
+    """
     serializer_class = PostViewSerializer
-    pagination_class = PostPagination  
+    pagination_class = PostPagination
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user_id = self.kwargs['id']
+        user = get_object_or_404(User, id=user_id)
+
+        return Post.objects.filter(author=user).prefetch_related(
+            'novel_post',
+        ).select_related(
+            'author',
+        ).order_by('-created_at')
     
+class PostCommentsView(APIView):    
+    def get(self, request, post_id):
+        try:
+            # Get the post to ensure it exists
+            post = Post.objects.get(post_id=post_id)
+            
+            # Filter comments by post_id and order them
+            comments = Comment.objects.filter(post_id=post_id).order_by('-created_at')
+            
+            # Serialize the comments
+            serializer = CommentSerializer(comments, many=True)
+            
+            return Response({
+                'results': serializer.data,
+                'count': comments.count()
+            })
+            
+        except Post.DoesNotExist:
+            return Response(
+                {'error': 'Post not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 class PostDetailView(generics.RetrieveAPIView):
     queryset = Post.objects.prefetch_related(

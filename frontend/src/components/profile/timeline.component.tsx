@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { post } from '@lib/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
-import { LogoutButton } from '@components/account/logout';
 import type { Post, Comment } from '@types';
 import axios from 'axios';
 
-const Index: React.FC = () => {
+const Timeline: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
@@ -16,10 +15,10 @@ const Index: React.FC = () => {
   const [showPostForm, setShowPostForm] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [expandedPost, setExpandedPost] = useState<string | null>(null)
-  const [postComments, setPostComments] = useState<{ [postId: string]: Comment[] }>({})
-  const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolean}>({});
-  
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [postComments, setPostComments] = useState<{[postId: string]: Comment[]}>({});
+const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolean}>({});
+
   const { user, getUserId } = useAuth();
 
   // Pagination states
@@ -28,9 +27,9 @@ const Index: React.FC = () => {
     totalCount: 0,
     hasNext: false,
     hasPrevious: false
-  })
+  });
 
-  const observerTarget = useRef<HTMLDivElement>(null)
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Form states
   const [postForm, setPostForm] = useState({
@@ -53,19 +52,28 @@ const Index: React.FC = () => {
   ) => {
     try {
       if (append) {
-        setLoadingMore(true)
+        setLoadingMore(true);
       } else {
-        setLoading(true)
+        setLoading(true);
       }
 
-      const response = await post.get('/', {
-        params: { page, page_size: 10 }
+      if (user == null) {
+        toast.error('You must be logged in to fetch posts')
+        return
+      }
+
+      // Only fetch posts for the current user
+      const response = await post.get(`me/${user.id}/`, {
+        params: { 
+          page, 
+          page_size: 10
+        }
       });
 
       if (append) {
         setPosts(prev => [...prev, ...response.data.results]);
       } else {
-        setPosts(response.data.results || [])
+        setPosts(response.data.results || []);
       }
 
       setPagination(prev => ({
@@ -74,49 +82,41 @@ const Index: React.FC = () => {
         totalCount: response.data.count,
         hasNext: response.data.next !== null,
         hasPrevious: response.data.previous !== null
-      }))
+      }));
     } catch (error) {
       toast.error('Failed to fetch posts');
       console.error(error);
     } finally {
       setLoading(false);
-      setLoadingMore(false)
+      setLoadingMore(false);
     }
-  }, []);
+  }, [getUserId]);
 
   // Infinite scrolling behavior
   useEffect(() => {
-    let isFetching = false
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
           pagination.hasNext &&
-          !loadingMore && !loading &&
-          !isFetching
+          !loadingMore && !loading
         ) {
-          isFetching = true
-          fetchPosts(pagination.currentPage + 1, true)
-            .finally(() => {
-              isFetching = false  // Reset flag after fetch completes
-            })
-          console.log(pagination)
+          fetchPosts(pagination.currentPage + 1, true);
         }
-      }, { threshold: 0.5 }
-    )
+      }, { threshold: 1.0 }
+    );
 
     if (observerTarget.current) {
-      observer.observe(observerTarget.current)
+      observer.observe(observerTarget.current);
     }
 
     return () => {
       if (observerTarget.current) {
-        observer.unobserve(observerTarget.current)
+        observer.unobserve(observerTarget.current);
       }
       observer.disconnect()
-    }
-  }, [pagination.hasNext, loadingMore, loading, fetchPosts, pagination.currentPage])
+    };
+  }, [pagination.hasNext, loadingMore, loading, fetchPosts]);
 
   const fetchCommentsForPost = useCallback(async (postId: string) => {
     if (postComments[postId]) return; // Don't fetch if already loaded
@@ -140,17 +140,12 @@ const Index: React.FC = () => {
   }, [postComments]);
 
   useEffect(() => {
-    setLoading(false)
-    setLoadingMore(false)
-  }, [])
-
-  useEffect(() => {
     fetchPosts(1);
   }, [fetchPosts]);
 
   const refreshPosts = useCallback(() => {
-    fetchPosts(1, false)
-  }, [fetchPosts])
+    fetchPosts(1, false);
+  }, [fetchPosts]);
 
   // Handle form changes
   const handlePostFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -255,7 +250,7 @@ const Index: React.FC = () => {
         chapters: [{ chapter: '', content: '' }]
       });
       
-      refreshPosts()
+      refreshPosts();
     } catch (error) {
       handleApiError(error, `Failed to ${editing ? 'update' : 'create'} post`);
     }
@@ -321,7 +316,7 @@ const Index: React.FC = () => {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkAuth()) return;
-
+  
     try {
       if (editing) {
         await post.put(`/comment/update/${selectedComment?.comment_id}/`, {
@@ -361,11 +356,11 @@ const Index: React.FC = () => {
   };
 
   const setupNewComment = (postId: string) => {
-    setCommentForm({ text: '', post_id: postId })
-    setEditing(false)
-    setSelectedComment(null)
-    setShowCommentForm(true)
-  }
+    setCommentForm({ text: '', post_id: postId });
+    setEditing(false);
+    setSelectedComment(null);
+    setShowCommentForm(true);
+  };
 
   // Setup edit forms
   const setupEditPost = (postItem: Post) => {
@@ -565,16 +560,11 @@ const Index: React.FC = () => {
   return (
     <div className="container mx-auto p-4">
       <div className='mb-8'>
-        <h1 className="text-3xl font-bold">Home Page Mock-up</h1>
-        <h2>Posts + Comments</h2>
+        <h1 className="text-3xl font-bold">Timeline</h1>
+        <h2>Your Posts</h2>
       </div>
-      <p className='text-xl font-semibold'>Welcome, {user?.username || 'Guest'}!</p>
-      <nav className='flex-col flex gap-1 mb-2'>
-        <Link to='/profile' className='btn btn-accent'>Profile</Link>
-        <Link to='/collective' className='btn btn-accent'>Collective</Link>
-        <Link to='/gallery' className='btn btn-accent'>Gallery</Link>
-      </nav>
-      <LogoutButton />
+      
+      <Link to='/profile/me' className='btn btn-secondary mb-4'>Edit profile</Link>
       
       {/* Post Form Modal */}
       {showPostForm && (
@@ -680,7 +670,7 @@ const Index: React.FC = () => {
       {/* Posts Section */}
       <div className="mb-12">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Posts</h2>
+          <h2 className="text-2xl font-bold">Your Posts</h2>
           <button className="btn btn-primary" onClick={() => setShowPostForm(true)}>
             Create Post
           </button>
@@ -779,7 +769,7 @@ const Index: React.FC = () => {
         
         {posts.length === 0 && !loading && (
           <div className="text-center py-8 text-gray-500">
-            No posts found. Be the first to create one!
+            No posts found. Create your first post!
           </div>
         )}
         
@@ -789,4 +779,4 @@ const Index: React.FC = () => {
   );
 };
 
-export default Index;
+export default Timeline;

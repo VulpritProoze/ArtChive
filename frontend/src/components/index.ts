@@ -12,7 +12,10 @@ export { default as Register } from './account/register.component'
 
 // Home
 export { default as Home } from './home/index.component'
-export { default as Profile } from './profile/index.component'
+
+// Profile
+export { default as Profile } from './profile/profile-section.component'
+export { default as Timeline } from './profile/timeline.component'
 
 // Collective
 export { default as Collective } from './collective/index.component'
