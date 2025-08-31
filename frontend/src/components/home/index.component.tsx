@@ -30,6 +30,15 @@ const Index: React.FC = () => {
     hasPrevious: false
   })
 
+  const [commentPagination, setCommentPagination] = useState<{
+    [postId: string]: {
+      currentPage: number;
+      hasNext: boolean;
+      hasPrevious: boolean;
+      totalCount: number;
+    }
+  }>({});
+
   const observerTarget = useRef<HTMLDivElement>(null)
 
   // Form states
@@ -118,22 +127,37 @@ const Index: React.FC = () => {
     }
   }, [pagination.hasNext, loadingMore, loading, fetchPosts, pagination.currentPage])
 
-  const fetchCommentsForPost = useCallback(async (postId: string) => {
-    if (postComments[postId]) return; // Don't fetch if already loaded
-    
+  const fetchCommentsForPost = useCallback(async (postId: string, page: number = 1, append: boolean = false) => {
     try {
       setLoadingComments(prev => ({ ...prev, [postId]: true }));
       
-      const response = await post.get(`/comment/${postId}/`);
+      const response = await post.get(`/comment/${postId}/`, {
+        params: { page, page_size: 10 }
+      });
+      
+      // Handle paginated response
+      const commentsData = response.data.results || [];
+      const paginationData = {
+        currentPage: page,
+        hasNext: response.data.next !== null,
+        hasPrevious: response.data.previous !== null,
+        totalCount: response.data.count || commentsData.length
+      };
+      
       setPostComments(prev => ({
         ...prev,
-        [postId]: response.data.results || response.data || []
+        [postId]: append 
+          ? [...(prev[postId] || []), ...commentsData]
+          : commentsData
+      }));
+      
+      setCommentPagination(prev => ({
+        ...prev,
+        [postId]: paginationData
       }));
     } catch (error) {
       toast.error(`Failed to fetch comments for post ${postId}`);
       console.error(error);
-      // Set empty array on error to prevent repeated attempts
-      setPostComments(prev => ({ ...prev, [postId]: [] }));
     } finally {
       setLoadingComments(prev => ({ ...prev, [postId]: false }));
     }
@@ -311,17 +335,24 @@ const Index: React.FC = () => {
 
   const toggleComments = async (postId: string) => {
     if (expandedPost !== postId) {
-      // Fetch comments when expanding a post
-      await fetchCommentsForPost(postId);
+      // Fetch first page when expanding a post
+      await fetchCommentsForPost(postId, 1, false);
     }
     setExpandedPost(expandedPost === postId ? null : postId);
+  };
+
+  const loadMoreComments = async (postId: string) => {
+    const pagination = commentPagination[postId];
+    if (pagination && pagination.hasNext) {
+      await fetchCommentsForPost(postId, pagination.currentPage + 1, true);
+    }
   };
 
   // Comment operations
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkAuth()) return;
-
+  
     try {
       if (editing) {
         await post.put(`/comment/update/${selectedComment?.comment_id}/`, {
@@ -337,9 +368,9 @@ const Index: React.FC = () => {
       setSelectedComment(null);
       setCommentForm({ text: '', post_id: '' });
       
-      // Refresh comments for the specific post
+      // Refresh comments for the specific post (first page)
       if (commentForm.post_id) {
-        await fetchCommentsForPost(commentForm.post_id);
+        await fetchCommentsForPost(commentForm.post_id, 1, false);
       }
     } catch (error) {
       handleApiError(error, `Failed to ${editing ? 'update' : 'create'} comment`);
@@ -353,8 +384,9 @@ const Index: React.FC = () => {
       await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
       toast.success('Comment deleted successfully');
       
-      // Refresh comments for the specific post
-      await fetchCommentsForPost(postId);
+      // Refresh comments for the specific post (current page)
+      const currentPage = commentPagination[postId]?.currentPage || 1;
+      await fetchCommentsForPost(postId, currentPage, false);
     } catch (error) {
       handleApiError(error, 'Failed to delete comment');
     }
@@ -505,12 +537,13 @@ const Index: React.FC = () => {
   const renderComments = (postId: string) => {
     const comments = getCommentsForPost(postId);
     const isLoading = loadingComments[postId];
+    const pagination = commentPagination[postId];
     
     return (
       <div className="mt-4 border-t pt-4">
         <div className="flex justify-between items-center mb-3">
           <h4 className="font-semibold">
-            Comments ({isLoading ? '...' : comments.length})
+            Comments ({isLoading ? '...' : pagination?.totalCount || comments.length})
           </h4>
           <button 
             className="btn btn-sm btn-primary"
@@ -520,7 +553,7 @@ const Index: React.FC = () => {
           </button>
         </div>
         
-        {isLoading ? (
+        {isLoading && comments.length === 0 ? (
           <div className="text-center py-4">
             <div className="loading loading-spinner loading-sm"></div>
             <span className="ml-2">Loading comments...</span>
@@ -528,35 +561,57 @@ const Index: React.FC = () => {
         ) : comments.length === 0 ? (
           <p className="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
         ) : (
-          <div className="space-y-3">
-            {comments.map(comment => (
-              <div key={comment.comment_id} className="bg-base-200 p-3 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-sm">{comment.author_username}</p>
-                    <p className="text-sm">{comment.text}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex space-x-1">
-                    <button 
-                      className="btn btn-xs btn-secondary"
-                      onClick={() => setupEditComment(comment)}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      className="btn btn-xs btn-error"
-                      onClick={() => deleteComment(comment.comment_id, postId)}
-                    >
-                      Delete
-                    </button>
+          <>
+            <div className="space-y-3">
+              {comments.map(comment => (
+                <div key={comment.comment_id} className="bg-base-200 p-3 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-sm">{comment.author_username}</p>
+                      <p className="text-sm">{comment.text}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex space-x-1">
+                      <button 
+                        className="btn btn-xs btn-secondary"
+                        onClick={() => setupEditComment(comment)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="btn btn-xs btn-error"
+                        onClick={() => deleteComment(comment.comment_id, postId)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Load More Button */}
+            {pagination?.hasNext && (
+              <div className="mt-4 text-center">
+                <button
+                  className="btn btn-sm btn-outline"
+                  onClick={() => loadMoreComments(postId)}
+                  disabled={loadingComments[postId]}
+                >
+                  {loadingComments[postId] ? (
+                    <>
+                      <div className="loading loading-spinner loading-xs"></div>
+                      Loading more...
+                    </>
+                  ) : (
+                    `Load More (${comments.length} of ${pagination.totalCount})`
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -741,23 +796,24 @@ const Index: React.FC = () => {
 
                 {/* Comments Toggle Button */}
                 <div className="mt-4">
-                <button
-                  className="btn btn-sm btn-outline w-full"
-                  onClick={() => toggleComments(postItem.post_id)}
-                  disabled={loadingComments[postItem.post_id]}
-                >
-                  {loadingComments[postItem.post_id] ? (
-                    <>
-                      <div className="loading loading-spinner loading-xs"></div>
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      {expandedPost === postItem.post_id ? 'Hide' : 'Show'} Comments (
-                      {getCommentsForPost(postItem.post_id).length})
-                    </>
-                  )}
-                </button>
+                  <button
+                    className="btn btn-sm btn-outline w-full"
+                    onClick={() => toggleComments(postItem.post_id)}
+                    disabled={loadingComments[postItem.post_id]}
+                  >
+                    {loadingComments[postItem.post_id] ? (
+                      <>
+                        <div className="loading loading-spinner loading-xs"></div>
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        {expandedPost === postItem.post_id ? 'Hide' : 'Show'} Comments (
+                        {commentPagination[postItem.post_id]?.totalCount || 
+                        getCommentsForPost(postItem.post_id).length})
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Comments Section */}

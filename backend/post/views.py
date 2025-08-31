@@ -62,28 +62,15 @@ class OwnPostsListView(generics.ListAPIView):
             'author',
         ).order_by('-created_at')
     
-class PostCommentsView(APIView):    
-    def get(self, request, post_id):
-        try:
-            # Get the post to ensure it exists
-            post = Post.objects.get(post_id=post_id)
-            
-            # Filter comments by post_id and order them
-            comments = Comment.objects.filter(post_id=post_id).order_by('-created_at')
-            
-            # Serialize the comments
-            serializer = CommentSerializer(comments, many=True)
-            
-            return Response({
-                'results': serializer.data,
-                'count': comments.count()
-            })
-            
-        except Post.DoesNotExist:
-            return Response(
-                {'error': 'Post not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+class PostCommentsView(generics.ListAPIView):
+    serializer_class = CommentSerializer
+    pagination_class = CommentPagination
+    
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        # Verify post exists and get comments
+        post = get_object_or_404(Post, post_id=post_id)
+        return Comment.objects.filter(post_id=post_id).order_by('-created_at')
 
 class PostDetailView(generics.RetrieveAPIView):
     queryset = Post.objects.prefetch_related(

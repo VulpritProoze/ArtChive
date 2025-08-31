@@ -15,9 +15,9 @@ const Timeline: React.FC = () => {
   const [showPostForm, setShowPostForm] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [expandedPost, setExpandedPost] = useState<string | null>(null);
-  const [postComments, setPostComments] = useState<{[postId: string]: Comment[]}>({});
-const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolean}>({});
+  const [expandedPost, setExpandedPost] = useState<string | null>(null)
+  const [postComments, setPostComments] = useState<{ [postId: string]: Comment[] }>({})
+  const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolean}>({});
 
   const { user, getUserId } = useAuth();
 
@@ -28,6 +28,15 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
     hasNext: false,
     hasPrevious: false
   });
+
+  const [commentPagination, setCommentPagination] = useState<{
+      [postId: string]: {
+        currentPage: number;
+        hasNext: boolean;
+        hasPrevious: boolean;
+        totalCount: number;
+      }
+    }>({});
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -118,26 +127,41 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
     };
   }, [pagination.hasNext, loadingMore, loading, fetchPosts]);
 
-  const fetchCommentsForPost = useCallback(async (postId: string) => {
-    if (postComments[postId]) return; // Don't fetch if already loaded
-    
-    try {
-      setLoadingComments(prev => ({ ...prev, [postId]: true }));
-      
-      const response = await post.get(`/comment/${postId}/`);
-      setPostComments(prev => ({
-        ...prev,
-        [postId]: response.data.results || response.data || []
-      }));
-    } catch (error) {
-      toast.error(`Failed to fetch comments for post ${postId}`);
-      console.error(error);
-      // Set empty array on error to prevent repeated attempts
-      setPostComments(prev => ({ ...prev, [postId]: [] }));
-    } finally {
-      setLoadingComments(prev => ({ ...prev, [postId]: false }));
-    }
-  }, [postComments]);
+  const fetchCommentsForPost = useCallback(async (postId: string, page: number = 1, append: boolean = false) => {
+      try {
+        setLoadingComments(prev => ({ ...prev, [postId]: true }));
+        
+        const response = await post.get(`/comment/${postId}/`, {
+          params: { page, page_size: 10 }
+        });
+        
+        // Handle paginated response
+        const commentsData = response.data.results || [];
+        const paginationData = {
+          currentPage: page,
+          hasNext: response.data.next !== null,
+          hasPrevious: response.data.previous !== null,
+          totalCount: response.data.count || commentsData.length
+        };
+        
+        setPostComments(prev => ({
+          ...prev,
+          [postId]: append 
+            ? [...(prev[postId] || []), ...commentsData]
+            : commentsData
+        }));
+        
+        setCommentPagination(prev => ({
+          ...prev,
+          [postId]: paginationData
+        }));
+      } catch (error) {
+        toast.error(`Failed to fetch comments for post ${postId}`);
+        console.error(error);
+      } finally {
+        setLoadingComments(prev => ({ ...prev, [postId]: false }));
+      }
+    }, [postComments]);
 
   useEffect(() => {
     fetchPosts(1);
@@ -306,54 +330,62 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
 
   const toggleComments = async (postId: string) => {
     if (expandedPost !== postId) {
-      // Fetch comments when expanding a post
-      await fetchCommentsForPost(postId);
+      // Fetch first page when expanding a post
+      await fetchCommentsForPost(postId, 1, false);
     }
     setExpandedPost(expandedPost === postId ? null : postId);
   };
 
-  // Comment operations
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkAuth()) return;
-  
-    try {
-      if (editing) {
-        await post.put(`/comment/update/${selectedComment?.comment_id}/`, {
-          text: commentForm.text
-        });
-      } else {
-        await post.post('/comment/create/', commentForm);
-      }
-      
-      toast.success(`Comment ${editing ? 'updated' : 'created'} successfully`);
-      setShowCommentForm(false);
-      setEditing(false);
-      setSelectedComment(null);
-      setCommentForm({ text: '', post_id: '' });
-      
-      // Refresh comments for the specific post
-      if (commentForm.post_id) {
-        await fetchCommentsForPost(commentForm.post_id);
-      }
-    } catch (error) {
-      handleApiError(error, `Failed to ${editing ? 'update' : 'create'} comment`);
+  const loadMoreComments = async (postId: string) => {
+    const pagination = commentPagination[postId];
+    if (pagination && pagination.hasNext) {
+      await fetchCommentsForPost(postId, pagination.currentPage + 1, true);
     }
   };
 
-  const deleteComment = async (commentId: string, postId: string) => {
-    if (!window.confirm('Are you sure you want to delete this comment?') || !checkAuth()) return;
+  // Comment operations
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!checkAuth()) return;
     
-    try {
-      await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
-      toast.success('Comment deleted successfully');
+      try {
+        if (editing) {
+          await post.put(`/comment/update/${selectedComment?.comment_id}/`, {
+            text: commentForm.text
+          });
+        } else {
+          await post.post('/comment/create/', commentForm);
+        }
+        
+        toast.success(`Comment ${editing ? 'updated' : 'created'} successfully`);
+        setShowCommentForm(false);
+        setEditing(false);
+        setSelectedComment(null);
+        setCommentForm({ text: '', post_id: '' });
+        
+        // Refresh comments for the specific post (first page)
+        if (commentForm.post_id) {
+          await fetchCommentsForPost(commentForm.post_id, 1, false);
+        }
+      } catch (error) {
+        handleApiError(error, `Failed to ${editing ? 'update' : 'create'} comment`);
+      }
+    };
+  
+    const deleteComment = async (commentId: string, postId: string) => {
+      if (!window.confirm('Are you sure you want to delete this comment?') || !checkAuth()) return;
       
-      // Refresh comments for the specific post
-      await fetchCommentsForPost(postId);
-    } catch (error) {
-      handleApiError(error, 'Failed to delete comment');
-    }
-  };
+      try {
+        await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
+        toast.success('Comment deleted successfully');
+        
+        // Refresh comments for the specific post (current page)
+        const currentPage = commentPagination[postId]?.currentPage || 1;
+        await fetchCommentsForPost(postId, currentPage, false);
+      } catch (error) {
+        handleApiError(error, 'Failed to delete comment');
+      }
+    };
 
   const setupNewComment = (postId: string) => {
     setCommentForm({ text: '', post_id: postId });
@@ -500,12 +532,13 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
   const renderComments = (postId: string) => {
     const comments = getCommentsForPost(postId);
     const isLoading = loadingComments[postId];
+    const pagination = commentPagination[postId];
     
     return (
       <div className="mt-4 border-t pt-4">
         <div className="flex justify-between items-center mb-3">
           <h4 className="font-semibold">
-            Comments ({isLoading ? '...' : comments.length})
+            Comments ({isLoading ? '...' : pagination?.totalCount || comments.length})
           </h4>
           <button 
             className="btn btn-sm btn-primary"
@@ -515,7 +548,7 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
           </button>
         </div>
         
-        {isLoading ? (
+        {isLoading && comments.length === 0 ? (
           <div className="text-center py-4">
             <div className="loading loading-spinner loading-sm"></div>
             <span className="ml-2">Loading comments...</span>
@@ -523,35 +556,57 @@ const [loadingComments, setLoadingComments] = useState<{[postId: string]: boolea
         ) : comments.length === 0 ? (
           <p className="text-gray-500 text-sm">No comments yet. Be the first to comment!</p>
         ) : (
-          <div className="space-y-3">
-            {comments.map(comment => (
-              <div key={comment.comment_id} className="bg-base-200 p-3 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-sm">{comment.author_username}</p>
-                    <p className="text-sm">{comment.text}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex space-x-1">
-                    <button 
-                      className="btn btn-xs btn-secondary"
-                      onClick={() => setupEditComment(comment)}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      className="btn btn-xs btn-error"
-                      onClick={() => deleteComment(comment.comment_id, postId)}
-                    >
-                      Delete
-                    </button>
+          <>
+            <div className="space-y-3">
+              {comments.map(comment => (
+                <div key={comment.comment_id} className="bg-base-200 p-3 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-sm">{comment.author_username}</p>
+                      <p className="text-sm">{comment.text}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex space-x-1">
+                      <button 
+                        className="btn btn-xs btn-secondary"
+                        onClick={() => setupEditComment(comment)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="btn btn-xs btn-error"
+                        onClick={() => deleteComment(comment.comment_id, postId)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Load More Button */}
+            {pagination?.hasNext && (
+              <div className="mt-4 text-center">
+                <button
+                  className="btn btn-sm btn-outline"
+                  onClick={() => loadMoreComments(postId)}
+                  disabled={loadingComments[postId]}
+                >
+                  {loadingComments[postId] ? (
+                    <>
+                      <div className="loading loading-spinner loading-xs"></div>
+                      Loading more...
+                    </>
+                  ) : (
+                    `Load More (${comments.length} of ${pagination.totalCount})`
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     );
