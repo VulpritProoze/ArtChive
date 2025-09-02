@@ -1,3 +1,8 @@
-from django.shortcuts import render
+from rest_framework.generics import ListAPIView
+from .serializers import CollectiveSerializer
+from .pagination import CollectiveDetailsPagination
+from .models import Collective
 
-# Create your views here.
+class CollectiveDetailsView(ListAPIView):
+    queryset = Collective.objects.all()
+    serializer_class = CollectiveSerializer

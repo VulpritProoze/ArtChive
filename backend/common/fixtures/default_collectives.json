@@ -1,0 +1,22 @@
+[
+    {
+        "model": "collective.collective",
+        "pk": "00000000-0000-0000-0000-000000000001",
+        "fields": {
+            "title": "public",
+            "status": "public",
+            "description": "This post is a public post",
+            "rules": [
+                "Be respectful and kind to others.",
+                "No spam or self-promotion.",
+                "Stay on topic and keep discussions relevant.",
+                "No hate speech or discriminatory language.",
+                "Respect privacy — no sharing personal information without consent.",
+                "Follow Facebook Community Guidelines."
+            ],
+            "artist_types": [],
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z"
+        }
+    }
+]
