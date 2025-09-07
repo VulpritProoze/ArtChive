@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from core.models import User
-from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
+from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS, CHANNEL_TYPE_CHOICES
 import uuid
 
 class Collective(models.Model):
@@ -24,6 +24,7 @@ class CollectiveMember(models.Model):
 class Channel(models.Model):
     channel_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)
+    channel_type = models.CharField(max_length=50, choices=CHANNEL_TYPE_CHOICES, default='post_channel')
     description = models.CharField(max_length=4096)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -84,6 +84,7 @@ export default function Index() {
             <div key={collective.collective_id} className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <h2 className="card-title">{collective.title}</h2>
+                <p>{collective.collective_id}</p>
                 <p>{collective.description}</p>
                 
                 <div className="my-2">
@@ -110,8 +111,8 @@ export default function Index() {
                     <div className="text-sm font-semibold mb-1">Channels:</div>
                     <div className="flex flex-wrap gap-1">
                       {collective.channels.map((channel) => (
-                        <span key={channel.channel_id} className="badge badge-info">
-                          {channel.title}
+                        <span key={channel.channel_id} className="badge badge-info h-12">
+                          {channel.title}, {channel.channel_id}
                         </span>
                       ))}
                     </div>

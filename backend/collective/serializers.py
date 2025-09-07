@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
-from .models import Collective, Channel
+from post.serializers import PostCreateUpdateSerializer
+from post.models import Post
+from .models import Collective, Channel, CollectiveMember
 
 class CollectiveSerializer(ModelSerializer):
     class Meta:
@@ -119,3 +121,24 @@ class ChannelCreateSerializer(ModelSerializer):
 
     def create(self, validated_data):
         return Channel.objects.create(**validated_data)
+
+class CollectiveMemberSerializer(ModelSerializer):
+    class Meta:
+        model = CollectiveMember
+        fields = '__all__'
+
+class InsideCollectiveViewSerializer(ModelSerializer):
+    channels = CollectiveChannelSerializer(source='collective_channel', many=True, read_only=True)
+    members = CollectiveMemberSerializer(source='collective_member', many=True, read_only=True)
+    class Meta:
+        model = Collective
+        fields = '__all__'
+
+class InsideCollectivePostsViewSerializer(ModelSerializer):
+    class Meta:
+        model = Post
+
+class InsideCollectivePostsCreateUpdateSerializer(PostCreateUpdateSerializer):
+    class Meta:
+        model = Post
+        fields = '__all__'

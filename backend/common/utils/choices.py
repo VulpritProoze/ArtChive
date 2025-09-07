@@ -23,6 +23,12 @@ COLLECTIVE_STATUS = (
     ('archive', 'archive'),
 )
 
+CHANNEL_TYPE_CHOICES = (
+    ('post_channel', 'Post Channels'),
+    ('media_channel', 'Media Channels'),
+    ('event_channel', 'Event Channels'),
+)
+
 # Must be a list
 FACEBOOK_RULES = [
     "Be respectful and kind to others.",

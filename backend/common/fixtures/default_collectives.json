@@ -18,5 +18,19 @@
             "created_at": "2025-01-01T00:00:00Z",
             "updated_at": "2025-01-01T00:00:00Z"
         }
+    },
+    {
+        "model": "collective.channel",
+        "pk": "00000000-0000-0000-0000-000000000001",
+        "fields": {
+            "title": "general",
+            "channel_type": "post_channel",
+            "description": "This post is a public post",
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+            "collective": "00000000-0000-0000-0000-000000000001"
+        }
     }
 ]
+
+    

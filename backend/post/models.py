@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import User
-from collective.models import Collective
+from collective.models import Collective, Channel
 from common.utils import choices
 import uuid
     
@@ -13,7 +13,7 @@ class Post(models.Model):
     video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True)
     post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
-    collective = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of first collective 'public'
+    channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
 
 class NovelPost(models.Model):
     chapter = models.PositiveIntegerField()

@@ -1,8 +1,10 @@
-from rest_framework.generics import ListAPIView, CreateAPIView
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
-from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer
-from .pagination import CollectiveDetailsPagination
-from .models import Collective, Channel
+from post.models import Post
+from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer
+from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
+from .models import Collective, Channel, CollectiveMember
 
 class CollectiveDetailsView(ListAPIView):
     serializer_class = CollectiveDetailsSerializer
@@ -51,3 +53,38 @@ class ChannelCreateView(CreateAPIView):
     queryset = Channel.objects.all()
     serializer_class = ChannelCreateSerializer
     permission_classes = [IsAuthenticated]
+
+class InsideCollectiveView(RetrieveAPIView):
+    """
+    Fetch needed details to display for a collective.
+    Used for 'collective/<id>/ sidebar and other information 
+    """
+    serializer_class = InsideCollectiveViewSerializer
+    lookup_field = 'collective_id'
+
+    def get_queryset(self):
+        return Collective.objects.prefetch_related(
+            'collective_member',
+            'collective_member__member'
+        ).all()
+
+class InsideCollectivePostsView(ListAPIView):
+    serializer_class = InsideCollectivePostsViewSerializer
+    pagination_class = CollectivePostsPagination
+
+    # Filter out posts by channel and collective
+    def get_queryset(self):
+        collective_id = self.kwargs['collective_id']
+        channel_id = self.kwargs['channel_id']
+        channel = get_object_or_404(Channel, channel_id=channel_id, collective=collective_id)
+        return Post.objects.filter(channel=channel).select_related('author').order_by('-created_at')
+
+class InsideCollectivePostsCreateView(CreateAPIView):
+    queryset = Post.objects.all()
+    serializer_class = InsideCollectivePostsCreateUpdateSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        channel_id = self.kwargs['channel_id']
+        channel = get_object_or_404(Channel, channel_id=channel_id)
+        serializer.save(author=self.request.user, channel=channel)
