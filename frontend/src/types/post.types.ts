@@ -1,9 +1,9 @@
-export type NovelPost = {
+export interface NovelPost {
   chapter: number;
   content: string;
 }
 
-export type Post = {
+export interface Post {
   post_id: string;
   description: string;
   created_at: string;
@@ -26,7 +26,7 @@ type PaginatedComments = {
   results?: Comment[];
 }
 
-export type Comment = {
+export interface Comment {
   comment_id: string;
   text: string;
   created_at: string;
@@ -37,7 +37,7 @@ export type Comment = {
   title: string;
 }
 
-export type PostsResponse = {
+export interface PostsResponse {
   count: number;
   next: string | null;
   previous: string | null;

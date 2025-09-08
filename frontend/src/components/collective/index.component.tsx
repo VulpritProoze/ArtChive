@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collective } from '@lib/api';
+import { useNavigate } from 'react-router-dom';
 
 interface Channel {
   channel_id: string;
@@ -28,6 +29,7 @@ export default function Index() {
   const [collectives, setCollectives] = useState<Collective[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate()
 
   useEffect(() => {
     const fetchCollectives = async () => {
@@ -50,6 +52,10 @@ export default function Index() {
 
     fetchCollectives();
   }, []);
+
+  const handleCollectiveClick = (collectiveId: string) => {
+    navigate(`/collective/${collectiveId}`)
+  }
 
   if (loading) {
     return (
@@ -81,7 +87,10 @@ export default function Index() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {collectives.map((collective) => (
-            <div key={collective.collective_id} className="card bg-base-100 shadow-xl">
+            <div 
+              key={collective.collective_id} 
+              className="card bg-base-100 shadow-xl hover:cursor-pointer"
+              onClick={() => handleCollectiveClick(collective.collective_id)}>
               <div className="card-body">
                 <h2 className="card-title">{collective.title}</h2>
                 <p>{collective.collective_id}</p>

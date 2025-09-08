@@ -33,6 +33,11 @@ class CollectiveCreateView(CreateAPIView):
             "graphic design"
         ]
     }
+    -> Feature addition required:
+    1. On create, also create the ff. channels:
+    a. general, post type: post_channel
+    b. audio, post type: media_channel
+    c. video, post type: media_channel
     """
     queryset = Collective.objects.all()
     serializer_class = CollectiveCreateSerializer
@@ -69,17 +74,22 @@ class InsideCollectiveView(RetrieveAPIView):
         ).all()
 
 class InsideCollectivePostsView(ListAPIView):
+    """
+    Need a permissions check: If user is joined in related collective
+    """
     serializer_class = InsideCollectivePostsViewSerializer
     pagination_class = CollectivePostsPagination
 
     # Filter out posts by channel and collective
     def get_queryset(self):
-        collective_id = self.kwargs['collective_id']
         channel_id = self.kwargs['channel_id']
-        channel = get_object_or_404(Channel, channel_id=channel_id, collective=collective_id)
+        channel = get_object_or_404(Channel, channel_id=channel_id)
         return Post.objects.filter(channel=channel).select_related('author').order_by('-created_at')
 
 class InsideCollectivePostsCreateView(CreateAPIView):
+    """
+    Need a permissions check: If user is joined in related collective
+    """
     queryset = Post.objects.all()
     serializer_class = InsideCollectivePostsCreateUpdateSerializer
     permission_classes = [IsAuthenticated]

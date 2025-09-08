@@ -137,6 +137,7 @@ class InsideCollectiveViewSerializer(ModelSerializer):
 class InsideCollectivePostsViewSerializer(ModelSerializer):
     class Meta:
         model = Post
+        fields = '__all__'
 
 class InsideCollectivePostsCreateUpdateSerializer(PostCreateUpdateSerializer):
     class Meta:
