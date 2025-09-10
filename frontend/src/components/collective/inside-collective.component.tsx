@@ -17,7 +17,6 @@ interface Collective {
   members: any[];
   title: string;
   description: string;
-  status: string;
   rules: string[];
   artist_types: string[];
   created_at: string;
@@ -617,9 +616,6 @@ const CollectiveHome = () => {
             </div>
 
             <div className="flex items-center gap-4 text-sm">
-              <span className="badge badge-outline">
-                {collectiveData.status}
-              </span>
               <span>
                 Created:{" "}
                 {new Date(collectiveData.created_at).toLocaleDateString()}

@@ -4,13 +4,20 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import FileExtensionValidator
 from datetime import date
+from collective.models import CollectiveMember
 from .models import User, Artist
 
 class UserSerializer(ModelSerializer):
+    collective_memberships = serializers.SerializerMethodField()
+
     class Meta:
         model = User 
-        fields = ['id', 'email', 'username']
-        read_only_fields = ['id', 'email', 'username']
+        fields = ['id', 'email', 'username', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'collective_memberships']
+
+    def get_collective_memberships(self, obj):
+        # Return a list of collective_ids user has joined
+        return list(CollectiveMember.objects.filter(member=obj).values_list('collective_id', flat=True))
 
 class LoginSerializer(Serializer):
     email = serializers.EmailField(required=True)

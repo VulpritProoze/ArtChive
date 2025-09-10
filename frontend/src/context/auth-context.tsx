@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from "react";
-import api from '@lib/api'
+import api, { collective } from '@lib/api'
 import type { AuthContextType, User } from "@types";
 import { isAxiosError } from "axios";
 import { toast } from "react-toastify";
@@ -28,6 +28,15 @@ export const AuthProvider = ({ children }) => {
       throw error
     }
   };
+
+  // Check if user is a collective member of a certain collective (no need for async)
+  // Have to add later, a backend check jd that user is a collective member.
+  // Current implementation relies on auth/me stored user data 
+  // Never trust the user!
+  const checkIfCollectiveMember = (collectiveId: string) => {
+    if (!user?.collective_memberships) return false
+    return user.collective_memberships.includes(String(collectiveId))
+  }
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -189,6 +198,7 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     refreshToken,
     getUserId,
+    checkIfCollectiveMember,
   };
 
   return (

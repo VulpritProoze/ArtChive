@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import IsCollectiveMember
 from post.models import Post
 from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
@@ -65,6 +66,7 @@ class InsideCollectiveView(RetrieveAPIView):
     Used for 'collective/<id>/ sidebar and other information 
     """
     serializer_class = InsideCollectiveViewSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
     lookup_field = 'collective_id'
 
     def get_queryset(self):
@@ -79,6 +81,7 @@ class InsideCollectivePostsView(ListAPIView):
     """
     serializer_class = InsideCollectivePostsViewSerializer
     pagination_class = CollectivePostsPagination
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
 
     # Filter out posts by channel and collective
     def get_queryset(self):
@@ -92,7 +95,7 @@ class InsideCollectivePostsCreateView(CreateAPIView):
     """
     queryset = Post.objects.all()
     serializer_class = InsideCollectivePostsCreateUpdateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
     
     def perform_create(self, serializer):
         channel_id = self.kwargs['channel_id']
