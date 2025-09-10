@@ -1,9 +1,12 @@
 from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
 from core.permissions import IsCollectiveMember
 from post.models import Post
-from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer
+from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, JoinCollectiveSerializer
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .models import Collective, Channel, CollectiveMember
 
@@ -101,3 +104,21 @@ class InsideCollectivePostsCreateView(CreateAPIView):
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
         serializer.save(author=self.request.user, channel=channel)
+
+class JoinCollectiveView(APIView):
+    serializer_class = JoinCollectiveSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = JoinCollectiveSerializer(data=request.data, context={'request': request})
+
+        if serializer.is_valid():
+            member = serializer.save()
+
+            status_code = status.HTTP_201_CREATED if member._state.adding else status.HTTP_200_OK
+
+            return Response({
+                'message': f'{request.user.username} {'joined' if status_code == 201 else 'is already a member of'} this collective',
+                'collective_id': member.collective_id.collective_id
+            }, status=status_code)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

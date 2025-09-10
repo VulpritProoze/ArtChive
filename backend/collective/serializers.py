@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, Serializer
 from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
 from post.serializers import PostCreateUpdateSerializer
 from post.models import Post
@@ -143,3 +143,23 @@ class InsideCollectivePostsCreateUpdateSerializer(PostCreateUpdateSerializer):
     class Meta:
         model = Post
         fields = '__all__'
+
+class JoinCollectiveSerializer(Serializer):
+    collective_id = serializers.CharField()
+
+    def validate_collective_id(self, value):
+        try:
+            return Collective.objects.get(collective_id=value)
+        except Collective.DoesNotExist:
+            raise serializers.ValidationError('Collective not found')
+        
+    def create(self, validated_data):
+        collective = validated_data['collective_id']
+        user = self.context['request'].user
+
+        member, created = CollectiveMember.objects.get_or_create(
+            member=user,
+            collective_id=collective
+        )
+
+        return member
