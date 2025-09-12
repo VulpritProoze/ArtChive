@@ -4,9 +4,9 @@ import { toast } from 'react-toastify'
 import { useAuth } from '@context/auth-context'
 
 export default function CollectiveProtectedRoute() {
-    const { checkIfCollectiveMember } = useAuth()
+    const { isMemberOfACollective } = useAuth()
     const { collectiveId } = useParams()
-    const isMember = checkIfCollectiveMember(collectiveId)
+    const isMember = isMemberOfACollective(collectiveId)
 
     if (isMember) {
         return <Outlet />

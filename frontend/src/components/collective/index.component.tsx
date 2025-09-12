@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { collective } from '@lib/api';
+import { useAuth } from '@context/auth-context';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify'
 
 interface Channel {
   channel_id: string;
@@ -28,8 +30,9 @@ interface ApiResponse {
 export default function Index() {
   const [collectives, setCollectives] = useState<Collective[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate()
+
+  const { isMemberOfACollective } = useAuth()
 
   useEffect(() => {
     const fetchCollectives = async () => {
@@ -37,6 +40,8 @@ export default function Index() {
         const response = await collective.get<ApiResponse>('details/');
 
         // filter out a specific collective (to not display it)
+        // This collective id is the public collective. NOT a collective.
+        // Just an indicator that it is a public post (for post)
         const filteredCollectives = response.data.results.filter(
             item => item.collective_id !== "00000000-0000-0000-0000-000000000001"
         )
@@ -44,7 +49,7 @@ export default function Index() {
         setCollectives(filteredCollectives);
         setLoading(false);
       } catch (err) {
-        setError('Failed to fetch collectives');
+        toast.error('Failed to fetch collectives');
         setLoading(false);
         console.error('Error fetching collectives:', err);
       }
@@ -52,6 +57,27 @@ export default function Index() {
 
     fetchCollectives();
   }, []);
+
+  const handleJoinCollective = async (collectiveId: string) => {
+    const userConfirmed = window.confirm('Are you sure you want to join this collective?')
+    if (userConfirmed) {
+      try {
+        const response = await collective.post('join/',
+          { 'collective_id': collectiveId },
+          { withCredentials: true }
+        )
+
+        let joined = response.data['joined']
+        if (joined) toast.success('Successfully joined this collective!')
+        else toast.info('You have already joined this collective')
+        setLoading(true)
+      } catch(err) {
+        toast.error('Error joining this collective')
+        setLoading(false)
+        console.error('Error joining collective: ', err)
+      }
+    }
+  }
 
   const handleCollectiveClick = (collectiveId: string) => {
     navigate(`/collective/${collectiveId}`)
@@ -61,17 +87,6 @@ export default function Index() {
     return (
       <div className="flex justify-center items-center h-64">
         <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="alert alert-error max-w-2xl mx-auto my-8">
-        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>{error}</span>
       </div>
     );
   }
@@ -89,18 +104,18 @@ export default function Index() {
           {collectives.map((collective) => (
             <div 
               key={collective.collective_id} 
-              className="card bg-base-100 shadow-xl hover:cursor-pointer"
-              onClick={() => handleCollectiveClick(collective.collective_id)}>
+              className="card bg-base-100 shadow-xl">
               <div className="card-body">
                 <h2 className="card-title">{collective.title}</h2>
                 <p>{collective.collective_id}</p>
                 <p>{collective.description}</p>
                 
-                <div className="my-2">
-                  <span className={`badge ${collective.status === 'public' ? 'badge-success' : 'badge-warning'}`}>
-                    {collective.status}
-                  </span>
-                </div>
+                {isMemberOfACollective(collective.collective_id) ?
+                  <button className='btn btn-primary' onClick={() => handleJoinCollective(collective.collective_id)}>Join Collective</button> :
+                  <div className='hover:cursor-not-allowed'>
+                    <button className='btn btn-primary w-full' disabled>Already joined</button>
+                  </div>
+                }
                 
                 {collective.artist_types.length > 0 && (
                   <div className="my-2">
@@ -127,6 +142,10 @@ export default function Index() {
                     </div>
                   </div>
                 )}
+
+                <div className='flex flex-row-reverse'>
+                  <button className='btn btn-primary' onClick={() => handleCollectiveClick(collective.collective_id)}>Visit Collective</button>
+                </div>
                 
                 <div className="text-xs text-gray-500 mt-2">
                   Created: {new Date(collective.created_at).toLocaleDateString()}

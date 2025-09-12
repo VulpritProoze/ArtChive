@@ -6,7 +6,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from core.permissions import IsCollectiveMember
 from post.models import Post
-from .serializers import CollectiveDetailsSerializer, CollectiveCreateSerializer, ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, JoinCollectiveSerializer
+from .serializers import (
+    CollectiveDetailsSerializer, CollectiveCreateSerializer, 
+    ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, 
+    InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, 
+    JoinCollectiveSerializer, CollectiveMemberSerializer
+)
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .models import Collective, Channel, CollectiveMember
 
@@ -114,11 +119,30 @@ class JoinCollectiveView(APIView):
 
         if serializer.is_valid():
             member = serializer.save()
+            username = request.user.username
 
-            status_code = status.HTTP_201_CREATED if member._state.adding else status.HTTP_200_OK
-
+            if member._state.adding:
+                return Response({
+                    'message': f'{username} successfully joined this collective',
+                    'collective_id': member.collective_id.collective_id,
+                    'joined': True
+                }, status=status.HTTP_201_CREATED)
             return Response({
-                'message': f'{request.user.username} {'joined' if status_code == 201 else 'is already a member of'} this collective',
-                'collective_id': member.collective_id.collective_id
-            }, status=status_code)
+                'message': f'{username} has already joined this collective',
+                'collective_id': member.collective_id.collective_id,
+                'joined': False,
+            }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class IsCollectiveMemberView(RetrieveAPIView):
+    queryset = CollectiveMember.objects.all()
+    lookup_field = 'collective_id'
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+    serializer_class = CollectiveMemberSerializer
+
+class CollectiveMembershipsView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CollectiveMemberSerializer
+
+    def get_queryset(self):
+        return CollectiveMember.objects.filter(member=self.request.user).all()

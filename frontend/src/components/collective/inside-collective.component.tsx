@@ -3,25 +3,8 @@ import { collective, post } from "@lib/api";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@context/auth-context";
-import type { Post, Comment } from "@types";
+import type { Post, Comment, Collective, Channel } from "@types";
 import axios from "axios";
-
-interface Channel {
-  channel_id: string;
-  title: string;
-}
-
-interface Collective {
-  collective_id: string;
-  channels: Channel[];
-  members: any[];
-  title: string;
-  description: string;
-  rules: string[];
-  artist_types: string[];
-  created_at: string;
-  updated_at: string;
-}
 
 interface CollectivePost extends Post {
   channel: string;

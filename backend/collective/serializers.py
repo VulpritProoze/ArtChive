@@ -20,6 +20,11 @@ class CollectiveChannelSerializer(ModelSerializer):
         model = Channel
         fields = ['channel_id', 'title']
 
+class CollectiveMemberSerializer(ModelSerializer):
+    class Meta:
+        model = CollectiveMember
+        fields = '__all__'
+
 class CollectiveDetailsSerializer(ModelSerializer):
     # nested serializer
     channels = CollectiveChannelSerializer(source='collective_channel', many=True, read_only=True)

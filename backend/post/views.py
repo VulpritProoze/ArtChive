@@ -9,6 +9,7 @@ from .serializers import (
 )
 from core.permissions import IsOwnerOrSuperAdmin
 from core.models import User
+from collective.models import CollectiveMember
 from .models import Post, Comment, NovelPost
 from .pagination import PostPagination, CommentPagination
 
@@ -34,11 +35,29 @@ class PostListView(generics.ListAPIView):
     pagination_class = PostPagination  
 
     def get_queryset(self):
-        return Post.objects.prefetch_related(
+        """
+        Fetch public posts, and also posts from collectives the user has joined.
+        """
+        user = self.request.user
+        queryset = Post.objects.prefetch_related(
             'novel_post',
+            'channel',
         ).select_related(
             'author',
         ).order_by('-created_at')
+
+        if user.is_authenticated:
+            joined_collectives = CollectiveMember.objects.filter(member=user).values_list('collective_id', flat=True)
+
+            return queryset.filter(
+                channel__collective__in=joined_collectives
+            ).prefetch_related(
+                'channel__collective'
+            )
+
+        return queryset.filter(
+            channel='00000000-0000-0000-0000-000000000001'
+        )
 
 class OwnPostsListView(generics.ListAPIView):
     """
