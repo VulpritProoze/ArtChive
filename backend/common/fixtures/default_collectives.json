@@ -4,7 +4,6 @@
         "pk": "00000000-0000-0000-0000-000000000001",
         "fields": {
             "title": "public",
-            "status": "public",
             "description": "This post is a public post",
             "rules": [
                 "Be respectful and kind to others.",
