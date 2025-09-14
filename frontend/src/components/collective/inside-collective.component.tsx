@@ -43,7 +43,7 @@ const CollectiveHome = () => {
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const { collectiveId } = useParams<{ collectiveId: string }>();
-  const { user, isAdminOfACollective, getUserId } = useAuth();
+  const { user, isAdminOfACollective, isMemberOfACollective, fetchCollectiveMemberDetails, getUserId } = useAuth();
 
   // Form states
   const [postForm, setPostForm] = useState({
@@ -54,6 +54,22 @@ const CollectiveHome = () => {
     chapters: [{ chapter: '', content: '' }],
     channel_id: '' // Added channel_id field
   });
+
+  const handleLeaveCollective = async (collectiveId: string) => {
+    const userConfirmed = window.confirm('Are you sure you want to leave this collective?')
+    if (userConfirmed) {
+      try {
+        await collective.delete(`${collectiveId}/leave/`, { withCredentials: true })
+        await fetchCollectiveMemberDetails()
+        toast.success('Successfully left collective')
+      } catch(err) {
+        toast.error('Failed to execute this action')
+        // I need to make a reusable error alert component
+        // that can make custom messages for every 
+        // http status codes
+      }
+    }
+  }
 
   const handleBecomeAdmin = async (collectiveId: string) => {
     const userConfirmed = window.confirm('Are you sure you want to become an admin?')
@@ -611,6 +627,15 @@ const CollectiveHome = () => {
                   <button className="btn btn-primary w-full" disabled>Already admin</button>
                 </div> :
                 <button className="btn btn-primary w-full" onClick={() => handleBecomeAdmin(collectiveData.collective_id)}>Become Admin</button>
+              }
+            </div>
+
+            <div className='pb-2'>
+              {isMemberOfACollective(collectiveData.collective_id) ?
+                <button className="btn btn-error w-full" onClick={() => handleLeaveCollective(collectiveData.collective_id)}>Leave Collective</button> :
+                <div className='hover:cursor-not-allowed'>
+                  <button className="btn btn-error w-full" disabled>Already left this collective</button>
+                </div>
               }
             </div>
 

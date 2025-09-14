@@ -62,21 +62,20 @@ export default function Index() {
     const userConfirmed = window.confirm('Are you sure you want to join this collective?')
     if (userConfirmed) {
       try {
-        const response = await collective.post('join/',
+        setLoading(true)
+
+        await collective.post('join/',
           { 'collective_id': collectiveId },
           { withCredentials: true }
         )
-
         await fetchCollectiveMemberDetails()
-
-        let joined = response.data['joined']
-        if (joined) toast.success('Successfully joined this collective!')
-        else toast.info('You have already joined this collective')
-        setLoading(true)
+        toast.success('Successfully joined this collective!')
+        navigate(`/collective/${collectiveId}`)
       } catch(err) {
         toast.error('Error joining this collective')
-        setLoading(false)
         console.error('Error joining collective: ', err)
+      } finally {
+        setLoading(false)
       }
     }
   }

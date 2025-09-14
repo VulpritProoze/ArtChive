@@ -4,13 +4,14 @@ from .views import (
     ChannelCreateView, InsideCollectiveView, InsideCollectivePostsView, 
     InsideCollectivePostsCreateView, JoinCollectiveView,
     IsCollectiveMemberView, CollectiveMembershipsView,
-    BecomeCollectiveAdminView
+    BecomeCollectiveAdminView, LeaveCollectiveView
 )
 
 urlpatterns = [
     path('join/', JoinCollectiveView.as_view(), name='collective-join'),
     path('details/', CollectiveDetailsView.as_view(), name='collective-list'),
     path('<uuid:collective_id>/', InsideCollectiveView.as_view(), name='collective-main'),
+    path('<uuid:collective_id>/leave/', LeaveCollectiveView.as_view(), name='collective-leave'),
     path('create/', CollectiveCreateView.as_view(), name='collective-create'),
     path('channel/', ChannelListView.as_view(), name='channel-list'),   # This is probably an obsolete route
     path('channel/create/', ChannelCreateView.as_view(), name='channel-create'),

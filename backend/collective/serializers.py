@@ -164,24 +164,43 @@ class JoinCollectiveSerializer(Serializer):
         collective = validated_data['collective_id']
         user = self.context['request'].user
 
-        member, created = CollectiveMember.objects.get_or_create(
+        CollectiveMember.objects.create(
             member=user,
             collective_id=collective
         )
 
-        return member
+        return CollectiveMember
 
-class BecomeCollectiveAdminSerializer(serializers.Serializer):
+class LeaveCollectiveSerializer(Serializer):
     collective_id = serializers.UUIDField()
 
     def validate_collective_id(self, value):
-        if isinstance(value, uuid.UUID):
-            return value
+        if not isinstance(value, uuid.UUID):
+            try:
+                value = uuid.UUID(value)
+            except ValueError:
+                raise serializers.ValidationError('Invalid UUID format.')
 
-        try:
-            return uuid.UUID(value)
-        except Collective.DoesNotExist:
+        if not Collective.objects.filter(collective_id=value).exists():
             raise serializers.ValidationError('Collective not found.')
+
+        return value
+
+
+class BecomeCollectiveAdminSerializer(Serializer):
+    collective_id = serializers.UUIDField()
+
+    def validate_collective_id(self, value):
+        if not isinstance(value, uuid.UUID):
+            try:
+                value = uuid.UUID(value)
+            except ValueError:
+                raise serializers.ValidationError('Invalid UUID format.')
+
+        if not Collective.objects.filter(collective_id=value).exists():
+            raise serializers.ValidationError('Collective not found.')
+
+        return value
 
     def validate(self, data):
         """Validate that user is a member and not already admin."""

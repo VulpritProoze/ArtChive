@@ -11,7 +11,7 @@ from .serializers import (
     ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, 
     InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, 
     JoinCollectiveSerializer, CollectiveMemberSerializer,
-    BecomeCollectiveAdminSerializer
+    BecomeCollectiveAdminSerializer, LeaveCollectiveSerializer
 )
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .models import Collective, Channel, CollectiveMember
@@ -107,22 +107,14 @@ class JoinCollectiveView(APIView):
     def post(self, request):
         serializer = JoinCollectiveSerializer(data=request.data, context={'request': request})
 
-        if serializer.is_valid():
-            member = serializer.save()
-            username = request.user.username
-
-            if member._state.adding:
-                return Response({
-                    'message': f'{username} successfully joined this collective',
-                    'collective_id': member.collective_id.collective_id,
-                    'joined': True
-                }, status=status.HTTP_201_CREATED)
-            return Response({
-                'message': f'{username} has already joined this collective',
-                'collective_id': member.collective_id.collective_id,
-                'joined': False,
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        member = serializer.save()
+        username = request.user.username
+        
+        return Response({
+            'message': f'{username} has successfully joined this collective',
+            'collective_id': member.collective_id.collective_id,
+        }, status=status.HTTP_200_OK)
 
 class BecomeCollectiveAdminView(APIView):
     permission_classes = [IsAuthenticated, IsCollectiveMember]
@@ -134,11 +126,26 @@ class BecomeCollectiveAdminView(APIView):
             data = request.data
 
         serializer = BecomeCollectiveAdminSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'message': 'Successfully promoted to admin.'}, status=status.HTTP_200_OK)
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Successfully promoted to admin.'}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class LeaveCollectiveView(APIView):
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+
+    def delete(self, request, collective_id=None):
+        if collective_id:
+            data = { 'collective_id': collective_id }
+        else:
+            data = request.data
+
+        serializer = LeaveCollectiveSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        collective_id = serializer.validated_data['collective_id']
+
+        CollectiveMember.objects.filter(member=request.user, collective_id=collective_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class IsCollectiveMemberView(RetrieveAPIView):
     """
