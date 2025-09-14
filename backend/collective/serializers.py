@@ -3,6 +3,7 @@ from rest_framework.serializers import ModelSerializer, Serializer
 from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
 from post.serializers import PostCreateUpdateSerializer
 from post.models import Post
+from core.models import User
 from .models import Collective, Channel, CollectiveMember
 
 class CollectiveSerializer(ModelSerializer):
@@ -168,3 +169,44 @@ class JoinCollectiveSerializer(Serializer):
         )
 
         return member
+
+class BecomeCollectiveAdminSerializer(ModelSerializer):
+    collective_id = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = CollectiveMember
+        fields = '__all__'
+
+    def validate_collective_id(self, value):
+        try:
+            return Collective.objects.get(collective_id=value)
+        except Collective.DoesNotExist:
+            raise serializers.ValidationError('Collective not found')
+
+    def validate(self, data):
+        collective_id = data.get('collective_id') # from validate_collective_id
+        user = self.context['request'].user
+
+        # User is not a member of collective (possibly unnecessary cause of IsCollectiveMember permission check)
+        try:
+            member_record = CollectiveMember.objects.get(member=user, collective_id=collective_id)
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('You are not a member of this collective.')
+
+        # User is already an admin
+        if member_record.collective_role == 'admin':
+            raise serializers.ValidationError('You are already an admin of this collective.')
+
+        self._member_record = member_record
+
+        return data
+    
+    def save(self, **kwargs):
+        """
+        Update role of the existing member after validation
+        """
+        member_record = self._member_record
+        member_record.collective_role = 'admin'        
+        member_record.save()
+
+        return member_record

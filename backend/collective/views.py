@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,7 +10,8 @@ from .serializers import (
     CollectiveDetailsSerializer, CollectiveCreateSerializer, 
     ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, 
     InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, 
-    JoinCollectiveSerializer, CollectiveMemberSerializer
+    JoinCollectiveSerializer, CollectiveMemberSerializer,
+    BecomeCollectiveAdminSerializer
 )
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .models import Collective, Channel, CollectiveMember
@@ -69,10 +70,6 @@ class ChannelCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
 class InsideCollectiveView(RetrieveAPIView):
-    """
-    Fetch needed details to display for a collective.
-    Used for 'collective/<id>/ sidebar and other information 
-    """
     serializer_class = InsideCollectiveViewSerializer
     permission_classes = [IsAuthenticated, IsCollectiveMember]
     lookup_field = 'collective_id'
@@ -84,9 +81,6 @@ class InsideCollectiveView(RetrieveAPIView):
         ).all()
 
 class InsideCollectivePostsView(ListAPIView):
-    """
-    Need a permissions check: If user is joined in related collective
-    """
     serializer_class = InsideCollectivePostsViewSerializer
     pagination_class = CollectivePostsPagination
     permission_classes = [IsAuthenticated, IsCollectiveMember]
@@ -98,9 +92,6 @@ class InsideCollectivePostsView(ListAPIView):
         return Post.objects.filter(channel=channel).select_related('author').order_by('-created_at')
 
 class InsideCollectivePostsCreateView(CreateAPIView):
-    """
-    Need a permissions check: If user is joined in related collective
-    """
     queryset = Post.objects.all()
     serializer_class = InsideCollectivePostsCreateUpdateSerializer
     permission_classes = [IsAuthenticated, IsCollectiveMember]
@@ -134,13 +125,26 @@ class JoinCollectiveView(APIView):
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class BecomeCollectiveAdminView(UpdateAPIView):
+    queryset = CollectiveMember.objects.all()
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+    serializer_class = BecomeCollectiveAdminSerializer
+    lookup_field = 'collective_id'
+
 class IsCollectiveMemberView(RetrieveAPIView):
+    """
+    Check if authenticated user is a member of a given collective.
+    (Possibly unused route)
+    """
     queryset = CollectiveMember.objects.all()
     lookup_field = 'collective_id'
     permission_classes = [IsAuthenticated, IsCollectiveMember]
     serializer_class = CollectiveMemberSerializer
 
 class CollectiveMembershipsView(ListAPIView):
+    """
+    Fetch the collectives that the authenticated user is a member of.
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = CollectiveMemberSerializer
 

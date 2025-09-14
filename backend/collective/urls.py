@@ -3,7 +3,8 @@ from .views import (
     CollectiveDetailsView, CollectiveCreateView, ChannelListView, 
     ChannelCreateView, InsideCollectiveView, InsideCollectivePostsView, 
     InsideCollectivePostsCreateView, JoinCollectiveView,
-    IsCollectiveMemberView, CollectiveMembershipsView
+    IsCollectiveMemberView, CollectiveMembershipsView,
+    BecomeCollectiveAdminView
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('channel/<uuid:channel_id>/posts/create/', InsideCollectivePostsCreateView.as_view(), name='collective-posts-create'),
     path('<uuid:collective_id>/collective-member/check/', IsCollectiveMemberView.as_view(), name='is-collective-member'),
     path('collective-memberships/', CollectiveMembershipsView.as_view(), name='fetch-collective-memberships'),
+    path('<uuid:collective_id>/admin/join/', BecomeCollectiveAdminView.as_view(), name='collective-admin-join'),
 ]

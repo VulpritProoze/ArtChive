@@ -111,10 +111,10 @@ export default function Index() {
                 <p>{collective.description}</p>
                 
                 {isMemberOfACollective(collective.collective_id) ?
-                  <button className='btn btn-primary' onClick={() => handleJoinCollective(collective.collective_id)}>Join Collective</button> :
                   <div className='hover:cursor-not-allowed'>
                     <button className='btn btn-primary w-full' disabled>Already joined</button>
-                  </div>
+                  </div> :
+                  <button className='btn btn-primary' onClick={() => handleJoinCollective(collective.collective_id)}>Join Collective</button>
                 }
                 
                 {collective.artist_types.length > 0 && (

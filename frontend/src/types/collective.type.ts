@@ -1,6 +1,7 @@
 export interface CollectiveMember {
   id: number;
   collective_id: string;
+  collective_role: string;
   member: number;
 }
 

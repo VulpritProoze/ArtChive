@@ -23,6 +23,11 @@ COLLECTIVE_STATUS = (
     ('archive', 'archive'),
 )
 
+COLLECTIVE_ROLES = (
+    ('member', 'member'),
+    ('admin', 'admin')
+)
+
 CHANNEL_TYPE_CHOICES = (
     ('post_channel', 'Post Channels'),
     ('media_channel', 'Media Channels'),

@@ -43,7 +43,7 @@ const CollectiveHome = () => {
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const { collectiveId } = useParams<{ collectiveId: string }>();
-  const { user, getUserId } = useAuth();
+  const { user, isAdminOfACollective, getUserId } = useAuth();
 
   // Form states
   const [postForm, setPostForm] = useState({
@@ -54,6 +54,15 @@ const CollectiveHome = () => {
     chapters: [{ chapter: '', content: '' }],
     channel_id: '' // Added channel_id field
   });
+
+  const handleBecomeAdmin = async (collectiveId: string) => {
+    try {
+      await collective.put(`${collectiveId}/admin/join/`, {}, { withCredentials: true })
+      toast.success('Successfully become an admin of this collective')
+    } catch(err) {
+      toast.error(err)
+    }
+  }
 
   // Fetch collective data and initial posts
   useEffect(() => {
@@ -589,6 +598,15 @@ const CollectiveHome = () => {
           <div className="bg-base-200 p-6 rounded-lg mb-6">
             <h1 className="text-3xl font-bold mb-2">{collectiveData.title}</h1>
             <p className="text-lg mb-4">{collectiveData.description}</p>
+            
+            <div className='py-2'>
+              {isAdminOfACollective(collectiveData.collective_id) ?
+                <div className='hover:cursor-not-allowed'>
+                  <button className="btn btn-primary w-full" disabled>Already admin</button>
+                </div> :
+                <button className="btn btn-primary" onClick={() => handleBecomeAdmin(collectiveData.collective_id)}>Become Admin</button>
+              }
+            </div>
 
             <div className="flex flex-wrap gap-2 mb-4">
               {collectiveData.artist_types.map((type, index) => (

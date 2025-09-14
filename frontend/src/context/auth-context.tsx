@@ -42,6 +42,14 @@ export const AuthProvider = ({ children }) => {
     )
   }
 
+  const isAdminOfACollective = (collectiveId: string) => {
+    if (!collectiveMemberships) return false
+
+    return collectiveMemberships.some(
+      (member) => member !== null && member.collective_id === collectiveId && member.collective_role === 'admin'
+    )
+  }
+
   const fetchCollectiveMemberDetails = async () => {
     try {
       const response = await collective.get('collective-memberships/', { withCredentials: true })
@@ -217,6 +225,7 @@ export const AuthProvider = ({ children }) => {
     refreshToken,
     getUserId,
     isMemberOfACollective,
+    isAdminOfACollective
   };
 
   return (

@@ -21,4 +21,5 @@ export type AuthContextType = {
   refreshToken: () => Promise<void>;
   getUserId: () => number | null;
   isMemberOfACollective: (collectiveId: string | undefined) => boolean;
+  isAdminOfACollective: (collectiveId: string | undefined) => boolean;
 };
