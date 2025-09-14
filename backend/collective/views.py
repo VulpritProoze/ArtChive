@@ -102,7 +102,6 @@ class InsideCollectivePostsCreateView(CreateAPIView):
         serializer.save(author=self.request.user, channel=channel)
 
 class JoinCollectiveView(APIView):
-    serializer_class = JoinCollectiveSerializer
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -125,11 +124,21 @@ class JoinCollectiveView(APIView):
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class BecomeCollectiveAdminView(UpdateAPIView):
-    queryset = CollectiveMember.objects.all()
+class BecomeCollectiveAdminView(APIView):
     permission_classes = [IsAuthenticated, IsCollectiveMember]
-    serializer_class = BecomeCollectiveAdminSerializer
-    lookup_field = 'collective_id'
+    
+    def patch(self, request, collective_id=None):
+        if collective_id:
+            data = { 'collective_id': collective_id }
+        else:
+            data = request.data
+
+        serializer = BecomeCollectiveAdminSerializer(data=data, context={'request': request})
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Successfully promoted to admin.'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class IsCollectiveMemberView(RetrieveAPIView):
     """

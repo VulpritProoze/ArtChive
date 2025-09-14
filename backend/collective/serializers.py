@@ -5,6 +5,7 @@ from post.serializers import PostCreateUpdateSerializer
 from post.models import Post
 from core.models import User
 from .models import Collective, Channel, CollectiveMember
+import uuid
 
 class CollectiveSerializer(ModelSerializer):
     class Meta:
@@ -170,43 +171,47 @@ class JoinCollectiveSerializer(Serializer):
 
         return member
 
-class BecomeCollectiveAdminSerializer(ModelSerializer):
-    collective_id = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = CollectiveMember
-        fields = '__all__'
+class BecomeCollectiveAdminSerializer(serializers.Serializer):
+    collective_id = serializers.UUIDField()
 
     def validate_collective_id(self, value):
+        if isinstance(value, uuid.UUID):
+            return value
+
         try:
-            return Collective.objects.get(collective_id=value)
+            return uuid.UUID(value)
         except Collective.DoesNotExist:
-            raise serializers.ValidationError('Collective not found')
+            raise serializers.ValidationError('Collective not found.')
 
     def validate(self, data):
-        collective_id = data.get('collective_id') # from validate_collective_id
+        """Validate that user is a member and not already admin."""
         user = self.context['request'].user
+        collective = data.get('collective_id')  # From validate_collective_id
 
-        # User is not a member of collective (possibly unnecessary cause of IsCollectiveMember permission check)
+        # Ensure user is a member of this collective
         try:
-            member_record = CollectiveMember.objects.get(member=user, collective_id=collective_id)
+            self._member_record = CollectiveMember.objects.select_related('collective_id').get(
+                member=user,
+                collective_id=collective
+            )
         except CollectiveMember.DoesNotExist:
             raise serializers.ValidationError('You are not a member of this collective.')
 
-        # User is already an admin
-        if member_record.collective_role == 'admin':
+        if self._member_record.collective_role == 'admin':
             raise serializers.ValidationError('You are already an admin of this collective.')
 
-        self._member_record = member_record
-
         return data
-    
+
     def save(self, **kwargs):
         """
-        Update role of the existing member after validation
+        Promote the validated member record to 'admin'.
+        Returns the updated CollectiveMember instance.
         """
+        if not hasattr(self, '_member_record'):
+            raise serializers.ValidationError('Validation must be run before save.')
+
         member_record = self._member_record
-        member_record.collective_role = 'admin'        
-        member_record.save()
+        member_record.collective_role = 'admin'
+        member_record.save(update_fields=['collective_role'])  # Optimize DB write
 
         return member_record

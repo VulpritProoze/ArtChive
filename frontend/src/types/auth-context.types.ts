@@ -1,3 +1,4 @@
+import type { Axios } from 'axios';
 import type { User } from './user.types'
 
 export type AuthContextType = {
@@ -20,6 +21,8 @@ export type AuthContextType = {
   isLoading: boolean;
   refreshToken: () => Promise<void>;
   getUserId: () => number | null;
+  fetchCollectiveMemberDetails: () => Promise<boolean>;
+  fetchUser: () => Promise<boolean>;
   isMemberOfACollective: (collectiveId: string | undefined) => boolean;
   isAdminOfACollective: (collectiveId: string | undefined) => boolean;
 };

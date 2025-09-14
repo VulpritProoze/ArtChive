@@ -224,6 +224,8 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     refreshToken,
     getUserId,
+    fetchCollectiveMemberDetails,
+    fetchUser,
     isMemberOfACollective,
     isAdminOfACollective
   };

@@ -56,11 +56,17 @@ const CollectiveHome = () => {
   });
 
   const handleBecomeAdmin = async (collectiveId: string) => {
-    try {
-      await collective.put(`${collectiveId}/admin/join/`, {}, { withCredentials: true })
-      toast.success('Successfully become an admin of this collective')
-    } catch(err) {
-      toast.error(err)
+    const userConfirmed = window.confirm('Are you sure you want to become an admin?')
+    if (userConfirmed) {
+      try {
+        await collective.patch(`${collectiveId}/admin/join/`, {}, { withCredentials: true })
+        toast.success('Successfully become an admin of this collective')
+      } catch(err) {
+        toast.error('Failed to execute this action')
+        // I need to make a reusable error alert component
+        // that can make custom messages for every 
+        // http status codes
+      }
     }
   }
 
@@ -604,7 +610,7 @@ const CollectiveHome = () => {
                 <div className='hover:cursor-not-allowed'>
                   <button className="btn btn-primary w-full" disabled>Already admin</button>
                 </div> :
-                <button className="btn btn-primary" onClick={() => handleBecomeAdmin(collectiveData.collective_id)}>Become Admin</button>
+                <button className="btn btn-primary w-full" onClick={() => handleBecomeAdmin(collectiveData.collective_id)}>Become Admin</button>
               }
             </div>
 

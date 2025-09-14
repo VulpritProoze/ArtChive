@@ -23,6 +23,9 @@ class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='collective_member')
     collective_role = models.CharField(choices=COLLECTIVE_ROLES, max_length=50, default='member')
     member = models.ForeignKey(User, on_delete=models.CASCADE, related_name='collective_member')
+
+    def __str__(self):
+        return f'{self.member.username}'
     
 class Channel(models.Model):
     channel_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

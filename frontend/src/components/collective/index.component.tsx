@@ -32,7 +32,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate()
 
-  const { isMemberOfACollective } = useAuth()
+  const { isMemberOfACollective, fetchCollectiveMemberDetails } = useAuth()
 
   useEffect(() => {
     const fetchCollectives = async () => {
@@ -66,6 +66,8 @@ export default function Index() {
           { 'collective_id': collectiveId },
           { withCredentials: true }
         )
+
+        await fetchCollectiveMemberDetails()
 
         let joined = response.data['joined']
         if (joined) toast.success('Successfully joined this collective!')
