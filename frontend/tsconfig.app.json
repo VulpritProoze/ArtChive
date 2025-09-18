@@ -36,7 +36,8 @@
       "@lib/*": ["./lib/*"],
       "@types/*": ["./types/*"],
       "@types": ["./types"],
-      "@utils/*": ["./utils/*"]
+      "@utils/*": ["./utils/*"],
+      "@utils": ["./utils"]
     }
   },
   "include": ["src/**/*"]

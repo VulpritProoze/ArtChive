@@ -3,6 +3,17 @@ export interface NovelPost {
   content: string;
 }
 
+export interface PostForm {
+  description: string;
+  post_type: string;
+  image_url: File | null;
+  video_url: File | null;
+  chapters: {
+    chapter: string;
+    content: string;
+  }[]
+}
+
 export interface Post {
   post_id: string;
   description: string;

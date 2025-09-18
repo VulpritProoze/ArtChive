@@ -113,7 +113,7 @@ class JoinCollectiveView(APIView):
         
         return Response({
             'message': f'{username} has successfully joined this collective',
-            'collective_id': member.collective_id.collective_id,
+            'collective_id': str(member.collective_id),
         }, status=status.HTTP_200_OK)
 
 class BecomeCollectiveAdminView(APIView):

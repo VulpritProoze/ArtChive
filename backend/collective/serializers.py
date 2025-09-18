@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
 from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
-from post.serializers import PostCreateUpdateSerializer
-from post.models import Post
+from post.serializers import PostCreateUpdateSerializer, PostViewSerializer
+from post.models import Post, NovelPost
 from core.models import User
 from .models import Collective, Channel, CollectiveMember
 import uuid
@@ -141,7 +141,7 @@ class InsideCollectiveViewSerializer(ModelSerializer):
         model = Collective
         fields = '__all__'
 
-class InsideCollectivePostsViewSerializer(ModelSerializer):
+class InsideCollectivePostsViewSerializer(PostViewSerializer):
     class Meta:
         model = Post
         fields = '__all__'

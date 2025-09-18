@@ -76,6 +76,7 @@ const CollectiveHome = () => {
     if (userConfirmed) {
       try {
         await collective.patch(`${collectiveId}/admin/join/`, {}, { withCredentials: true })
+        await fetchCollectiveMemberDetails()
         toast.success('Successfully become an admin of this collective')
       } catch(err) {
         toast.error('Failed to execute this action')

@@ -3,6 +3,7 @@ import { lazy, Suspense, useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import { ThemeProvider, ProtectedRoute, CollectiveProtectedRoute, GuestRoute, Collective, CollectiveHome, Home, GalleryIndex, Profile, Timeline } from "@components";
+import { PostProvider } from "@context/post-context";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 import useToggleTheme from "@hooks/use-theme";
@@ -46,17 +47,21 @@ function App() {
           <Router>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
-                <Route path="/" element={<Index />} />
                 
                 {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
                 <Route element={<GuestRoute />}>
+                  <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                 </Route>
 
                 {/* Protected routes (with auth check) */}
                 <Route element={<ProtectedRoute />}>
-                  <Route path="/home" element={<Home />} />
+                  <Route path="/home" element={
+                    <PostProvider>
+                      <Home />
+                    </PostProvider>
+                  } />
                   <Route path="/profile" element={<Timeline />} />
                   <Route path="/profile/me" element={<Profile />} />
                   <Route path="/collective" element={<Collective /> } />

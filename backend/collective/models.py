@@ -27,9 +27,6 @@ class CollectiveMember(models.Model):
     def __str__(self):
         return f'{self.member.username}'
     
-    class Meta:
-        unique_together = ('member', 'collective_id')
-    
 class Channel(models.Model):
     channel_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)

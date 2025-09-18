@@ -1,4 +1,3 @@
-import type { Axios } from 'axios';
 import type { User } from './user.types'
 
 export type AuthContextType = {

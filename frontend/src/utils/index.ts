@@ -1,0 +1,1 @@
+export { default as getCommentsForPost} from './get-comments-for-post'
