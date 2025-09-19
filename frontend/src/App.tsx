@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import { ThemeProvider, ProtectedRoute, CollectiveProtectedRoute, GuestRoute, Collective, CollectiveHome, Home, GalleryIndex, Profile, Timeline } from "@components";
 import { PostProvider } from "@context/post-context";
+import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 import useToggleTheme from "@hooks/use-theme";
@@ -67,7 +68,13 @@ function App() {
                   <Route path="/collective" element={<Collective /> } />
 
                   <Route element={<CollectiveProtectedRoute />}>
-                    <Route path="/collective/:collectiveId" element={<CollectiveHome /> } />
+                    <Route path="/collective/:collectiveId" element={
+                      <PostProvider>
+                        <CollectivePostProvider>
+                          <CollectiveHome />
+                        </CollectivePostProvider>
+                      </PostProvider>
+                    } />
                   </Route>
 
                   <Route path="/gallery" element={<GalleryIndex />} />

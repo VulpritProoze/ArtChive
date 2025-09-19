@@ -1,3 +1,5 @@
+import type { Post } from "./post.types";
+
 export interface CollectiveMember {
   id: number;
   collective_id: string;
@@ -20,4 +22,8 @@ export interface Collective {
 export interface Channel {
   channel_id: string;
   title: string;
+}
+
+export interface CollectivePost extends Post {
+  channel: string;
 }

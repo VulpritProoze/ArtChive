@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -145,9 +145,9 @@ export default function Login() {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
-            <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Sign up
-            </a>
+            <Link to='/register' className="font-medium text-indigo-600 hover:text-indigo-500">
+            Sign up
+            </Link>
           </p>
         </div>
       </div>

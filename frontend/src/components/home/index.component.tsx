@@ -1,15 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { useAuth } from '@context/auth-context';
 import { LogoutButton } from '@components/account/logout';
 import { CommentFormModal, PostFormModal } from '@components/common/modal'
-import { getCommentsForPost } from '@utils';
-import usePostComment from '@hooks/use-post-comment';
 import usePost from '@hooks/use-post';
 import { PostLoadingIndicator, CommentsRenderer } from '@components/common';
-import axios from 'axios';
 import { usePostContext } from '@context/post-context';
+import { getCommentsForPost } from '@utils';
 
 const Index: React.FC = () => {
   const { user } = useAuth();
@@ -31,8 +28,7 @@ const Index: React.FC = () => {
     fetchPosts,
     deletePost,
   } = usePostContext()
-  const { toggleComments } = usePostComment()
-  const { setupEditPost } = usePost()
+  const { setupEditPost, toggleComments } = usePost()
 
   const observerTarget = useRef<HTMLDivElement>(null)
 
@@ -78,21 +74,6 @@ const Index: React.FC = () => {
   useEffect(() => {
     fetchPosts(1);
   }, [fetchPosts]);
-
-  // Handle API errors
-  const handleApiError = (error: unknown, defaultMessage: string) => {
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status;
-      if (status === 403) toast.error('You do not have permission');
-      else if (status === 404) toast.error('Not found');
-      else if (status === 400) toast.error('Invalid data');
-      else if (status === 500) toast.error('Server error');
-      else toast.error(`Error: ${status || 'Unknown'}`);
-    } else {
-      toast.error(defaultMessage);
-    }
-    console.error(defaultMessage, error);
-  };
 
   return (
     <div className="container mx-auto p-4">

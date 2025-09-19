@@ -1,10 +1,10 @@
 import { usePostContext } from '@context/post-context'
-import usePostComment from '@hooks/use-post-comment'
+import usePost from '@hooks/use-post'
 import { getCommentsForPost } from '@utils'
 
 const CommentsRenderer = ({postId}: {postId: string}) => {
     const { commentPagination, loadingComments, loadMoreComments, deleteComment, comments } = usePostContext()
-    const { setupEditComment, setupNewComment } = usePostComment()
+    const { setupEditComment, setupNewComment } = usePost()
 
     const isLoading = loadingComments[postId]
     const pagination = commentPagination[postId]

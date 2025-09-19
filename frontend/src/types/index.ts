@@ -1,6 +1,7 @@
 export * from './post.types'
 export * from './auth-context.types'
 export * from './post-context.type'
+export * from './collective-post-context.type'
 export * from './user.types'
 export * from './artist-type.type'
 export * from './artwork.type'

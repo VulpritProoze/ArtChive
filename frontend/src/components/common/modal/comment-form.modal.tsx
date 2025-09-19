@@ -1,9 +1,9 @@
 import { usePostContext } from "@context/post-context";
-import usePostComment from "@hooks/use-post-comment";
+import usePost from "@hooks/use-post";
 
-export default function CommentFormModal() {
+export default function CommentFormModal({channel_id} : {channel_id?: string}) {
   const { handleCommentSubmit, commentForm, editing, resetForms } = usePostContext()
-  const { handleCommentFormChange} = usePostComment()
+  const { handleCommentFormChange } = usePost()
 
   return (
     <div className="modal modal-open">
@@ -46,7 +46,7 @@ export default function CommentFormModal() {
             <button type="submit" className="btn btn-primary">
               {editing ? "Update" : "Create"}
             </button>
-            <button type="button" className="btn" onClick={resetForms}>
+            <button type="button" className="btn" onClick={() => resetForms(channel_id)}>
               Cancel
             </button>
           </div>

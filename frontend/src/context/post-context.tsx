@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useCallback } from 'react'
 import type { PostContextType, Pagination, Comment, Post, PostForm } from '@types'
-import { post } from '@lib/api'
+import { post, collective } from '@lib/api'
 import { toast } from 'react-toastify'
 
 type fetchCommentsForPostType = (
@@ -64,7 +64,7 @@ export const PostProvider = ({ children }) => {
         }
         };
     
-        const deleteComment = async (commentId: string, postId: string) => {
+    const deleteComment = async (commentId: string, postId: string) => {
         if (!window.confirm('Are you sure you want to delete this comment?')) return;
         
         try {
@@ -77,7 +77,7 @@ export const PostProvider = ({ children }) => {
         } catch (error) {
             toast.error('Error deleting comment')
         }
-        };
+    };
 
     const fetchCommentsForPost: fetchCommentsForPostType = async (postId, page = 1, append) => {
         try {
@@ -121,10 +121,11 @@ export const PostProvider = ({ children }) => {
     };
 
     /* POSTS */
-    // Fetch data functions
+    // Fetch data functions (allows collective post too)
     const fetchPosts = useCallback(async (
     page: number = 1,
-    append: boolean = false
+    append: boolean = false,
+    channel_id: string | null = null
     ) => {
         try {
             if (append) {
@@ -133,9 +134,17 @@ export const PostProvider = ({ children }) => {
                 setLoading(true)
             }
 
-            const response = await post.get('/', {
-            params: { page, page_size: 10 }
-            });
+            let response
+            
+            if (channel_id) {
+                response = await collective.get(`channel/${channel_id}/posts/`, {
+                params: { page, page_size: 10 }
+                });
+            } else {
+                response = await post.get('/', {
+                params: { page, page_size: 10 }
+                });
+            }
 
             if (append) {
                 setPosts(prev => [...prev, ...response.data.results]);
@@ -160,13 +169,14 @@ export const PostProvider = ({ children }) => {
     }, [])
 
     // Post operations
-    const handlePostSubmit = async (e: React.FormEvent) => {
+    const handlePostSubmit = async (e: React.FormEvent, channel_id?: string ) => {
         e.preventDefault();
 
         try {
         const formData = new FormData();
         formData.append('description', postForm.description);
         formData.append('post_type', postForm.post_type);
+        if (channel_id) formData.append('channel', channel_id);
         
         if (postForm.image_url) formData.append('image_url', postForm.image_url);
         if (postForm.video_url) formData.append('video_url', postForm.video_url);
@@ -194,10 +204,11 @@ export const PostProvider = ({ children }) => {
             post_type: 'default',
             image_url: null,
             video_url: null,
-            chapters: [{ chapter: '', content: '' }]
+            chapters: [{ chapter: '', content: '' }],
+            channel_id: channel_id
         });
+        refreshPosts(channel_id)
         
-        refreshPosts()
         } catch (error) {
         toast.error(`Failed to ${editing ? 'update' : 'create'} post`);
         }
@@ -223,12 +234,13 @@ export const PostProvider = ({ children }) => {
         setPostForm(prev => ({ ...prev, [name]: value }));
     };
 
-    const refreshPosts = () => {
-        fetchPosts(1, false)
+    const refreshPosts = (channel_id?: string) => {
+        if (channel_id) fetchPosts(1, false)
+        else fetchPosts(1, false, channel_id)
     }
 
     // Form reset
-    const resetForms = () => {
+    const resetForms = (channel_id?: string) => {
         setShowPostForm(false);
         setShowCommentForm(false);
         setEditing(false);
@@ -239,7 +251,8 @@ export const PostProvider = ({ children }) => {
         post_type: 'default',
         image_url: null,
         video_url: null,
-        chapters: [{ chapter: '', content: '' }]
+        chapters: [{ chapter: '', content: '' }],
+        ...(channel_id && { channel_id: channel_id }),    // Assign channel_id if selectedChannel exists
         });
         setCommentForm({ text: '', post_id: '' });
     };

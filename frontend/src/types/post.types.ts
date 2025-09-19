@@ -11,7 +11,8 @@ export interface PostForm {
   chapters: {
     chapter: string;
     content: string;
-  }[]
+  }[],
+  channel_id?: string;
 }
 
 export interface Post {
@@ -28,6 +29,7 @@ export interface Post {
   novel_post?: NovelPost[];
   comments?: PaginatedComments;
   comment_count: number;
+  channel_id?: string; 
 }
 
 type PaginatedComments = {
