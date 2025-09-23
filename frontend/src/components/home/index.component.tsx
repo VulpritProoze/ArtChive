@@ -151,7 +151,7 @@ const Index: React.FC = () => {
   <aside className="lg:col-span-2 hidden lg:flex flex-col gap-4">
     <nav className="flex flex-col gap-2">
       <Link to='/home' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-purple-50 text-gray-700'>
-       Home
+         Home
       </Link>
       <Link to='/gallery' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-purple-50 text-gray-700'>
          Gallery
