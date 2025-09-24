@@ -17,7 +17,6 @@ A social networking platform designed to empower Filipino artists, especially up
 ### Frontend
 - **Framework**: React with TypeScript
 - **Styling**: TailwindCSS with DaisyUI components
-- **State Management**: React Context API / Redux
 
 ### Backend
 - **Framework**: Django with Django REST Framework (DRF)
