@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.exceptions import TokenError, ExpiredTokenError
 from rest_framework.throttling import ScopedRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from .serializers import UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer
@@ -45,6 +45,7 @@ class LoginView(APIView):
     throttle_scope = 'login'
     throttle_classes = [ScopedRateThrottle]
     serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -58,7 +59,7 @@ class LoginView(APIView):
                 key='access_token',
                 value=str(refresh.access_token),
                 httponly=True,
-                secure=config('AUTH_COOKIE_SECURE'),
+                secure=config('AUTH_COOKIE_SECURE', default=False),
                 samesite='None'
             )
             response.set_cookie(
@@ -81,6 +82,8 @@ class LoginView(APIView):
 )
 class LogoutView(APIView):
     serializer_class = None
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
@@ -117,14 +120,33 @@ class CookieTokenRefreshView(TokenRefreshView):
             response = Response({'message': 'Access token refreshed successfully'}, status=status.HTTP_200_OK)
             response.set_cookie(
                 key='access_token',
-                value=str(refresh.access_token),
+                value=access_token,
                 httponly=True,
                 secure=config('AUTH_COOKIE_SECURE'),
                 samesite='None'
             )
             return response
-        except InvalidToken:
-            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
+        except ExpiredTokenError:
+            # Handle expired refresh token - CLEAR COOKIES
+            response = Response(
+                {'error': 'Refresh token has expired. Please login again.'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+            # Clear both cookies
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+            return response
+            
+        except TokenError as e:
+            # Handle other token errors
+            response = Response(
+                {'error': 'Invalid refresh token'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+            return response
 
 @extend_schema(
     tags=['Users'],

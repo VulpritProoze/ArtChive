@@ -69,7 +69,6 @@ export const AuthProvider = ({ children }) => {
         await fetchUser()
         await fetchCollectiveMemberDetails()
       } catch (err) {
-        console.error('not authenticated', err)
         throw err
       } finally {
         setIsLoading(false)
@@ -105,7 +104,7 @@ export const AuthProvider = ({ children }) => {
       )
 
       await login(email, password)
-      await fetchUser()
+
       toast.success('Registration successful! Redirecting...')
       return true
     } catch (error) {
@@ -157,14 +156,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      await logout();
-
       await api.post(
         "api/core/auth/login/",
-        { email, password }
+        { email, password },
+        { withCredentials: true }
       );
 
       await fetchUser();
+      await fetchCollectiveMemberDetails()
       toast.success('Login successful! Redirecting...')
     } catch (error) {
       let errorMessage = 'Login failed. Please try again'
