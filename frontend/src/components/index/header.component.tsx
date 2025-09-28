@@ -1,6 +1,6 @@
 // components/Header.tsx
 import { useState, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import useToggleTheme from "@hooks/use-theme";
 import { getCssVariableValue } from "@utils/get-css-var"
 import { oklchToRgba } from "@utils/oklch-to-rgba";
@@ -11,7 +11,7 @@ import {
 } from "framer-motion";
 
 export default function Header() {
-  const { isDarkMode, toggleDarkMode, setTheme } = useToggleTheme();
+  const { isDarkMode, toggleDarkMode } = useToggleTheme();
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
   const [bgColor, setBgColor] = useState("transparent");
@@ -34,7 +34,7 @@ export default function Header() {
     };
 
     updateColor();
-  }, [isDarkMode, isScrolled, setTheme]);
+  }, [isDarkMode, isScrolled]);
 
   return (
     <motion.header
@@ -71,52 +71,20 @@ export default function Header() {
       {/* Right Side - Buttons */}
       <div className="navbar-end z-10">
         <div className="flex flex-row items-center gap-4">
-          {/* Theme selector dropdown with dark mode included */}
-          <motion.div
-            className="dropdown dropdown-end"
+          {/* Theme toggle button with icon */}
+          <motion.button
+            className="btn btn-ghost btn-circle"
+            onClick={toggleDarkMode}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
-            <div tabIndex={0} role="button" className="btn btn-ghost m-1">
-              Theme
-              <ChevronDown className="w-4 h-4 ml-1" />
-            </div>
-            <ul
-              tabIndex={0}
-              className="dropdown-content z-[1] menu p-2 shadow-2xl bg-base-300 rounded-box w-52"
-            >
-              <li>
-                <button onClick={() => setTheme("light")}>
-                  <span className="badge badge-primary badge-xs mr-2"></span>
-                  Light
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setTheme("dark")}>
-                  <span className="badge badge-secondary badge-xs mr-2"></span>
-                  Dark
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setTheme("cupcake")}>
-                  <span className="badge badge-accent badge-xs mr-2"></span>
-                  Cupcake
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setTheme("synthwave")}>
-                  <span className="badge badge-info badge-xs mr-2"></span>
-                  Synthwave
-                </button>
-              </li>
-              <li>
-                <button onClick={() => setTheme("halloween")}>
-                  <span className="badge badge-warning badge-xs mr-2"></span>
-                  Halloween
-                </button>
-              </li>
-            </ul>
-          </motion.div>
+            {isDarkMode ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </motion.button>
 
           {/* Login/Signup Buttons */}
           <div className="flex items-center gap-2">
