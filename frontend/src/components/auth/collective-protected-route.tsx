@@ -11,14 +11,12 @@ export default function CollectiveProtectedRoute() {
     if (isMember) {
         return <Outlet />
     }
-
-    useEffect(() => {
-        if (!collectiveId) {
-          toast.error("Collective ID is missing in URL");
-        } else if (!isMember) {
-          toast.info("You need to join this collective to access this page");
-        }
-    }, [collectiveId, isMember]);
+    
+    if (!collectiveId) {
+      toast.error("Collective ID is missing in URL");
+    } else if (!isMember) {
+      toast.info("You need to join this collective to access this page");
+    }
 
     return <Navigate to='/collective' replace />
 }

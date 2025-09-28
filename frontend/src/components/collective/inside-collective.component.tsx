@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePostContext } from "@context/post-context";
 import { useCollectivePostContext } from "@context/collective-post-context";
 import usePost from "@hooks/use-post";
@@ -126,9 +126,9 @@ const CollectiveHome = () => {
               ) : (
                 <button
                   className="btn btn-primary w-full"
-                  onClick={() =>
-                    handleBecomeAdmin(collectiveData.collective_id)
-                  }
+                  onClick={async () => {
+                    await handleBecomeAdmin(collectiveData.collective_id)
+                  }}
                 >
                   Become Admin
                 </button>
@@ -249,29 +249,34 @@ const CollectiveHome = () => {
                 <p>{selectedChannel.description}</p>
               </div>
 
+              {/* Channel actions */}
               <div className="flex flex-row gap-1">
-                <button
-                  className="btn btn-info"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingChannel(selectedChannel);
-                  }}
-                  title="Edit channel"
-                >
-                  Update Channel
-                </button>
-                <button
-                  className="btn btn-error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (window.confirm(`Delete channel "${selectedChannel.title}"? This cannot be undone.`)) {
-                      handleDeleteChannel(selectedChannel.channel_id);
-                    }
-                  }}
-                  title="Delete channel"
-                >
-                  Delete Channel
-                </button>
+                {isAdminOfACollective(selectedChannel.channel_id) && (
+                  <>
+                    <button
+                      className="btn btn-info"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingChannel(selectedChannel);
+                      }}
+                      title="Edit channel"
+                    >
+                      Update Channel
+                    </button>
+                    <button
+                      className="btn btn-error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Delete channel "${selectedChannel.title}"? This cannot be undone.`)) {
+                          handleDeleteChannel(selectedChannel.channel_id);
+                        }
+                      }}
+                      title="Delete channel"
+                    >
+                      Delete Channel
+                    </button>
+                  </>
+                )}
                 <button
                   className="btn btn-primary"
                   onClick={() => setShowPostForm(true)}

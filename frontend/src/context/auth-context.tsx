@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
 
       return true
     } catch(error) {
-      console.error('Failed to fetch collective memberships information')
+      console.error('Failed to fetch collective memberships information: ', error)
       setCollectiveMemberships(null)
       throw error
     }
@@ -223,6 +223,7 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     refreshToken,
     getUserId,
+    collectiveMemberships,
     fetchCollectiveMemberDetails,
     fetchUser,
     isMemberOfACollective,
