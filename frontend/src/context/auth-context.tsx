@@ -164,7 +164,7 @@ export const AuthProvider = ({ children }) => {
 
       await fetchUser();
       await fetchCollectiveMemberDetails()
-      toast.success('Login successful! Redirecting...')
+      toast.success('Login successful!')
     } catch (error) {
       let errorMessage = 'Login failed. Please try again'
       

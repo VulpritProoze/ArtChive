@@ -83,7 +83,7 @@ class LoginView(APIView):
 class LogoutView(APIView):
     serializer_class = None
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [] # Disable any auth classes to make sure anybody can log out. Will have to tweak sometime to put this check to login
 
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')

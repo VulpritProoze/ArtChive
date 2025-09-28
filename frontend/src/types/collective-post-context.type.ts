@@ -3,5 +3,17 @@ export type CollectivePostContextType = {
     loading,
     selectedChannel,
     setSelectedChannel,
-    fetchCollectiveData
+    fetchCollectiveData,
+    handleCreateChannel,
+    showCreateChannelModal,
+    setShowCreateChannelModal,
+    createChannelForm,
+    setCreateChannelForm,
+    creatingChannel,
+    setCreatingChannel,
+    editingChannel, setEditingChannel,
+    updatingChannel, setUpdatingChannel,
+    deletingChannel, setDeletingChannel,
+    handleUpdateChannel,
+    handleDeleteChannel,
 }

@@ -1,5 +1,6 @@
 import { Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '@context/auth-context'
+import { toast } from 'react-toastify'
 
 export default function ProtectedRoute() {
     const { user, isLoading } = useAuth()
@@ -8,7 +9,10 @@ export default function ProtectedRoute() {
         return null
     }
 
-    console.log('Navigating to Home page...')
+    if (user) {
+        return <Outlet />
+    }
 
-    return user ? <Outlet /> : <Navigate to='/login' replace />
+    toast.warn('You are currently not logged in.')
+    return <Navigate to='/login' replace />
 }

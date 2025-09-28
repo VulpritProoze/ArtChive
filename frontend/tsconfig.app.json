@@ -28,6 +28,7 @@
     "baseUrl": "./src", 
     "paths": {
       "@/*": ["./*"],           // For files within src
+      "@errors": ["./errors"],
       "@assets/*": ["./assets/*"],
       "@context/*": ["./context/*"],
       "@components/*": ["./components/*"],

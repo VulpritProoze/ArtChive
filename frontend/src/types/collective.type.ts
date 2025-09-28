@@ -1,7 +1,6 @@
 import type { Post } from "./post.types";
 
 export interface CollectiveMember {
-  id: number;
   collective_id: string;
   collective_role: string;
   member: number;
@@ -21,7 +20,14 @@ export interface Collective {
 
 export interface Channel {
   channel_id: string;
+  description: string;
   title: string;
+}
+
+export interface ChannelCreateForm {
+  title: string;
+  description: string;
+  collective: string;
 }
 
 export interface CollectivePost extends Post {

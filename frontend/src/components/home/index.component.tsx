@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@context/auth-context';
 import { LogoutButton } from '@components/account/logout';
-import { CommentFormModal, PostFormModal } from '@components/common/modal'
+import { CommentFormModal, PostFormModal } from '@components/common/posts-feature/modal'
 import usePost from '@hooks/use-post';
 import { PostLoadingIndicator, CommentsRenderer } from '@components/common';
 import { usePostContext } from '@context/post-context';
@@ -16,7 +15,6 @@ import {
   faCog,
 } from "@fortawesome/free-solid-svg-icons";
 const Index: React.FC = () => {
-  const { user } = useAuth();
   const { 
     comments, loadingComments, 
     commentPagination,

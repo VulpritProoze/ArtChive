@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from core.models import User
-from common.utils.choices import FACEBOOK_RULES, CHANNEL_TYPE_CHOICES, COLLECTIVE_ROLES
+from common.utils.choices import FACEBOOK_RULES, CHANNEL_TYPE_CHOICES, COLLECTIVE_ROLES_CHOICES
 import uuid
 
 class Collective(models.Model):
@@ -21,7 +21,7 @@ class Collective(models.Model):
     
 class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='collective_member')
-    collective_role = models.CharField(choices=COLLECTIVE_ROLES, max_length=50, default='member')
+    collective_role = models.CharField(choices=COLLECTIVE_ROLES_CHOICES, max_length=50, default='member')
     member = models.ForeignKey(User, on_delete=models.CASCADE, related_name='collective_member')
 
     def __str__(self):

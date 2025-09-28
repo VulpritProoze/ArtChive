@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 POST_TYPE_CHOICES = (
     ('default', 'default'),
     ('novel', 'novel'),
@@ -23,15 +25,27 @@ COLLECTIVE_STATUS = (
     ('archive', 'archive'),
 )
 
-COLLECTIVE_ROLES = (
+COLLECTIVE_ROLES_CHOICES = (
     ('member', 'member'),
     ('admin', 'admin')
 )
 
+COLLECTIVE_ROLES = SimpleNamespace(
+    member='member',
+    admin='admin'
+)
+
+
 CHANNEL_TYPE_CHOICES = (
-    ('post_channel', 'Post Channels'),
-    ('media_channel', 'Media Channels'),
-    ('event_channel', 'Event Channels'),
+    ('post_channel', 'Post Channel'),
+    ('media_channel', 'Media Channel'),
+    ('event_channel', 'Event Channel'),
+)
+
+CHANNEL_TYPES = SimpleNamespace(
+    post_channel='Post Channel',
+    media_channel='Media Channel',
+    event_channel='Event Channel'
 )
 
 # Must be a list

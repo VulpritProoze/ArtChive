@@ -31,7 +31,7 @@ export default function Login() {
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
       await login(data.email, data.password);
-      setTimeout(() => navigate("/home"), 2000);
+      navigate("/home")
     } catch (error) {
       setError("root", {
         message: "Invalid email or password. Please try again.",

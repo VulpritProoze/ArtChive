@@ -1,17 +1,21 @@
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from core.permissions import IsCollectiveMember
+from core.permissions import IsCollectiveMember, IsCollectiveAdmin
+from common.utils.choices import CHANNEL_TYPES
+from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from post.models import Post
 from .serializers import (
     CollectiveDetailsSerializer, CollectiveCreateSerializer, 
-    ChannelCreateSerializer, ChannelSerializer, InsideCollectiveViewSerializer, 
+    ChannelSerializer, InsideCollectiveViewSerializer, 
     InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, 
     JoinCollectiveSerializer, CollectiveMemberSerializer,
-    BecomeCollectiveAdminSerializer, LeaveCollectiveSerializer
+    BecomeCollectiveAdminSerializer, LeaveCollectiveSerializer,
+    ChannelCreateSerializer, ChannelUpdateSerializer
 )
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .models import Collective, Channel, CollectiveMember
@@ -23,35 +27,51 @@ class CollectiveDetailsView(ListAPIView):
     def get_queryset(self):
         return Collective.objects.prefetch_related('collective_channel').all()
 
-class CollectiveCreateView(CreateAPIView):
+class CollectiveCreateView(APIView):
     """
+    Create a new Collective along with default channels.
+    
     Example usage:
     {
         "title": "Digital Artists United",
-        "description": "A collaborative space for digital painters, illustrators, and animators.",
-        "status": "active",
-        "rules": [
-            "No spam or self-promotion",
-            "Respect copyright and attribution",
-            "Be respectful in discussions",
-            "Follow community guidelines"
-        ],
-        "artist_types": [
-            "digital arts",
-            "illustration",
-            "animation",
-            "graphic design"
-        ]
+        "description": "A collaborative space...",
+        "rules": ["Rule 1", "Rule 2"],
+        "artist_types": ["digital arts", "illustration"]
     }
-    -> Feature addition required:
-    1. On create, also create the ff. channels:
-    a. general, post type: post_channel
-    b. audio, post type: media_channel
-    c. video, post type: media_channel
     """
-    queryset = Collective.objects.all()
-    serializer_class = CollectiveCreateSerializer
     permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        # Step 1: Deserialize and validate input
+        serializer = CollectiveCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Step 2: Create collective + channels in atomic transaction
+        try:
+            with transaction.atomic():
+                # Create collective
+                collective = Collective.objects.create(**serializer.validated_data)
+
+                # Create default channels
+                for channel_config in DEFAULT_COLLECTIVE_CHANNELS:
+                    Channel.objects.create(
+                        collective=collective,
+                        title=channel_config["title"],
+                        channel_type=channel_config["channel_type"],
+                        description=channel_config["description"]
+                    )
+
+                # Step 3: Return serialized collective (with collective_id, etc.)
+                output_serializer = CollectiveCreateSerializer(collective)
+                return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            # Transaction will roll back automatically
+            return Response(
+                {"detail": "Failed to create collective and channels."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class ChannelListView(ListAPIView):
     queryset = Channel.objects.all()
@@ -67,7 +87,46 @@ class ChannelCreateView(CreateAPIView):
     """
     queryset = Channel.objects.all()
     serializer_class = ChannelCreateSerializer
-    permission_classes = [IsAuthenticated]
+    lookup_field = 'collective_id'
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+class ChannelUpdateView(UpdateAPIView):
+    """
+    Update a channel's title or description.
+    Only admins of the channel's collective can update it.
+    """
+    queryset = Channel.objects.all()
+    serializer_class = ChannelUpdateSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+    lookup_field = 'collective_id'
+
+    # Modify object fetch after serialization
+    def get_object(self):
+        collective_id = self.kwargs['collective_id']
+        channel_id = self.request.data.get('channel_id')
+        return get_object_or_404(Channel, 
+            channel_id=channel_id,
+            collective__collective_id=collective_id
+        )
+
+
+class ChannelDeleteView(DestroyAPIView):
+    """
+    Delete a channel.
+    Only admins of the channel's collective can delete it.
+    """
+    queryset = Channel.objects.all()
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+    lookup_field = 'collective_id'
+
+    # Modify object fetch after serialization
+    def get_object(self):
+        collective_id = self.kwargs['collective_id']
+        channel_id = self.request.data.get('channel_id')
+        return get_object_or_404(Channel, 
+            channel_id=channel_id,
+            collective__collective_id=collective_id
+        )
 
 class InsideCollectiveView(RetrieveAPIView):
     serializer_class = InsideCollectiveViewSerializer
@@ -116,6 +175,9 @@ class JoinCollectiveView(APIView):
             'collective_id': str(member.collective_id),
         }, status=status.HTTP_200_OK)
 
+'''
+ Simple implementation (will have to change to sending request, and then admin on other side will accept)
+ '''
 class BecomeCollectiveAdminView(APIView):
     permission_classes = [IsAuthenticated, IsCollectiveMember]
     

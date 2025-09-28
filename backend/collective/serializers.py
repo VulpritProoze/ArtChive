@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
-from common.utils.choices import FACEBOOK_RULES, COLLECTIVE_STATUS
+from common.utils.choices import FACEBOOK_RULES
 from post.serializers import PostCreateUpdateSerializer, PostViewSerializer
 from post.models import Post, NovelPost
 from core.models import User
@@ -20,7 +20,7 @@ class ChannelSerializer(ModelSerializer):
 class CollectiveChannelSerializer(ModelSerializer):
     class Meta:
         model = Channel
-        fields = ['channel_id', 'title']
+        fields = ['channel_id', 'description', 'title']
 
 class CollectiveMemberSerializer(ModelSerializer):
     class Meta:
@@ -42,7 +42,6 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         allow_blank=False,
         trim_whitespace=True
     )
-    status = serializers.ChoiceField(choices=COLLECTIVE_STATUS)
     rules = serializers.ListField(
         child=serializers.CharField(max_length=100),
         required=False,
@@ -59,7 +58,6 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         fields = [
             'title',
             'description',
-            'status',
             'rules',
             'artist_types'
         ]
@@ -128,6 +126,20 @@ class ChannelCreateSerializer(ModelSerializer):
 
     def create(self, validated_data):
         return Channel.objects.create(**validated_data)
+
+class ChannelUpdateSerializer(ChannelCreateSerializer):
+    class Meta:
+        model = Channel
+        fields = ['title', 'description', 'channel_id']
+
+class ChannelDeleteSerializer(ModelSerializer):
+    class Meta:
+        model = Channel
+        fields = '__all__'
+
+    def validate():
+        pass
+
 
 class CollectiveMemberSerializer(ModelSerializer):
     class Meta:
