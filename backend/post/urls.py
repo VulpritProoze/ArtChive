@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     OwnPostsListView, PostListView, PostDetailView, PostCreateView, PostUpdateView, PostDeleteView,
     CommentListView, CommentDetailView, CommentCreateView, CommentUpdateView, CommentDeleteView,
-    PostCommentsView
+    PostCommentsView, PostHeartCreateView, UserHeartedPostsListView, PostHeartsListView,
+    PostHeartDestroyView
 )
 
 urlpatterns = [
@@ -18,4 +19,8 @@ urlpatterns = [
     path('comment/create/', CommentCreateView.as_view(), name='comment-create'),
     path('comment/update/<uuid:comment_id>/', CommentUpdateView.as_view(), name='comment-update'),
     path('comment/delete/<uuid:comment_id>/', CommentDeleteView.as_view(), name='comment-delete'),
+    path('heart/react/', PostHeartCreateView.as_view(), name='post-heart-react'),
+    path('heart/list/me/', UserHeartedPostsListView.as_view(), name='user-hearted-posts'),
+    path('<uuid:post_id>/hearts/', PostHeartsListView.as_view(), name='post-hearts-list'),
+    path('<uuid:post_id>/unheart/', PostHeartDestroyView.as_view(), name='post-unheart-react'),
 ]

@@ -4,13 +4,15 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.generics import CreateAPIView
 from .serializers import (
     PostViewSerializer, PostCreateUpdateSerializer, PostDeleteSerializer,
     CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
+    PostHeartCreateSerializer, PostHeartSerializer
 )
 from core.models import User
 from collective.models import CollectiveMember
-from .models import Post, Comment, NovelPost
+from .models import Post, Comment, NovelPost, PostHeart
 from .pagination import PostPagination, CommentPagination
 
 
@@ -184,3 +186,48 @@ class CommentDeleteView(generics.DestroyAPIView):
     serializer_class = CommentDeleteSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'comment_id'
+
+class PostHeartCreateView(generics.CreateAPIView):
+    """Create a heart for a post"""
+    queryset = PostHeart.objects.all()
+    serializer_class = PostHeartCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+class PostHeartDestroyView(generics.DestroyAPIView):
+    """Remove a heart from a post"""
+    serializer_class = PostHeartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return PostHeart.objects.filter(author=self.request.user)
+
+    def get_object(self):
+        post_id = self.kwargs.get('post_id')
+        return get_object_or_404(
+            PostHeart, 
+            post_id=post_id, 
+            author=self.request.user
+        )
+
+class UserHeartedPostsListView(generics.ListAPIView):
+    """List all posts hearted by the current user"""
+    serializer_class = PostHeartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return PostHeart.objects.filter(
+            author=self.request.user
+        ).select_related('post_id', 'author').order_by('-hearted_at')
+
+class PostHeartsListView(generics.ListAPIView):
+    """List all hearts for a specific post"""
+    serializer_class = PostHeartSerializer
+
+    def get_queryset(self):
+        post_id = self.kwargs.get('post_id')
+        return PostHeart.objects.filter(
+            post_id=post_id
+        ).select_related('author').order_by('-hearted_at')

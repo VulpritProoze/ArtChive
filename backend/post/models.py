@@ -27,6 +27,9 @@ class PostHeart(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_heart')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_heart')
     hearted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.author} hearted {self.post_id}'
     
 class PostPraise(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_praise')

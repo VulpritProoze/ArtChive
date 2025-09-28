@@ -39,4 +39,9 @@ export type PostContextType = {
 
     resetForms,
 
+    // Hearting Functionality
+    heartPost: (postId: string) => Promise<void>;
+    unheartPost: (postId: string) => Promise<void>;
+    loadingHearts: { [postId: string]: boolean };
+
 }

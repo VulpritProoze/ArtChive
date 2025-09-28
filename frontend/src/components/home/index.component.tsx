@@ -1,11 +1,14 @@
-import React, { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { LogoutButton } from '@components/account/logout';
-import { CommentFormModal, PostFormModal } from '@components/common/posts-feature/modal'
-import usePost from '@hooks/use-post';
-import { PostLoadingIndicator, CommentsRenderer } from '@components/common';
-import { usePostContext } from '@context/post-context';
-import { getCommentsForPost } from '@utils';
+import React, { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { LogoutButton } from "@components/account/logout";
+import {
+  CommentFormModal,
+  PostFormModal,
+} from "@components/common/posts-feature/modal";
+import usePost from "@hooks/use-post";
+import { PostLoadingIndicator, CommentsRenderer } from "@components/common";
+import { usePostContext } from "@context/post-context";
+import { getCommentsForPost } from "@utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCommentDots,
@@ -14,10 +17,12 @@ import {
   faQuestionCircle,
   faCog,
 } from "@fortawesome/free-solid-svg-icons";
+import HeartButton from "@components/common/posts-feature/heart-button";
 
 const Index: React.FC = () => {
-  const { 
-    comments, loadingComments, 
+  const {
+    comments,
+    loadingComments,
     commentPagination,
     showCommentForm,
 
@@ -33,49 +38,60 @@ const Index: React.FC = () => {
     setLoadingMore,
     fetchPosts,
     deletePost,
-  } = usePostContext()
-  const { setupEditPost, toggleComments } = usePost()
 
-  const observerTarget = useRef<HTMLDivElement>(null)
+    // Hearting
+    heartPost,
+    unheartPost,
+    loadingHearts,
+  } = usePostContext();
+  const { setupEditPost, toggleComments } = usePost();
+
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Infinite scrolling behavior
   useEffect(() => {
-    let isFetching = false
+    let isFetching = false;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
           pagination.hasNext &&
-          !loadingMore && 
+          !loadingMore &&
           !loading &&
           !isFetching
         ) {
-          isFetching = true
-          fetchPosts(pagination.currentPage + 1, true)
-            .finally(() => {
-              isFetching = false  // Reset flag after fetch completes
-            })
+          isFetching = true;
+          fetchPosts(pagination.currentPage + 1, true).finally(() => {
+            isFetching = false; // Reset flag after fetch completes
+          });
         }
-      }, { threshold: 0.5 }
-    )
+      },
+      { threshold: 0.5 }
+    );
 
     if (observerTarget.current) {
-      observer.observe(observerTarget.current)
+      observer.observe(observerTarget.current);
     }
 
     return () => {
       if (observerTarget.current) {
-        observer.unobserve(observerTarget.current)
+        observer.unobserve(observerTarget.current);
       }
-      observer.disconnect()
-    }
-  }, [pagination.hasNext, loadingMore, loading, fetchPosts, pagination.currentPage])
+      observer.disconnect();
+    };
+  }, [
+    pagination.hasNext,
+    loadingMore,
+    loading,
+    fetchPosts,
+    pagination.currentPage,
+  ]);
 
   useEffect(() => {
-    setLoading(false)
-    setLoadingMore(false)
-  }, [])
+    setLoading(false);
+    setLoadingMore(false);
+  }, []);
 
   useEffect(() => {
     fetchPosts(1);
@@ -83,11 +99,9 @@ const Index: React.FC = () => {
 
   return (
     /*container div */
-    <div className="container mx-auto p-4">
-    
+    <div className="container max-w-full w-full">
       {/* Header/Navbar */}
       <div className="flex items-center justify-between bg-base-100 px-6 py-3 shadow w-full">
-
         {/* Logo */}
         <h2 className="text-xl font-bold text-primary">ArtChive</h2>
 
@@ -102,7 +116,6 @@ const Index: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-8">
-
           {/* User Profile */}
           <div className="flex items-center gap-3">
             <Link to="/profile">
@@ -115,7 +128,9 @@ const Index: React.FC = () => {
 
             <div className="hidden md:block">
               <Link to="/profile">
-                <h5 className="text-sm font-semibold text-base-content">Chenoborg</h5>
+                <h5 className="text-sm font-semibold text-base-content">
+                  Chenoborg
+                </h5>
               </Link>
               <p className="text-xs text-primary">@chenoborg_art</p>
               <p className="text-xs text-base-content/70">
@@ -127,39 +142,65 @@ const Index: React.FC = () => {
           {/* Menus / Icons */}
           <div className="hidden sm:flex items-center gap-5 text-base-content text-lg">
             <a href="#">
-              <FontAwesomeIcon icon={faCommentDots} className="hover:text-primary transition-colors" />
+              <FontAwesomeIcon
+                icon={faCommentDots}
+                className="hover:text-primary transition-colors"
+              />
             </a>
             <a href="#">
-              <FontAwesomeIcon icon={faBell} className="hover:text-primary transition-colors" />
+              <FontAwesomeIcon
+                icon={faBell}
+                className="hover:text-primary transition-colors"
+              />
             </a>
             <a href="#">
-              <FontAwesomeIcon icon={faTrophy} className="hover:text-primary transition-colors" />
+              <FontAwesomeIcon
+                icon={faTrophy}
+                className="hover:text-primary transition-colors"
+              />
             </a>
             <a href="#">
-              <FontAwesomeIcon icon={faQuestionCircle} className="hover:text-primary transition-colors" />
+              <FontAwesomeIcon
+                icon={faQuestionCircle}
+                className="hover:text-primary transition-colors"
+              />
             </a>
             <a href="#">
-              <FontAwesomeIcon icon={faCog} className="hover:text-primary transition-colors" />
+              <FontAwesomeIcon
+                icon={faCog}
+                className="hover:text-primary transition-colors"
+              />
             </a>
           </div>
         </div>
       </div>
 
-      
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 px-4 lg:px-12 py-6">
         {/* LEFT SIDEBAR */}
         <aside className="lg:col-span-2 hidden lg:flex flex-col gap-4">
           <nav className="flex flex-col gap-2">
-            <Link to='/home' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors'>
+            <Link
+              to="/home"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
+            >
               Home
             </Link>
-            <Link to='/gallery' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors'>
+            <Link
+              to="/gallery"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
+            >
               Gallery
             </Link>
-            <Link to='/collective' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors'>
+            <Link
+              to="/collective"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
+            >
               Collective
             </Link>
-            <Link to='/profile' className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors'>
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
+            >
               Profile
             </Link>
             <button
@@ -176,13 +217,9 @@ const Index: React.FC = () => {
         {/* FEED / POSTS */}
         <main className="lg:col-span-7">
           {/* Post Form Modal */}
-          {showPostForm && (
-            <PostFormModal />
-          )}
+          {showPostForm && <PostFormModal />}
 
-          {showCommentForm &&
-            <CommentFormModal />
-          }
+          {showCommentForm && <CommentFormModal />}
 
           {/* Posts Section */}
           <div className="mb-12">
@@ -198,88 +235,85 @@ const Index: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {posts.map(postItem => (
-                <div key={postItem.post_id} className="card bg-base-100 border border-base-300 rounded-xl shadow-sm hover:shadow-md transition">
+              {posts.map((postItem) => (
+                <div
+                  key={postItem.post_id}
+                  className="card bg-base-100 border border-base-300 rounded-xl shadow-sm hover:shadow-md transition"
+                >
                   <div className="card-body">
                     <h3 className="card-title text-lg font-semibold text-base-content">
                       {postItem.description?.substring(0, 30)}...
                     </h3>
-                    <p className="text-sm text-base-content/70">Id: {postItem.post_id}</p>
-                    <p className="text-sm text-base-content/70">Type: {postItem.post_type}</p>
-                    <p className="text-sm text-base-content/70">Author: {postItem.author}</p>
-                    <p className="text-sm text-base-content/70">Created: {new Date(postItem.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-base-content/70">
+                      Id: {postItem.post_id}
+                    </p>
+                    <p className="text-sm text-base-content/70">
+                      Type: {postItem.post_type}
+                    </p>
+                    <p className="text-sm text-base-content/70">
+                      Author: {postItem.author}
+                    </p>
+                    <p className="text-sm text-base-content/70">
+                      Created:{" "}
+                      {new Date(postItem.created_at).toLocaleDateString()}
+                    </p>
 
-                    {postItem.post_type === 'image' && postItem.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={postItem.image_url}
-                          alt={postItem.description}
-                          className="rounded-lg w-full max-h-64 object-cover"
+                    {/* ... existing media rendering ... */}
+
+                    {/* Post Actions - Add Heart Button */}
+                    <div className="flex items-center justify-between mt-4 border-t border-base-300 pt-3">
+                      <div className="flex items-center gap-2">
+                        <HeartButton
+                          postId={postItem.post_id}
+                          heartsCount={postItem.hearts_count || 0}
+                          isHearted={postItem.is_hearted_by_user || false}
+                          onHeart={heartPost}
+                          onUnheart={unheartPost}
+                          isLoading={loadingHearts[postItem.post_id]}
+                          size="sm"
                         />
-                      </div>
-                    )}
 
-                    {postItem.post_type === 'video' && postItem.video_url && (
-                      <div className="mt-4">
-                        <video controls className="rounded-lg w-full max-h-64">
-                          <source src={postItem.video_url} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    )}
-
-                    {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
-                      <div className="mt-4">
-                        <p className="font-semibold text-base-content">Chapters: {postItem.novel_post.length}</p>
-                        {postItem.novel_post.slice(0, 3).map((novelPost, index) => (
-                          <div key={index} className="mt-2 p-2 bg-base-200 rounded">
-                            <p className="text-sm font-medium text-base-content">Chapter {novelPost.chapter}</p>
-                            <p className="text-sm mt-1 text-base-content/70">{novelPost.content?.substring(0, 80)}...</p>
-                          </div>
-                        ))}
-                        {postItem.novel_post.length > 3 && (
-                          <p className="text-sm text-base-content/50 mt-2">
-                            +{postItem.novel_post.length - 3} more chapters...
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Comments Toggle Button */}
-                    <div className="mt-4">
-                      <button
-                        className="btn btn-sm btn-outline w-full"
-                        onClick={() => toggleComments(postItem.post_id)}
-                        disabled={loadingComments[postItem.post_id]}
-                      >
-                        {loadingComments[postItem.post_id] ? (
-                          <>
+                        {/* Comments Toggle Button */}
+                        <button
+                          className="btn btn-sm btn-ghost gap-2"
+                          onClick={() => toggleComments(postItem.post_id)}
+                          disabled={loadingComments[postItem.post_id]}
+                        >
+                          <FontAwesomeIcon icon={faCommentDots} />
+                          {loadingComments[postItem.post_id] ? (
                             <div className="loading loading-spinner loading-xs"></div>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            {expandedPost === postItem.post_id ? 'Hide' : 'Show'} Comments (
-                            {commentPagination[postItem.post_id]?.totalCount ||
-                              getCommentsForPost(postItem.post_id, comments).length})
-                          </>
-                        )}
-                      </button>
+                          ) : (
+                            <span>
+                              {commentPagination[postItem.post_id]
+                                ?.totalCount ||
+                                getCommentsForPost(postItem.post_id, comments)
+                                  .length}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Edit/Delete Actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => setupEditPost(postItem)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-sm btn-error"
+                          onClick={() => deletePost(postItem.post_id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
 
                     {/* Comments Section */}
-                    {expandedPost === postItem.post_id &&
+                    {expandedPost === postItem.post_id && (
                       <CommentsRenderer postId={postItem.post_id} />
-                    }
-
-                    <div className="card-actions justify-end mt-4">
-                      <button className="btn btn-sm btn-secondary" onClick={() => setupEditPost(postItem)}>
-                        Edit
-                      </button>
-                      <button className="btn btn-sm btn-error" onClick={() => deletePost(postItem.post_id)}>
-                        Delete
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -298,9 +332,15 @@ const Index: React.FC = () => {
         {/* RIGHT SIDEBAR */}
         <aside className="lg:col-span-3 hidden lg:flex flex-col gap-6">
           <div>
-            <h3 className="text-lg font-bold mb-2 text-base-content">Popular This Week</h3>
+            <h3 className="text-lg font-bold mb-2 text-base-content">
+              Popular This Week
+            </h3>
             <div className="rounded-lg overflow-hidden shadow-sm">
-              <img src="/images/popular-art.jpg" alt="Popular Artwork" className="w-full object-cover" />
+              <img
+                src="/images/popular-art.jpg"
+                alt="Popular Artwork"
+                className="w-full object-cover"
+              />
             </div>
           </div>
 
@@ -309,14 +349,22 @@ const Index: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-lg font-bold mb-2 text-base-content">Active Fellows</h3>
+            <h3 className="text-lg font-bold mb-2 text-base-content">
+              Active Fellows
+            </h3>
             <ul className="flex flex-col gap-3">
               <li className="flex items-center gap-3">
-                <img src="https://randomuser.me/api/portraits/women/1.jpg" className="w-8 h-8 rounded-full" />
+                <img
+                  src="https://randomuser.me/api/portraits/women/1.jpg"
+                  className="w-8 h-8 rounded-full"
+                />
                 <p className="text-sm text-base-content">Lisa Wong</p>
               </li>
               <li className="flex items-center gap-3">
-                <img src="https://randomuser.me/api/portraits/men/2.jpg" className="w-8 h-8 rounded-full" />
+                <img
+                  src="https://randomuser.me/api/portraits/men/2.jpg"
+                  className="w-8 h-8 rounded-full"
+                />
                 <p className="text-sm text-base-content">Michael Brown</p>
               </li>
             </ul>

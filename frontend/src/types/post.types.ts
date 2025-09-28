@@ -30,6 +30,16 @@ export interface Post {
   comments?: PaginatedComments;
   comment_count: number;
   channel_id?: string; 
+  hearts_count?: number
+  is_hearted_by_user: boolean
+}
+
+export interface PostHeart {
+  id: number
+  post_id: string 
+  author: string
+  author_username: string 
+  hearted_at: string
 }
 
 type PaginatedComments = {

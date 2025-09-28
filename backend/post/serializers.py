@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.serializers import ModelSerializer
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import PermissionDenied
 from core.models import User
@@ -242,10 +243,25 @@ class PostDeleteSerializer(serializers.ModelSerializer):
     
 class PostViewSerializer(serializers.ModelSerializer):
     novel_post = NovelPostSerializer(many=True)
+    hearts_count = serializers.SerializerMethodField()
+    is_hearted_by_user = serializers.SerializerMethodField()
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    channel_name = serializers.CharField(source='channel.name', read_only=True)
     
     class Meta:
         model = Post 
         fields = '__all__'
+
+    def get_hearts_count(self, obj):
+        """Get the number of hearts for this post"""
+        return obj.post_heart.count()  # Using the related_name from PostHeart model
+
+    def get_is_hearted_by_user(self, obj):
+        """Check if the current user has hearted this post"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.post_heart.filter(author=request.user).exists()
+        return False
         
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
@@ -304,5 +320,30 @@ class CommentDeleteSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         if not (user == self.instance.author or user.is_staff):
             raise serializers.ValidationError("You can only delete your own comments")
+        
+        return data
+    
+class PostHeartSerializer(ModelSerializer):
+    class Meta:
+        model = PostHeart
+        fields = '__all__'
+
+class PostHeartCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostHeart
+        fields = ['post_id']
+
+    def validate(self, data):
+        # Auto-set the author to current user
+        request = self.context.get('request')
+        if request and request.method == 'POST':
+            data['author'] = request.user
+        
+        # Check if user already hearted this post
+        if PostHeart.objects.filter(
+            post_id=data['post_id'], 
+            author=data['author']
+        ).exists():
+            raise serializers.ValidationError("You have already hearted this post")
         
         return data

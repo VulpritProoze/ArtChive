@@ -16,7 +16,7 @@ const usePost = () => {
         setShowCommentForm, 
         expandedPost, 
         fetchCommentsForPost, 
-        setExpandedPost
+        setExpandedPost,
      } = usePostContext()
 
     // Setup edit forms

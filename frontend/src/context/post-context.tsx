@@ -55,6 +55,60 @@ export const PostProvider = ({ children }) => {
     video_url: null as File | null,
     chapters: [{ chapter: "", content: "" }],
   });
+  const [loadingHearts, setLoadingHearts] = useState<{ [postId: string]: boolean }>({});
+
+  /* HEARTING FUNCTIONALITY */
+  const heartPost = useCallback(async (postId: string) => {
+    try {
+      setLoadingHearts(prev => ({ ...prev, [postId]: true }));
+      
+      await post.post('heart/react/', { post_id: postId });
+      
+      // Update the post in local state
+      setPosts(prev => prev.map(post => 
+        post.post_id === postId 
+          ? { 
+              ...post, 
+              hearts_count: (post.hearts_count || 0) + 1,
+              is_hearted_by_user: true 
+            }
+          : post
+      ));
+      
+      toast.success("Post hearted!");
+    } catch (error) {
+      console.error("Heart post error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingHearts(prev => ({ ...prev, [postId]: false }));
+    }
+  }, []);
+
+  const unheartPost = useCallback(async (postId: string) => {
+    try {
+      setLoadingHearts(prev => ({ ...prev, [postId]: true }));
+      
+      await post.delete(`${postId}/unheart/`);
+      
+      // Update the post in local state
+      setPosts(prev => prev.map(post => 
+        post.post_id === postId 
+          ? { 
+              ...post, 
+              hearts_count: Math.max(0, (post.hearts_count || 1) - 1),
+              is_hearted_by_user: false 
+            }
+          : post
+      ));
+      
+      toast.success("Post unhearted!");
+    } catch (error) {
+      console.error("Unheart post error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingHearts(prev => ({ ...prev, [postId]: false }));
+    }
+  }, []);
 
   /* COMMENTS */
   const handleCommentSubmit = async (e: React.FormEvent) => {
@@ -187,10 +241,17 @@ export const PostProvider = ({ children }) => {
           });
         }
 
+        // Ensure posts have heart data
+        const postsWithHearts = (response.data.results || []).map((post: Post) => ({
+          ...post,
+          hearts_count: post.hearts_count || 0,
+          is_hearted_by_user: post.is_hearted_by_user || false
+        }));
+
         if (append) {
-          setPosts((prev) => [...prev, ...response.data.results]);
+          setPosts((prev) => [...prev, ...postsWithHearts]);
         } else {
-          setPosts(response.data.results || []);
+          setPosts(postsWithHearts);
         }
 
         setPagination((prev) => ({
@@ -347,6 +408,11 @@ export const PostProvider = ({ children }) => {
     handlePostFormChange,
 
     resetForms,
+
+    // Hearting functionality
+    heartPost,
+    unheartPost,
+    loadingHearts,
   };
 
   return (
