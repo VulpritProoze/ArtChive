@@ -15,6 +15,9 @@ class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
 
+    def __str__(self):
+        return f'[{self.post_id}] by {self.author}'
+
 class NovelPost(models.Model):
     chapter = models.PositiveIntegerField()
     content = models.TextField()

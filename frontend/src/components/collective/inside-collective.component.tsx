@@ -67,12 +67,9 @@ const CollectiveHome = () => {
           selectedChannel
         ) {
           isFetching = true;
-          fetchPosts(
-            pagination.currentPage + 1,
-            true,
-            selectedChannel.channel_id
-          ).finally(() => {
-            isFetching = false;
+          fetchPosts(pagination.currentPage + 1, true, selectedChannel.channel_id)
+            .finally(() => {
+              isFetching = false;
           });
         }
       },

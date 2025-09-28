@@ -26,5 +26,3 @@ export { default as CollectiveHome } from './collective/inside-collective.compon
 
 // Gallery
 export { default as GalleryIndex } from './gallery/index.component'
-
-// Theme

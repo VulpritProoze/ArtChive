@@ -5,6 +5,7 @@ import type {
   Comment,
   Post,
   PostForm,
+  FetchPost
 } from "@types";
 import { post, collective } from "@lib/api";
 import { toast } from "react-toastify";
@@ -149,12 +150,16 @@ export const PostProvider = ({ children }) => {
   };
 
   /* POSTS */
-  // Fetch data functions (allows collective post too)
-  const fetchPosts = useCallback(
+  // Fetch data functions 
+  // Optional parameters:
+  // channel_id -> if post-context is used within collective
+  // user_id -> if post-context is used within profile timeline
+  const fetchPosts: FetchPost = useCallback(
     async (
-      page: number = 1,
-      append: boolean = false,
-      channel_id: string | null = null
+      page = 1,
+      append = false,
+      channel_id?,
+      user_id?
     ) => {
       try {
         if (append) {
@@ -163,10 +168,17 @@ export const PostProvider = ({ children }) => {
           setLoading(true);
         }
 
-        const url = channel_id ? `channel/${channel_id}/posts/` : "/";
+        let url = "/";
         let response;
+        
         if (channel_id) {
+          url = `channel/${channel_id}/posts/`;
           response = await collective.get(url, {
+            params: { page, page_size: 10 },
+          });
+        } else if (user_id) {
+          url = `me/${user_id}/`;
+          response = await post.get(url, {
             params: { page, page_size: 10 },
           });
         } else {
@@ -201,7 +213,10 @@ export const PostProvider = ({ children }) => {
   );
 
   // Post operations
-  const handlePostSubmit = async (e: React.FormEvent, channel_id?: string) => {
+  const handlePostSubmit = async (
+    e: React.FormEvent, 
+    channel_id?: string,
+  ) => {
     e.preventDefault();
 
     try {
@@ -272,8 +287,8 @@ export const PostProvider = ({ children }) => {
   };
 
   const refreshPosts = (channel_id?: string) => {
-    if (channel_id) fetchPosts(1, false);
-    else fetchPosts(1, false, channel_id);
+    if (channel_id) fetchPosts(1, false, channel_id);
+    else fetchPosts(1, false);
   };
 
   // Form reset
@@ -289,7 +304,7 @@ export const PostProvider = ({ children }) => {
       image_url: null,
       video_url: null,
       chapters: [{ chapter: "", content: "" }],
-      ...(channel_id && { channel_id: channel_id }), // Assign channel_id if selectedChannel exists
+      ...(channel_id && { channel_id: channel_id }), // Assign channel_id if exists
     });
     setCommentForm({ text: "", post_id: "" });
   };

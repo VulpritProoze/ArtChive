@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,7 +8,6 @@ from .serializers import (
     PostViewSerializer, PostCreateUpdateSerializer, PostDeleteSerializer,
     CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
 )
-from core.permissions import IsOwnerOrSuperAdmin
 from core.models import User
 from collective.models import CollectiveMember
 from .models import Post, Comment, NovelPost
@@ -17,7 +17,7 @@ from .pagination import PostPagination, CommentPagination
 class PostCreateView(generics.CreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostCreateUpdateSerializer
-    permission_classes = [IsAuthenticated, IsOwnerOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     # Allow only the authenticated user to post
     def perform_create(self, serializer):
@@ -42,19 +42,27 @@ class PostListView(generics.ListAPIView):
         queryset = Post.objects.prefetch_related(
             'novel_post',
             'channel',
+            'channel__collective'  # needed for collective filtering
         ).select_related(
             'author',
         ).order_by('-created_at')
 
+        # Always include public posts (from the known public channel)
+        public_channel_id = '00000000-0000-0000-0000-000000000001'
+        public_posts = Q(channel=public_channel_id)
+
         if user.is_authenticated:
-            joined_collectives = CollectiveMember.objects.filter(member=user).values_list('collective_id', flat=True)
+            joined_collectives = CollectiveMember.objects.filter(
+                member=user
+            ).values_list('collective_id', flat=True)
 
-            return queryset.filter(
-                channel__collective__in=joined_collectives
-            ).prefetch_related(
-                'channel__collective'
-            )
+            # Posts from joined collectives
+            joined_posts = Q(channel__collective__in=joined_collectives)
 
+            # Combine: public posts OR posts fromoined collectives
+            return queryset.filter(public_posts | joined_posts)
+
+        # Returns only public posts if unauthenticated
         return queryset.filter(
             channel='00000000-0000-0000-0000-000000000001'
         )
@@ -108,7 +116,7 @@ class PostUpdateView(generics.UpdateAPIView):
             )
     serializer_class = PostCreateUpdateSerializer
     lookup_field = 'post_id'
-    permission_classes = [IsAuthenticated, IsOwnerOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
 class PostDeleteView(generics.DestroyAPIView):
     queryset = Post.objects.prefetch_related(
@@ -118,7 +126,7 @@ class PostDeleteView(generics.DestroyAPIView):
             )
     serializer_class = PostDeleteSerializer
     lookup_field = 'post_id'
-    permission_classes = [IsAuthenticated, IsOwnerOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     def perform_destroy(self, instance):
         # Delete media files
@@ -164,7 +172,7 @@ class CommentUpdateView(generics.UpdateAPIView):
     """
     queryset = Comment.objects.select_related('author', 'post_id')
     serializer_class = CommentCreateUpdateSerializer
-    permission_classes = [IsAuthenticated, IsOwnerOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
     lookup_field = 'comment_id'
 
 class CommentDeleteView(generics.DestroyAPIView):
@@ -174,5 +182,5 @@ class CommentDeleteView(generics.DestroyAPIView):
     """
     queryset = Comment.objects.select_related('author', 'post_id')
     serializer_class = CommentDeleteSerializer
-    permission_classes = [IsAuthenticated, IsOwnerOrSuperAdmin]
+    permission_classes = [IsAuthenticated]
     lookup_field = 'comment_id'

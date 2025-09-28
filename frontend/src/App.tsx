@@ -63,7 +63,11 @@ function App() {
                       <Home />
                     </PostProvider>
                   } />
-                  <Route path="/profile" element={<Timeline />} />
+                  <Route path="/profile" element={
+                    <PostProvider>
+                      <Timeline />
+                    </PostProvider>
+                  } />
                   <Route path="/profile/me" element={<Profile />} />
                   <Route path="/collective" element={<Collective /> } />
 
