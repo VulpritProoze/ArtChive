@@ -297,7 +297,7 @@ const ProfileComponent: React.FC = () => {
               </div>
             </div>
 
-            {/* Artist Types */}
+            {/* Artist Types */}``
             <div className="mb-6">
               <label className="label">
                 <span className="label-text">Artist Types (max 5)</span>
