@@ -258,7 +258,42 @@ const Index: React.FC = () => {
                       {new Date(postItem.created_at).toLocaleDateString()}
                     </p>
 
-                    {/* ... existing media rendering ... */}
+                    {/* Media rendering */}
+                    {postItem.post_type === 'image' && postItem.image_url && (
+                      <div className="mt-4">
+                        <img
+                          src={postItem.image_url}
+                          alt={postItem.description}
+                          className="rounded-lg w-full max-h-64 object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {postItem.post_type === 'video' && postItem.video_url && (
+                      <div className="mt-4">
+                        <video controls className="rounded-lg w-full max-h-64">
+                          <source src={postItem.video_url} type="video/mp4" />
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
+
+                    {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
+                      <div className="mt-4">
+                        <p className="font-semibold">Chapters: {postItem.novel_post.length}</p>
+                        {postItem.novel_post.slice(0, 3).map((novelPost, index) => (
+                          <div key={index} className="mt-2 p-2 bg-gray-100 rounded">
+                            <p className="text-sm font-medium">Chapter {novelPost.chapter}</p>
+                            <p className="text-sm mt-1 text-gray-600">{novelPost.content?.substring(0, 80)}...</p>
+                          </div>
+                        ))}
+                        {postItem.novel_post.length > 3 && (
+                          <p className="text-sm text-gray-500 mt-2">
+                            +{postItem.novel_post.length - 3} more chapters...
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Post Actions - Add Heart Button */}
                     <div className="flex items-center justify-between mt-4 border-t border-base-300 pt-3">
