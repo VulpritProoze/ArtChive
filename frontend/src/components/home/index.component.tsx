@@ -119,11 +119,11 @@ const Index: React.FC = () => {
               <div className="hidden md:block">
                 <Link to="/profile">
                   <h5 className="text-sm font-semibold text-gray-800">Chenoborg</h5>
-                <
+                </Link>
                   
                   
                   
-                  k>
+                  
                 <p className="text-xs text-purple-600">@chenoborg_art</p>
                 <p className="text-xs text-gray-500">
                   Digital Artist | Character Designer
