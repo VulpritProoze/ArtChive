@@ -31,7 +31,7 @@ export default function Login() {
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
       await login(data.email, data.password);
-      navigate("/home")
+      navigate("/home");
     } catch (error) {
       setError("root", {
         message: "Invalid email or password. Please try again.",
@@ -44,10 +44,16 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-base-100 p-10 rounded-xl shadow-lg">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-base-content">Welcome back</h2>
-          <p className="mt-2 text-sm text-base-content/70">Sign in to your ArtChive account</p>
+          <img
+            src="/logo/mainLogo.png"
+            alt="ArtChive Logo"
+            className="mx-auto h-24 w-auto" // adjust h-16 to make bigger/smaller
+          />
+          <p className="mt-2 text-sm text-base-content/70">
+            Sign in to your ArtChive account
+          </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div className="mb-5">
