@@ -32,7 +32,8 @@ export const CollectivePostProvider = ({ children }) => {
 
         // Set first channel as selected by default
         if (collectiveResponse.data.channels.length > 0) {
-          const firstChannel = collectiveResponse.data.channels[0];
+          let firstChannel = collectiveResponse.data.channels[0];
+          firstChannel.collective_id = collectiveResponse.data.collective_id
           setSelectedChannel(firstChannel);
           setPostForm(prev => ({ ...prev, channel_id: firstChannel.channel_id }));
           await fetchPosts(1, false, firstChannel.channel_id);

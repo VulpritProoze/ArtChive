@@ -247,8 +247,8 @@ const CollectiveHome = () => {
               </div>
 
               {/* Channel actions */}
-              <div className="flex flex-row gap-1">
-                {isAdminOfACollective(selectedChannel.channel_id) && (
+              <div className="flex flex-row gap-1 mb-2">
+                {isAdminOfACollective(selectedChannel.collective_id) && (
                   <>
                     <button
                       className="btn btn-info"

@@ -134,7 +134,7 @@ const Timeline: React.FC = () => {
       </div>
       
       {/* Post Form Modal */}
-      {showPostForm && <PostFormModal />}
+      {showPostForm && <PostFormModal user_id={user?.id} />}
       
       {/* Comment Form Modal */}
       {showCommentForm && <CommentFormModal />}

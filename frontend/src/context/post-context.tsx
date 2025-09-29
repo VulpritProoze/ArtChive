@@ -221,7 +221,6 @@ export const PostProvider = ({ children }) => {
         } else {
           setLoading(true);
         }
-
         let url = "/";
         let response;
         
@@ -277,8 +276,10 @@ export const PostProvider = ({ children }) => {
   const handlePostSubmit = async (
     e: React.FormEvent, 
     channel_id?: string,
+    user_id?: number,
   ) => {
     e.preventDefault();
+    console.log(channel_id, user_id)
 
     try {
       const formData = new FormData();
@@ -315,7 +316,7 @@ export const PostProvider = ({ children }) => {
         chapters: [{ chapter: "", content: "" }],
         channel_id: channel_id,
       });
-      refreshPosts(channel_id);
+      refreshPosts(channel_id, user_id);
     } catch (error) {
       console.error("Post submission error: ", error);
       toast.error(handleApiError(error, defaultErrors));
@@ -347,8 +348,9 @@ export const PostProvider = ({ children }) => {
     setPostForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const refreshPosts = (channel_id?: string) => {
+  const refreshPosts = (channel_id?: string, user_id?: number) => {
     if (channel_id) fetchPosts(1, false, channel_id);
+    else if (user_id) fetchPosts(1, false, undefined, user_id)
     else fetchPosts(1, false);
   };
 

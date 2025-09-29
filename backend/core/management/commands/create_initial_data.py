@@ -20,7 +20,7 @@ class Command(BaseCommand):
 
         if User.objects.filter(is_superuser=True).exists():
             self.stdout.write(
-                self.style.SUCCESS('Superuser already exists. Skipping.')
+                self.style.SUCCESS('Superuser already exists. Skipping...')
             )
             return
 

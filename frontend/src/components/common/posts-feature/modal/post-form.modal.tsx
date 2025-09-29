@@ -1,7 +1,7 @@
 import { usePostContext } from "@context/post-context";
 import { AddChapterRenderer, AddMediaRenderer } from '@components/common'
 
-export default function PostFormModal({channel_id} : {channel_id?: string}) {
+export default function PostFormModal({channel_id, user_id} : {channel_id?: string, user_id?: number}) {
   const { editing, handlePostSubmit, postForm, handlePostFormChange, setPostForm, resetForms} = usePostContext()
 
   return (
@@ -11,7 +11,7 @@ export default function PostFormModal({channel_id} : {channel_id?: string}) {
           <h2 className="text-2xl font-bold mb-4">
             {editing ? "Edit Post" : "Create Post"}
           </h2>
-          <form onSubmit={(e) => handlePostSubmit(e, channel_id)}>
+          <form onSubmit={(e) => handlePostSubmit(e, channel_id, user_id)}>
             <div className="form-control mb-4">
               <label className="label">
                 <span className="label-text">Description</span>

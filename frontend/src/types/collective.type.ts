@@ -19,6 +19,7 @@ export interface Collective {
 }
 
 export interface Channel {
+  collective_id?: string
   channel_id: string;
   description: string;
   title: string;
