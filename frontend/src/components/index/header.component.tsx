@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Moon, Sun } from "lucide-react";
 import useToggleTheme from "@hooks/use-theme";
-import { getCssVariableValue } from "@utils/get-css-var"
+import { getCssVariableValue } from "@utils/get-css-var";
 import { oklchToRgba } from "@utils/oklch-to-rgba";
 import {
   motion,
@@ -26,10 +26,9 @@ export default function Header() {
       if (!isScrolled) {
         setBgColor("transparent");
       } else {
-        // Use setTimeout to ensure theme has been applied
         setTimeout(() => {
           setBgColor(oklchToRgba(getCssVariableValue("--color-base-200"), 0.7));
-        }, 50); // Small delay to ensure theme is applied
+        }, 50);
       }
     };
 
@@ -38,7 +37,7 @@ export default function Header() {
 
   return (
     <motion.header
-      className="navbar fixed z-50 top-0 left-0 px-6 md:px-16"
+      className="navbar fixed z-50 top-0 left-0 w-full"
       initial={false}
       animate={{
         height: isScrolled ? "70px" : "90px",
@@ -50,26 +49,21 @@ export default function Header() {
     >
       {/* Left Side - Logo */}
       <motion.div
-        className="navbar-start z-10"
+        className="navbar-start flex items-center pl-4 md:pl-8 pt-4 z-10" // 👈 added pt-2 (adjust as needed)
         whileHover={{ scale: 1.05 }}
         transition={{ type: "spring", stiffness: 400, damping: 10 }}
       >
-        <div className="flex flex-row gap-2 items-center">
-          <motion.img
-            className="w-8"
-            src="favicon/favicon.ico"
-            alt="icon"
-            whileHover={{ rotate: 15 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          />
-          <article className="prose prose-headings:text-primary">
-            <h2 className="font-medium m-0">ArtChive</h2>
-          </article>
-        </div>
+        <motion.img
+          className="h-18 w-auto"
+          src="/logo/mainLogo.png"
+          alt="ArtChive Logo"
+          whileHover={{ scale: 1.05 }}
+          transition={{ type: "spring", stiffness: 400, damping: 10 }}
+        />
       </motion.div>
 
       {/* Right Side - Buttons */}
-      <div className="navbar-end z-10">
+      <div className="navbar-end flex items-center pr-4 md:pr-8 z-10">
         <div className="flex flex-row items-center gap-4">
           {/* Theme toggle button with icon */}
           <motion.button
