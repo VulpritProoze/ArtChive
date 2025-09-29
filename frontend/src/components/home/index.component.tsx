@@ -4,6 +4,7 @@ import { LogoutButton } from "@components/account/logout";
 import {
   CommentFormModal,
   PostFormModal,
+  CommentsViewModal,
 } from "@components/common/posts-feature/modal";
 import usePost from "@hooks/use-post";
 import { useAuth } from "@context/auth-context";
@@ -18,13 +19,14 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import HeartButton from "@components/common/posts-feature/heart-button";
 import PostHeader from "@components/common/posts-feature/post-header";
-import { CommonHeader } from '@components/common'
+import { CommonHeader } from "@components/common";
 
 const Index: React.FC = () => {
   const {
     comments,
     loadingComments,
     showCommentForm,
+    fetchCommentsForPost,
 
     // Posts
     posts,
@@ -37,6 +39,8 @@ const Index: React.FC = () => {
     loadingMore,
     setLoadingMore,
     fetchPosts,
+    activePost,
+    setActivePost,
 
     // Hearting
     heartPost,
@@ -44,7 +48,7 @@ const Index: React.FC = () => {
     loadingHearts,
   } = usePostContext();
   const { toggleComments } = usePost();
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -94,15 +98,62 @@ const Index: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchPosts(1);
+    fetchPosts(1)
   }, [fetchPosts]);
+
+  // Fetch first comments for all posts after they are loaded
+  // Will modify later in backend to not do so much api calls
+  // Will have to append first comments now within post request
+  useEffect(() => {
+    const fetchInitialComments = async () => {
+      if (posts.length > 0 && !loading) {
+        // Fetch first comments for each post
+        const commentPromises = posts.map(async (postItem) => {
+          // Only fetch if we haven't loaded comments for this post yet
+          if (
+            !comments[postItem.post_id] &&
+            !loadingComments[postItem.post_id]
+          ) {
+            try {
+              await fetchCommentsForPost(postItem.post_id, 1, false);
+            } catch (error) {
+              console.error(
+                `Error fetching comments for post ${postItem.post_id}:`,
+                error
+              );
+            }
+          }
+        });
+
+        // Execute all comment fetches in parallel
+        await Promise.allSettled(commentPromises);
+      }
+    };
+
+    fetchInitialComments();
+  }, [posts, loading, comments, loadingComments, fetchCommentsForPost]);
+
+  useEffect(() => {
+    if (activePost) {
+      fetchCommentsForPost(activePost.post_id, 1, false);
+    }
+  }, [activePost]);
 
   return (
     /*container div */
     <div className="container max-w-full w-full">
+      {/* Comments View Modal */}
+      {activePost && <CommentsViewModal />}
+
+      {/* Post Form Modal */}
+      {showPostForm && <PostFormModal />}
+
+      {/* Comment Form Modal */}
+      {showCommentForm && <CommentFormModal />}
+
       {/* Header */}
       <CommonHeader user={user} />
-    
+
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 px-4 lg:px-12 py-6">
         {/* LEFT SIDEBAR */}
         <aside className="lg:col-span-2 hidden lg:flex flex-col gap-4">
@@ -144,11 +195,6 @@ const Index: React.FC = () => {
 
         {/* FEED / POSTS */}
         <main className="lg:col-span-7">
-          {/* Post Form Modal */}
-          {showPostForm && <PostFormModal />}
-
-          {showCommentForm && <CommentFormModal />}
-
           {/* Posts Section */}
           <div className="mb-12">
             <div className="flex justify-between items-center mb-6">
@@ -172,7 +218,7 @@ const Index: React.FC = () => {
                   <PostHeader postItem={postItem} />
 
                   {/* Media Content */}
-                  {postItem.post_type === 'image' && postItem.image_url && (
+                  {postItem.post_type === "image" && postItem.image_url && (
                     <div className="aspect-square bg-black flex items-center justify-center">
                       <img
                         src={postItem.image_url}
@@ -182,34 +228,34 @@ const Index: React.FC = () => {
                     </div>
                   )}
 
-                  {postItem.post_type === 'video' && postItem.video_url && (
+                  {postItem.post_type === "video" && postItem.video_url && (
                     <div className="aspect-square bg-black flex items-center justify-center">
-                      <video 
-                        controls 
-                        className="w-full h-full object-contain"
-                      >
+                      <video controls className="w-full h-full object-contain">
                         <source src={postItem.video_url} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
                     </div>
                   )}
 
-                  {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
-                    <div className="aspect-square bg-base-200 flex items-center justify-center">
-                      <div className="text-center p-8">
-                        <div className="text-4xl mb-4">📖</div>
-                        <h3 className="text-xl font-bold text-base-content mb-2">
-                          {postItem.description?.substring(0, 50)}...
-                        </h3>
-                        <p className="text-base-content/70">
-                          {postItem.novel_post.length} chapters
-                        </p>
+                  {postItem.post_type === "novel" &&
+                    postItem.novel_post &&
+                    postItem.novel_post.length > 0 && (
+                      <div className="aspect-square bg-base-200 flex items-center justify-center">
+                        <div className="text-center p-8">
+                          <div className="text-4xl mb-4">📖</div>
+                          <h3 className="text-xl font-bold text-base-content mb-2">
+                            {postItem.description?.substring(0, 50)}...
+                          </h3>
+                          <p className="text-base-content/70">
+                            {postItem.novel_post.length} chapters
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Text-only post (default type) */}
-                  {(!postItem.post_type || postItem.post_type === 'default') && (
+                  {(!postItem.post_type ||
+                    postItem.post_type === "default") && (
                     <div className="p-6 bg-base-100">
                       <div className="prose max-w-none">
                         <p className="text-base-content whitespace-pre-wrap">
@@ -235,27 +281,27 @@ const Index: React.FC = () => {
 
                         <button
                           className="btn btn-ghost btn-sm btn-circle"
-                          onClick={() => toggleComments(postItem.post_id)}
+                          onClick={() => setActivePost(postItem)}
                           disabled={loadingComments[postItem.post_id]}
                         >
-                          <FontAwesomeIcon 
-                            icon={faCommentDots} 
-                            className="text-xl hover:scale-110 transition-transform" 
+                          <FontAwesomeIcon
+                            icon={faCommentDots}
+                            className="text-xl hover:scale-110 transition-transform"
                           />
                         </button>
 
                         <button className="btn btn-ghost btn-sm btn-circle">
-                          <FontAwesomeIcon 
-                            icon={faPaperPlane} 
-                            className="text-xl hover:scale-110 transition-transform" 
+                          <FontAwesomeIcon
+                            icon={faPaperPlane}
+                            className="text-xl hover:scale-110 transition-transform"
                           />
                         </button>
                       </div>
 
                       <button className="btn btn-ghost btn-sm btn-circle">
-                        <FontAwesomeIcon 
-                          icon={faBookmark} 
-                          className="text-xl hover:scale-110 transition-transform" 
+                        <FontAwesomeIcon
+                          icon={faBookmark}
+                          className="text-xl hover:scale-110 transition-transform"
                         />
                       </button>
                     </div>
@@ -268,40 +314,32 @@ const Index: React.FC = () => {
                     </div>
 
                     {/* Caption - Only show for non-text posts */}
-                    {(postItem.post_type && postItem.post_type !== 'default') && (
+                    {postItem.post_type && postItem.post_type !== "default" && (
                       <div className="mb-2">
                         <p className="text-sm text-base-content">
-                          <span className="font-semibold">chenoborg_art</span>{" "}
+                          <span className="font-semibold">{postItem.author_username}</span>{" "}
                           {postItem.description}
                         </p>
                       </div>
                     )}
 
-                    {/* View Comments */}
-                    {getCommentsForPost(postItem.post_id, comments).length > 0 && (
-                      <button
-                        className="text-sm text-base-content/70 mb-2 hover:text-base-content transition-colors"
-                        onClick={() => toggleComments(postItem.post_id)}
-                      >
-                        View all {getCommentsForPost(postItem.post_id, comments).length} comments
-                      </button>
-                    )}
+                    {/* Comments Preview - Show blurred first comment */}
+                    <CommentsRenderer 
+                      postId={postItem.post_id} 
+                      isFirstComments={true} 
+                    />
 
                     {/* Time Posted */}
                     <p className="text-xs text-base-content/50 uppercase">
-                      {new Date(postItem.created_at).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {new Date(postItem.created_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
                     </p>
                   </div>
-
-                  {/* Comments Section */}
-                  {expandedPost === postItem.post_id && (
-                    <div className="border-t border-base-300">
-                      <CommentsRenderer postId={postItem.post_id} />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

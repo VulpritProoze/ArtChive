@@ -9,17 +9,29 @@ import { formatArtistTypesToString } from "@utils";
 import usePost from "@hooks/use-post";
 import { usePostContext } from "@context/post-context";
 
-export default function PostHeader({ postItem }: { postItem: Post }) {
+export default function PostHeader({
+  postItem,
+  IsCommentViewModal = false,
+}: {
+  postItem: Post;
+  IsCommentViewModal?: boolean;
+}) {
   const { toggleDropdown, handleEditPost, handleDeletePost } = usePost();
   const { dropdownOpen } = usePostContext();
 
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
+      <div
+        className={
+          IsCommentViewModal
+            ? `flex items-center justify-between px-4 py-3`
+            : `flex items-center justify-between px-4 py-3 border-b border-base-300`
+        }
+      >
         <div className="flex items-center gap-3">
           <img
             src={postItem.author_picture}
-            alt="Chenoborg"
+            alt="author_pic"
             className="w-8 h-8 rounded-full border border-base-300"
           />
           <div>
@@ -33,37 +45,39 @@ export default function PostHeader({ postItem }: { postItem: Post }) {
         </div>
 
         {/* Three-dots dropdown menu */}
-        <div className="dropdown dropdown-end">
-          <button
-            className="btn btn-ghost btn-sm btn-circle"
-            onClick={() => toggleDropdown(postItem.post_id)}
-          >
-            <FontAwesomeIcon icon={faEllipsisH} />
-          </button>
+        {!IsCommentViewModal && (
+          <div className="dropdown dropdown-end">
+            <button
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={() => toggleDropdown(postItem.post_id)}
+            >
+              <FontAwesomeIcon icon={faEllipsisH} />
+            </button>
 
-          {dropdownOpen === postItem.post_id && (
-            <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
-              <li>
-                <button
-                  className="text-sm flex items-center gap-2"
-                  onClick={() => handleEditPost(postItem)}
-                >
-                  <FontAwesomeIcon icon={faEdit} />
-                  Edit
-                </button>
-              </li>
-              <li>
-                <button
-                  className="text-sm text-error flex items-center gap-2"
-                  onClick={() => handleDeletePost(postItem.post_id)}
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                  Delete
-                </button>
-              </li>
-            </ul>
-          )}
-        </div>
+            {dropdownOpen === postItem.post_id && (
+              <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
+                <li>
+                  <button
+                    className="text-sm flex items-center gap-2"
+                    onClick={() => handleEditPost(postItem)}
+                  >
+                    <FontAwesomeIcon icon={faEdit} />
+                    Edit
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="text-sm text-error flex items-center gap-2"
+                    onClick={() => handleDeletePost(postItem.post_id)}
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                    Delete
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

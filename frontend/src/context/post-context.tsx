@@ -57,6 +57,7 @@ export const PostProvider = ({ children }) => {
   });
   const [loadingHearts, setLoadingHearts] = useState<{ [postId: string]: boolean }>({});
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [activePost, setActivePost] = useState<Post | null>(null);
 
   /* HEARTING FUNCTIONALITY */
   const heartPost = useCallback(async (postId: string) => {
@@ -411,6 +412,8 @@ export const PostProvider = ({ children }) => {
     handlePostFormChange,
     dropdownOpen,
     setDropdownOpen,
+    activePost,
+    setActivePost,
 
     resetForms,
 

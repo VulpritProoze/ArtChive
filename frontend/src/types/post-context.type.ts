@@ -38,6 +38,8 @@ export type PostContextType = {
     handlePostFormChange,
     dropdownOpen,
     setDropdownOpen,
+    activePost,
+    setActivePost,
 
     resetForms,
 

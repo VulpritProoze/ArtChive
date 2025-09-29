@@ -41,7 +41,7 @@ const HeartButton: React.FC<HeartButtonProps> = ({
 
   return (
     <button
-      className={`btn btn-ghost gap-2 ${sizeClasses[size]} ${
+      className={`btn btn-ghost gap-2 p-1 h-8 ${sizeClasses[size]} ${
         isHearted ? 'text-red-500 hover:text-red-600' : 'text-base-content hover:text-red-500'
       } transition-colors`}
       onClick={handleClick}
