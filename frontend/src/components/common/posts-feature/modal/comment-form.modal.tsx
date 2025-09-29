@@ -48,7 +48,7 @@ export default function CommentFormModal({channel_id} : {channel_id?: string}) {
             </button>
             <button type="button" className="btn" onClick={() => resetForms(channel_id)}>
               Cancel
-            </button>
+            </button> 
           </div>
         </form>
       </div>

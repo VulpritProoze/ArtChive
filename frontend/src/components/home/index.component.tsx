@@ -52,8 +52,26 @@ const Index: React.FC = () => {
   const { setupEditPost, toggleComments } = usePost();
 
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [activePost, setActivePost] = useState<any | null>(null);
+  const [newComment, setNewComment] = useState("");
+  
+
 
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const handleAddComment = (postId: string) => {
+  if (!newComment.trim()) return; // prevent empty
+  
+  // Add your logic to push the comment into the post's comments
+  // For example, if you're using context:
+  getCommentsForPost(postId).push({
+    id: Date.now().toString(),
+    text: newComment,
+    author: "You",
+  });
+
+  setNewComment(""); // clear input after sending
+};
 
   // Infinite scrolling behavior
   useEffect(() => {
@@ -376,15 +394,24 @@ const Index: React.FC = () => {
                         />
 
                         <button
-                          className="btn btn-ghost btn-sm btn-circle"
-                          onClick={() => toggleComments(postItem.post_id)}
-                          disabled={loadingComments[postItem.post_id]}
-                        >
-                          <FontAwesomeIcon 
-                            icon={faCommentDots} 
-                            className="text-xl hover:scale-110 transition-transform" 
-                          />
-                        </button>
+                            className="btn btn-ghost btn-sm btn-circle"
+                            onClick={() => setActivePost(postItem)}
+                          >
+                            <FontAwesomeIcon 
+                              icon={faCommentDots} 
+                              className="text-xl hover:scale-110 transition-transform" 
+                            />
+                          </button>
+
+                          {getCommentsForPost(postItem.post_id, comments).length > 0 && (
+                            <button
+                              className="text-sm text-base-content/70 mb-2 hover:text-base-content transition-colors"
+                              onClick={() => setActivePost(postItem)}
+                            >
+                              
+                            </button>
+                          )}
+
 
                         <button className="btn btn-ghost btn-sm btn-circle">
                           <FontAwesomeIcon 
@@ -423,7 +450,7 @@ const Index: React.FC = () => {
                     {getCommentsForPost(postItem.post_id, comments).length > 0 && (
                       <button
                         className="text-sm text-base-content/70 mb-2 hover:text-base-content transition-colors"
-                        onClick={() => toggleComments(postItem.post_id)}
+                        onClick={() => setActivePost(postItem)}
                       >
                         View all {getCommentsForPost(postItem.post_id, comments).length} comments
                       </button>
@@ -446,6 +473,66 @@ const Index: React.FC = () => {
                   )}
                 </div>
               ))}
+              {activePost && (
+                <div 
+                  className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setActivePost(null); // close when clicking outside
+                  }}
+                >
+                  <div className="bg-base-100 w-[90%] h-[90%] rounded-lg overflow-hidden flex">
+                    
+                    {/* Left: Post Content */}
+                    <div className="flex-1 bg-black flex items-center justify-center">
+                      {activePost.post_type === 'image' && (
+                        <img 
+                          src={activePost.image_url} 
+                          alt={activePost.description} 
+                          className="max-h-full max-w-full object-contain" 
+                        />
+                      )}
+                      {activePost.post_type === 'video' && (
+                        <video 
+                          controls 
+                          className="max-h-full max-w-full object-contain"
+                        >
+                          <source src={activePost.video_url} type="video/mp4" />
+                        </video>
+                      )}
+                    </div>
+
+                    {/* Right: Comments */}
+                    <div className="w-[400px] flex flex-col border-l border-base-300">
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-4 border-b border-base-300">
+                        <p className="font-semibold">chenoborg_art</p>
+                        <button 
+                          onClick={() => setActivePost(null)} 
+                          className="btn btn-ghost btn-sm"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Caption */}
+                      <div className="p-4 border-b border-base-300">
+                        <p className="text-sm">
+                          <span className="font-semibold">chenoborg_art</span> {activePost.description}
+                        </p>
+                      </div>
+                        
+                      {/* Comments List */}
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <CommentsRenderer postId={activePost.post_id} />
+                      </div>
+
+                      
+
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {posts.length === 0 && !loading && (

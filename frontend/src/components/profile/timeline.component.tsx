@@ -57,6 +57,10 @@ const Timeline: React.FC = () => {
   const { setupEditPost, toggleComments } = usePost();
 
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [activePost, setActivePost] = useState(null);
+
+
+
   const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
   const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
 
@@ -414,15 +418,11 @@ const Timeline: React.FC = () => {
 
                       <button
                         className="btn btn-ghost btn-sm btn-circle"
-                        onClick={() => {
-                          toggleComments(postItem.post_id);
-                          focusCommentInput(postItem.post_id);
-                        }}
-                        disabled={loadingComments[postItem.post_id]}
+                        onClick={() => setActivePost(postItem)}
                       >
                         <FontAwesomeIcon 
                           icon={faCommentDots} 
-                          className="text-xl hover:scale-110 transition-transform text-base-content" 
+                          className="text-xl hover:scale-110 transition-transform" 
                         />
                       </button>
 
@@ -579,6 +579,62 @@ const Timeline: React.FC = () => {
               </div>
             );
           })}
+          {activePost && (
+  <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+    <div className="bg-base-100 w-[90%] h-[90%] rounded-lg overflow-hidden flex">
+      
+      {/* Left: Post Content */}
+      <div className="flex-1 bg-black flex items-center justify-center">
+        {activePost.post_type === 'image' && (
+          <img 
+            src={activePost.image_url} 
+            alt={activePost.description} 
+            className="max-h-full max-w-full object-contain" 
+          />
+        )}
+        {activePost.post_type === 'video' && (
+          <video 
+            controls 
+            className="max-h-full max-w-full object-contain"
+          >
+            <source src={activePost.video_url} type="video/mp4" />
+          </video>
+        )}
+      </div>
+
+      {/* Right: Comments */}
+      <div className="w-[400px] flex flex-col border-l border-base-300">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-base-300">
+          <p className="font-semibold">chenoborg_art</p>
+          <button 
+            onClick={() => setActivePost(null)} 
+            className="btn btn-ghost btn-sm"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Post Caption */}
+        <div className="p-4 border-b border-base-300">
+          <p className="text-sm">
+            <span className="font-semibold">chenoborg_art</span> {activePost.description}
+          </p>
+        </div>
+
+        {/* Comments List */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <CommentsRenderer postId={activePost.post_id} />
+        </div>
+
+        {/* Comment Input */}
+       
+      </div>
+    </div>
+  </div>
+)}
+
+
         </div>
 
         {posts.length === 0 && !loading && (
