@@ -163,7 +163,7 @@ const Index: React.FC = () => {
               Profile
             </Link>
             <button
-              className="mt-2 px-3 py-2 rounded-lg bg-primary text-primary-content font-medium hover:bg-primary/90 transition"
+              className="mt-2 px-3 py-2 rounded-lg bg-primary text-primary-content font-medium hover:bg-primary/80 hover:scale-105 active:scale-95 transition-all duration-200 shadow hover:shadow-md"
               onClick={() => setShowPostForm(true)}
             >
               Create Post
