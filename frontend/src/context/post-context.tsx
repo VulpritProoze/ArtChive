@@ -56,6 +56,7 @@ export const PostProvider = ({ children }) => {
     chapters: [{ chapter: "", content: "" }],
   });
   const [loadingHearts, setLoadingHearts] = useState<{ [postId: string]: boolean }>({});
+  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   /* HEARTING FUNCTIONALITY */
   const heartPost = useCallback(async (postId: string) => {
@@ -408,6 +409,8 @@ export const PostProvider = ({ children }) => {
     handlePostSubmit,
     deletePost,
     handlePostFormChange,
+    dropdownOpen,
+    setDropdownOpen,
 
     resetForms,
 

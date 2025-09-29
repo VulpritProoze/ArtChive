@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { LogoutButton } from "@components/account/logout";
 import {
@@ -13,23 +13,17 @@ import { getCommentsForPost } from "@utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCommentDots,
-  faBell,
-  faTrophy,
-  faQuestionCircle,
-  faCog,
-  faEllipsisH,
   faBookmark,
   faPaperPlane,
-  faEdit,
-  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import HeartButton from "@components/common/posts-feature/heart-button";
+import PostHeader from "@components/common/posts-feature/post-header";
+import { CommonHeader } from '@components/common'
 
 const Index: React.FC = () => {
   const {
     comments,
     loadingComments,
-    commentPagination,
     showCommentForm,
 
     // Posts
@@ -43,14 +37,13 @@ const Index: React.FC = () => {
     loadingMore,
     setLoadingMore,
     fetchPosts,
-    deletePost,
 
     // Hearting
     heartPost,
     unheartPost,
     loadingHearts,
   } = usePostContext();
-  const { setupEditPost, toggleComments, dropdownOpen, handleDeletePost, handleEditPost, toggleDropdown } = usePost();
+  const { toggleComments } = usePost();
   const { user } = useAuth()
 
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -107,81 +100,9 @@ const Index: React.FC = () => {
   return (
     /*container div */
     <div className="container max-w-full w-full">
-      {/* Header/Navbar */}
-      <div className="flex items-center justify-between bg-base-100 px-6 py-3 shadow w-full">
-        {/* Logo */}
-        <h2 className="text-xl font-bold text-primary">ArtChive</h2>
-
-        {/* Search Bar */}
-        <div className="flex-1 mx-6 hidden md:block">
-          <input
-            type="text"
-            placeholder="Search artists, artworks, collectives..."
-            className="w-full max-w-lg px-4 py-2 border border-base-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary bg-base-100 text-base-content placeholder-base-content/70"
-          />
-        </div>
-
-        {/* Right Section */}
-        <div className="flex items-center gap-8">
-          {/* User Profile */}
-          <div className="flex items-center gap-3">
-            <Link to="/profile">
-              <img
-                src="https://randomuser.me/api/portraits/men/75.jpg"
-                alt="Chenoborg"
-                className="w-10 h-10 rounded-full border border-base-300"
-              />
-            </Link>
-
-            <div className="hidden md:block">
-              <Link to="/profile">
-                <h5 className="text-sm font-semibold text-base-content">
-                  Chenoborg
-                </h5>
-              </Link>
-              <p className="text-xs text-primary">@chenoborg_art</p>
-              <p className="text-xs text-base-content/70">
-                Digital Artist | Character Designer
-              </p>
-            </div>
-          </div>
-
-          {/* Menus / Icons */}
-          <div className="hidden sm:flex items-center gap-5 text-base-content text-lg">
-            <a href="#">
-              <FontAwesomeIcon
-                icon={faCommentDots}
-                className="hover:text-primary transition-colors"
-              />
-            </a>
-            <a href="#">
-              <FontAwesomeIcon
-                icon={faBell}
-                className="hover:text-primary transition-colors"
-              />
-            </a>
-            <a href="#">
-              <FontAwesomeIcon
-                icon={faTrophy}
-                className="hover:text-primary transition-colors"
-              />
-            </a>
-            <a href="#">
-              <FontAwesomeIcon
-                icon={faQuestionCircle}
-                className="hover:text-primary transition-colors"
-              />
-            </a>
-            <a href="#">
-              <FontAwesomeIcon
-                icon={faCog}
-                className="hover:text-primary transition-colors"
-              />
-            </a>
-          </div>
-        </div>
-      </div>
-
+      {/* Header */}
+      <CommonHeader user={user} />
+    
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 px-4 lg:px-12 py-6">
         {/* LEFT SIDEBAR */}
         <aside className="lg:col-span-2 hidden lg:flex flex-col gap-4">
@@ -248,56 +169,7 @@ const Index: React.FC = () => {
                   className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
                 >
                   {/* Post Header - Instagram Style */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src="https://randomuser.me/api/portraits/men/75.jpg"
-                        alt="Chenoborg"
-                        className="w-8 h-8 rounded-full border border-base-300"
-                      />
-                      <div>
-                        <p className="text-sm font-semibold text-base-content">
-                          chenoborg_art
-                        </p>
-                        <p className="text-xs text-base-content/70">
-                          {postItem.location || "Art Studio"}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Three-dots dropdown menu */}
-                    <div className="dropdown dropdown-end">
-                      <button 
-                        className="btn btn-ghost btn-sm btn-circle"
-                        onClick={() => toggleDropdown(postItem.post_id)}
-                      >
-                        <FontAwesomeIcon icon={faEllipsisH} />
-                      </button>
-                      
-                      {dropdownOpen === postItem.post_id && (
-                        <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
-                          <li>
-                            <button 
-                              className="text-sm flex items-center gap-2"
-                              onClick={() => handleEditPost(postItem)}
-                            >
-                              <FontAwesomeIcon icon={faEdit} />
-                              Edit
-                            </button>
-                          </li>
-                          <li>
-                            <button 
-                              className="text-sm text-error flex items-center gap-2"
-                              onClick={() => handleDeletePost(postItem.post_id)}
-                            >
-                              <FontAwesomeIcon icon={faTrash} />
-                              Delete
-                            </button>
-                          </li>
-                        </ul>
-                      )}
-                    </div>
-                  </div>
+                  <PostHeader postItem={postItem} />
 
                   {/* Media Content */}
                   {postItem.post_type === 'image' && postItem.image_url && (

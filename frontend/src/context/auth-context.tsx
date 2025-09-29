@@ -43,7 +43,6 @@ export const AuthProvider = ({ children }) => {
   }
 
   const isAdminOfACollective = (collectiveId: string) => {
-    console.log('is admin called', )
     if (!collectiveMemberships) return false
 
     return collectiveMemberships.some(

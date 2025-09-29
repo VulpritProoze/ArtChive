@@ -2,3 +2,4 @@ export { default as PostLoadingIndicator } from './posts-feature/post-loading-in
 export { default as AddChapterRenderer } from './posts-feature/add-chapter-renderer.component'
 export { default as AddMediaRenderer } from './posts-feature/add-media-renderer.component'
 export { default as CommentsRenderer } from './posts-feature/comments-renderer.component'
+export { default as CommonHeader } from './common-header' 

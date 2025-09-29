@@ -1,0 +1,70 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faEllipsisH,
+  faEdit,
+  faTrash,
+} from "@fortawesome/free-solid-svg-icons";
+import type { Post } from "@types";
+import { formatArtistTypesToString } from "@utils";
+import usePost from "@hooks/use-post";
+import { usePostContext } from "@context/post-context";
+
+export default function PostHeader({ postItem }: { postItem: Post }) {
+  const { toggleDropdown, handleEditPost, handleDeletePost } = usePost();
+  const { dropdownOpen } = usePostContext();
+
+  return (
+    <>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
+        <div className="flex items-center gap-3">
+          <img
+            src={postItem.author_picture}
+            alt="Chenoborg"
+            className="w-8 h-8 rounded-full border border-base-300"
+          />
+          <div>
+            <p className="text-sm font-semibold text-base-content">
+              {postItem.author_fullname}
+            </p>
+            <p className="text-xs text-base-content/70">
+              {formatArtistTypesToString(postItem.author_artist_types)}
+            </p>
+          </div>
+        </div>
+
+        {/* Three-dots dropdown menu */}
+        <div className="dropdown dropdown-end">
+          <button
+            className="btn btn-ghost btn-sm btn-circle"
+            onClick={() => toggleDropdown(postItem.post_id)}
+          >
+            <FontAwesomeIcon icon={faEllipsisH} />
+          </button>
+
+          {dropdownOpen === postItem.post_id && (
+            <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
+              <li>
+                <button
+                  className="text-sm flex items-center gap-2"
+                  onClick={() => handleEditPost(postItem)}
+                >
+                  <FontAwesomeIcon icon={faEdit} />
+                  Edit
+                </button>
+              </li>
+              <li>
+                <button
+                  className="text-sm text-error flex items-center gap-2"
+                  onClick={() => handleDeletePost(postItem.post_id)}
+                >
+                  <FontAwesomeIcon icon={faTrash} />
+                  Delete
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
