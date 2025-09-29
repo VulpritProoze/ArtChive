@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import PermissionDenied
-from core.models import User
+from core.models import User, Artist
 from common.utils import choices
 from PIL import Image 
 from .pagination import CommentPagination
@@ -246,6 +246,9 @@ class PostViewSerializer(serializers.ModelSerializer):
     hearts_count = serializers.SerializerMethodField()
     is_hearted_by_user = serializers.SerializerMethodField()
     author_username = serializers.CharField(source='author.username', read_only=True)
+    author_artist_types = serializers.SerializerMethodField()
+    author_fullname = serializers.SerializerMethodField()
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
     channel_name = serializers.CharField(source='channel.name', read_only=True)
     
     class Meta:
@@ -262,7 +265,21 @@ class PostViewSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.post_heart.filter(author=request.user).exists()
         return False
-        
+    
+    def get_author_artist_types(self, obj):
+        '''Fetch author's artist types'''
+        try:
+            return obj.author.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']    
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+    
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)

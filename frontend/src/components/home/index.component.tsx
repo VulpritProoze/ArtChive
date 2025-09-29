@@ -18,6 +18,7 @@ import {
   faCog,
 } from "@fortawesome/free-solid-svg-icons";
 import HeartButton from "@components/common/posts-feature/heart-button";
+import { formatArtistTypesToString } from "@utils";
 
 const Index: React.FC = () => {
   const {
@@ -234,66 +235,84 @@ const Index: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col items-center">
               {posts.map((postItem) => (
                 <div
                   key={postItem.post_id}
-                  className="card bg-base-100 border border-base-300 rounded-xl shadow-sm hover:shadow-md transition"
+                  className="rounded-2xl p-6 w-full max-w-2xl"
                 >
                   <div className="card-body">
-                    <h3 className="card-title text-lg font-semibold text-base-content">
-                      {postItem.description?.substring(0, 30)}...
-                    </h3>
-                    <p className="text-sm text-base-content/70">
-                      Id: {postItem.post_id}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Type: {postItem.post_type}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Author: {postItem.author}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Created:{" "}
-                      {new Date(postItem.created_at).toLocaleDateString()}
-                    </p>
-
-                    {/* Media rendering */}
-                    {postItem.post_type === 'image' && postItem.image_url && (
-                      <div className="mt-4">
+                    {/* Post Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      {/* Left side: Avatar + Info */}
+                      <div className="flex items-center gap-3">
                         <img
-                          src={postItem.image_url}
-                          alt={postItem.description}
-                          className="rounded-lg w-full max-h-64 object-cover"
+                          src={postItem.author_picture}
+                          alt="avatar"
+                          className="w-10 h-10 rounded-full"
                         />
-                      </div>
-                    )}
-
-                    {postItem.post_type === 'video' && postItem.video_url && (
-                      <div className="mt-4">
-                        <video controls className="rounded-lg w-full max-h-64">
-                          <source src={postItem.video_url} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    )}
-
-                    {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
-                      <div className="mt-4">
-                        <p className="font-semibold">Chapters: {postItem.novel_post.length}</p>
-                        {postItem.novel_post.slice(0, 3).map((novelPost, index) => (
-                          <div key={index} className="mt-2 p-2 bg-gray-100 rounded">
-                            <p className="text-sm font-medium">Chapter {novelPost.chapter}</p>
-                            <p className="text-sm mt-1 text-gray-600">{novelPost.content?.substring(0, 80)}...</p>
-                          </div>
-                        ))}
-                        {postItem.novel_post.length > 3 && (
-                          <p className="text-sm text-gray-500 mt-2">
-                            +{postItem.novel_post.length - 3} more chapters...
+                        <div>
+                          <h4 className="font-semibold text-sm">{postItem.author_fullname}</h4>
+                          <p className="text-xs text-gray-500">
+                            @{postItem.author_username}
                           </p>
-                        )}
+                          <p className="text-xs text-blue-600">
+                            {formatArtistTypesToString(postItem.author_artist_types)}
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Right side: Options button */}
+                      <button className="btn btn-ghost btn-sm">⋮</button>
+                    </div>
+
+                    {/* Post Content */}
+                    <p className="mb-3">{postItem.description}</p>
+
+                    {/* Media */}
+                    {postItem.post_type === "image" && postItem.image_url && (
+                      <img
+                        src={postItem.image_url}
+                        alt={postItem.description}
+                        className="rounded-lg w-full max-h-96 object-cover mb-3"
+                      />
                     )}
+
+                    {postItem.post_type === "video" && postItem.video_url && (
+                      <video
+                        controls
+                        className="rounded-lg w-full max-h-96 mb-3"
+                      >
+                        <source src={postItem.video_url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
+
+                    {postItem.post_type === "novel" &&
+                      postItem.novel_post?.length > 0 && (
+                        <div className="bg-base-200 p-3 rounded-lg mb-3">
+                          <p className="font-semibold">
+                            Chapters: {postItem.novel_post.length}
+                          </p>
+                          {postItem.novel_post
+                            .slice(0, 1)
+                            .map((novelPost, index) => (
+                              <div key={index} className="mt-2">
+                                <p className="text-sm font-medium">
+                                  Chapter {novelPost.chapter}
+                                </p>
+                                <p className="text-sm">
+                                  {novelPost.content?.substring(0, 120)}...
+                                </p>
+                              </div>
+                            ))}
+                          {postItem.novel_post.length > 1 && (
+                            <p className="text-sm text-gray-500 mt-2">
+                              +{postItem.novel_post.length - 1} more chapters...
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                     {/* Post Actions - Add Heart Button */}
                     <div className="flex items-center justify-between mt-4 border-t border-base-300 pt-3">

@@ -24,7 +24,10 @@ export interface Post {
   video_url?: string;
   post_type: string;
   author?: number;
+  author_fullname?: string;
   author_username?: string;
+  author_artist_types?: string[];
+  author_picture?: string;
   collective: string;
   novel_post?: NovelPost[];
   comments?: PaginatedComments;

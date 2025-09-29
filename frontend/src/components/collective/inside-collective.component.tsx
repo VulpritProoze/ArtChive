@@ -5,11 +5,22 @@ import usePost from "@hooks/use-post";
 import useCollective from "@hooks/use-collective";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
-import { PostFormModal, CommentFormModal } from "@components/common/posts-feature/modal";
-import { ChannelCreateModal, ChannelEditModal } from '@components/common/collective-feature/modal'
-import { getCommentsForPost } from "@utils";
+import {
+  PostFormModal,
+  CommentFormModal,
+} from "@components/common/posts-feature/modal";
+import {
+  ChannelCreateModal,
+  ChannelEditModal,
+} from "@components/common/collective-feature/modal";
+import { getCommentsForPost, formatArtistTypesToString } from "@utils";
 import type { Channel } from "@types";
 import { CommentsRenderer, PostLoadingIndicator } from "../common";
+import HeartButton from "@components/common/posts-feature/heart-button";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCommentDots
+} from "@fortawesome/free-solid-svg-icons";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
@@ -30,6 +41,11 @@ const CollectiveHome = () => {
     loadingMore,
     fetchPosts,
     deletePost,
+
+    // Hearting
+    heartPost,
+    unheartPost,
+    loadingHearts,
   } = usePostContext();
   const {
     collectiveData,
@@ -40,7 +56,7 @@ const CollectiveHome = () => {
     setShowCreateChannelModal,
     setEditingChannel,
     handleDeleteChannel,
-    editingChannel
+    editingChannel,
   } = useCollectivePostContext();
   const { setupEditPost, toggleComments } = usePost();
   const { handleBecomeAdmin, handleLeaveCollective } = useCollective();
@@ -67,9 +83,12 @@ const CollectiveHome = () => {
           selectedChannel
         ) {
           isFetching = true;
-          fetchPosts(pagination.currentPage + 1, true, selectedChannel.channel_id)
-            .finally(() => {
-              isFetching = false;
+          fetchPosts(
+            pagination.currentPage + 1,
+            true,
+            selectedChannel.channel_id
+          ).finally(() => {
+            isFetching = false;
           });
         }
       },
@@ -124,7 +143,7 @@ const CollectiveHome = () => {
                 <button
                   className="btn btn-primary w-full"
                   onClick={async () => {
-                    await handleBecomeAdmin(collectiveData.collective_id)
+                    await handleBecomeAdmin(collectiveData.collective_id);
                   }}
                 >
                   Become Admin
@@ -217,15 +236,10 @@ const CollectiveHome = () => {
               ))}
             </div>
           </div>
-            
-          {editingChannel && (
-            <ChannelEditModal />
-          )}
 
+          {editingChannel && <ChannelEditModal />}
 
-          {showCreateChannelModal && (
-            <ChannelCreateModal />
-          )}
+          {showCreateChannelModal && <ChannelCreateModal />}
 
           {/* Post Form Modal */}
           {showPostForm && (
@@ -264,7 +278,11 @@ const CollectiveHome = () => {
                       className="btn btn-error"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`Delete channel "${selectedChannel.title}"? This cannot be undone.`)) {
+                        if (
+                          window.confirm(
+                            `Delete channel "${selectedChannel.title}"? This cannot be undone.`
+                          )
+                        ) {
                           handleDeleteChannel(selectedChannel.channel_id);
                         }
                       }}
@@ -290,123 +308,144 @@ const CollectiveHome = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="flex flex-col items-center">
                 {posts.map((postItem) => (
                   <div
                     key={postItem.post_id}
-                    className="card bg-base-100 shadow-xl"
+                    className="rounded-2xl p-6 w-full max-w-2xl"
                   >
                     <div className="card-body">
-                      <h3 className="card-title">
-                        {postItem.description?.substring(0, 30)}...
-                      </h3>
-                      <p>Type: {postItem.post_type}</p>
-                      <p>Author: {postItem.author}</p>
-                      <p>
-                        Created:{" "}
-                        {new Date(postItem.created_at).toLocaleDateString()}
-                      </p>
-
-                      {postItem.post_type === "image" && postItem.image_url && (
-                        <div className="mt-4">
+                      {/* Post Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        {/* Left side: Avatar + Info */}
+                        <div className="flex items-center gap-3">
                           <img
-                            src={postItem.image_url}
-                            alt={postItem.description}
-                            className="rounded-lg max-h-48 object-cover"
+                            src={postItem.author_picture}
+                            alt="avatar"
+                            className="w-10 h-10 rounded-full"
                           />
+                          <div>
+                            <h4 className="font-semibold text-sm">
+                              {postItem.author_fullname}
+                            </h4>
+                            <p className="text-xs text-gray-500">
+                              @{postItem.author_username}
+                            </p>
+                            <p className="text-xs text-blue-600">
+                              {formatArtistTypesToString(
+                                postItem.author_artist_types
+                              )}
+                            </p>
+                          </div>
                         </div>
+
+                        {/* Right side: Options button */}
+                        <button className="btn btn-ghost btn-sm">⋮</button>
+                      </div>
+
+                      {/* Post Content */}
+                      <p className="mb-3">{postItem.description}</p>
+
+                      {/* Media */}
+                      {postItem.post_type === "image" && postItem.image_url && (
+                        <img
+                          src={postItem.image_url}
+                          alt={postItem.description}
+                          className="rounded-lg w-full max-h-96 object-cover mb-3"
+                        />
                       )}
 
                       {postItem.post_type === "video" && postItem.video_url && (
-                        <div className="mt-4">
-                          <video
-                            controls
-                            className="rounded-lg max-h-48 w-full"
-                          >
-                            <source src={postItem.video_url} type="video/mp4" />
-                            Your browser does not support the video tag.
-                          </video>
-                        </div>
+                        <video
+                          controls
+                          className="rounded-lg w-full max-h-96 mb-3"
+                        >
+                          <source src={postItem.video_url} type="video/mp4" />
+                          Your browser does not support the video tag.
+                        </video>
                       )}
 
                       {postItem.post_type === "novel" &&
-                        postItem.novel_post &&
-                        postItem.novel_post.length > 0 && (
-                          <div className="mt-4">
+                        postItem.novel_post?.length > 0 && (
+                          <div className="bg-base-200 p-3 rounded-lg mb-3">
                             <p className="font-semibold">
                               Chapters: {postItem.novel_post.length}
                             </p>
                             {postItem.novel_post
-                              .slice(0, 3)
+                              .slice(0, 1)
                               .map((novelPost, index) => (
-                                <div
-                                  key={index}
-                                  className="mt-2 p-2 bg-base-200 rounded"
-                                >
+                                <div key={index} className="mt-2">
                                   <p className="text-sm font-medium">
                                     Chapter {novelPost.chapter}
                                   </p>
-                                  <p className="text-sm mt-1">
-                                    {novelPost.content?.substring(0, 80)}...
+                                  <p className="text-sm">
+                                    {novelPost.content?.substring(0, 120)}...
                                   </p>
                                 </div>
                               ))}
-                            {postItem.novel_post.length > 3 && (
+                            {postItem.novel_post.length > 1 && (
                               <p className="text-sm text-gray-500 mt-2">
-                                +{postItem.novel_post.length - 3} more
+                                +{postItem.novel_post.length - 1} more
                                 chapters...
                               </p>
                             )}
                           </div>
                         )}
 
-                      {/* Comments Toggle Button */}
-                      <div className="mt-4">
-                        <button
-                          className="btn btn-sm btn-outline w-full"
-                          onClick={() => toggleComments(postItem.post_id)}
-                          disabled={loadingComments[postItem.post_id]}
-                        >
-                          {loadingComments[postItem.post_id] ? (
-                            <>
+                      {/* Post Actions - Add Heart Button */}
+                      <div className="flex items-center justify-between mt-4 border-t border-base-300 pt-3">
+                        <div className="flex items-center gap-2">
+                          <HeartButton
+                            postId={postItem.post_id}
+                            heartsCount={postItem.hearts_count || 0}
+                            isHearted={postItem.is_hearted_by_user || false}
+                            onHeart={heartPost}
+                            onUnheart={unheartPost}
+                            isLoading={loadingHearts[postItem.post_id]}
+                            size="sm"
+                          />
+
+                          {/* Comments Toggle Button */}
+                          <button
+                            className="btn btn-sm btn-ghost gap-2"
+                            onClick={() => toggleComments(postItem.post_id)}
+                            disabled={loadingComments[postItem.post_id]}
+                          >
+                            <FontAwesomeIcon icon={faCommentDots} />
+                            {loadingComments[postItem.post_id] ? (
                               <div className="loading loading-spinner loading-xs"></div>
-                              Loading...
-                            </>
-                          ) : (
-                            <>
-                              {expandedPost === postItem.post_id
-                                ? "Hide"
-                                : "Show"}{" "}
-                              Comments (
-                              {commentPagination[postItem.post_id]
-                                ?.totalCount ||
-                                getCommentsForPost(postItem.post_id, comments)
-                                  .length}
-                              )
-                            </>
-                          )}
-                        </button>
+                            ) : (
+                              <span>
+                                {commentPagination[postItem.post_id]
+                                  ?.totalCount ||
+                                  getCommentsForPost(postItem.post_id, comments)
+                                    .length}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Edit/Delete Actions */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => setupEditPost(postItem)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn btn-sm btn-error"
+                            onClick={() => deletePost(postItem.post_id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
 
                       {/* Comments Section */}
                       {expandedPost === postItem.post_id && (
                         <CommentsRenderer postId={postItem.post_id} />
                       )}
-
-                      <div className="card-actions justify-end mt-4">
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => setupEditPost(postItem)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-error"
-                          onClick={() => deletePost(postItem.post_id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
                     </div>
                   </div>
                 ))}
