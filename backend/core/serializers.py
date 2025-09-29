@@ -9,15 +9,30 @@ from .models import User, Artist
 
 class UserSerializer(ModelSerializer):
     collective_memberships = serializers.SerializerMethodField()
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
 
     class Meta:
         model = User 
-        fields = ['id', 'email', 'username', 'collective_memberships']
-        read_only_fields = ['id', 'email', 'username', 'collective_memberships']
+        fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'artist_types', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
         # Return a list of collective_ids user has joined
         return list(CollectiveMember.objects.filter(member=obj).values_list('collective_id', flat=True))
+
+    def get_artist_types(self, obj):
+        '''Fetch author's artist types'''
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+    
+    def get_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        parts = [obj.first_name or '', obj.last_name or '']    
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else ''
 
 class LoginSerializer(Serializer):
     email = serializers.EmailField(required=True)
