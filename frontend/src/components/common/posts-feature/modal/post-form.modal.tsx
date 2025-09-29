@@ -24,23 +24,25 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
               />
             </div>
 
-            <div className="form-control mb-4">
-              <label className="label">
-                <span className="label-text">Post Type</span>
-              </label>
-              <select
-                className="select select-bordered"
-                name="post_type"
-                value={postForm.post_type}
-                onChange={handlePostFormChange}
-                required
-              >
-                <option value="default">Default</option>
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="novel">Novel</option>
-              </select>
-            </div>
+            {!editing && (
+              <div className="form-control mb-4">
+                <label className="label">
+                  <span className="label-text">Post Type</span>
+                </label>
+                <select
+                  className="select select-bordered"
+                  name="post_type"
+                  value={postForm.post_type}
+                  onChange={handlePostFormChange}
+                  required
+                >
+                  <option value="default">Default</option>
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="novel">Novel</option>
+                </select>
+              </div>
+            )}
 
             <AddMediaRenderer
               postForm={postForm}

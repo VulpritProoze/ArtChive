@@ -12,7 +12,7 @@ from post.models import Post
 from .serializers import (
     CollectiveDetailsSerializer, CollectiveCreateSerializer, 
     ChannelSerializer, InsideCollectiveViewSerializer, 
-    InsideCollectivePostsViewSerializer, InsideCollectivePostsCreateUpdateSerializer, 
+    InsideCollectivePostsViewSerializer, 
     JoinCollectiveSerializer, CollectiveMemberSerializer,
     BecomeCollectiveAdminSerializer, LeaveCollectiveSerializer,
     ChannelCreateSerializer, ChannelUpdateSerializer
@@ -149,16 +149,6 @@ class InsideCollectivePostsView(ListAPIView):
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
         return Post.objects.filter(channel=channel).select_related('author').order_by('-created_at')
-
-class InsideCollectivePostsCreateView(CreateAPIView):
-    queryset = Post.objects.all()
-    serializer_class = InsideCollectivePostsCreateUpdateSerializer
-    permission_classes = [IsAuthenticated, IsCollectiveMember]
-    
-    def perform_create(self, serializer):
-        channel_id = self.kwargs['channel_id']
-        channel = get_object_or_404(Channel, channel_id=channel_id)
-        serializer.save(author=self.request.user, channel=channel)
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]

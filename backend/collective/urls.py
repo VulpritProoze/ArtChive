@@ -2,8 +2,7 @@ from django.urls import path
 from .views import (
     CollectiveDetailsView, CollectiveCreateView, ChannelListView, 
     ChannelCreateView, InsideCollectiveView, InsideCollectivePostsView, 
-    InsideCollectivePostsCreateView, JoinCollectiveView,
-    IsCollectiveMemberView, CollectiveMembershipsView,
+    JoinCollectiveView, CollectiveMembershipsView,
     BecomeCollectiveAdminView, LeaveCollectiveView,
     ChannelUpdateView, ChannelDeleteView
 )
@@ -19,7 +18,6 @@ urlpatterns = [
     path('<uuid:collective_id>/channel/update/', ChannelUpdateView.as_view(), name='channel-update'),
     path('<uuid:collective_id>/channel/delete/', ChannelDeleteView.as_view(), name='channel-delete'),
     path('channel/<uuid:channel_id>/posts/', InsideCollectivePostsView.as_view(), name='collective-posts'),
-    path('channel/<uuid:channel_id>/posts/create/', InsideCollectivePostsCreateView.as_view(), name='collective-posts-create'),
     # path('<uuid:collective_id>/collective-member/check/', IsCollectiveMemberView.as_view(), name='is-collective-member'),
     path('collective-memberships/', CollectiveMembershipsView.as_view(), name='fetch-collective-memberships'),
     path('<uuid:collective_id>/admin/join/', BecomeCollectiveAdminView.as_view(), name='collective-admin-join'),

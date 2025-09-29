@@ -6,11 +6,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import CreateAPIView
 from .serializers import (
-    PostViewSerializer, PostCreateUpdateSerializer, PostDeleteSerializer,
+    PostViewSerializer, PostCreateSerializer, PostDeleteSerializer,
     CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
-    PostHeartCreateSerializer, PostHeartSerializer
+    PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer
 )
 from core.models import User
+from core.permissions import IsAuthorOrSuperUser
 from collective.models import CollectiveMember
 from .models import Post, Comment, NovelPost, PostHeart
 from .pagination import PostPagination, CommentPagination
@@ -18,7 +19,7 @@ from .pagination import PostPagination, CommentPagination
 
 class PostCreateView(generics.CreateAPIView):
     queryset = Post.objects.all()
-    serializer_class = PostCreateUpdateSerializer
+    serializer_class = PostCreateSerializer
     permission_classes = [IsAuthenticated]
 
     # Allow only the authenticated user to post
@@ -116,9 +117,9 @@ class PostUpdateView(generics.UpdateAPIView):
         ).select_related(
             'author',
             )
-    serializer_class = PostCreateUpdateSerializer
+    serializer_class = PostUpdateSerializer
     lookup_field = 'post_id'
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
 class PostDeleteView(generics.DestroyAPIView):
     queryset = Post.objects.prefetch_related(
@@ -128,7 +129,7 @@ class PostDeleteView(generics.DestroyAPIView):
             )
     serializer_class = PostDeleteSerializer
     lookup_field = 'post_id'
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_destroy(self, instance):
         # Delete media files
@@ -162,7 +163,7 @@ class CommentDetailView(generics.RetrieveAPIView):
 class CommentCreateView(generics.CreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentCreateUpdateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -174,7 +175,7 @@ class CommentUpdateView(generics.UpdateAPIView):
     """
     queryset = Comment.objects.select_related('author', 'post_id')
     serializer_class = CommentCreateUpdateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
 
 class CommentDeleteView(generics.DestroyAPIView):
@@ -184,7 +185,7 @@ class CommentDeleteView(generics.DestroyAPIView):
     """
     queryset = Comment.objects.select_related('author', 'post_id')
     serializer_class = CommentDeleteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
 
 class PostHeartCreateView(generics.CreateAPIView):
@@ -199,7 +200,7 @@ class PostHeartCreateView(generics.CreateAPIView):
 class PostHeartDestroyView(generics.DestroyAPIView):
     """Remove a heart from a post"""
     serializer_class = PostHeartSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def get_queryset(self):
         return PostHeart.objects.filter(author=self.request.user)

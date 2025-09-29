@@ -3,12 +3,15 @@ from django.shortcuts import get_object_or_404
 from common.utils.choices import COLLECTIVE_ROLES
 from collective.models import Channel, Collective, CollectiveMember
 
-class IsOwnerOrSuperAdmin(BasePermission):
+class IsAuthorOrSuperUser(BasePermission):
     """
     Permission that:
     - Grants full access to superusers
-    - Restricts regular users to their own objects
+    - Restricts regular users (model field must be 'author') to their own objects
     - Denies all other requests
+
+    Note:
+    - Do not use if user field is not called 'author'
     """
     def has_permission(self, request, view):
         # Allow all authenticated users to interact (create/list)

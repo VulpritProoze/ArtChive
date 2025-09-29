@@ -51,9 +51,8 @@ const Index: React.FC = () => {
     unheartPost,
     loadingHearts,
   } = usePostContext();
-  const { setupEditPost, toggleComments } = usePost();
+  const { setupEditPost, toggleComments, dropdownOpen, handleDeletePost, handleEditPost, toggleDropdown } = usePost();
   const { user } = useAuth()
-  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -105,20 +104,6 @@ const Index: React.FC = () => {
   useEffect(() => {
     fetchPosts(1);
   }, [fetchPosts]);
-
-  const toggleDropdown = (postId: string) => {
-    setDropdownOpen(dropdownOpen === postId ? null : postId);
-  };
-
-  const handleEdit = (postItem: any) => {
-    setupEditPost(postItem);
-    setDropdownOpen(null);
-  };
-
-  const handleDelete = (postId: string) => {
-    deletePost(postId);
-    setDropdownOpen(null);
-  };
 
   return (
     /*container div */
@@ -297,7 +282,7 @@ const Index: React.FC = () => {
                           <li>
                             <button 
                               className="text-sm flex items-center gap-2"
-                              onClick={() => handleEdit(postItem)}
+                              onClick={() => handleEditPost(postItem)}
                             >
                               <FontAwesomeIcon icon={faEdit} />
                               Edit
@@ -306,7 +291,7 @@ const Index: React.FC = () => {
                           <li>
                             <button 
                               className="text-sm text-error flex items-center gap-2"
-                              onClick={() => handleDelete(postItem.post_id)}
+                              onClick={() => handleDeletePost(postItem.post_id)}
                             >
                               <FontAwesomeIcon icon={faTrash} />
                               Delete

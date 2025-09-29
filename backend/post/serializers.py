@@ -14,9 +14,9 @@ class NovelPostSerializer(serializers.ModelSerializer):
         model = NovelPost
         fields = ['chapter', 'content',]
 
-class PostCreateUpdateSerializer(serializers.ModelSerializer):
+class PostCreateSerializer(serializers.ModelSerializer):
     '''
-    Serializer for Posts creation and update. A post can either be default, novel, image, or video.
+    Serializer for Posts creation. A post can either be default, novel, image, or video.
     
     Default post fields:
     - description
@@ -54,8 +54,6 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
         model = Post
         fields = '__all__'
         extra_kwargs = {
-            'post_type': {'required': False},  # Make optional for updates
-            'description': {'required': False},
             'author': {'read_only': True}
         }
         
@@ -175,36 +173,130 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
             # NovelPost.objects.create(post_id=post, chapter=chapter, content=content)
             
         return post
-    
-    def update(self, instance, validated_data):
-        chapters_data = validated_data.pop('chapters', None)
-        post_type = validated_data.get('post_type', instance.post_type)
 
-        # Update main post fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
         
-        # Handle novel post updates
-        if post_type == 'novel' and chapters_data is not None:
-            # Delete existing novel posts
-            NovelPost.objects.filter(post_id=instance).delete()
+        # Add novel posts to representation if post type is novel
+        if instance.post_type == 'novel':
+            novel_posts = NovelPost.objects.filter(post_id=instance)
+            representation['chapters'] = NovelPostSerializer(novel_posts, many=True).data
+        
+        return representation
+
+class PostUpdateSerializer(ModelSerializer):
+    '''
+    Serializer for Post updates only - post_type cannot be changed
+    '''
+    image_url = serializers.ImageField(required=False, allow_null=True, write_only=True, validators=[
+        FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])
+    ])
+    video_url = serializers.FileField(required=False, allow_null=True, write_only=True, validators=[
+        FileExtensionValidator(allowed_extensions=['mp4', 'mov', 'avi', 'webm', 'mkv'])
+    ])
+    chapters = serializers.ListField(
+        child=serializers.DictField(child=serializers.CharField()),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    class Meta:
+        model = Post
+        fields = '__all__'
+        extra_kwargs = {
+            'post_type': { 'read_only': True },
+            'author': {'read_only': True}
+        }
+    
+    def validate_video_url(self, value):
+        if value is None:
+            return value
             
-            # Create new novel posts
+        max_file_size = 100 * 1000000  # 100MB
+        if value.size > max_file_size:
+            raise serializers.ValidationError('Video file size must not exceed 100MB')
+        return value
+        
+    def validate_image_url(self, value):
+        if value is None:
+            return value
+            
+        max_file_size = 2 * 1000000  # 5MB
+        if value.size > max_file_size:
+            raise serializers.ValidationError('Image size must not exceed 5MB')
+            
+        try:
+            img = Image.open(value)
+            img.verify()
+        except Exception:
+            raise serializers.ValidationError('Invalid image file')
+        return value
+    
+    def validate_chapters(self, value):
+        if value is None:
+            return value
+        
+        for chapter_data in value:
+            if 'chapter' not in chapter_data or 'content' not in chapter_data:
+                raise serializers.ValidationError('Each chapter must have both chapter number and content')
+
+            try:
+                chapter_number = int(chapter_data['chapter'])
+                if chapter_number < 1:
+                    raise serializers.ValidationError('Chapter number must be a postive integer')
+
+            except (ValueError, TypeError):
+                raise serializers.ValidationError('Chapter number must be a valid integer')
+        
+        return value
+    
+    def validate(self, data):
+        # Ensure no cross-type field updates
+        current_post_type = self.instance.post_type
+        
+        if current_post_type == 'default':
+            if any(field in data for field in ['image_url', 'video_url', 'chapters']):
+                raise serializers.ValidationError(
+                    'Default posts cannot have image, video, or chapter fields'
+                )
+                
+        elif current_post_type == 'image':
+            if any(field in data for field in ['video_url', 'chapters']):
+                raise serializers.ValidationError(
+                    'Image posts cannot have video or chapter fields'
+                )
+                
+        elif current_post_type == 'video':
+            if any(field in data for field in ['image_url', 'chapters']):
+                raise serializers.ValidationError(
+                    'Video posts cannot have image or chapter fields'
+                )
+                
+        elif current_post_type == 'novel':
+            if any(field in data for field in ['image_url', 'video_url']):
+                raise serializers.ValidationError(
+                    'Novel posts cannot have image or video fields'
+                )
+        
+        return data
+
+    def update(self, instance, validated_data):
+        # For novel posts, handle chapter updates separately
+        if instance.post_type == 'novel' and 'chapters' in validated_data:
+            chapters_data = validated_data.pop('chapters')
+            
+            # Delete existing novel posts and create new ones
+            NovelPost.objects.filter(post_id=instance).delete()
             for chapter_data in chapters_data:
                 NovelPost.objects.create(
                     post_id=instance,
                     chapter=chapter_data['chapter'],
                     content=chapter_data['content']
                 )
-        elif instance.post_type == 'novel' and post_type != 'novel':  # Clean up if changing from novel type
-            NovelPost.objects.filter(post_id=instance).delete()
         
-        # Clean up old media files when changing types
-        if 'post_type' in validated_data:
-            if instance.post_type == 'image' and post_type != 'image':
-                instance.image_url.delete(save=False)
-            elif instance.post_type == 'video' and post_type != 'video':
-                instance.video_url.delete(save=False)
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
         
         instance.save()
         return instance
@@ -212,7 +304,6 @@ class PostCreateUpdateSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
-        # Add novel posts to representation if post type is novel
         if instance.post_type == 'novel':
             novel_posts = NovelPost.objects.filter(post_id=instance)
             representation['chapters'] = NovelPostSerializer(novel_posts, many=True).data

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { usePostContext } from "@context/post-context"
 import type { Post, Comment } from "@types"
 
@@ -9,6 +10,7 @@ const usePost = () => {
         setPostForm, 
         setEditing, 
         setShowPostForm,
+        deletePost,
 
         // Comments
         setCommentForm, 
@@ -36,6 +38,8 @@ const usePost = () => {
         setEditing(true);
         setShowPostForm(true);
     };
+
+    const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
     // Comments
     const handleCommentFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -68,12 +72,31 @@ const usePost = () => {
       setExpandedPost(expandedPost === postId ? null : postId);
     };
 
+    const toggleDropdown = (postId: string) => {
+      setDropdownOpen(dropdownOpen === postId ? null : postId);
+    };
+  
+    const handleEditPost = (postItem: any) => {
+      setupEditPost(postItem);
+      setDropdownOpen(null);
+    };
+  
+    const handleDeletePost = (postId: string) => {
+      deletePost(postId);
+      setDropdownOpen(null);
+    };
+
     return {
         setupEditPost,
         handleCommentFormChange,
         setupEditComment,
         setupNewComment,
-        toggleComments
+        toggleComments,
+        toggleDropdown,
+        handleEditPost,
+        handleDeletePost,
+        dropdownOpen,
+        setDropdownOpen,
     }
 }
 
