@@ -49,6 +49,7 @@ class TrophyType(models.Model):
 class Comment(models.Model):
     comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
+    is_deleted = models.BooleanField(default=False)  # Soft delete
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     post_id = models.ForeignKey(Post, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_comment')
@@ -57,12 +58,21 @@ class Comment(models.Model):
 class Critique(models.Model):
     critique_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
+    is_deleted = models.BooleanField(default=False)  # Soft delete
     impression = models.CharField(max_length=100, choices=choices.CRITIQUE_IMPRESSIONS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     post_id = models.ForeignKey(Post, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
-    replying_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
+
+class CritiqueComment(models.Model):
+    critique_comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    text = models.TextField()
+    is_deleted = models.BooleanField(default=False)  # Soft delete
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    critique = models.ForeignKey(Critique, on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_comment')
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_comment')
 
 class Event(models.Model):
     event_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -76,11 +86,12 @@ class Event(models.Model):
 class EventComment(models.Model):
     event_comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
+    is_deleted = models.BooleanField(default=False)  # Soft delete
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     event_id = models.ForeignKey(Event, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
-    replying_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
+    replying_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='event_comment')
     
 class ArtChallenge(models.Model):
     challenge_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
