@@ -23,8 +23,6 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import HeartButton from "@components/common/posts-feature/heart-button";
-import { formatArtistTypesToString } from "@utils";
-import { useAuth } from "@context/auth-context";
 
 const Index: React.FC = () => {
   const {
@@ -52,7 +50,7 @@ const Index: React.FC = () => {
     loadingHearts,
   } = usePostContext();
   const { setupEditPost, toggleComments } = usePost();
-  const { user } = useAuth()
+
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -143,7 +141,7 @@ const Index: React.FC = () => {
           <div className="flex items-center gap-3">
             <Link to="/profile">
               <img
-                src={user?.profile_picture}
+                src="https://randomuser.me/api/portraits/men/75.jpg"
                 alt="Chenoborg"
                 className="w-10 h-10 rounded-full border border-base-300"
               />
@@ -152,12 +150,12 @@ const Index: React.FC = () => {
             <div className="hidden md:block">
               <Link to="/profile">
                 <h5 className="text-sm font-semibold text-base-content">
-                  {user?.fullname}
+                  Chenoborg
                 </h5>
               </Link>
-              <p className="text-xs text-primary">@{user?.username}</p>
+              <p className="text-xs text-primary">@chenoborg_art</p>
               <p className="text-xs text-base-content/70">
-                {formatArtistTypesToString(user?.artist_types)}
+                Digital Artist | Character Designer
               </p>
             </div>
           </div>
@@ -267,18 +265,16 @@ const Index: React.FC = () => {
                   <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
                     <div className="flex items-center gap-3">
                       <img
-                        src={postItem.author_picture}
+                        src="https://randomuser.me/api/portraits/men/75.jpg"
                         alt="Chenoborg"
                         className="w-8 h-8 rounded-full border border-base-300"
                       />
                       <div>
                         <p className="text-sm font-semibold text-base-content">
-                          {postItem.author_fullname}
+                          chenoborg_art
                         </p>
                         <p className="text-xs text-base-content/70">
-                          {formatArtistTypesToString(
-                            postItem.author_artist_types
-                          )}
+                          {postItem.location || "Art Studio"}
                         </p>
                       </div>
                     </div>
