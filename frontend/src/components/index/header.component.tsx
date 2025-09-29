@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Moon, Sun } from "lucide-react";
 import useToggleTheme from "@hooks/use-theme";
-import { getCssVariableValue } from "@utils/get-css-var"
+import { getCssVariableValue } from "@utils/get-css-var";
 import { oklchToRgba } from "@utils/oklch-to-rgba";
 import {
   motion,
@@ -26,10 +26,9 @@ export default function Header() {
       if (!isScrolled) {
         setBgColor("transparent");
       } else {
-        // Use setTimeout to ensure theme has been applied
         setTimeout(() => {
           setBgColor(oklchToRgba(getCssVariableValue("--color-base-200"), 0.7));
-        }, 50); // Small delay to ensure theme is applied
+        }, 50);
       }
     };
 
@@ -56,15 +55,12 @@ export default function Header() {
       >
         <div className="flex flex-row gap-2 items-center">
           <motion.img
-            className="w-8"
-            src="favicon/favicon.ico"
-            alt="icon"
-            whileHover={{ rotate: 15 }}
-            transition={{ type: "spring", stiffness: 300 }}
+            className="h-40 w-auto"
+            src="/logo/mainLogo.png"
+            alt="ArtChive Logo"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
           />
-          <article className="prose prose-headings:text-primary">
-            <h2 className="font-medium m-0">ArtChive</h2>
-          </article>
         </div>
       </motion.div>
 
