@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { LogoutButton } from "@components/account/logout";
 import {
@@ -16,6 +16,11 @@ import {
   faTrophy,
   faQuestionCircle,
   faCog,
+  faEllipsisH,
+  faBookmark,
+  faPaperPlane,
+  faEdit,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import HeartButton from "@components/common/posts-feature/heart-button";
 
@@ -45,6 +50,8 @@ const Index: React.FC = () => {
     loadingHearts,
   } = usePostContext();
   const { setupEditPost, toggleComments } = usePost();
+
+  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -96,6 +103,20 @@ const Index: React.FC = () => {
   useEffect(() => {
     fetchPosts(1);
   }, [fetchPosts]);
+
+  const toggleDropdown = (postId: string) => {
+    setDropdownOpen(dropdownOpen === postId ? null : postId);
+  };
+
+  const handleEdit = (postItem: any) => {
+    setupEditPost(postItem);
+    setDropdownOpen(null);
+  };
+
+  const handleDelete = (postId: string) => {
+    deletePost(postId);
+    setDropdownOpen(null);
+  };
 
   return (
     /*container div */
@@ -234,70 +255,116 @@ const Index: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col gap-8 max-w-2xl mx-auto">
               {posts.map((postItem) => (
                 <div
                   key={postItem.post_id}
-                  className="card bg-base-100 border border-base-300 rounded-xl shadow-sm hover:shadow-md transition"
+                  className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
                 >
-                  <div className="card-body">
-                    <h3 className="card-title text-lg font-semibold text-base-content">
-                      {postItem.description?.substring(0, 30)}...
-                    </h3>
-                    <p className="text-sm text-base-content/70">
-                      Id: {postItem.post_id}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Type: {postItem.post_type}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Author: {postItem.author}
-                    </p>
-                    <p className="text-sm text-base-content/70">
-                      Created:{" "}
-                      {new Date(postItem.created_at).toLocaleDateString()}
-                    </p>
-
-                    {/* Media rendering */}
-                    {postItem.post_type === 'image' && postItem.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={postItem.image_url}
-                          alt={postItem.description}
-                          className="rounded-lg w-full max-h-64 object-cover"
-                        />
+                  {/* Post Header - Instagram Style */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src="https://randomuser.me/api/portraits/men/75.jpg"
+                        alt="Chenoborg"
+                        className="w-8 h-8 rounded-full border border-base-300"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-base-content">
+                          chenoborg_art
+                        </p>
+                        <p className="text-xs text-base-content/70">
+                          {postItem.location || "Art Studio"}
+                        </p>
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Three-dots dropdown menu */}
+                    <div className="dropdown dropdown-end">
+                      <button 
+                        className="btn btn-ghost btn-sm btn-circle"
+                        onClick={() => toggleDropdown(postItem.post_id)}
+                      >
+                        <FontAwesomeIcon icon={faEllipsisH} />
+                      </button>
+                      
+                      {dropdownOpen === postItem.post_id && (
+                        <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
+                          <li>
+                            <button 
+                              className="text-sm flex items-center gap-2"
+                              onClick={() => handleEdit(postItem)}
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                              Edit
+                            </button>
+                          </li>
+                          <li>
+                            <button 
+                              className="text-sm text-error flex items-center gap-2"
+                              onClick={() => handleDelete(postItem.post_id)}
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                              Delete
+                            </button>
+                          </li>
+                        </ul>
+                      )}
+                    </div>
+                  </div>
 
-                    {postItem.post_type === 'video' && postItem.video_url && (
-                      <div className="mt-4">
-                        <video controls className="rounded-lg w-full max-h-64">
-                          <source src={postItem.video_url} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
+                  {/* Media Content */}
+                  {postItem.post_type === 'image' && postItem.image_url && (
+                    <div className="aspect-square bg-black flex items-center justify-center">
+                      <img
+                        src={postItem.image_url}
+                        alt={postItem.description}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+
+                  {postItem.post_type === 'video' && postItem.video_url && (
+                    <div className="aspect-square bg-black flex items-center justify-center">
+                      <video 
+                        controls 
+                        className="w-full h-full object-contain"
+                      >
+                        <source src={postItem.video_url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                  )}
+
+                  {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
+                    <div className="aspect-square bg-base-200 flex items-center justify-center">
+                      <div className="text-center p-8">
+                        <div className="text-4xl mb-4">📖</div>
+                        <h3 className="text-xl font-bold text-base-content mb-2">
+                          {postItem.description?.substring(0, 50)}...
+                        </h3>
+                        <p className="text-base-content/70">
+                          {postItem.novel_post.length} chapters
+                        </p>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {postItem.post_type === 'novel' && postItem.novel_post && postItem.novel_post.length > 0 && (
-                      <div className="mt-4">
-                        <p className="font-semibold">Chapters: {postItem.novel_post.length}</p>
-                        {postItem.novel_post.slice(0, 3).map((novelPost, index) => (
-                          <div key={index} className="mt-2 p-2 bg-gray-100 rounded">
-                            <p className="text-sm font-medium">Chapter {novelPost.chapter}</p>
-                            <p className="text-sm mt-1 text-gray-600">{novelPost.content?.substring(0, 80)}...</p>
-                          </div>
-                        ))}
-                        {postItem.novel_post.length > 3 && (
-                          <p className="text-sm text-gray-500 mt-2">
-                            +{postItem.novel_post.length - 3} more chapters...
-                          </p>
-                        )}
+                  {/* Text-only post (default type) */}
+                  {(!postItem.post_type || postItem.post_type === 'default') && (
+                    <div className="p-6 bg-base-100">
+                      <div className="prose max-w-none">
+                        <p className="text-base-content whitespace-pre-wrap">
+                          {postItem.description}
+                        </p>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {/* Post Actions - Add Heart Button */}
-                    <div className="flex items-center justify-between mt-4 border-t border-base-300 pt-3">
-                      <div className="flex items-center gap-2">
+                  {/* Action Buttons */}
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-4">
                         <HeartButton
                           postId={postItem.post_id}
                           heartsCount={postItem.hearts_count || 0}
@@ -305,51 +372,78 @@ const Index: React.FC = () => {
                           onHeart={heartPost}
                           onUnheart={unheartPost}
                           isLoading={loadingHearts[postItem.post_id]}
-                          size="sm"
+                          size="lg"
                         />
 
-                        {/* Comments Toggle Button */}
                         <button
-                          className="btn btn-sm btn-ghost gap-2"
+                          className="btn btn-ghost btn-sm btn-circle"
                           onClick={() => toggleComments(postItem.post_id)}
                           disabled={loadingComments[postItem.post_id]}
                         >
-                          <FontAwesomeIcon icon={faCommentDots} />
-                          {loadingComments[postItem.post_id] ? (
-                            <div className="loading loading-spinner loading-xs"></div>
-                          ) : (
-                            <span>
-                              {commentPagination[postItem.post_id]
-                                ?.totalCount ||
-                                getCommentsForPost(postItem.post_id, comments)
-                                  .length}
-                            </span>
-                          )}
+                          <FontAwesomeIcon 
+                            icon={faCommentDots} 
+                            className="text-xl hover:scale-110 transition-transform" 
+                          />
+                        </button>
+
+                        <button className="btn btn-ghost btn-sm btn-circle">
+                          <FontAwesomeIcon 
+                            icon={faPaperPlane} 
+                            className="text-xl hover:scale-110 transition-transform" 
+                          />
                         </button>
                       </div>
 
-                      {/* Edit/Delete Actions */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => setupEditPost(postItem)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-sm btn-error"
-                          onClick={() => deletePost(postItem.post_id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button className="btn btn-ghost btn-sm btn-circle">
+                        <FontAwesomeIcon 
+                          icon={faBookmark} 
+                          className="text-xl hover:scale-110 transition-transform" 
+                        />
+                      </button>
                     </div>
 
-                    {/* Comments Section */}
-                    {expandedPost === postItem.post_id && (
-                      <CommentsRenderer postId={postItem.post_id} />
+                    {/* Likes Count */}
+                    <div className="mb-2">
+                      <p className="text-sm font-semibold text-base-content">
+                        {postItem.hearts_count || 0} likes
+                      </p>
+                    </div>
+
+                    {/* Caption - Only show for non-text posts */}
+                    {(postItem.post_type && postItem.post_type !== 'default') && (
+                      <div className="mb-2">
+                        <p className="text-sm text-base-content">
+                          <span className="font-semibold">chenoborg_art</span>{" "}
+                          {postItem.description}
+                        </p>
+                      </div>
                     )}
+
+                    {/* View Comments */}
+                    {getCommentsForPost(postItem.post_id, comments).length > 0 && (
+                      <button
+                        className="text-sm text-base-content/70 mb-2 hover:text-base-content transition-colors"
+                        onClick={() => toggleComments(postItem.post_id)}
+                      >
+                        View all {getCommentsForPost(postItem.post_id, comments).length} comments
+                      </button>
+                    )}
+
+                    {/* Time Posted */}
+                    <p className="text-xs text-base-content/50 uppercase">
+                      {new Date(postItem.created_at).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
                   </div>
+
+                  {/* Comments Section */}
+                  {expandedPost === postItem.post_id && (
+                    <div className="border-t border-base-300">
+                      <CommentsRenderer postId={postItem.post_id} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
