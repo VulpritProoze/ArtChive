@@ -49,12 +49,12 @@ export default function Header() {
     >
       {/* Left Side - Logo */}
       <motion.div
-        className="navbar-start flex items-center pl-4 md:pl-8 pt-4 z-10" // 👈 added pt-2 (adjust as needed)
+        className="navbar-start flex items-center pl-4 md:pl-8 pt-1 z-10" // 👈 added pt-2 (adjust as needed)
         whileHover={{ scale: 1.05 }}
         transition={{ type: "spring", stiffness: 400, damping: 10 }}
       >
         <motion.img
-          className="h-18 w-auto"
+          className="h-16 w-auto"
           src="/logo/mainLogo.png"
           alt="ArtChive Logo"
           whileHover={{ scale: 1.05 }}
