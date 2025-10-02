@@ -22,12 +22,25 @@
 
   --color-primary: #6a5acd;
   --color-primary-content: white;
+
+  /* Custom base-400 color */
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(98% 0 0);
+  --color-base-300: oklch(95% 0 0);
+  --color-base-400: oklch(90% 0 0); /* Add base-400 */
+  --color-base-content: oklch(0% 0 0);
 }
 
 @plugin "daisyui/theme" {
   name: "dark";
 
   --color-primary: #443893;
+
+  --color-base-100: oklch(25% 0 0);
+  --color-base-200: oklch(22% 0 0);
+  --color-base-300: oklch(20% 0 0);
+  --color-base-400: oklch(18% 0 0); /* Add base-400 */
+  --color-base-content: oklch(95% 0 0);
 }
 
 /* base styles */
@@ -61,6 +74,19 @@ html {
   @apply text-sm;
 }
 
+@layer utilities {
+  .bg-base-400 {
+    background-color: var(--color-base-400);
+  }
+  
+  .border-base-400 {
+    border-color: var(--color-base-400);
+  }
+  
+  .text-base-400 {
+    color: var(--color-base-400);
+  }
+}
 
 /* toast container (react-toastify) */
 .Toastify__toast {

@@ -84,12 +84,6 @@ class ChannelListView(ListAPIView):
     permission_classes = [IsAuthenticated]
 
 class ChannelCreateView(CreateAPIView):
-    """
-    I have to add later:
-    - collective admin member role
-    - only the admins of the collective can add a channel
-    + better yet, make it customizable. only certain admins are allowed certain actions
-    """
     queryset = Channel.objects.all()
     serializer_class = ChannelCreateSerializer
     lookup_field = 'collective_id'

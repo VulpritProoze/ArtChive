@@ -1,42 +1,29 @@
 import { useEffect, useRef } from "react";
 import { usePostContext } from "@context/post-context";
 import { useCollectivePostContext } from "@context/collective-post-context";
-import usePost from "@hooks/use-post";
 import useCollective from "@hooks/use-collective";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import {
   PostFormModal,
   CommentFormModal,
+  PostViewModal,
 } from "@components/common/posts-feature/modal";
 import {
   ChannelCreateModal,
   ChannelEditModal,
 } from "@components/common/collective-feature/modal";
-import { getCommentsForPost } from "@utils";
 import type { Channel } from "@types";
-import { CommentsRenderer, PostLoadingIndicator } from "../common";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCommentDots,
-  faBookmark,
-  faPaperPlane,
-} from "@fortawesome/free-solid-svg-icons";
-import HeartButton from "@components/common/posts-feature/heart-button";
-import PostHeader from "@components/common/posts-feature/post-header";
 import { CommonHeader } from "@components/common";
-import { LoadingSpinner } from "@components/loading-spinner";
+import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const {
-    comments,
-    loadingComments,
     showCommentForm,
     // Posts
     posts,
     pagination,
-    expandedPost,
     showPostForm,
     setShowPostForm,
     setPostForm,
@@ -44,11 +31,7 @@ const CollectiveHome = () => {
     setExpandedPost,
     loadingMore,
     fetchPosts,
-
-    // Hearting
-    heartPost,
-    unheartPost,
-    loadingHearts,
+    activePost
   } = usePostContext();
   const {
     collectiveData,
@@ -61,7 +44,6 @@ const CollectiveHome = () => {
     handleDeleteChannel,
     editingChannel,
   } = useCollectivePostContext();
-  const { toggleComments } = usePost();
   const { handleBecomeAdmin, handleLeaveCollective } = useCollective();
   const { user, isAdminOfACollective, isMemberOfACollective } = useAuth();
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -131,6 +113,26 @@ const CollectiveHome = () => {
 
   return (
     <div className="container max-w-full w-full">
+    {/* Channel Edit Modal */}
+    {editingChannel && <ChannelEditModal />}
+
+    {/* Channel Create Modal */}
+    {showCreateChannelModal && <ChannelCreateModal />}
+
+    {activePost && (
+      <PostViewModal />
+    )}
+
+    {/* Post Form Modal */}
+    {showPostForm && (
+      <PostFormModal channel_id={selectedChannel.channel_id} />
+    )}
+
+    {/* Comment Form Modal */}
+    {showCommentForm && (
+      <CommentFormModal channel_id={selectedChannel.channel_id} />
+    )}
+
       {/* Header */}
       <CommonHeader user={user} />
 
@@ -250,19 +252,6 @@ const CollectiveHome = () => {
               </div>
             </div>
 
-            {editingChannel && <ChannelEditModal />}
-
-            {showCreateChannelModal && <ChannelCreateModal />}
-
-            {/* Post Form Modal */}
-            {showPostForm && (
-              <PostFormModal channel_id={selectedChannel.channel_id} />
-            )}
-
-            {showCommentForm && (
-              <CommentFormModal channel_id={selectedChannel.channel_id} />
-            )}
-
             {/* Posts Section */}
             {selectedChannel && (
               <div className="bg-base-100 p-6 rounded-lg shadow-md mb-6">
@@ -323,160 +312,7 @@ const CollectiveHome = () => {
 
                 <div className="flex flex-col gap-8 max-w-2xl mx-auto">
                   {posts.map((postItem) => (
-                    <div
-                      key={postItem.post_id}
-                      className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
-                    >
-                      {/* Post Header - Instagram Style */}
-                      <PostHeader postItem={postItem} />
-
-                      {/* Media Content */}
-                      {postItem.post_type === "image" && postItem.image_url && (
-                        <div className="aspect-square bg-black flex items-center justify-center">
-                          <img
-                            src={postItem.image_url}
-                            alt={postItem.description}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {postItem.post_type === "video" && postItem.video_url && (
-                        <div className="aspect-square bg-black flex items-center justify-center">
-                          <video
-                            controls
-                            className="w-full h-full object-contain"
-                          >
-                            <source src={postItem.video_url} type="video/mp4" />
-                            Your browser does not support the video tag.
-                          </video>
-                        </div>
-                      )}
-
-                      {postItem.post_type === "novel" &&
-                        postItem.novel_post &&
-                        postItem.novel_post.length > 0 && (
-                          <div className="aspect-square bg-base-200 flex items-center justify-center">
-                            <div className="text-center p-8">
-                              <div className="text-4xl mb-4">📖</div>
-                              <h3 className="text-xl font-bold text-base-content mb-2">
-                                {postItem.description?.substring(0, 50)}...
-                              </h3>
-                              <p className="text-base-content/70">
-                                {postItem.novel_post.length} chapters
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Text-only post (default type) */}
-                      {(!postItem.post_type ||
-                        postItem.post_type === "default") && (
-                        <div className="p-6 bg-base-100">
-                          <div className="prose max-w-none">
-                            <p className="text-base-content whitespace-pre-wrap">
-                              {postItem.description}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="px-4 py-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-4">
-                            <HeartButton
-                              postId={postItem.post_id}
-                              heartsCount={postItem.hearts_count || 0}
-                              isHearted={postItem.is_hearted_by_user || false}
-                              onHeart={heartPost}
-                              onUnheart={unheartPost}
-                              isLoading={loadingHearts[postItem.post_id]}
-                              size="lg"
-                            />
-
-                            <button
-                              className="btn btn-ghost btn-sm btn-circle"
-                              onClick={() => toggleComments(postItem.post_id)}
-                              disabled={loadingComments[postItem.post_id]}
-                            >
-                              <FontAwesomeIcon
-                                icon={faCommentDots}
-                                className="text-xl hover:scale-110 transition-transform"
-                              />
-                            </button>
-
-                            <button className="btn btn-ghost btn-sm btn-circle">
-                              <FontAwesomeIcon
-                                icon={faPaperPlane}
-                                className="text-xl hover:scale-110 transition-transform"
-                              />
-                            </button>
-                          </div>
-
-                          <button className="btn btn-ghost btn-sm btn-circle">
-                            <FontAwesomeIcon
-                              icon={faBookmark}
-                              className="text-xl hover:scale-110 transition-transform"
-                            />
-                          </button>
-                        </div>
-
-                        {/* Likes Count */}
-                        <div className="mb-2">
-                          <p className="text-sm font-semibold text-base-content">
-                            {postItem.hearts_count || 0} likes
-                          </p>
-                        </div>
-
-                        {/* Caption - Only show for non-text posts */}
-                        {postItem.post_type &&
-                          postItem.post_type !== "default" && (
-                            <div className="mb-2">
-                              <p className="text-sm text-base-content">
-                                <span className="font-semibold">
-                                  chenoborg_art
-                                </span>{" "}
-                                {postItem.description}
-                              </p>
-                            </div>
-                          )}
-
-                        {/* View Comments */}
-                        {getCommentsForPost(postItem.post_id, comments).length >
-                          0 && (
-                          <button
-                            className="text-sm text-base-content/70 mb-2 hover:text-base-content transition-colors"
-                            onClick={() => toggleComments(postItem.post_id)}
-                          >
-                            View all{" "}
-                            {
-                              getCommentsForPost(postItem.post_id, comments)
-                                .length
-                            }{" "}
-                            comments
-                          </button>
-                        )}
-
-                        {/* Time Posted */}
-                        <p className="text-xs text-base-content/50 uppercase">
-                          {new Date(postItem.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "long",
-                              day: "numeric",
-                            }
-                          )}
-                        </p>
-                      </div>
-
-                      {/* Comments Section */}
-                      {expandedPost === postItem.post_id && (
-                        <div className="border-t border-base-300">
-                          <CommentsRenderer postId={postItem.post_id} />
-                        </div>
-                      )}
-                    </div>
+                    <PostCard postItem={postItem} />
                   ))}
                 </div>
 

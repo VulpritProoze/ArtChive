@@ -12,6 +12,7 @@ interface HeartButtonProps {
   onUnheart: (postId: string) => void;
   isLoading?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  className?: string
 }
 
 const HeartButton: React.FC<HeartButtonProps> = ({
@@ -21,7 +22,8 @@ const HeartButton: React.FC<HeartButtonProps> = ({
   onHeart,
   onUnheart,
   isLoading = false,
-  size = 'md'
+  size = 'md',
+  className = 'text-black'
 }) => {
   const handleClick = () => {
     if (isLoading) return;
@@ -41,7 +43,7 @@ const HeartButton: React.FC<HeartButtonProps> = ({
 
   return (
     <button
-      className={`btn btn-ghost gap-2 p-1 h-8 ${sizeClasses[size]} ${
+      className={`btn btn-ghost gap-2 p-1 h-8 ${className} ${sizeClasses[size]} ${
         isHearted ? 'text-red-500 hover:text-red-600' : 'text-base-content hover:text-red-500'
       } transition-colors`}
       onClick={handleClick}

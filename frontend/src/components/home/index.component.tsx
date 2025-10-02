@@ -4,34 +4,21 @@ import { LogoutButton } from "@components/account/logout";
 import {
   CommentFormModal,
   PostFormModal,
-  CommentsViewModal,
+  PostViewModal,
 } from "@components/common/posts-feature/modal";
-import usePost from "@hooks/use-post";
 import { useAuth } from "@context/auth-context";
-import { PostLoadingIndicator, CommentsRenderer } from "@components/common";
+import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
-import { getCommentsForPost } from "@utils";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCommentDots,
-  faBookmark,
-  faPaperPlane,
-} from "@fortawesome/free-solid-svg-icons";
-import HeartButton from "@components/common/posts-feature/heart-button";
-import PostHeader from "@components/common/posts-feature/post-header";
+import { PostCard } from "@components/common/posts-feature";
 import { CommonHeader } from "@components/common";
 
 const Index: React.FC = () => {
   const {
-    comments,
-    loadingComments,
     showCommentForm,
-    fetchCommentsForPost,
 
     // Posts
     posts,
     pagination,
-    expandedPost,
     showPostForm,
     setShowPostForm,
     loading,
@@ -40,16 +27,9 @@ const Index: React.FC = () => {
     setLoadingMore,
     fetchPosts,
     activePost,
-    setActivePost,
-
-    // Hearting
-    heartPost,
-    unheartPost,
-    loadingHearts,
   } = usePostContext();
-  const { toggleComments } = usePost();
-  const { user } = useAuth();
 
+  const { user } = useAuth()
   const observerTarget = useRef<HTMLDivElement>(null);
 
   // Infinite scrolling behavior
@@ -101,49 +81,11 @@ const Index: React.FC = () => {
     fetchPosts(1)
   }, [fetchPosts]);
 
-  // Fetch first comments for all posts after they are loaded
-  // Will modify later in backend to not do so much api calls
-  // Will have to append first comments now within post request
-  useEffect(() => {
-    const fetchInitialComments = async () => {
-      if (posts.length > 0 && !loading) {
-        // Fetch first comments for each post
-        const commentPromises = posts.map(async (postItem) => {
-          // Only fetch if we haven't loaded comments for this post yet
-          if (
-            !comments[postItem.post_id] &&
-            !loadingComments[postItem.post_id]
-          ) {
-            try {
-              await fetchCommentsForPost(postItem.post_id, 1, false);
-            } catch (error) {
-              console.error(
-                `Error fetching comments for post ${postItem.post_id}:`,
-                error
-              );
-            }
-          }
-        });
-
-        // Execute all comment fetches in parallel
-        await Promise.allSettled(commentPromises);
-      }
-    };
-
-    fetchInitialComments();
-  }, [posts, loading, comments, loadingComments, fetchCommentsForPost]);
-
-  useEffect(() => {
-    if (activePost) {
-      fetchCommentsForPost(activePost.post_id, 1, false);
-    }
-  }, [activePost]);
-
   return (
     /*container div */
     <div className="container max-w-full w-full">
       {/* Comments View Modal */}
-      {activePost && <CommentsViewModal />}
+      {activePost && <PostViewModal />}
 
       {/* Post Form Modal */}
       {showPostForm && <PostFormModal />}
@@ -210,140 +152,7 @@ const Index: React.FC = () => {
 
             <div className="flex flex-col gap-8 max-w-2xl mx-auto">
               {posts.map((postItem) => (
-                <div
-                  key={postItem.post_id}
-                  className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
-                >
-                  {/* Post Header - Instagram Style */}
-                  <PostHeader postItem={postItem} />
-
-                  {/* Media Content */}
-                  {postItem.post_type === "image" && postItem.image_url && (
-                    <div className="w-full h-96 bg-black flex items-center justify-center overflow-hidden">
-                      <img
-                        src={postItem.image_url}
-                        alt={postItem.description}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  {postItem.post_type === "video" && postItem.video_url && (
-                    <div className="w-full h-96 bg-black flex items-center justify-center overflow-hidden">
-                      <video 
-                        controls 
-                        className="w-full h-full object-cover"
-                      >
-                        <source src={postItem.video_url} type="video/mp4" />
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>
-                  )}
-
-                  {postItem.post_type === "novel" &&
-                    postItem.novel_post &&
-                    postItem.novel_post.length > 0 && (
-                      <div className="w-full h-96 bg-base-200 flex items-center justify-center">
-                        <div className="text-center p-8">
-                          <div className="text-4xl mb-4">📖</div>
-                          <h3 className="text-xl font-bold text-base-content mb-2">
-                            {postItem.description?.substring(0, 50)}...
-                          </h3>
-                          <p className="text-base-content/70">
-                            {postItem.novel_post.length} chapters
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                  {/* Text-only post (default type) */}
-                  {(!postItem.post_type ||
-                    postItem.post_type === "default") && (
-                    <div className="p-6 bg-base-100">
-                      <div className="prose max-w-none">
-                        <p className="text-base-content whitespace-pre-wrap">
-                          {postItem.description}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="px-4 py-3">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-4">
-                        <HeartButton
-                          postId={postItem.post_id}
-                          heartsCount={postItem.hearts_count || 0}
-                          isHearted={postItem.is_hearted_by_user || false}
-                          onHeart={heartPost}
-                          onUnheart={unheartPost}
-                          isLoading={loadingHearts[postItem.post_id]}
-                          size="lg"
-                        />
-
-                        <button
-                          className="btn btn-ghost btn-sm btn-circle"
-                          onClick={() => setActivePost(postItem)}
-                          disabled={loadingComments[postItem.post_id]}
-                        >
-                          <FontAwesomeIcon
-                            icon={faCommentDots}
-                            className="text-xl hover:scale-110 transition-transform"
-                          />
-                        </button>
-
-                        <button className="btn btn-ghost btn-sm btn-circle">
-                          <FontAwesomeIcon
-                            icon={faPaperPlane}
-                            className="text-xl hover:scale-110 transition-transform"
-                          />
-                        </button>
-                      </div>
-
-                      <button className="btn btn-ghost btn-sm btn-circle">
-                        <FontAwesomeIcon
-                          icon={faBookmark}
-                          className="text-xl hover:scale-110 transition-transform"
-                        />
-                      </button>
-                    </div>
-
-                    {/* Likes Count */}
-                    <div className="mb-2">
-                      <p className="text-sm font-semibold text-base-content">
-                        {postItem.hearts_count || 0} likes
-                      </p>
-                    </div>
-
-                    {/* Caption - Only show for non-text posts */}
-                    {postItem.post_type && postItem.post_type !== "default" && (
-                      <div className="mb-2">
-                        <p className="text-sm text-base-content">
-                          <span className="font-semibold">{postItem.author_username}</span>{" "}
-                          {postItem.description}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Comments Preview - Show blurred first comment */}
-                    <CommentsRenderer 
-                      postId={postItem.post_id} 
-                      isFirstComments={true} 
-                    />
-
-                    {/* Time Posted */}
-                    <p className="text-xs text-base-content/50 uppercase">
-                      {new Date(postItem.created_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "long",
-                          day: "numeric",
-                        }
-                      )}
-                    </p>
-                  </div>
-                </div>
+                <PostCard postItem={postItem} />
               ))}
             </div>
 

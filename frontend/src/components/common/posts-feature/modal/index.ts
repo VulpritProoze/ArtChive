@@ -1,3 +1,3 @@
 export { default as CommentFormModal } from './comment-form.modal'
 export { default as PostFormModal } from './post-form.modal'
-export { default as CommentsViewModal } from './comments-view.modal'
+export { default as PostViewModal } from './post-view.modal'

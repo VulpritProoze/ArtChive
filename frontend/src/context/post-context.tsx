@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useCallback } from "react";
+import { createContext, useState, useContext, useCallback, useEffect } from "react";
 import type {
   PostContextType,
   Pagination,
@@ -66,7 +66,7 @@ export const PostProvider = ({ children }) => {
       
       await post.post('heart/react/', { post_id: postId });
       
-      // Update the post in local state
+      // Update the post in posts array
       setPosts(prev => prev.map(post => 
         post.post_id === postId 
           ? { 
@@ -77,6 +77,17 @@ export const PostProvider = ({ children }) => {
           : post
       ));
       
+      // ALSO update activePost if it's the same post
+      setActivePost(prev => 
+        prev?.post_id === postId 
+          ? { 
+              ...prev, 
+              hearts_count: (prev.hearts_count || 0) + 1,
+              is_hearted_by_user: true 
+            }
+          : prev
+      );
+      
       toast.success("Post hearted!");
     } catch (error) {
       console.error("Heart post error: ", error);
@@ -85,14 +96,14 @@ export const PostProvider = ({ children }) => {
       setLoadingHearts(prev => ({ ...prev, [postId]: false }));
     }
   }, []);
-
+  
   const unheartPost = useCallback(async (postId: string) => {
     try {
       setLoadingHearts(prev => ({ ...prev, [postId]: true }));
       
       await post.delete(`${postId}/unheart/`);
       
-      // Update the post in local state
+      // Update the post in posts array
       setPosts(prev => prev.map(post => 
         post.post_id === postId 
           ? { 
@@ -102,6 +113,17 @@ export const PostProvider = ({ children }) => {
             }
           : post
       ));
+      
+      // ALSO update activePost if it's the same post
+      setActivePost(prev => 
+        prev?.post_id === postId 
+          ? { 
+              ...prev, 
+              hearts_count: Math.max(0, (prev.hearts_count || 1) - 1),
+              is_hearted_by_user: false 
+            }
+          : prev
+      );
       
       toast.success("Post unhearted!");
     } catch (error) {
@@ -373,6 +395,44 @@ export const PostProvider = ({ children }) => {
     });
     setCommentForm({ text: "", post_id: "" });
   };
+
+  // Fetch first comments for all posts after they are loaded
+  // Will modify later in backend to not do so much api calls
+  // Will have to append first comments now within post request
+  useEffect(() => {
+    const fetchInitialComments = async () => {
+      if (posts.length > 0 && !loading) {
+        // Fetch first comments for each post
+        const commentPromises = posts.map(async (postItem) => {
+          // Only fetch if we haven't loaded comments for this post yet
+          if (
+            !comments[postItem.post_id] &&
+            !loadingComments[postItem.post_id]
+          ) {
+            try {
+              await fetchCommentsForPost(postItem.post_id, 1, false);
+            } catch (error) {
+              console.error(
+                `Error fetching comments for post ${postItem.post_id}:`,
+                error
+              );
+            }
+          }
+        });
+
+        // Execute all comment fetches in parallel
+        await Promise.allSettled(commentPromises);
+      }
+    };
+
+    fetchInitialComments();
+  }, [posts, loading, comments, loadingComments, fetchCommentsForPost]);
+
+  useEffect(() => {
+    if (activePost) {
+      fetchCommentsForPost(activePost.post_id, 1, false);
+    }
+  }, [activePost]);
 
   const contextValue: PostContextType = {
     comments,
