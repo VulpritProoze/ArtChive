@@ -14,8 +14,8 @@ class UserSerializer(ModelSerializer):
 
     class Meta:
         model = User 
-        fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'artist_types', 'collective_memberships']
-        read_only_fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'artist_types', 'collective_memberships']
+        fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
         # Return a list of collective_ids user has joined

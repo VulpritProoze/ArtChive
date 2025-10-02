@@ -4,6 +4,7 @@ export type User = {
   id: number;
   username: string;
   email: string;
+  is_superuser: boolean;
   profile_picture: string;
   artist_types: string[];
   fullname: string;

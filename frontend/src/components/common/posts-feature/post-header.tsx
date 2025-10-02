@@ -8,6 +8,7 @@ import type { Post } from "@types";
 import { formatArtistTypesToString } from "@utils";
 import usePost from "@hooks/use-post";
 import { usePostContext } from "@context/post-context";
+import { useAuth } from "@context/auth-context"; // 👈 Import useAuth
 
 export default function PostHeader({
   postItem,
@@ -18,6 +19,12 @@ export default function PostHeader({
 }) {
   const { toggleDropdown, handleEditPost, handleDeletePost } = usePost();
   const { dropdownOpen } = usePostContext();
+  const { user } = useAuth(); // 👈 Get current user
+
+  // Check if current user is the author
+  const isAuthor = user?.id === postItem.author;
+  const isAdmin = user?.is_superuser;
+  const canEdit = isAuthor || isAdmin
 
   return (
     <>
@@ -44,8 +51,8 @@ export default function PostHeader({
           </div>
         </div>
 
-        {/* Three-dots dropdown menu */}
-        {!IsCommentViewModal && (
+        {/* Only show dropdown if: not in comment modal AND user can edit */}
+        {!IsCommentViewModal && canEdit && (
           <div className="dropdown dropdown-end">
             <button
               className="btn btn-ghost btn-sm btn-circle"
