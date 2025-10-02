@@ -219,18 +219,21 @@ const Index: React.FC = () => {
 
                   {/* Media Content */}
                   {postItem.post_type === "image" && postItem.image_url && (
-                    <div className="aspect-square bg-black flex items-center justify-center">
+                    <div className="w-full h-96 bg-black flex items-center justify-center overflow-hidden">
                       <img
                         src={postItem.image_url}
                         alt={postItem.description}
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   )}
 
                   {postItem.post_type === "video" && postItem.video_url && (
-                    <div className="aspect-square bg-black flex items-center justify-center">
-                      <video controls className="w-full h-full object-contain">
+                    <div className="w-full h-96 bg-black flex items-center justify-center overflow-hidden">
+                      <video 
+                        controls 
+                        className="w-full h-full object-cover"
+                      >
                         <source src={postItem.video_url} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
@@ -240,7 +243,7 @@ const Index: React.FC = () => {
                   {postItem.post_type === "novel" &&
                     postItem.novel_post &&
                     postItem.novel_post.length > 0 && (
-                      <div className="aspect-square bg-base-200 flex items-center justify-center">
+                      <div className="w-full h-96 bg-base-200 flex items-center justify-center">
                         <div className="text-center p-8">
                           <div className="text-4xl mb-4">📖</div>
                           <h3 className="text-xl font-bold text-base-content mb-2">
