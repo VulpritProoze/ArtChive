@@ -4,6 +4,10 @@ __pycache__/
 db.sqlite3
 secrets/
 *.pem
+# Ignore everything in backend/media
+# except static/
+!backend/media/static/
+backend/media/
 
 # Logs
 logs

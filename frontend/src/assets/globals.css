@@ -8,7 +8,7 @@
 
 /* base daisyui configs */
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark, cupcake, synthwave, halloween;
+  themes: light --default, dark --prefersdark;
   root: ":root";
   include: ;
   exclude: ;

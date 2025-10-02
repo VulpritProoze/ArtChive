@@ -13,7 +13,7 @@ class Gallery(models.Model):
     
 class GalleryItem(models.Model):
     item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    image_url = models.ImageField(default='gallery/items')
+    image_url = models.ImageField(default='static/images/default_600x400.png')
     description = models.TextField()
 
 # Heart reactions on a gallery item

@@ -21,7 +21,7 @@ class User(AbstractUser):
     birthday = models.DateField(blank=True, null=True, help_text='Enter user\'s date of birth')
 
     # profile
-    profile_picture = models.ImageField(default='profile/images/default-pic-min.jpg', upload_to='profile/images/')
+    profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/images/')
 
     objects = CustomUserManager()
 
