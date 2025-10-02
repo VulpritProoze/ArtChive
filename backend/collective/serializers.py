@@ -1,10 +1,13 @@
+from django.core.validators import FileExtensionValidator
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
 from common.utils.choices import FACEBOOK_RULES
+from common.utils.constants import ALLOWED_EXTENSIONS_FOR_IMAGES, MAX_FILE_SIZE_FOR_IMAGES
 from post.serializers import PostViewSerializer
 from post.models import Post, NovelPost
 from core.models import User
 from .models import Collective, Channel, CollectiveMember
+from PIL import Image
 import uuid
 
 class CollectiveSerializer(ModelSerializer):
@@ -52,6 +55,10 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True
     )
+    picture = serializers.ImageField(
+        required=False,
+        validators=[FileExtensionValidator(allowed_extensions=ALLOWED_EXTENSIONS_FOR_IMAGES)]
+    )
 
     class Meta:
         model = Collective
@@ -59,6 +66,7 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'rules',
+            'picture',
             'artist_types'
         ]
 
@@ -80,6 +88,26 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
     def validate_artist_types(self, value):
         """Optional: Validate known types or just sanitize."""
         return [item.strip() for item in value if item and item.strip()] if value else []
+
+    def validate_picture(self, value):
+        if not value:
+            return value
+
+        # 1. File size validation (FileExtensionValidator doesn't handle size)
+        if value.size > MAX_FILE_SIZE_FOR_IMAGES:
+            raise serializers.ValidationError(
+                f"Image file too large. Maximum size is {MAX_FILE_SIZE_FOR_IMAGES // (1024 * 1024)} MB."
+            )
+
+        # 2. Content validation with PIL (security: prevent fake images)
+        try:
+            img = Image.open(value)
+            img.verify()  # Verify it's a real image
+            value.seek(0)  # Reset file pointer for Django to save it
+        except Exception:
+            raise serializers.ValidationError("Invalid or corrupted image file.")
+
+        return value
 
     def create(self, validated_data):
         """Create the Collective instance."""

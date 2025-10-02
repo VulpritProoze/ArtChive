@@ -119,7 +119,11 @@ const CollectiveHome = () => {
 
   // Handle channel selection
   const handleChannelClick = async (channel: Channel) => {
-    setSelectedChannel(channel);
+    const channelWithCollectiveId = {
+      ...channel,
+      collective_id: collectiveData?.collective_id || channel.collective_id,
+    };
+    setSelectedChannel(channelWithCollectiveId);
     setPostForm((prev) => ({ ...prev, channel_id: channel.channel_id }));
     await fetchPosts(1, false, channel.channel_id);
     setExpandedPost(null); // Reset expanded post when changing channels
@@ -222,17 +226,17 @@ const CollectiveHome = () => {
                 {collectiveData.channels.map((channel) => (
                   <div
                     key={channel.channel_id}
-                    className={`card shadow-md w-64 ${
-                      selectedChannel?.channel_id === channel.channel_id
-                        ? "bg-primary text-primary-content"
-                        : "bg-base-100"
-                    }`}
+                    className={`card shadow-md w-64`}
                   >
-                    <div className="card-body">
+                    <div className={`card-body`}>
                       <h3 className="card-title">{channel.title}</h3>
                       <div className="card-actions justify-end">
                         <button
-                          className="btn btn-sm"
+                          className={`btn btn-sm ${
+                            selectedChannel?.channel_id === channel.channel_id
+                              ? "bg-primary text-primary-content"
+                              : "bg-base-100"
+                            }`}
                           onClick={() => handleChannelClick(channel)}
                         >
                           {selectedChannel?.channel_id === channel.channel_id

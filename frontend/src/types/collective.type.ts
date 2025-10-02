@@ -14,6 +14,7 @@ export interface Collective {
   description: string;
   rules: string[];
   artist_types: string[];
+  picture?: string
   created_at: string;
   updated_at: string;
 }

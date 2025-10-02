@@ -22,6 +22,7 @@ export { default as Timeline } from './profile/timeline.component'
 
 // Collective
 export { default as Collective } from './collective/index.component'
+export { default as CollectiveCreate } from './collective/collective-create.component'
 export { default as CollectiveHome } from './collective/inside-collective.component'
 
 // Gallery

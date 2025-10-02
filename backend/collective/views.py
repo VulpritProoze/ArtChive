@@ -3,6 +3,7 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from core.permissions import IsCollectiveMember, IsCollectiveAdmin
@@ -28,30 +29,33 @@ class CollectiveDetailsView(ListAPIView):
         return Collective.objects.prefetch_related('collective_channel').all()
 
 class CollectiveCreateView(APIView):
-    """
+    '''
     Create a new Collective along with default channels.
     
-    Example usage:
-    {
-        "title": "Digital Artists United",
-        "description": "A collaborative space...",
-        "rules": ["Rule 1", "Rule 2"],
-        "artist_types": ["digital arts", "illustration"]
-    }
-    """
+    Example usage (multipart/form-data):
+    - title: "Digital Artists United"
+    - description: "A collaborative space..."
+    - rules: ["Rule 1", "Rule 2"]  (send as multiple rules[]=Rule1&rules[]=Rule2 or JSON array)
+    - artist_types: ["digital arts", "illustration"]
+    - picture: <uploaded image file>
+    '''
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # Required for file uploads
 
     def post(self, request, *args, **kwargs):
         # Step 1: Deserialize and validate input
-        serializer = CollectiveCreateSerializer(data=request.data)
+        serializer = CollectiveCreateSerializer(
+            data=request.data,
+            context={'request': request}  # Optional: helps with absolute URLs in representation
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Step 2: Create collective + channels in atomic transaction
         try:
             with transaction.atomic():
-                # Create collective
-                collective = Collective.objects.create(**serializer.validated_data)
+                # Use serializer.save() — handles picture field correctly
+                collective = serializer.save()
 
                 # Create default channels
                 for channel_config in DEFAULT_COLLECTIVE_CHANNELS:
@@ -62,12 +66,13 @@ class CollectiveCreateView(APIView):
                         description=channel_config["description"]
                     )
 
-                # Step 3: Return serialized collective (with collective_id, etc.)
-                output_serializer = CollectiveCreateSerializer(collective)
+                output_serializer = CollectiveCreateSerializer(
+                    collective,
+                    context={'request': request}
+                )
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            # Transaction will roll back automatically
             return Response(
                 {"detail": "Failed to create collective and channels."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

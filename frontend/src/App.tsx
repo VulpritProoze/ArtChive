@@ -8,6 +8,7 @@ import {
   CollectiveProtectedRoute,
   GuestRoute,
   Collective,
+  CollectiveCreate,
   CollectiveHome,
   Home,
   GalleryIndex,
@@ -100,6 +101,7 @@ function App() {
                   >
                     {/* Index route: /collective */}
                     <Route index element={<Collective />} />
+                    <Route path="create" element={<CollectiveCreate />} />
 
                     {/* Nested protected route for specific collectives */}
                     <Route element={<CollectiveProtectedRoute />}>
