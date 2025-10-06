@@ -279,7 +279,7 @@ const PostViewModal = () => {
               {isMobile && !showComments && (
                 <button
                   onClick={() => setActivePost(null)}
-                  className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition-colors"
+                  className="absolute top-4 right-4 text-white bg-black/50 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer p-2 hover:bg-black/70 transition-colors"
                 >
                   <FontAwesomeIcon icon={faXmark} className="text-lg" />
                 </button>

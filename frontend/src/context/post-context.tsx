@@ -1,11 +1,18 @@
-import { createContext, useState, useContext, useCallback, useEffect } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useCallback,
+  useEffect,
+} from "react";
 import type {
   PostContextType,
   Pagination,
   Comment,
   Post,
   PostForm,
-  FetchPost
+  FetchPost,
+  CommentReplyForm,
 } from "@types";
 import { post, collective } from "@lib/api";
 import { toast } from "react-toastify";
@@ -55,82 +62,210 @@ export const PostProvider = ({ children }) => {
     video_url: null as File | null,
     chapters: [{ chapter: "", content: "" }],
   });
-  const [loadingHearts, setLoadingHearts] = useState<{ [postId: string]: boolean }>({});
+  const [loadingHearts, setLoadingHearts] = useState<{
+    [postId: string]: boolean;
+  }>({});
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [activePost, setActivePost] = useState<Post | null>(null);
+  // Reply states
+  const [replyForms, setReplyForms] = useState<{
+    [commentId: string]: CommentReplyForm;
+  }>({});
+  const [loadingReplies, setLoadingReplies] = useState<{
+    [commentId: string]: boolean;
+  }>({});
+
+  /* REPLY FUNCTIONALITY */
+  const handleReplySubmit = async (
+    e: React.FormEvent,
+    parentCommentId: string
+  ) => {
+    e.preventDefault();
+
+    const replyForm = replyForms[parentCommentId];
+    if (!replyForm?.text.trim()) return;
+
+    try {
+      await post.post("/comment/reply/create/", replyForm);
+      toast.success("Reply created successfully");
+
+      // Clear reply form
+      setReplyForms((prev) => ({
+        ...prev,
+        [parentCommentId]: { ...prev[parentCommentId], text: "" },
+      }));
+
+      // Refresh replies for the parent comment
+      await fetchRepliesForComment(parentCommentId);
+    } catch (error) {
+      console.error("Reply submission error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    }
+  };
+
+  const fetchRepliesForComment = async (commentId: string) => {
+    try {
+      setLoadingReplies((prev) => ({ ...prev, [commentId]: true }));
+
+      const response = await post.get(`/comment/${commentId}/replies/`);
+      const repliesData = response.data.results || [];
+
+      // Update comments with replies
+      setComments((prev) => {
+        const updatedComments = { ...prev };
+        Object.keys(updatedComments).forEach((postId) => {
+          updatedComments[postId] = updatedComments[postId].map((comment) => {
+            if (comment.comment_id === commentId) {
+              return { ...comment, replies: repliesData };
+            }
+            return comment;
+          });
+        });
+        return updatedComments;
+      });
+    } catch (error) {
+      console.error("Fetch replies error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingReplies((prev) => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  const setupReplyForm = (commentId: string, postId: string) => {
+    setReplyForms((prev) => ({
+      ...prev,
+      [commentId]: {
+        text: "",
+        replies_to: commentId,
+        post_id: postId,
+      },
+    }));
+  };
+
+  const handleReplyFormChange = (commentId: string, text: string) => {
+    setReplyForms((prev) => ({
+      ...prev,
+      [commentId]: {
+        ...prev[commentId],
+        text,
+      },
+    }));
+  };
+
+  const toggleReplies = async (commentId: string) => {
+    setComments((prev) => {
+      const updatedComments = { ...prev };
+      Object.keys(updatedComments).forEach((postId) => {
+        updatedComments[postId] = updatedComments[postId].map((comment) => {
+          if (comment.comment_id === commentId) {
+            const newShowReplies = !comment.show_replies;
+            // Fetch replies if showing for the first time and no replies loaded
+            if (
+              newShowReplies &&
+              (!comment.replies || comment.replies.length === 0)
+            ) {
+              fetchRepliesForComment(commentId);
+            }
+            return { ...comment, show_replies: newShowReplies };
+          }
+          return comment;
+        });
+      });
+      return updatedComments;
+    });
+  };
+
+  const toggleReplyForm = (commentId: string) => {
+    setComments((prev) => {
+      const updatedComments = { ...prev };
+      Object.keys(updatedComments).forEach((postId) => {
+        updatedComments[postId] = updatedComments[postId].map((comment) => {
+          if (comment.comment_id === commentId) {
+            return { ...comment, is_replying: !comment.is_replying };
+          }
+          return comment;
+        });
+      });
+      return updatedComments;
+    });
+  };
 
   /* HEARTING FUNCTIONALITY */
   const heartPost = useCallback(async (postId: string) => {
     try {
-      setLoadingHearts(prev => ({ ...prev, [postId]: true }));
-      
-      await post.post('heart/react/', { post_id: postId });
-      
+      setLoadingHearts((prev) => ({ ...prev, [postId]: true }));
+
+      await post.post("heart/react/", { post_id: postId });
+
       // Update the post in posts array
-      setPosts(prev => prev.map(post => 
-        post.post_id === postId 
-          ? { 
-              ...post, 
-              hearts_count: (post.hearts_count || 0) + 1,
-              is_hearted_by_user: true 
-            }
-          : post
-      ));
-      
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.post_id === postId
+            ? {
+                ...post,
+                hearts_count: (post.hearts_count || 0) + 1,
+                is_hearted_by_user: true,
+              }
+            : post
+        )
+      );
+
       // ALSO update activePost if it's the same post
-      setActivePost(prev => 
-        prev?.post_id === postId 
-          ? { 
-              ...prev, 
+      setActivePost((prev) =>
+        prev?.post_id === postId
+          ? {
+              ...prev,
               hearts_count: (prev.hearts_count || 0) + 1,
-              is_hearted_by_user: true 
+              is_hearted_by_user: true,
             }
           : prev
       );
-      
+
       toast.success("Post hearted!");
     } catch (error) {
       console.error("Heart post error: ", error);
       toast.error(handleApiError(error, defaultErrors));
     } finally {
-      setLoadingHearts(prev => ({ ...prev, [postId]: false }));
+      setLoadingHearts((prev) => ({ ...prev, [postId]: false }));
     }
   }, []);
-  
+
   const unheartPost = useCallback(async (postId: string) => {
     try {
-      setLoadingHearts(prev => ({ ...prev, [postId]: true }));
-      
+      setLoadingHearts((prev) => ({ ...prev, [postId]: true }));
+
       await post.delete(`${postId}/unheart/`);
-      
+
       // Update the post in posts array
-      setPosts(prev => prev.map(post => 
-        post.post_id === postId 
-          ? { 
-              ...post, 
-              hearts_count: Math.max(0, (post.hearts_count || 1) - 1),
-              is_hearted_by_user: false 
-            }
-          : post
-      ));
-      
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.post_id === postId
+            ? {
+                ...post,
+                hearts_count: Math.max(0, (post.hearts_count || 1) - 1),
+                is_hearted_by_user: false,
+              }
+            : post
+        )
+      );
+
       // ALSO update activePost if it's the same post
-      setActivePost(prev => 
-        prev?.post_id === postId 
-          ? { 
-              ...prev, 
+      setActivePost((prev) =>
+        prev?.post_id === postId
+          ? {
+              ...prev,
               hearts_count: Math.max(0, (prev.hearts_count || 1) - 1),
-              is_hearted_by_user: false 
+              is_hearted_by_user: false,
             }
           : prev
       );
-      
+
       toast.success("Post unhearted!");
     } catch (error) {
       console.error("Unheart post error: ", error);
       toast.error(handleApiError(error, defaultErrors));
     } finally {
-      setLoadingHearts(prev => ({ ...prev, [postId]: false }));
+      setLoadingHearts((prev) => ({ ...prev, [postId]: false }));
     }
   }, []);
 
@@ -228,17 +363,12 @@ export const PostProvider = ({ children }) => {
   };
 
   /* POSTS */
-  // Fetch data functions 
+  // Fetch data functions
   // Optional parameters:
   // channel_id -> if post-context is used within collective
   // user_id -> if post-context is used within profile timeline
   const fetchPosts: FetchPost = useCallback(
-    async (
-      page = 1,
-      append = false,
-      channel_id?,
-      user_id?
-    ) => {
+    async (page = 1, append = false, channel_id?, user_id?) => {
       try {
         if (append) {
           setLoadingMore(true);
@@ -247,7 +377,7 @@ export const PostProvider = ({ children }) => {
         }
         let url = "/";
         let response;
-        
+
         if (channel_id) {
           url = `channel/${channel_id}/posts/`;
           response = await collective.get(url, {
@@ -265,11 +395,13 @@ export const PostProvider = ({ children }) => {
         }
 
         // Ensure posts have heart data
-        const postsWithHearts = (response.data.results || []).map((post: Post) => ({
-          ...post,
-          hearts_count: post.hearts_count || 0,
-          is_hearted_by_user: post.is_hearted_by_user || false
-        }));
+        const postsWithHearts = (response.data.results || []).map(
+          (post: Post) => ({
+            ...post,
+            hearts_count: post.hearts_count || 0,
+            is_hearted_by_user: post.is_hearted_by_user || false,
+          })
+        );
 
         if (append) {
           setPosts((prev) => [...prev, ...postsWithHearts]);
@@ -298,12 +430,12 @@ export const PostProvider = ({ children }) => {
 
   // Post operations
   const handlePostSubmit = async (
-    e: React.FormEvent, 
+    e: React.FormEvent,
     channel_id?: string,
-    user_id?: number,
+    user_id?: number
   ) => {
     e.preventDefault();
-    console.log(channel_id, user_id)
+    console.log(channel_id, user_id);
 
     try {
       const formData = new FormData();
@@ -374,7 +506,7 @@ export const PostProvider = ({ children }) => {
 
   const refreshPosts = (channel_id?: string, user_id?: number) => {
     if (channel_id) fetchPosts(1, false, channel_id);
-    else if (user_id) fetchPosts(1, false, undefined, user_id)
+    else if (user_id) fetchPosts(1, false, undefined, user_id);
     else fetchPosts(1, false);
   };
 
@@ -481,6 +613,16 @@ export const PostProvider = ({ children }) => {
     heartPost,
     unheartPost,
     loadingHearts,
+
+    // Reply functionality
+    replyForms,
+    loadingReplies,
+    handleReplySubmit,
+    fetchRepliesForComment,
+    setupReplyForm,
+    handleReplyFormChange,
+    toggleReplies,
+    toggleReplyForm,
   };
 
   return (

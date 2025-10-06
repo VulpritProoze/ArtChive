@@ -373,7 +373,15 @@ class PostViewSerializer(serializers.ModelSerializer):
     
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
+    author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = '__all__'
+
+class TopLevelCommentsViewSerializer(CommentSerializer):
+    reply_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -382,10 +390,33 @@ class CommentSerializer(serializers.ModelSerializer):
             'text',
             'created_at',
             'updated_at',
+            'author_username',
+            'author_picture',
+            'post_title',
             'post_id',
             'author',
+            'replies_to',
+            'reply_count',
+        ]
+    
+    def get_reply_count(self, obj):
+        '''Get reply counts'''
+        return obj.comment_reply.count()
+
+class ReplyCommentsViewSerializer(CommentSerializer):
+    class Meta:
+        model = Comment
+        fields = [
+            'comment_id',
+            'text',
+            'created_at',
+            'updated_at',
             'author_username',
-            'post_title'
+            'author_picture',
+            'post_title',
+            'post_id',
+            'author',
+            'replies_to',
         ]
 
 class CommentCreateUpdateSerializer(serializers.ModelSerializer):
@@ -430,6 +461,48 @@ class CommentDeleteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You can only delete your own comments")
         
         return data
+
+class CommentReplyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text', 'replies_to']
+        extra_kwargs = {
+            'replies_to': {'required': True, 'write_only': True}
+        }
+
+    def validate_replies_to(self, value):
+        # Prevent replying to a reply (only top-level comments allowed)
+        if value.replies_to is not None:
+            raise serializers.ValidationError("You can only reply to top-level comments.")
+        if value.is_deleted:
+            raise serializers.ValidationError("Cannot reply to a deleted comment.")
+        return value
+
+    def validate(self, data):
+        request = self.context['request']
+        replies_to = data['replies_to']
+
+        # Auto-set author and post_id from parent comment
+        data['author'] = request.user
+        data['post_id'] = replies_to.post_id  # inherit post from parent
+        return data
+
+    def to_representation(self, instance):
+        return CommentSerializer(instance, context=self.context).data
+
+class CommentReplyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text']  # Only allow updating the text
+
+    def validate(self, data):
+        # Ensure this is actually a reply (defensive check)
+        if self.instance and self.instance.replies_to is None:
+            raise serializers.ValidationError("This is not a reply comment.")
+        return data
+
+    def to_representation(self, instance):
+        return CommentSerializer(instance, context=self.context).data
     
 class PostHeartSerializer(ModelSerializer):
     class Meta:

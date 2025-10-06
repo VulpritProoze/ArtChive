@@ -60,7 +60,19 @@ export interface Comment {
   post_id: string;
   author: number;
   author_username: string;
+  author_picture?: string
   title: string;
+  replies_to?: string
+  reply_count?: number
+  replies?: Comment[]
+  is_replying?: boolean // UI state for reply form
+  show_replies?: boolean  // UI state to show/hide replies
+}
+
+export interface CommentReplyForm {
+  text: string
+  replies_to: string
+  post_id: string
 }
 
 export interface PostsResponse {

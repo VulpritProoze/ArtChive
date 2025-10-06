@@ -1,14 +1,16 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Count
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, ListAPIView
 from .serializers import (
     PostViewSerializer, PostCreateSerializer, PostDeleteSerializer,
     CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
-    PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer
+    PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer,
+    TopLevelCommentsViewSerializer, ReplyCommentsViewSerializer,
+    CommentReplyCreateSerializer, CommentReplyUpdateSerializer
 )
 from core.models import User
 from core.permissions import IsAuthorOrSuperUser
@@ -27,13 +29,13 @@ class PostCreateView(generics.CreateAPIView):
         serializer.save(author=self.request.user)
 
 class PostListView(generics.ListAPIView):
-    """
+    '''
     Paginated list of all posts
     Example URLs:
     - /posts/ (first 10 posts)
     - /posts/?page=2 (next 10 posts)
     - /posts/?page_size=20 (20 posts per page)
-    """
+    '''
     serializer_class = PostViewSerializer
     pagination_class = PostPagination  
 
@@ -93,14 +95,73 @@ class OwnPostsListView(generics.ListAPIView):
         ).order_by('-created_at')
     
 class PostCommentsView(generics.ListAPIView):
-    serializer_class = CommentSerializer
+    '''
+    Fetch all top-level comments
+    '''
+    serializer_class = TopLevelCommentsViewSerializer
     pagination_class = CommentPagination
     
     def get_queryset(self):
-        post_id = self.kwargs['post_id']
-        # Verify post exists and get comments
-        post = get_object_or_404(Post, post_id=post_id)
-        return Comment.objects.filter(post_id=post_id).order_by('-created_at')
+        return Comment.objects.filter(
+            replies_to__isnull=True,
+            critique_id__isnull=True,
+            is_deleted=False    # Fetch only non soft-deleted comments
+            ).annotate(
+                reply_count=Count('comment_reply', 
+                    filter=Q(
+                        comment_reply__is_deleted=False
+                    ))
+            ).select_related(
+                'author',
+            ).order_by(
+                '-created_at'
+            )
+        
+class PostCommentsReplyView(ListAPIView):
+    '''
+    Fetch all reply comments
+    '''
+    serializer_class = ReplyCommentsViewSerializer
+    pagination_class = CommentPagination
+
+    def get_queryset(self):
+        return Comment.objects.filter(
+            replies_to__isnull=False,
+            critique_id__isnull=True,
+            is_deleted=False    # Fetch only non soft-deleted comments
+            ).select_related(
+                'author',
+            ).order_by(
+                '-created_at'
+            )
+    
+class CommentReplyCreateView(generics.CreateAPIView):
+    serializer_class = CommentReplyCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+class CommentReplyUpdateView(generics.UpdateAPIView):
+    queryset = Comment.objects.filter(replies_to__isnull=False, is_deleted=False)
+    serializer_class = CommentReplyUpdateSerializer
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
+    lookup_field = 'comment_id'
+
+class PostCommentsReplyDetailView(ListAPIView):
+    serializer_class = ReplyCommentsViewSerializer
+    pagination_class = CommentPagination
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        comment_id = self.kwargs['comment_id']
+        # Safely get the parent comment (returns 404 if not found)
+        parent_comment = get_object_or_404(Comment, comment_id=comment_id)
+        
+        return Comment.objects.filter(
+            replies_to=parent_comment,      # ← replies TO this comment
+            critique_id__isnull=True,
+            is_deleted=False
+        ).select_related(
+            'author'
+        ).order_by('-created_at')
 
 class PostDetailView(generics.RetrieveAPIView):
     queryset = Post.objects.prefetch_related(
