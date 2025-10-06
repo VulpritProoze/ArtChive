@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView, ListAPIView, DestroyAPIView, UpdateAPIView, RetrieveAPIView
 from .serializers import (
-    PostViewSerializer, PostCreateSerializer, PostDeleteSerializer,
+    PostCreateSerializer, PostDeleteSerializer,
     CommentSerializer, CommentDeleteSerializer,
     PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer,
     TopLevelCommentsViewSerializer, CommentReplyViewSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     CritiqueSerializer, CritiqueCreateSerializer, 
     CritiqueUpdateSerializer, CritiqueDeleteSerializer,
     CritiqueReplySerializer, CritiqueReplyCreateSerializer,
+    PostListViewSerializer, PostDetailViewSerializer
 )
 from core.models import User
 from core.permissions import IsAuthorOrSuperUser
@@ -40,7 +41,7 @@ class PostListView(generics.ListAPIView):
     - /posts/?page=2 (next 10 posts)
     - /posts/?page_size=20 (20 posts per page)
     '''
-    serializer_class = PostViewSerializer
+    serializer_class = PostListViewSerializer
     pagination_class = PostPagination  
 
     def get_queryset(self):
@@ -84,7 +85,7 @@ class OwnPostsListView(generics.ListAPIView):
     - /posts/me/1/?page=2 (next 10 posts)
     - /posts/me/1/?page_size=20 (20 posts per page)
     """
-    serializer_class = PostViewSerializer
+    serializer_class = PostListViewSerializer
     pagination_class = PostPagination
     permission_classes = [IsAuthenticated]
 
@@ -173,7 +174,7 @@ class PostDetailView(generics.RetrieveAPIView):
         ).select_related(
             'author',
             )
-    serializer_class = PostViewSerializer
+    serializer_class = PostDetailViewSerializer
     lookup_field = 'post_id'
 
 class PostUpdateView(generics.UpdateAPIView):

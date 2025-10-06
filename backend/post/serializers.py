@@ -341,6 +341,7 @@ class PostViewSerializer(serializers.ModelSerializer):
     author_fullname = serializers.SerializerMethodField()
     author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
     channel_name = serializers.CharField(source='channel.name', read_only=True)
+    comment_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Post 
@@ -370,7 +371,28 @@ class PostViewSerializer(serializers.ModelSerializer):
         parts = [user.first_name or '', user.last_name or '']    
         full_name = ' '.join(part.strip() for part in parts if part and part.strip())
         return full_name if full_name else user.username
+
+    def get_comment_count(self, obj):
+        return obj.post_comment.count()
+
     
+class PostDetailViewSerializer(PostViewSerializer):
+    class Meta:
+        model = Post
+        fields = '__all__'
+
+class PostListViewSerializer(PostViewSerializer):
+    comments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = '__all__'
+    
+    def get_comments(self, obj):
+        """Get first 2 comments for this post"""
+        comments = obj.post_comment.all().order_by('-created_at')[:2]  # Get latest 2 comments
+        return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
+
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
     author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
