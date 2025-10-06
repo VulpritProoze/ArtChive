@@ -30,7 +30,7 @@ export interface Post {
   author_picture?: string;
   collective: string;
   novel_post?: NovelPost[];
-  comments?: PaginatedComments;
+  comments?: Comment[];
   comment_count: number;
   channel_id?: string; 
   hearts_count?: number
