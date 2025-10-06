@@ -1,15 +1,37 @@
 import type { NovelPost, Post } from "@types";
-import { PostHeader, NovelRenderer, HeartButton, CommentsRenderer } from "@components/common/posts-feature";
+import {
+  PostHeader,
+  NovelRenderer,
+  HeartButton,
+  CommentsRenderer,
+  CritiqueSection,
+} from "@components/common/posts-feature";
 import { usePostContext } from "@context/post-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBookmark, faCommentDots, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBookmark,
+  faCommentDots,
+  faPaperPlane,
+  faStar,
+} from "@fortawesome/free-solid-svg-icons";
+import { useState } from "react";
 
 interface PostCardPostItem extends Post {
-    novel_post: NovelPost[]
+  novel_post: NovelPost[];
 }
 
 export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
-    const { heartPost, unheartPost, loadingHearts, setActivePost, loadingComments } = usePostContext()
+  const {
+    heartPost,
+    unheartPost,
+    loadingHearts,
+    loadingComments,
+    loadingCritiques,
+  } = usePostContext();
+
+  const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
+    "comments"
+  );
 
   return (
     <>
@@ -72,12 +94,27 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
               />
 
               <button
-                className="btn btn-ghost btn-sm btn-circle"
-                onClick={() => setActivePost(postItem)}
+                className={`btn btn-ghost btn-sm btn-circle ${
+                  activeSection === "comments" ? "text-primary" : ""
+                }`}
+                onClick={() => setActiveSection("comments")}
                 disabled={loadingComments[postItem.post_id]}
               >
                 <FontAwesomeIcon
                   icon={faCommentDots}
+                  className="text-xl hover:scale-110 transition-transform"
+                />
+              </button>
+
+              <button
+                className={`btn btn-ghost btn-sm btn-circle relative ${
+                  activeSection === "critiques" ? "text-primary" : ""
+                }`}
+                onClick={() => setActiveSection("critiques")}
+                disabled={loadingCritiques[postItem.post_id]}
+              >
+                <FontAwesomeIcon
+                  icon={faStar}
                   className="text-xl hover:scale-110 transition-transform"
                 />
               </button>
@@ -99,9 +136,17 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
           </div>
 
           {/* Likes Count */}
-          <div className="mb-2">
+          <div className="mb-2 flex flex-row gap-2 items-center">
             <p className="text-sm font-semibold text-base-content">
               {postItem.hearts_count || 0} likes
+            </p>
+
+            {/* Time Posted */}
+            <p className="text-xs text-base-content/50 uppercase">
+              {new Date(postItem.created_at).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+              })}
             </p>
           </div>
 
@@ -117,16 +162,21 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
             </div>
           )}
 
-          {/* Comments Preview - Show blurred first comment */}
-          <CommentsRenderer postId={postItem.post_id} isFirstComments={true} />
-
-          {/* Time Posted */}
-          <p className="text-xs text-base-content/50 uppercase">
-            {new Date(postItem.created_at).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
+          {/* Conditional Rendering based on active section */}
+          {activeSection === "comments" ? (
+            <>
+              {/* Comments Preview - Show blurred first comment */}
+              <CommentsRenderer
+                postItem={postItem}
+                isFirstComments={true}
+              />
+            </>
+          ) : (
+            <>
+              {/* Critique Section */}
+              <CritiqueSection postId={postItem.post_id} />
+            </>
+          )}
         </div>
       </div>
     </>

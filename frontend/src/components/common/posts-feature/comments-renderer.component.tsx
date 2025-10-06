@@ -3,19 +3,21 @@ import { usePostContext } from "@context/post-context";
 import usePost from "@hooks/use-post";
 import { getCommentsForPost } from "@utils";
 import { ReplyComponent } from "@components/common";
+import type { Post } from "@types";
 
 const CommentsRenderer = ({
-  postId,
+  postItem,
   isFirstComments = true,
   showLoadMore = false,
 }: {
-  postId: string;
+  postItem: Post;
   isFirstComments?: boolean;
   showLoadMore?: boolean;
 }) => {
-  const { commentPagination, loadingComments, comments } =
+  const { commentPagination, loadingComments, comments, setActivePost } =
     usePostContext();
   const { setupNewComment } = usePost();
+  const postId = postItem.post_id
 
   const isLoading = loadingComments[postId];
   const pagination = commentPagination[postId];
@@ -33,9 +35,9 @@ const CommentsRenderer = ({
     const lastTwoComments = topLevelComments.slice(-2);
 
     return (
-      <div className="mt-2 p-3">
+      <div className="mt-2">
         <div className="flex justify-between items-center mb-3">
-          <h4 className="foznt-semibold">
+          <h4 className="font-semibold">
             Comments (
             {isLoading
               ? "..."
@@ -50,7 +52,12 @@ const CommentsRenderer = ({
           </button>
         </div>
 
+
         <div className="space-y-2 relative">
+          {!isLoading && (
+            <span className="text-sm hover:link" onClick={() => setActivePost(postItem)}>View all comments</span>
+          )}
+
           {/* Fading overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-base-100 via-transparent to-transparent pointer-events-none z-10 mb-2" />
 

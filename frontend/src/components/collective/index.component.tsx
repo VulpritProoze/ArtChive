@@ -3,13 +3,14 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { CommonHeader } from "@components/common";
 import { useCollectiveContext } from "@context/collective-context";
+import { LoadingSpinner } from "@components/loading-spinner";
 
 export default function Index() {
   const navigate = useNavigate();
 
   const { isMemberOfACollective, fetchCollectiveMemberDetails, user } =
     useAuth();
-  const { fetchCollectives, collectives, handleJoinCollectiveAsync } =
+  const { fetchCollectives, collectives, handleJoinCollectiveAsync, loading } =
     useCollectiveContext();
 
   useEffect(() => {
@@ -25,6 +26,10 @@ export default function Index() {
   const handleCollectiveClick = (collectiveId: string) => {
     navigate(`/collective/${collectiveId}`);
   };
+
+  if(loading) return (
+    <LoadingSpinner text={"Loading collective details..."} />
+  )
 
   return (
     <div className="container max-w-full w-full">

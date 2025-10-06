@@ -375,6 +375,10 @@ class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
     author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)
+    critique_author_username = serializers.CharField(source='critique_id.author.username', read_only=True, allow_null=True)
+    critique_author_picture = serializers.CharField(source='critique_id.author.profile_picture', read_only=True, allow_null=True)
+    critique_author_id = serializers.IntegerField(source='critique_id.author.id', read_only=True, allow_null=True)
+    is_deleted = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Comment
@@ -397,43 +401,37 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
             'author',
             'replies_to',
             'reply_count',
+            'is_deleted'
         ]
     
     def get_reply_count(self, obj):
         '''Get reply counts'''
         return obj.comment_reply.count()
 
-class ReplyCommentsViewSerializer(CommentSerializer):
+class CommentCreateSerializer(ModelSerializer):
     class Meta:
         model = Comment
-        fields = [
-            'comment_id',
-            'text',
-            'created_at',
-            'updated_at',
-            'author_username',
-            'author_picture',
-            'post_title',
-            'post_id',
-            'author',
-            'replies_to',
-        ]
-
-class CommentCreateUpdateSerializer(serializers.ModelSerializer):
+        fields = ['text', 'post_id']
+        extra_kwargs = {
+            'post_id': {'required': False},
+        }
+    
+class CommentUpdateSerializer(ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['text', 'post_id']  # Only expose fields needed for creation/update
+        fields = ['text']
 
     def validate(self, data):
-        # Auto-set the author to current user
-        if self.context['request'].method == 'POST':
-            data['author'] = self.context['request'].user
+        # Ensure user owns the comment or is admin
+        user = self.context['request'].user
+        if not (user == self.instance.author or user.is_staff):
+            raise serializers.ValidationError("You can only update your own comments")
+        
+        # Ensure comment is not deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Cannot update a deleted comment")
         
         return data
-
-    def to_representation(self, instance):
-        # When returning data after create/update, use the full serializer
-        return CommentSerializer(instance, context=self.context).data
 
 class CommentDeleteSerializer(serializers.ModelSerializer):
     confirm = serializers.BooleanField(
@@ -455,12 +453,32 @@ class CommentDeleteSerializer(serializers.ModelSerializer):
         if not self.instance:
             raise serializers.ValidationError("Comment not found")
         
+        # Ensure comment is not already deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Comment is already deleted")
+        
         # Ensure user owns the comment or is admin
         user = self.context['request'].user
         if not (user == self.instance.author or user.is_staff):
             raise serializers.ValidationError("You can only delete your own comments")
         
         return data
+
+class CommentReplyViewSerializer(CommentSerializer):
+    class Meta:
+        model = Comment
+        fields = [
+            'comment_id',
+            'text',
+            'created_at',
+            'updated_at',
+            'author_username',
+            'author_picture',
+            'post_title',
+            'post_id',
+            'author',
+            'replies_to',
+        ]
 
 class CommentReplyCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -485,12 +503,57 @@ class CommentReplyCreateSerializer(serializers.ModelSerializer):
         # Auto-set author and post_id from parent comment
         data['author'] = request.user
         data['post_id'] = replies_to.post_id  # inherit post from parent
+        
         return data
 
-    def to_representation(self, instance):
-        return CommentSerializer(instance, context=self.context).data
+class CritiqueReplySerializer(CommentSerializer):
+    class Meta:
+        model = Comment
+        fields = [
+            'comment_id',
+            'text',
+            'created_at',
+            'updated_at',
+            'author_username',
+            'author_picture',
+            'post_title',
+            'post_id',
+            'author',
+            'is_critique_reply',
+            'critique_id',
+        ]
 
-class CommentReplyUpdateSerializer(serializers.ModelSerializer):
+    def get_reply_count(self, obj):
+        '''Get reply counts'''
+        return obj.comment_reply.count()
+
+class CritiqueReplyCreateSerializer(ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text', 'critique_id']
+        extra_kwargs = {
+            'critique_id': {'required': True, 'write_only': True}
+        }
+
+    def validate_critique_id(self, value):
+        # Ensure critique exists and is not deleted
+        if value.is_deleted:
+            raise serializers.ValidationError("Cannot reply to a deleted critique.")
+        return value
+
+    def validate(self, data):
+        request = self.context['request']
+        critique = data['critique_id']
+
+        # Auto-set author, post_id from critique, and set as critique reply
+        data['author'] = request.user
+        data['post_id'] = critique.post_id  # inherit post from critique
+        data['is_critique_reply'] = True  # Explicitly set as critique reply
+        data['replies_to'] = None  # Ensure no reply chain for critique replies
+        
+        return data
+    
+class ReplyUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['text']  # Only allow updating the text
@@ -499,10 +562,12 @@ class CommentReplyUpdateSerializer(serializers.ModelSerializer):
         # Ensure this is actually a reply (defensive check)
         if self.instance and self.instance.replies_to is None:
             raise serializers.ValidationError("This is not a reply comment.")
+        
+        # Ensure reply is not deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Cannot update a deleted reply")
+            
         return data
-
-    def to_representation(self, instance):
-        return CommentSerializer(instance, context=self.context).data
     
 class PostHeartSerializer(ModelSerializer):
     class Meta:
@@ -528,3 +593,102 @@ class PostHeartCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("You have already hearted this post")
         
         return data
+    
+class CritiqueSerializer(ModelSerializer):
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
+    post_title = serializers.CharField(source='post_id.title', read_only=True)
+    author_artist_types = serializers.SerializerMethodField()
+    author_fullname = serializers.SerializerMethodField()
+    reply_count = serializers.SerializerMethodField()
+    is_deleted = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Critique
+        fields = '__all__'
+
+    def get_author_artist_types(self, obj):
+        '''Fetch author's artist types'''
+        try:
+            return obj.author.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']    
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+    
+    def get_reply_count(self, obj):
+        '''Get reply counts'''
+        return obj.critique_reply.count()
+
+class CritiqueCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Critique
+        fields = ['text', 'impression', 'post_id']
+
+    def validate_impression(self, value):
+        valid_choices = [choice[0] for choice in choices.CRITIQUE_IMPRESSIONS]
+        if value not in valid_choices:
+            raise serializers.ValidationError('Invalid impression type')
+        return value
+
+    def validate(self, data):
+        # Auto-set the author to current user
+        request = self.context.get('request')
+        if request and request.method == 'POST':
+            data['author'] = request.user
+        
+        # Check if user already created a critique for this post
+        if Critique.objects.filter(
+            post_id=data['post_id'], 
+            author=data['author'],
+            is_deleted=False
+        ).exists():
+            raise serializers.ValidationError("You have already created a critique for this post")
+        
+        return data
+
+    def to_representation(self, instance):
+        return CritiqueSerializer(instance, context=self.context).data
+
+class CritiqueUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Critique
+        fields = ['text', 'impression']
+
+    def validate_impression(self, value):
+        valid_choices = [choice[0] for choice in choices.CRITIQUE_IMPRESSIONS]
+        if value not in valid_choices:
+            raise serializers.ValidationError('Invalid impression type')
+        return value
+
+    def validate(self, data):
+        # Ensure user owns the critique
+        user = self.context['request'].user
+        if not (user == self.instance.author or user.is_staff):
+            raise serializers.ValidationError("You can only update your own critiques")
+        
+        return data
+
+    def to_representation(self, instance):
+        return CritiqueSerializer(instance, context=self.context).data
+
+class CritiqueDeleteSerializer(serializers.ModelSerializer):
+    confirm = serializers.BooleanField(
+        required=True,
+        write_only=True,
+        help_text="Must be True to confirm deletion"
+    )
+
+    class Meta:
+        model = Critique
+        fields = ['confirm']
+
+    def validate_confirm(self, value):
+        if not value:
+            raise serializers.ValidationError("Must confirm deletion")
+        return value

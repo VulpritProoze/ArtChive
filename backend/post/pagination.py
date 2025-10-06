@@ -7,3 +7,7 @@ class PostPagination(PageNumberPagination):
 class CommentPagination(PageNumberPagination):
     page_size = 10  # Default number of comments per page
     max_page_size = 100  # Maximum limit
+
+class CritiquePagination(PageNumberPagination):
+    page_size = 10
+    max_page_size = 100

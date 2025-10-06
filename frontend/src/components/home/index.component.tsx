@@ -5,6 +5,7 @@ import {
   CommentFormModal,
   PostFormModal,
   PostViewModal,
+  CritiqueFormModal,
 } from "@components/common/posts-feature/modal";
 import { useAuth } from "@context/auth-context";
 import { PostLoadingIndicator } from "@components/common";
@@ -27,6 +28,9 @@ const Index: React.FC = () => {
     setLoadingMore,
     fetchPosts,
     activePost,
+
+    // Critique
+    showCritiqueForm,
   } = usePostContext();
 
   const { user } = useAuth()
@@ -92,6 +96,9 @@ const Index: React.FC = () => {
 
       {/* Comment Form Modal */}
       {showCommentForm && <CommentFormModal />}
+
+      {/* Critique Form Modal */}
+      {showCritiqueForm && <CritiqueFormModal />}
 
       {/* Header */}
       <CommonHeader user={user} />

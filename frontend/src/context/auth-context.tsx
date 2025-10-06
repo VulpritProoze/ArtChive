@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useContext } from "react";
 import api, { collective } from '@lib/api'
 import type { AuthContextType, User, CollectiveMember } from "@types";
 import { isAxiosError } from "axios";
@@ -12,23 +12,24 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<User>(null);
   const [collectiveMemberships, setCollectiveMemberships] = useState<CollectiveMemberType>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
   const getUserId = () => {
     return user?.id || null
   }
 
-  const fetchUser = async (): Promise<boolean> => {
+  const fetchUser = async (): Promise<User> => {
     try {
       const response = await api.get("api/core/auth/me/", {
         withCredentials: true,
       });
       setUser(response.data);
-      return true;
+      return response.data;
     } catch (error) {
       console.error("Failed to fetch user: ", error);
       setUser(null);
-      throw error
+      return null
     }
   };
 
@@ -55,28 +56,27 @@ export const AuthProvider = ({ children }) => {
       const response = await collective.get('collective-memberships/', { withCredentials: true })
       setCollectiveMemberships(response.data)
 
-      return true
+      return response.data
     } catch(error) {
       console.error('Failed to fetch collective memberships information: ', error)
       setCollectiveMemberships(null)
-      throw error
+      return null
     }
   }
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        await fetchUser()
-        await fetchCollectiveMemberDetails()
-      } catch (err) {
-        throw err
-      } finally {
-        setIsLoading(false)
-      }
-    };
-
-    checkAuth();
-  }, []);
+  const initializeAuth = async () => {
+    if (initialized) return
+    setIsLoading(true)
+    try {
+      await fetchUser()
+      await fetchCollectiveMemberDetails()
+    } catch (err) {
+      throw err
+    } finally {
+      setIsLoading(false)
+      setInitialized(true);
+    }
+  }
 
   const register = async (
     username: string,
@@ -227,7 +227,8 @@ export const AuthProvider = ({ children }) => {
     fetchCollectiveMemberDetails,
     fetchUser,
     isMemberOfACollective,
-    isAdminOfACollective
+    isAdminOfACollective,
+    initializeAuth,
   };
 
   return (

@@ -56,7 +56,8 @@ class Comment(models.Model):
     '''
     Critique Id is null by default. Validation will be handled by serializer
     '''
-    critique_id = models.ForeignKey('Critique', on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_comment')
+    is_critique_reply = models.BooleanField(default=False)
+    critique_id = models.ForeignKey('Critique', on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_reply')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_comment')
     replies_to = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='comment_reply')
     

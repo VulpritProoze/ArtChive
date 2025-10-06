@@ -81,3 +81,34 @@ export interface PostsResponse {
   previous: string | null;
   results: Post[];
 }
+
+export interface Critique {
+  critique_id: string;
+  text: string;
+  impression: string;
+  created_at: string;
+  updated_at: string;
+  post_id: string;
+  author: number;
+  author_username: string;
+  author_picture?: string;
+  author_fullname?: string;
+  author_artist_types?: string[];
+  post_title: string;
+  reply_count: number;
+  is_deleted: boolean;
+  replies?: Comment[]
+  show_replies?: boolean
+  is_replying?: boolean
+}
+
+export interface CritiqueForm {
+  text: string;
+  impression: string;
+  post_id: string;
+}
+
+export interface CritiqueReplyForm {
+  text: string;
+  critique_id: string;
+}

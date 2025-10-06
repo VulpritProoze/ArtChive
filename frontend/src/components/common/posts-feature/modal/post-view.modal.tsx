@@ -331,7 +331,7 @@ const PostViewModal = () => {
             <div className="flex-1 overflow-y-auto">
               <div className="p-4">
                 <CommentsRenderer
-                  postId={activePost.post_id}
+                  postItem={activePost}
                   isFirstComments={false}
                 />
               </div>

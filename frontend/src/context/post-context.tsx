@@ -13,6 +13,9 @@ import type {
   PostForm,
   FetchPost,
   CommentReplyForm,
+  Critique,
+  CritiqueForm,
+  CritiqueReplyForm
 } from "@types";
 import { post, collective } from "@lib/api";
 import { toast } from "react-toastify";
@@ -67,6 +70,7 @@ export const PostProvider = ({ children }) => {
   }>({});
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [activePost, setActivePost] = useState<Post | null>(null);
+
   // Reply states
   const [replyForms, setReplyForms] = useState<{
     [commentId: string]: CommentReplyForm;
@@ -74,6 +78,215 @@ export const PostProvider = ({ children }) => {
   const [loadingReplies, setLoadingReplies] = useState<{
     [commentId: string]: boolean;
   }>({});
+
+  // Critique states
+  const [critiques, setCritiques] = useState<{ [postId: string]: Critique[] }>({});
+  const [loadingCritiques, setLoadingCritiques] = useState<{ [postId: string]: boolean }>({});
+  const [critiquePagination, setCritiquePagination] = useState<{ [postId: string]: Pagination }>({});
+  const [showCritiqueForm, setShowCritiqueForm] = useState(false);
+  const [critiqueForm, setCritiqueForm] = useState<CritiqueForm>({
+    text: "",
+    impression: "positive", // default impression
+    post_id: ""
+  });
+  const [editingCritique, setEditingCritique] = useState(false);
+  const [selectedCritique, setSelectedCritique] = useState<Critique | null>(null);
+  
+  // Critique reply states
+  const [critiqueReplyForms, setCritiqueReplyForms] = useState<{ [critiqueId: string]: CritiqueReplyForm }>({});
+  const [loadingCritiqueReplies, setLoadingCritiqueReplies] = useState<{ [critiqueId: string]: boolean }>({});
+
+
+  /* CRITIQUE FUNCTIONALITY */
+  const fetchCritiquesForPost = async (postId: string, page: number, append: boolean) => {
+    try {
+      setLoadingCritiques(prev => ({ ...prev, [postId]: true }));
+      
+      const response = await post.get(`/${postId}/critiques/`, {
+        params: { page }
+      });
+      
+      const critiquesData = response.data.results || [];
+      const paginationData = {
+        currentPage: page,
+        hasNext: response.data.next !== null,
+        hasPrevious: response.data.previous !== null,
+        totalCount: response.data.count || critiquesData.length,
+      };
+
+      if (append) {
+        setCritiques(prev => ({
+          ...prev,
+          [postId]: [...(prev[postId] || []), ...critiquesData]
+        }));
+      } else {
+        setCritiques(prev => ({ ...prev, [postId]: critiquesData }));
+      }
+
+      setCritiquePagination(prev => ({ ...prev, [postId]: paginationData }));
+    } catch (error) {
+      console.error("Critique fetch error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingCritiques(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handleCritiqueSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      if (editingCritique) {
+        await post.put(`/critique/${selectedCritique?.critique_id}/update/`, {
+          text: critiqueForm.text,
+          impression: critiqueForm.impression
+        });
+      } else {
+        await post.post("/critique/create/", critiqueForm);
+      }
+
+      toast.success(`Critique ${editingCritique ? "updated" : "created"} successfully`);
+      setShowCritiqueForm(false);
+      setEditingCritique(false);
+      setSelectedCritique(null);
+      setCritiqueForm({ text: "", impression: "positive", post_id: "" });
+
+      // Refresh critiques for the specific post
+      if (critiqueForm.post_id) {
+        await fetchCritiquesForPost(critiqueForm.post_id, 1, false);
+      }
+    } catch (error) {
+      console.error("Critique submission error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    }
+  };
+
+  const deleteCritique = async (critiqueId: string, postId: string) => {
+    if (!window.confirm("Are you sure you want to delete this critique?")) return;
+
+    try {
+      await post.delete(`/critique/${critiqueId}/delete/`, {
+        data: { confirm: true }
+      });
+      toast.success("Critique deleted successfully");
+
+      // Refresh critiques for the specific post
+      const currentPage = critiquePagination[postId]?.currentPage || 1;
+      await fetchCritiquesForPost(postId, currentPage, false);
+    } catch (error) {
+      console.error("Critique deletion error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    }
+  };
+
+  /* CRITIQUE REPLY FUNCTIONALITY */
+  const handleCritiqueReplySubmit = async (e: React.FormEvent, critiqueId: string) => {
+    e.preventDefault();
+
+    const replyForm = critiqueReplyForms[critiqueId];
+    if (!replyForm?.text.trim()) return;
+
+    try {
+      await post.post("/critique/reply/create/", replyForm);
+      toast.success("Reply created successfully");
+
+      // Clear reply form
+      setCritiqueReplyForms(prev => ({
+        ...prev,
+        [critiqueId]: { ...prev[critiqueId], text: "" }
+      }));
+
+      // Refresh replies for the critique
+      await fetchRepliesForCritique(critiqueId);
+    } catch (error) {
+      console.error("Critique reply submission error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    }
+  };
+
+  const fetchRepliesForCritique = async (critiqueId: string) => {
+    try {
+      setLoadingCritiqueReplies(prev => ({ ...prev, [critiqueId]: true }));
+
+      const response = await post.get(`/critique/${critiqueId}/replies/`);
+      const repliesData = response.data.results || [];
+
+      // Update critiques with replies
+      setCritiques(prev => {
+        const updatedCritiques = { ...prev };
+        Object.keys(updatedCritiques).forEach(postId => {
+          updatedCritiques[postId] = updatedCritiques[postId].map(critique => {
+            if (critique.critique_id === critiqueId) {
+              return { ...critique, replies: repliesData };
+            }
+            return critique;
+          });
+        });
+        return updatedCritiques;
+      });
+    } catch (error) {
+      console.error("Fetch critique replies error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingCritiqueReplies(prev => ({ ...prev, [critiqueId]: false }));
+    }
+  };
+
+  const setupCritiqueReplyForm = (critiqueId: string) => {
+    setCritiqueReplyForms(prev => ({
+      ...prev,
+      [critiqueId]: {
+        text: "",
+        critique_id: critiqueId
+      }
+    }));
+  };
+
+  const handleCritiqueReplyFormChange = (critiqueId: string, text: string) => {
+    setCritiqueReplyForms(prev => ({
+      ...prev,
+      [critiqueId]: {
+        ...prev[critiqueId],
+        text
+      }
+    }));
+  };
+
+  const toggleCritiqueReplies = async (critiqueId: string) => {
+    setCritiques(prev => {
+      const updatedCritiques = { ...prev };
+      Object.keys(updatedCritiques).forEach(postId => {
+        updatedCritiques[postId] = updatedCritiques[postId].map(critique => {
+          if (critique.critique_id === critiqueId) {
+            const newShowReplies = !critique.show_replies;
+            // Fetch replies if showing for the first time and no replies loaded
+            if (newShowReplies && (!critique.replies || critique.replies.length === 0)) {
+              fetchRepliesForCritique(critiqueId);
+            }
+            return { ...critique, show_replies: newShowReplies };
+          }
+          return critique;
+        });
+      });
+      return updatedCritiques;
+    });
+  };
+
+  const toggleCritiqueReplyForm = (critiqueId: string) => {
+    setCritiques(prev => {
+      const updatedCritiques = { ...prev };
+      Object.keys(updatedCritiques).forEach(postId => {
+        updatedCritiques[postId] = updatedCritiques[postId].map(critique => {
+          if (critique.critique_id === critiqueId) {
+            return { ...critique, is_replying: !critique.is_replying };
+          }
+          return critique;
+        });
+      });
+      return updatedCritiques;
+    });
+  }
+
 
   /* REPLY FUNCTIONALITY */
   const handleReplySubmit = async (
@@ -623,6 +836,32 @@ export const PostProvider = ({ children }) => {
     handleReplyFormChange,
     toggleReplies,
     toggleReplyForm,
+
+    // Critique functionality
+    critiques,
+    loadingCritiques,
+    critiquePagination,
+    showCritiqueForm,
+    setShowCritiqueForm,
+    critiqueForm,
+    setCritiqueForm,
+    editingCritique,
+    setEditingCritique,
+    selectedCritique,
+    setSelectedCritique,
+    fetchCritiquesForPost,
+    handleCritiqueSubmit,
+    deleteCritique,
+    
+    // Critique reply functionality
+    critiqueReplyForms,
+    loadingCritiqueReplies,
+    handleCritiqueReplySubmit,
+    fetchRepliesForCritique,
+    setupCritiqueReplyForm,
+    handleCritiqueReplyFormChange,
+    toggleCritiqueReplies,
+    toggleCritiqueReplyForm,
   };
 
   return (

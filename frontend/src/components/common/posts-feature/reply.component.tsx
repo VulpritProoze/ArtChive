@@ -94,7 +94,15 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                     onClick={() => handleToggleReplies(comment.comment_id)}
                     disabled={isLoadingReplies}
                   >
-                      <span className='cursor-pointer'>{comment.show_replies ? 'Hide' : 'View'} {replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+                      <span className='cursor-pointer flex flex-row gap-1 items-center'>
+                        {isLoadingReplies && comment.show_replies && (
+                          <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin">
+                          </div>)
+                        }{" "}
+                        {comment.show_replies ? 'Hide' : 'View'}{" "}
+                        {replyCount}{" "}
+                        {replyCount === 1 ? 'reply' : 'replies'}
+                      </span>
                   </button>
                 )}
               </div>

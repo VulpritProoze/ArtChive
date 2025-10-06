@@ -1,22 +1,26 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count
 from rest_framework import generics, status
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.generics import CreateAPIView, ListAPIView
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import CreateAPIView, ListAPIView, DestroyAPIView, UpdateAPIView, RetrieveAPIView
 from .serializers import (
     PostViewSerializer, PostCreateSerializer, PostDeleteSerializer,
-    CommentSerializer, CommentCreateUpdateSerializer, CommentDeleteSerializer,
+    CommentSerializer, CommentDeleteSerializer,
     PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer,
-    TopLevelCommentsViewSerializer, ReplyCommentsViewSerializer,
-    CommentReplyCreateSerializer, CommentReplyUpdateSerializer
+    TopLevelCommentsViewSerializer, CommentReplyViewSerializer,
+    CommentReplyCreateSerializer, ReplyUpdateSerializer,
+    CommentCreateSerializer, CommentUpdateSerializer,
+    CritiqueSerializer, CritiqueCreateSerializer, 
+    CritiqueUpdateSerializer, CritiqueDeleteSerializer,
+    CritiqueReplySerializer, CritiqueReplyCreateSerializer,
 )
 from core.models import User
 from core.permissions import IsAuthorOrSuperUser
 from collective.models import CollectiveMember
-from .models import Post, Comment, NovelPost, PostHeart
-from .pagination import PostPagination, CommentPagination
+from .models import Post, Comment, NovelPost, PostHeart, Critique
+from .pagination import PostPagination, CommentPagination, CritiquePagination
 
 
 class PostCreateView(generics.CreateAPIView):
@@ -121,7 +125,7 @@ class PostCommentsReplyView(ListAPIView):
     '''
     Fetch all reply comments
     '''
-    serializer_class = ReplyCommentsViewSerializer
+    serializer_class = CommentReplyViewSerializer
     pagination_class = CommentPagination
 
     def get_queryset(self):
@@ -141,12 +145,12 @@ class CommentReplyCreateView(generics.CreateAPIView):
 
 class CommentReplyUpdateView(generics.UpdateAPIView):
     queryset = Comment.objects.filter(replies_to__isnull=False, is_deleted=False)
-    serializer_class = CommentReplyUpdateSerializer
+    serializer_class = ReplyUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
 
 class PostCommentsReplyDetailView(ListAPIView):
-    serializer_class = ReplyCommentsViewSerializer
+    serializer_class = CommentReplyViewSerializer
     pagination_class = CommentPagination
     lookup_field = 'comment_id'
 
@@ -205,7 +209,7 @@ class PostDeleteView(generics.DestroyAPIView):
         instance.delete()
 
 class CommentListView(generics.ListAPIView):
-    queryset = Comment.objects.select_related('author', 'post_id')
+    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
     serializer_class = CommentSerializer
     pagination_class = CommentPagination  
 
@@ -215,15 +219,15 @@ class CommentDetailView(generics.RetrieveAPIView):
     View for retrieving a single comment.
     No authentication required if comments are public.
     """
-    queryset = Comment.objects.select_related('author', 'post_id')
+    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
     serializer_class = CommentSerializer
     lookup_field = 'comment_id'
 
 
 
 class CommentCreateView(generics.CreateAPIView):
-    queryset = Comment.objects.all()
-    serializer_class = CommentCreateUpdateSerializer
+    queryset = Comment.objects.filter(is_deleted=False)
+    serializer_class = CommentCreateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_create(self, serializer):
@@ -234,8 +238,8 @@ class CommentUpdateView(generics.UpdateAPIView):
     View for updating a comment.
     Requires authentication and ownership/admin rights.
     """
-    queryset = Comment.objects.select_related('author', 'post_id')
-    serializer_class = CommentCreateUpdateSerializer
+    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
+    serializer_class = CommentUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
 
@@ -244,10 +248,15 @@ class CommentDeleteView(generics.DestroyAPIView):
     View for deleting a comment.
     Requires authentication and ownership/admin rights + confirmation.
     """
-    queryset = Comment.objects.select_related('author', 'post_id')
+    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
     serializer_class = CommentDeleteSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
+
+    def perform_destroy(self, instance):
+        # Soft delete instead of actual deletion
+        instance.is_deleted = True
+        instance.save()
 
 class PostHeartCreateView(generics.CreateAPIView):
     """Create a heart for a post"""
@@ -284,7 +293,7 @@ class UserHeartedPostsListView(generics.ListAPIView):
             author=self.request.user
         ).select_related('post_id', 'author').order_by('-hearted_at')
 
-class PostHeartsListView(generics.ListAPIView):
+class PostHeartsListView(ListAPIView):
     """List all hearts for a specific post"""
     serializer_class = PostHeartSerializer
 
@@ -293,3 +302,149 @@ class PostHeartsListView(generics.ListAPIView):
         return PostHeart.objects.filter(
             post_id=post_id
         ).select_related('author').order_by('-hearted_at')
+
+class CritiqueListView(ListAPIView):
+    """
+    List all critiques for a specific post
+    """
+    serializer_class = CritiqueSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = CritiquePagination
+
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        return Critique.objects.filter(
+            post_id=post_id, 
+            is_deleted=False
+        ).annotate(
+            reply_count=Count('critique_reply',
+                filter=Q(
+                    critique_reply__is_deleted=False
+                ))
+        ).select_related('author', 'post_id'
+        ).order_by('-created_at')
+
+class CritiqueCreateView(CreateAPIView):
+    """
+    Create a new critique for a post
+    """
+    serializer_class = CritiqueCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+class CritiqueDetailView(RetrieveAPIView):
+    """
+    Retrieve a specific critique
+    """
+    serializer_class = CritiqueSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'critique_id'
+
+    def get_queryset(self):
+        return Critique.objects.filter(is_deleted=False).select_related('author', 'post_id')
+
+class CritiqueUpdateView(UpdateAPIView):
+    """
+    Update a specific critique
+    """
+    serializer_class = CritiqueUpdateSerializer
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
+    lookup_field = 'critique_id'
+
+    def get_queryset(self):
+        return Critique.objects.filter(is_deleted=False)
+
+    def perform_update(self, serializer):
+        # Ensure the user owns the critique
+        critique = self.get_object()
+        if critique.author != self.request.user and not self.request.user.is_staff:
+            raise PermissionDenied("You can only update your own critiques")
+        serializer.save()
+
+class CritiqueDeleteView(DestroyAPIView):
+    """
+    Delete a specific critique (soft delete)
+    """
+    serializer_class = CritiqueDeleteSerializer
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
+    lookup_field = 'critique_id'
+
+    def get_queryset(self):
+        return Critique.objects.filter(is_deleted=False)
+
+    def delete(self, request, *args, **kwargs):
+        critique = self.get_object()
+        
+        # Check ownership
+        if critique.author != request.user and not request.user.is_staff:
+            return Response(
+                {"error": "You can only delete your own critiques"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Soft delete
+        critique.is_deleted = True
+        critique.save()
+        
+        return Response(
+            {"message": "Critique deleted successfully"},
+            status=status.HTTP_200_OK
+        )
+
+class UserCritiquesListView(ListAPIView):
+    """
+    List all critiques by the current user
+    """
+    serializer_class = CritiqueSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = CritiquePagination
+
+    def get_queryset(self):
+        return Critique.objects.filter(
+            author=self.request.user,
+            is_deleted=False
+        ).select_related('author', 'post_id')
+    
+class CritiqueReplyListView(generics.ListAPIView):
+    """
+    List all replies for a specific critique
+    GET /api/critiques/<critique_id>/replies/
+    """
+    serializer_class = CritiqueReplySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        critique_id = self.kwargs['critique_id']
+        return Comment.objects.filter(
+            critique_id=critique_id,
+            is_critique_reply=True,
+            is_deleted=False
+        ).select_related('author', 'post_id', 'critique_id')
+
+class CritiqueReplyCreateView(generics.CreateAPIView):
+    """
+    Create a reply to a critique
+    POST /api/critiques/replies/create/
+    """
+    serializer_class = CritiqueReplyCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+class CritiqueReplyDetailView(generics.RetrieveAPIView):
+    """
+    Retrieve a specific critique reply
+    GET /api/critiques/replies/<comment_id>/
+    """
+    serializer_class = CritiqueReplySerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        return Comment.objects.filter(
+            is_critique_reply=True,
+            is_deleted=False
+        ).select_related('author', 'post_id', 'critique_id')

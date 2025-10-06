@@ -2,9 +2,14 @@ import { Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '@context/auth-context'
 import { toast } from 'react-toastify'
 import { LoadingSpinner } from '@components/loading-spinner'
+import { useEffect } from 'react'
 
 export default function ProtectedRoute() {
-    const { user, isLoading } = useAuth()
+    const { user, isLoading, initializeAuth } = useAuth()
+
+    useEffect(() => {
+        initializeAuth()
+    }, [initializeAuth])
 
     if (isLoading) {
         return <LoadingSpinner text={"Loading..."} />

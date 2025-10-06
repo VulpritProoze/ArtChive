@@ -1,4 +1,7 @@
+import type { CollectiveMember } from './collective.type';
 import type { User } from './user.types'
+
+type CollectiveMemberType = CollectiveMember[] | null
 
 export type AuthContextType = {
   user: User;
@@ -21,8 +24,9 @@ export type AuthContextType = {
   refreshToken: () => Promise<void>;
   getUserId: () => number | null;
   collectiveMemberships;
-  fetchCollectiveMemberDetails: () => Promise<boolean>;
-  fetchUser: () => Promise<boolean>;
+  fetchCollectiveMemberDetails: () => Promise<CollectiveMemberType>;
+  fetchUser: () => Promise<User>;
   isMemberOfACollective: (collectiveId: string | undefined) => boolean;
   isAdminOfACollective: (collectiveId: string | undefined) => boolean;
+  initializeAuth,
 };
