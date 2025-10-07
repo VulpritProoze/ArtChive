@@ -391,23 +391,37 @@ class PostListViewSerializer(PostViewSerializer):
     
     def get_comments(self, obj):
         """Get first 2 comments for this post"""
-        comments = obj.post_comment.all().order_by('-created_at')[:2]  # Get latest 2 comments
+        comments = obj.post_comment.filter(is_deleted=False).order_by('-created_at')[:2]  # Get latest 2 comments
         return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
     author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
-    author_artist_types = serializers.CharField(source='author.artist.artist_types', read_only=True)
+    author_artist_types = serializers.SerializerMethodField()
     post_title = serializers.CharField(source='post_id.title', read_only=True)
     critique_author_username = serializers.CharField(source='critique_id.author.username', read_only=True, allow_null=True)
     critique_author_picture = serializers.ImageField(source='critique_id.author.profile_picture', read_only=True, allow_null=True)
-    critique_author_artist_types = serializers.CharField(source='critique_id.author.artist.artist_types', read_only=True)
+    critique_author_artist_types = serializers.SerializerMethodField()
     critique_author_id = serializers.IntegerField(source='critique_id.author.id', read_only=True, allow_null=True)
     is_deleted = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Comment
         fields = '__all__'
+
+    def get_author_artist_types(self, obj):
+        '''Fetch author's artist types'''
+        try:
+            return obj.author.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+        
+    def get_critique_author_artist_types(self, obj):
+        '''Fetch author's artist types'''
+        try:
+            return obj.critique_id.author.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
 
 class TopLevelCommentsViewSerializer(CommentSerializer):
     reply_count = serializers.SerializerMethodField()
@@ -426,6 +440,7 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
             'author',
             'replies_to',
             'reply_count',
+            'author_artist_types',
             'is_deleted'
         ]
     
@@ -541,6 +556,7 @@ class CritiqueReplySerializer(CommentSerializer):
             'updated_at',
             'author_username',
             'author_picture',
+            'author_artist_types',
             'post_title',
             'post_id',
             'author',

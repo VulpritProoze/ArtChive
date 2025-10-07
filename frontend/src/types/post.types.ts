@@ -61,6 +61,7 @@ export interface Comment {
   author: number;
   author_username: string;
   author_picture?: string
+  author_artist_types?: string[]
   title: string;
   replies_to?: string
   reply_count?: number
