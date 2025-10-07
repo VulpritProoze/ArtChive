@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+// frontend/src/components/profile/timeline.component.tsx
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { usePostContext } from "@context/post-context";
@@ -8,15 +9,13 @@ import {
   PostViewModal,
 } from "@components/common/posts-feature/modal";
 import { PostLoadingIndicator } from "@components/common";
-import { PostCard } from '@components/common/posts-feature'
-import { CommonHeader } from "@components/common";
+import { PostCard } from "@components/common/posts-feature";
+import { MainLayout } from "@components/common/layout";
 
 const Timeline: React.FC = () => {
   const { user } = useAuth();
   const {
     showCommentForm,
-
-    // Posts
     posts,
     pagination,
     showPostForm,
@@ -28,6 +27,7 @@ const Timeline: React.FC = () => {
   } = usePostContext();
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<"timeline" | "works" | "avatar" | "collectives">("timeline");
 
   // Infinite scrolling behavior
   useEffect(() => {
@@ -45,7 +45,7 @@ const Timeline: React.FC = () => {
           isFetching = true;
           fetchPosts(pagination.currentPage + 1, true, null, user?.id).finally(
             () => {
-              isFetching = false; // Reset flag after fetch completes
+              isFetching = false;
             }
           );
         }
@@ -75,73 +75,104 @@ const Timeline: React.FC = () => {
     fetchPosts(1, false, null, user?.id);
   }, [fetchPosts]);
 
+  const tabs = [
+    { id: "timeline", label: "Timeline", icon: "📝" },
+    { id: "works", label: "Works", icon: "🎨" },
+    { id: "avatar", label: "Avatar", icon: "👤" },
+    { id: "collectives", label: "Collectives", icon: "👥" },
+  ];
+
   return (
-    <div className="container max-w-full w-full">
-      {/* Post View Modal */}
+    <MainLayout showRightSidebar={false}>
+      {/* Modals */}
       {activePost && <PostViewModal />}
-
-      {/* Post Form Modal */}
       {showPostForm && <PostFormModal user_id={user?.id} />}
-
-      {/* Comment Form Modal */}
       {showCommentForm && <CommentFormModal />}
 
-      {/* Header */}
-      <CommonHeader user={user} />
-
-      {/* profile top */}
-      <div className="flex justify-center mt-6">
-        <div className="bg-base-100 shadow rounded-2xl p-6 w-full max-w-2xl">
-          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+      {/* Profile Header Card */}
+      <div className="mb-6">
+        <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
             {/* Avatar */}
-            <img
-              src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png"
-              alt="profile avatar"
-              className="w-24 h-24 rounded-full object-cover"
-            />
-
-            {/* Info */}
-            <div className="flex-1">
-              <h3 className="text-xl font-bold">Chernobog</h3>
-              <p className="text-gray-500">@chernobog_art</p>
-              <p className="text-sm mt-2 text-gray-600">
-                Digital artist specializing in character design and concept art.
-                Currently working on a fantasy novel illustration series. Open
-                for commissions!
-              </p>
-
-              {/* Stats */}
-              <div className="flex justify-center sm:justify-start gap-8 mt-4">
-                <div>
-                  <h4 className="text-lg font-semibold">248</h4>
-                  <p className="text-gray-500 text-sm">Posts</p>
+            <div className="relative group">
+              <div className="avatar">
+                <div className="w-32 h-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4 shadow-xl group-hover:ring-secondary transition-all duration-300">
+                  <img
+                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png"
+                    alt="profile avatar"
+                    className="object-cover"
+                  />
                 </div>
+              </div>
+              <div className="absolute bottom-2 right-2 w-4 h-4 bg-success rounded-full border-2 border-base-100"></div>
+            </div>
+
+            {/* Profile Info */}
+            <div className="flex-1 text-center lg:text-left">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
                 <div>
-                  <h4 className="text-lg font-semibold">12.5k</h4>
-                  <p className="text-gray-500 text-sm">Followers</p>
+                  <h2 className="text-3xl font-bold text-base-content mb-1">
+                    Chernobog
+                  </h2>
+                  <p className="text-base-content/60 font-medium">
+                    @chernobog_art
+                  </p>
                 </div>
-                <div>
-                  <h4 className="text-lg font-semibold">892</h4>
-                  <p className="text-gray-500 text-sm">Following</p>
+                
+                {/* Action Buttons */}
+                <div className="flex flex-wrap justify-center lg:justify-end gap-2">
+                  <Link
+                    to="/profile/me"
+                    className="btn btn-sm btn-outline gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Profile
+                  </Link>
+                  <button className="btn btn-sm btn-outline gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    Share
+                  </button>
+                  <button
+                    className="btn btn-sm btn-primary gap-2"
+                    onClick={() => setShowPostForm(true)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Post
+                  </button>
                 </div>
               </div>
 
-              {/* Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 mt-5">
-                <Link
-                  to="/profile/me"
-                  className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-medium"
-                >
-                  Edit Profile
-                </Link>
-                <button className="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-medium">
-                  Share Profile
+              <p className="text-base-content/70 text-sm lg:text-base mb-4 max-w-2xl">
+                Digital artist specializing in character design and concept art.
+                Currently working on a fantasy novel illustration series. Open
+                for commissions! 🎨✨
+              </p>
+
+              {/* Stats */}
+              <div className="flex justify-center lg:justify-start gap-6 lg:gap-8">
+                <button className="hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <h4 className="text-2xl font-bold text-base-content">248</h4>
+                    <p className="text-base-content/60 text-sm">Posts</p>
+                  </div>
                 </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setShowPostForm(true)}
-                >
-                  Create Post
+                <button className="hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <h4 className="text-2xl font-bold text-base-content">12.5k</h4>
+                    <p className="text-base-content/60 text-sm">Followers</p>
+                  </div>
+                </button>
+                <button className="hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <h4 className="text-2xl font-bold text-base-content">892</h4>
+                    <p className="text-base-content/60 text-sm">Following</p>
+                  </div>
                 </button>
               </div>
             </div>
@@ -149,49 +180,104 @@ const Timeline: React.FC = () => {
         </div>
       </div>
 
-      {/* Posts Section */}
-      <div className="mb-12">
-        {/* Tabs Section */}
-        <div className="flex justify-center mt-6">
-          <div className="rounded-2xl p-6 w-full max-w-2xl">
-            <nav className="flex  space-x-10">
-              <button className="py-2 px-1 text-sm font-medium border-b-2 border-blue-500 text-blue-600">
-                Timeline
+      {/* Tabs Navigation */}
+      <div className="mb-6">
+        <div className="bg-base-200/50 rounded-xl p-2">
+          <nav className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? "bg-primary text-primary-content shadow-md scale-[1.02]"
+                    : "hover:bg-base-300 text-base-content"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
-              <button className="py-2 px-1 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Works
-              </button>
-              <button className="py-2 px-1 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Avatar
-              </button>
-              <button className="py-2 px-1 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                Collectives
-              </button>
-            </nav>
-          </div>
+            ))}
+          </nav>
         </div>
-        {loading && posts.length === 0 && (
-          <div className="text-center py-8">
-            <div className="loading loading-spinner loading-lg"></div>
-            <p className="mt-2">Loading posts...</p>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-8 max-w-2xl mx-auto">
-          {posts.map((postItem) => (
-            <PostCard postItem={postItem} />
-          ))}
-        </div>
-
-        {posts.length === 0 && !loading && (
-          <div className="text-center py-8 text-gray-500">
-            No posts found. Create your first post!
-          </div>
-        )}
-
-        <PostLoadingIndicator observerTarget={observerTarget} />
       </div>
-    </div>
+
+      {/* Content Area */}
+      <div className="mb-12">
+        {activeTab === "timeline" && (
+          <>
+            {loading && posts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="loading loading-spinner loading-lg text-primary"></div>
+                <p className="mt-4 text-base-content/70 font-medium">
+                  Loading posts...
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-6 max-w-3xl mx-auto">
+              {posts.map((postItem) => (
+                <PostCard key={postItem.id} postItem={postItem} />
+              ))}
+            </div>
+
+            {posts.length === 0 && !loading && (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="text-8xl mb-4">📝</div>
+                <h3 className="text-2xl font-bold text-base-content mb-2">
+                  No Posts Yet
+                </h3>
+                <p className="text-base-content/60 text-center max-w-md mb-6">
+                  Start sharing your amazing artwork with the community!
+                </p>
+                <button
+                  className="btn btn-primary gap-2"
+                  onClick={() => setShowPostForm(true)}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Create Your First Post
+                </button>
+              </div>
+            )}
+
+            <PostLoadingIndicator observerTarget={observerTarget} />
+          </>
+        )}
+
+        {activeTab === "works" && (
+          <div className="text-center py-16 text-base-content/60">
+            <div className="text-6xl mb-4">🎨</div>
+            <p>Works gallery coming soon...</p>
+          </div>
+        )}
+
+        {activeTab === "avatar" && (
+          <div className="text-center py-16 text-base-content/60">
+            <div className="text-6xl mb-4">👤</div>
+            <p>Avatar customization coming soon...</p>
+          </div>
+        )}
+
+        {activeTab === "collectives" && (
+          <div className="text-center py-16 text-base-content/60">
+            <div className="text-6xl mb-4">👥</div>
+            <p>Collectives list coming soon...</p>
+          </div>
+        )}
+      </div>
+    </MainLayout>
   );
 };
 
