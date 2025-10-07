@@ -15,7 +15,8 @@ import type {
   CommentReplyForm,
   Critique,
   CritiqueForm,
-  CritiqueReplyForm
+  CritiqueReplyForm,
+  CommentPagination
 } from "@types";
 import { post, collective } from "@lib/api";
 import { toast } from "react-toastify";
@@ -34,11 +35,12 @@ export const PostContext = createContext<PostContextType | undefined>(
 
 export const PostProvider = ({ children }) => {
   const [comments, setComments] = useState<Comment[]>([]);
+  // const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
   const [loadingComments, setLoadingComments] = useState<{
     [postId: string]: boolean;
   }>({});
   const [commentPagination, setCommentPagination] = useState<{
-    [postId: string]: Pagination;
+    [postId: string]: CommentPagination;
   }>({});
   const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
   const [showCommentForm, setShowCommentForm] = useState(false);
@@ -210,6 +212,7 @@ export const PostProvider = ({ children }) => {
 
       const response = await post.get(`/critique/${critiqueId}/replies/`);
       const repliesData = response.data.results || [];
+      const reply_count = response.data.reply_count || 0
 
       // Update critiques with replies
       setCritiques(prev => {
@@ -217,7 +220,7 @@ export const PostProvider = ({ children }) => {
         Object.keys(updatedCritiques).forEach(postId => {
           updatedCritiques[postId] = updatedCritiques[postId].map(critique => {
             if (critique.critique_id === critiqueId) {
-              return { ...critique, replies: repliesData };
+              return { ...critique, reply_count: reply_count, replies: repliesData };
             }
             return critique;
           });
@@ -310,6 +313,7 @@ export const PostProvider = ({ children }) => {
 
       // Refresh replies for the parent comment
       await fetchRepliesForComment(parentCommentId);
+      
     } catch (error) {
       console.error("Reply submission error: ", error);
       toast.error(handleApiError(error, defaultErrors));
@@ -329,11 +333,13 @@ export const PostProvider = ({ children }) => {
         Object.keys(updatedComments).forEach((postId) => {
           updatedComments[postId] = updatedComments[postId].map((comment) => {
             if (comment.comment_id === commentId) {
-              return { ...comment, replies: repliesData };
+              return { ...comment, reply_count: comment.reply_count + 1, replies: repliesData };
             }
             return comment;
           });
         });
+        console.log('commnets replt ', comments)
+
         return updatedComments;
       });
     } catch (error) {
@@ -499,12 +505,13 @@ export const PostProvider = ({ children }) => {
       setShowCommentForm(false);
       setEditing(false);
       setSelectedComment(null);
-      setCommentForm({ text: "", post_id: "" });
-
+      
       // Refresh comments for the specific post (first page)
       if (commentForm.post_id) {
         await fetchCommentsForPost(commentForm.post_id, 1, false);
       }
+
+      setCommentForm({ text: "", post_id: "" });
     } catch (error) {
       console.error("Comment submission error: ", error);
       toast.error(handleApiError(error, defaultErrors));
@@ -546,7 +553,8 @@ export const PostProvider = ({ children }) => {
         currentPage: page,
         hasNext: response.data.next !== null,
         hasPrevious: response.data.previous !== null,
-        totalCount: response.data.count || commentsData.length,
+        totalCount: response.data.count || 0,
+        commentCount: response.data.total_comments || 0
       };
 
       if (append) {
@@ -557,7 +565,6 @@ export const PostProvider = ({ children }) => {
       } else {
         setComments((prev) => ({ ...prev, [postId]: commentsData }));
       }
-
       setCommentPagination((prev) => ({ ...prev, [postId]: paginationData }));
     } catch (error) {
       console.error("Comment fetch error: ", error);
@@ -741,41 +748,11 @@ export const PostProvider = ({ children }) => {
     setCommentForm({ text: "", post_id: "" });
   };
 
-  // Fetch first comments for all posts after they are loaded
-  // Will modify later in backend to not do so much api calls
-  // Will have to append first comments now within post request
-  useEffect(() => {
-    const fetchInitialComments = async () => {
-      if (posts.length > 0 && !loading) {
-        // Fetch first comments for each post
-        const commentPromises = posts.map(async (postItem) => {
-          // Only fetch if we haven't loaded comments for this post yet
-          if (
-            !comments[postItem.post_id] &&
-            !loadingComments[postItem.post_id]
-          ) {
-            try {
-              await fetchCommentsForPost(postItem.post_id, 1, false);
-            } catch (error) {
-              console.error(
-                `Error fetching comments for post ${postItem.post_id}:`,
-                error
-              );
-            }
-          }
-        });
-
-        // Execute all comment fetches in parallel
-        await Promise.allSettled(commentPromises);
-      }
-    };
-
-    fetchInitialComments();
-  }, [posts, loading, comments, loadingComments, fetchCommentsForPost]);
-
   useEffect(() => {
     if (activePost) {
       fetchCommentsForPost(activePost.post_id, 1, false);
+    } else {
+      setActivePost(null)
     }
   }, [activePost]);
 

@@ -4,3 +4,7 @@ export interface Pagination {
     hasPrevious: boolean;
     totalCount: number;
 }
+
+export interface CommentPagination extends Pagination {
+    commentCount: number
+}

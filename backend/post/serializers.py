@@ -373,7 +373,7 @@ class PostViewSerializer(serializers.ModelSerializer):
         return full_name if full_name else user.username
 
     def get_comment_count(self, obj):
-        return obj.post_comment.count()
+        return obj.post_comment.filter(is_deleted=False).count()
 
     
 class PostDetailViewSerializer(PostViewSerializer):
@@ -428,7 +428,7 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
     
     def get_reply_count(self, obj):
         '''Get reply counts'''
-        return obj.comment_reply.count()
+        return obj.comment_reply.filter(is_deleted=False).count()
 
 class CommentCreateSerializer(ModelSerializer):
     class Meta:
@@ -547,7 +547,7 @@ class CritiqueReplySerializer(CommentSerializer):
 
     def get_reply_count(self, obj):
         '''Get reply counts'''
-        return obj.comment_reply.count()
+        return obj.comment_reply.filter(is_deleted=False).count()
 
 class CritiqueReplyCreateSerializer(ModelSerializer):
     class Meta:

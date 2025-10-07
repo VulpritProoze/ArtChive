@@ -27,6 +27,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
     loadingHearts,
     loadingComments,
     loadingCritiques,
+    fetchCritiquesForPost
   } = usePostContext();
 
   const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
@@ -83,6 +84,8 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
+
+              {/* Heart */}
               <HeartButton
                 postId={postItem.post_id}
                 heartsCount={postItem.hearts_count || 0}
@@ -93,11 +96,14 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                 size="lg"
               />
 
+              {/* Comment */}
               <button
                 className={`btn btn-ghost btn-sm btn-circle ${
                   activeSection === "comments" ? "text-primary" : ""
                 }`}
-                onClick={() => setActiveSection("comments")}
+                onClick={() => {
+                  setActiveSection("comments")
+                }}
                 disabled={loadingComments[postItem.post_id]}
               >
                 <FontAwesomeIcon
@@ -106,11 +112,15 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                 />
               </button>
 
+              {/* Critique */}
               <button
                 className={`btn btn-ghost btn-sm btn-circle relative ${
                   activeSection === "critiques" ? "text-primary" : ""
                 }`}
-                onClick={() => setActiveSection("critiques")}
+                onClick={() => {
+                  setActiveSection("critiques")
+                  fetchCritiquesForPost(postItem.post_id, 1, false)
+                }}
                 disabled={loadingCritiques[postItem.post_id]}
               >
                 <FontAwesomeIcon
@@ -119,6 +129,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                 />
               </button>
 
+              {/* Share (no implementation yet) */}
               <button className="btn btn-ghost btn-sm btn-circle">
                 <FontAwesomeIcon
                   icon={faPaperPlane}
@@ -127,6 +138,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
               </button>
             </div>
 
+              {/* Bookmark (no implementation yet) */}
             <button className="btn btn-ghost btn-sm btn-circle">
               <FontAwesomeIcon
                 icon={faBookmark}

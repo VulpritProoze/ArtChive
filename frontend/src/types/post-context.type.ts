@@ -3,6 +3,7 @@ import type {
   Critique,
   CritiqueForm,
   CritiqueReplyForm,
+  CommentPagination,
 } from "@types";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -13,7 +14,7 @@ export type PostContextType = {
   setCommentForm;
   editing;
   setEditing;
-  commentPagination: { [postId: string]: Pagination };
+  commentPagination: { [postId: string]: CommentPagination };
   loadingComments: { [postId: string]: boolean };
   fetchCommentsForPost: (
     postId: string,

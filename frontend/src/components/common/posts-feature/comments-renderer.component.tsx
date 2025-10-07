@@ -3,7 +3,7 @@ import { usePostContext } from "@context/post-context";
 import usePost from "@hooks/use-post";
 import { getCommentsForPost } from "@utils";
 import { ReplyComponent } from "@components/common";
-import type { Post } from "@types";
+import type { CommentPagination, Post } from "@types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComment } from "@fortawesome/free-solid-svg-icons";
 
@@ -22,14 +22,7 @@ const CommentsRenderer = ({
   const postId = postItem.post_id;
 
   const isLoading = loadingComments[postId];
-  const pagination = commentPagination[postId];
-  // const postComments = getCommentsForPost(postId, comments);
-  const topLevelComments = getCommentsForPost(postId, comments)
-    .filter((comment) => !comment.replies_to)
-    .map((comment) => ({
-      ...comment,
-      reply_count: comment.reply_count || 0,
-    }));
+  let pagination = commentPagination[postId];
 
   const hasComments: boolean =
     Array.isArray(postItem.comments) && postItem.comments.length > 0;
@@ -40,14 +33,14 @@ const CommentsRenderer = ({
       <div className="mt-2">
         <div className="flex justify-between items-center mb-3">
           <h4 className="font-semibold">
-            Comments ({isLoading ? "..." : postItem.comment_count})
+            Comments ({isLoading ? "..." : postItem.comment_count || 0})
           </h4>
-          <button
+          {/* <button
             className="btn btn-sm btn-primary"
             onClick={() => setupNewComment(postId)}
           >
             Add Comment
-          </button>
+          </button> */}
         </div>
 
         <div className="space-y-2 relative">
@@ -56,7 +49,7 @@ const CommentsRenderer = ({
               className="text-sm hover:link"
               onClick={() => setActivePost(postItem)}
             >
-              View all comments
+              View all {postItem.comment_count} comments
             </span>
           )}
 
@@ -131,6 +124,11 @@ const CommentsRenderer = ({
     );
   }
 
+  // Re initiate variables
+  // Honestly I don't even want to bother refactoring this shit
+  pagination = commentPagination[postId];
+  const topLevelComments = getCommentsForPost(postId, comments)
+
   // Normal rendering for non-first comments or when there are no more pages
   return (
     <div className="mt-2">
@@ -139,7 +137,7 @@ const CommentsRenderer = ({
           Comments (
           {isLoading
             ? "..."
-            : pagination?.totalCount || topLevelComments.length}
+            : pagination?.commentCount || 0}
           )
         </h4>
         {!showLoadMore && (

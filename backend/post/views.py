@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -45,9 +45,9 @@ class PostListView(generics.ListAPIView):
     pagination_class = PostPagination  
 
     def get_queryset(self):
-        """
+        '''
         Fetch public posts, and also posts from collectives the user has joined.
-        """
+        '''
         user = self.request.user
         queryset = Post.objects.prefetch_related(
             'novel_post',
@@ -78,13 +78,13 @@ class PostListView(generics.ListAPIView):
         )
 
 class OwnPostsListView(generics.ListAPIView):
-    """
+    '''
     Fetch user's list of posts
     Example URLs:
     - /posts/me/1/ (first 10 posts)
     - /posts/me/1/?page=2 (next 10 posts)
     - /posts/me/1/?page_size=20 (20 posts per page)
-    """
+    '''
     serializer_class = PostListViewSerializer
     pagination_class = PostPagination
     permission_classes = [IsAuthenticated]
@@ -107,7 +107,10 @@ class PostCommentsView(generics.ListAPIView):
     pagination_class = CommentPagination
     
     def get_queryset(self):
+        post_id = self.kwargs['post_id']
+
         return Comment.objects.filter(
+            post_id=post_id,
             replies_to__isnull=True,
             critique_id__isnull=True,
             is_deleted=False    # Fetch only non soft-deleted comments
@@ -121,6 +124,32 @@ class PostCommentsView(generics.ListAPIView):
             ).order_by(
                 '-created_at'
             )
+    
+    def list(self, request, *args, **kwargs):
+        # Get the full queryset (before pagination)
+        queryset = self.filter_queryset(self.get_queryset())
+        post_id = self.kwargs['post_id']
+
+        total_comments = Comment.objects.filter(
+            post_id=post_id,
+            is_deleted=False
+        ).count()
+
+        # Let DRF handle pagination and serialization
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            # Inject extra data into paginator
+            self.paginator.extra_data = {
+                'total_comments': total_comments
+            }
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'total_comments': total_comments
+        })
         
 class PostCommentsReplyView(ListAPIView):
     '''
@@ -423,6 +452,16 @@ class CritiqueReplyListView(generics.ListAPIView):
             is_critique_reply=True,
             is_deleted=False
         ).select_related('author', 'post_id', 'critique_id')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        reply_count = queryset.count()  # Efficient count
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            "results": serializer.data,
+            "reply_count": reply_count
+        })
 
 class CritiqueReplyCreateView(generics.CreateAPIView):
     """
