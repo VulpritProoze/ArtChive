@@ -1,23 +1,19 @@
+// artchive/frontend/src/home/index.component.tsx
 import React, { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
-import { LogoutButton } from "@components/account/logout";
 import {
   CommentFormModal,
   PostFormModal,
   PostViewModal,
   CritiqueFormModal,
 } from "@components/common/posts-feature/modal";
-import { useAuth } from "@context/auth-context";
 import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
 import { PostCard } from "@components/common/posts-feature";
-import { CommonHeader } from "@components/common";
+import { MainLayout } from "@components/common/layout/MainLayout";
 
 const Index: React.FC = () => {
   const {
     showCommentForm,
-
-    // Posts
     posts,
     pagination,
     showPostForm,
@@ -28,12 +24,9 @@ const Index: React.FC = () => {
     setLoadingMore,
     fetchPosts,
     activePost,
-
-    // Critique
     showCritiqueForm,
   } = usePostContext();
 
-  const { user } = useAuth()
   const observerTarget = useRef<HTMLDivElement>(null);
 
   // Infinite scrolling behavior
@@ -51,7 +44,7 @@ const Index: React.FC = () => {
         ) {
           isFetching = true;
           fetchPosts(pagination.currentPage + 1, true).finally(() => {
-            isFetching = false; // Reset flag after fetch completes
+            isFetching = false;
           });
         }
       },
@@ -82,140 +75,102 @@ const Index: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchPosts(1)
+    fetchPosts(1);
   }, [fetchPosts]);
 
   return (
-    /*container div */
-    <div className="container max-w-full w-full">
-      {/* Comments View Modal */}
+    <MainLayout>
+      {/* Modals */}
       {activePost && <PostViewModal />}
-
-      {/* Post Form Modal */}
       {showPostForm && <PostFormModal />}
-
-      {/* Comment Form Modal */}
       {showCommentForm && <CommentFormModal />}
-
-      {/* Critique Form Modal */}
       {showCritiqueForm && <CritiqueFormModal />}
 
-      {/* Header */}
-      <CommonHeader user={user} />
+      {/* Page Content */}
+      <div className="mb-12">
+        {/* Header Section with Create Post Button */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-base-200/50 rounded-xl p-4">
+          <div>
+            <h2 className="text-3xl font-bold text-base-content bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Feed
+            </h2>
+            <p className="text-sm text-base-content/60 mt-1">
+              Discover amazing artworks from the community
+            </p>
+          </div>
+          <button
+            className="btn btn-primary gap-2 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+            onClick={() => setShowPostForm(true)}
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Create Post
+          </button>
+        </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 px-4 lg:px-12 py-6">
-        {/* LEFT SIDEBAR */}
-        <aside className="lg:col-span-2 hidden lg:flex flex-col gap-4">
-          <nav className="flex flex-col gap-2">
-            <Link
-              to="/home"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
-            >
-              Home
-            </Link>
-            <Link
-              to="/gallery"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
-            >
-              Gallery
-            </Link>
-            <Link
-              to="/collective"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
-            >
-              Collective
-            </Link>
-            <Link
-              to="/profile"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 text-base-content transition-colors"
-            >
-              Profile
-            </Link>
+        {/* Loading State */}
+        {loading && posts.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="loading loading-spinner loading-lg text-primary"></div>
+            <p className="mt-4 text-base-content/70 font-medium">
+              Loading amazing artworks...
+            </p>
+          </div>
+        )}
+
+        {/* Posts Grid */}
+        <div className="flex flex-col gap-6 max-w-3xl mx-auto">
+          {posts.map((postItem) => (
+            <PostCard key={postItem.id} postItem={postItem} />
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {posts.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center py-16 px-4">
+            <div className="text-8xl mb-4">🎨</div>
+            <h3 className="text-2xl font-bold text-base-content mb-2">
+              No Posts Yet
+            </h3>
+            <p className="text-base-content/60 text-center max-w-md mb-6">
+              Be the first to share your amazing artwork with the community!
+            </p>
             <button
-              className="mt-2 px-3 py-2 rounded-lg bg-primary text-primary-content font-medium hover:bg-primary/80 hover:scale-105 active:scale-95 transition-all duration-200 shadow hover:shadow-md"
+              className="btn btn-primary gap-2"
               onClick={() => setShowPostForm(true)}
             >
-              Create Post
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Create Your First Post
             </button>
-          </nav>
-
-          <LogoutButton />
-        </aside>
-
-        {/* FEED / POSTS */}
-        <main className="lg:col-span-7">
-          {/* Posts Section */}
-          <div className="mb-12">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-base-content">Posts</h2>
-            </div>
-
-            {loading && posts.length === 0 && (
-              <div className="text-center py-8">
-                <div className="loading loading-spinner loading-lg"></div>
-                <p className="mt-2 text-base-content">Loading posts...</p>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-8 max-w-2xl mx-auto">
-              {posts.map((postItem) => (
-                <PostCard postItem={postItem} />
-              ))}
-            </div>
-
-            {posts.length === 0 && !loading && (
-              <div className="text-center py-8 text-base-content/70">
-                No posts found. Be the first to create one!
-              </div>
-            )}
-
-            <PostLoadingIndicator observerTarget={observerTarget} />
           </div>
-        </main>
+        )}
 
-        {/* RIGHT SIDEBAR */}
-        <aside className="lg:col-span-3 hidden lg:flex flex-col gap-6">
-          <div>
-            <h3 className="text-lg font-bold mb-2 text-base-content">
-              Popular This Week
-            </h3>
-            <div className="rounded-lg overflow-hidden shadow-sm">
-              <img
-                src="/images/popular-art.jpg"
-                alt="Popular Artwork"
-                className="w-full object-cover"
-              />
-            </div>
-          </div>
-
-          <div className="bg-base-200 rounded-lg p-4 text-center text-base-content/70">
-            Advertisement
-          </div>
-
-          <div>
-            <h3 className="text-lg font-bold mb-2 text-base-content">
-              Active Fellows
-            </h3>
-            <ul className="flex flex-col gap-3">
-              <li className="flex items-center gap-3">
-                <img
-                  src="https://randomuser.me/api/portraits/women/1.jpg"
-                  className="w-8 h-8 rounded-full"
-                />
-                <p className="text-sm text-base-content">Lisa Wong</p>
-              </li>
-              <li className="flex items-center gap-3">
-                <img
-                  src="https://randomuser.me/api/portraits/men/2.jpg"
-                  className="w-8 h-8 rounded-full"
-                />
-                <p className="text-sm text-base-content">Michael Brown</p>
-              </li>
-            </ul>
-          </div>
-        </aside>
+        <PostLoadingIndicator observerTarget={observerTarget} />
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
