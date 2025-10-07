@@ -7,6 +7,7 @@ from common.utils import choices
 from PIL import Image 
 from .pagination import CommentPagination
 from .models import *
+from core.models import Artist
 import io
         
 class NovelPostSerializer(serializers.ModelSerializer):
@@ -395,10 +396,12 @@ class PostListViewSerializer(PostViewSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
-    author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+    author_artist_types = serializers.CharField(source='author.artist.artist_types', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)
     critique_author_username = serializers.CharField(source='critique_id.author.username', read_only=True, allow_null=True)
-    critique_author_picture = serializers.CharField(source='critique_id.author.profile_picture', read_only=True, allow_null=True)
+    critique_author_picture = serializers.ImageField(source='critique_id.author.profile_picture', read_only=True, allow_null=True)
+    critique_author_artist_types = serializers.CharField(source='critique_id.author.artist.artist_types', read_only=True)
     critique_author_id = serializers.IntegerField(source='critique_id.author.id', read_only=True, allow_null=True)
     is_deleted = serializers.BooleanField(read_only=True)
 

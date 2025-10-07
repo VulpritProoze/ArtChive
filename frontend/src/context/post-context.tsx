@@ -322,10 +322,14 @@ export const PostProvider = ({ children }) => {
 
   const fetchRepliesForComment = async (commentId: string) => {
     try {
+      if(!activePost) return
+
       setLoadingReplies((prev) => ({ ...prev, [commentId]: true }));
 
       const response = await post.get(`/comment/${commentId}/replies/`);
       const repliesData = response.data.results || [];
+
+      await fetchCommentsForPost(activePost.post_id, 1, false)
 
       // Update comments with replies
       setComments((prev) => {
@@ -333,7 +337,7 @@ export const PostProvider = ({ children }) => {
         Object.keys(updatedComments).forEach((postId) => {
           updatedComments[postId] = updatedComments[postId].map((comment) => {
             if (comment.comment_id === commentId) {
-              return { ...comment, reply_count: comment.reply_count + 1, replies: repliesData };
+              return { ...comment, replies: repliesData };
             }
             return comment;
           });

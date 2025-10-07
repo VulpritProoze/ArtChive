@@ -1,6 +1,9 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Sum
+from collections import deque
+from django.db import transaction
 from rest_framework import generics, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
@@ -273,20 +276,65 @@ class CommentUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
 
-class CommentDeleteView(generics.DestroyAPIView):
+class CommentDeleteView(APIView):
     """
-    View for deleting a comment.
-    Requires authentication and ownership/admin rights + confirmation.
+    Soft-delete a comment and all its replies (descendants).
+    Requires confirmation and ownership/admin rights.
     """
-    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
-    serializer_class = CommentDeleteSerializer
-    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
-    lookup_field = 'comment_id'
+    permission_classes = [IsAuthenticated]
 
-    def perform_destroy(self, instance):
-        # Soft delete instead of actual deletion
-        instance.is_deleted = True
-        instance.save()
+    def delete(self, request, comment_id):
+        # Fetch the comment (only non-deleted)
+        instance = get_object_or_404(
+            Comment.objects.filter(is_deleted=False),
+            comment_id=comment_id
+        )
+
+        # Manual permission check (since we're not using generic view permissions)
+        user = request.user
+        if not (user == instance.author or user.is_staff):
+            return Response(
+                {"detail": "You can only delete your own comments."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Validate confirmation using serializer
+        serializer = CommentDeleteSerializer(
+            instance, 
+            data=request.data, 
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        # Perform soft deletion of comment + all descendants
+        self.soft_delete_with_replies(instance)
+
+        return Response(
+            {"detail": "Comment and all replies deleted successfully."},
+            status=status.HTTP_200_OK
+        )
+
+    @transaction.atomic
+    def soft_delete_with_replies(self, root_comment):
+        """Recursively collect and soft-delete all replies."""
+        comments_to_delete = []
+        queue = deque([root_comment])
+
+        while queue:
+            current = queue.popleft()
+            if not current.is_deleted:
+                comments_to_delete.append(current)
+                # Get direct replies that are not deleted
+                replies = Comment.objects.filter(
+                    replies_to=current,
+                    is_deleted=False
+                )
+                queue.extend(replies)
+
+        # Bulk update to soft-delete
+        if comments_to_delete:
+            comment_ids = [c.comment_id for c in comments_to_delete]
+            Comment.objects.filter(comment_id__in=comment_ids).update(is_deleted=True)
 
 class PostHeartCreateView(generics.CreateAPIView):
     """Create a heart for a post"""
