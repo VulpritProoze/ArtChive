@@ -1,106 +1,138 @@
-// components/Header.tsx
+// components/Header.tsx - OPTIMIZED & RESPONSIVE
 import { useState, useEffect } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Menu, X } from "lucide-react";
 import useToggleTheme from "@hooks/use-theme";
-import { getCssVariableValue } from "@utils/get-css-var";
-import { oklchToRgba } from "@utils/oklch-to-rgba";
-import {
-  motion,
-  useScroll,
-  useMotionValueEvent,
-} from "framer-motion";
 
 export default function Header() {
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
   const [isScrolled, setIsScrolled] = useState(false);
-  const { scrollY } = useScroll();
-  const [bgColor, setBgColor] = useState("transparent");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    setIsScrolled(latest > 10);
-  });
-
-  // Update background color when theme changes or scroll state changes
+  // Simple scroll listener (no framer-motion)
   useEffect(() => {
-    const updateColor = () => {
-      if (!isScrolled) {
-        setBgColor("transparent");
-      } else {
-        setTimeout(() => {
-          setBgColor(oklchToRgba(getCssVariableValue("--color-base-200"), 0.7));
-        }, 50);
-      }
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
     };
 
-    updateColor();
-  }, [isDarkMode, isScrolled]);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <motion.header
-      className="navbar fixed z-50 top-0 left-0 w-full"
-      initial={false}
-      animate={{
-        height: isScrolled ? "70px" : "90px",
-        backdropFilter: isScrolled ? "blur(10px)" : "blur(0px)",
-        backgroundColor: bgColor,
-        boxShadow: isScrolled ? "0 4px 30px rgba(0, 0, 0, 0.1)" : "none",
-      }}
-      transition={{ type: "spring", damping: 20, stiffness: 300 }}
-    >
-      {/* Left Side - Logo */}
-      <motion.div
-        className="navbar-start flex items-center pl-4 md:pl-8 pt-1 z-10" // 👈 added pt-2 (adjust as needed)
-        whileHover={{ scale: 1.05 }}
-        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+    <>
+      <header
+        className={`navbar fixed z-50 top-0 left-0 w-full transition-all duration-300 ${
+          isScrolled
+            ? "h-16 bg-base-200/80 backdrop-blur-lg shadow-lg"
+            : "h-20 bg-transparent"
+        }`}
       >
-        <motion.img
-          className="h-16 w-auto"
-          src="/logo/mainLogo.png"
-          alt="ArtChive Logo"
-          whileHover={{ scale: 1.05 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-        />
-      </motion.div>
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between w-full">
+            {/* Left Side - Logo */}
+            <a
+              href="/"
+              className="flex items-center hover:scale-105 transition-transform"
+            >
+              <img
+                className="h-12 md:h-14 w-auto"
+                src="/logo/mainLogo.png"
+                alt="ArtChive Logo"
+              />
+            </a>
 
-      {/* Right Side - Buttons */}
-      <div className="navbar-end flex items-center pr-4 md:pr-8 z-10">
-        <div className="flex flex-row items-center gap-4">
-          {/* Theme toggle button with icon */}
-          <motion.button
-            className="btn btn-ghost btn-circle"
-            onClick={toggleDarkMode}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </motion.button>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-3">
+              {/* Theme toggle button */}
+              <button
+                className="btn btn-ghost btn-circle"
+                onClick={toggleDarkMode}
+                aria-label={
+                  isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+                }
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
 
-          {/* Login/Signup Buttons */}
-          <div className="flex items-center gap-2">
-            <motion.a
+              {/* Login/Signup Buttons */}
+              <a
+                href="/login"
+                className="btn btn-ghost hover:scale-105 transition-transform"
+              >
+                Login
+              </a>
+              <a
+                href="/register"
+                className="btn btn-primary hover:scale-105 transition-transform"
+              >
+                Sign Up
+              </a>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex md:hidden items-center gap-2">
+              {/* Theme toggle for mobile */}
+              <button
+                className="btn btn-ghost btn-circle btn-sm"
+                onClick={toggleDarkMode}
+                aria-label={
+                  isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+                }
+              >
+                {isDarkMode ? (
+                  <Sun className="w-4 h-4" />
+                ) : (
+                  <Moon className="w-4 h-4" />
+                )}
+              </button>
+
+              <button
+                className="btn btn-ghost btn-circle"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label="Toggle menu"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Menu Dropdown */}
+      <div
+        className={`fixed top-16 left-0 right-0 z-40 bg-base-200 shadow-lg md:hidden transition-all duration-300 ${
+          isMobileMenuOpen
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col gap-3">
+            <a
               href="/login"
-              className="btn btn-ghost"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className="btn btn-ghost w-full"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Login
-            </motion.a>
-            <motion.a
+            </a>
+            <a
               href="/register"
-              className="btn btn-primary"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className="btn btn-primary w-full"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Sign Up
-            </motion.a>
+            </a>
           </div>
         </div>
       </div>
-    </motion.header>
+    </>
   );
 }
