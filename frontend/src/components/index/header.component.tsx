@@ -1,4 +1,4 @@
-// components/Header.tsx 
+// components/Header.tsx - OPTIMIZED & RESPONSIVE
 import { useState, useEffect } from "react";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import useToggleTheme from "@hooks/use-theme";
@@ -8,7 +8,7 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Simple scroll listener
+  // Simple scroll listener (no framer-motion)
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -118,7 +118,7 @@ export default function Header() {
           <div className="flex flex-col gap-3">
             <a
               href="/login"
-              className="btn btn-ghost w-full justify-start"
+              className="btn btn-ghost w-full"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Login
