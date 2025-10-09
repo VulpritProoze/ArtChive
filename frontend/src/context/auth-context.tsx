@@ -33,6 +33,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // NEW: Refresh user data without showing loading state
+  const refreshUser = async (): Promise<User> => {
+    try {
+      const response = await api.get("api/core/auth/me/", {
+        withCredentials: true,
+      });
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to refresh user: ", error);
+      return null;
+    }
+  };
+
   const isMemberOfACollective = (collectiveId: string) => {
     if (!collectiveMemberships) return false
     // Check if the collectiveId matches any id in collectiveMemberships
@@ -222,6 +236,7 @@ export const AuthProvider = ({ children }) => {
     register,
     isLoading,
     refreshToken,
+    refreshUser, // NEW: Added refreshUser to context
     getUserId,
     collectiveMemberships,
     fetchCollectiveMemberDetails,
