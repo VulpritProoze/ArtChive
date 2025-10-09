@@ -22,6 +22,7 @@ export type AuthContextType = {
   ) => Promise<boolean>;
   isLoading: boolean;
   refreshToken: () => Promise<void>;
+  refreshUser: () => Promise<User>; 
   getUserId: () => number | null;
   collectiveMemberships;
   fetchCollectiveMemberDetails: () => Promise<CollectiveMemberType>;
