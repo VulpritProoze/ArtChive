@@ -11,9 +11,10 @@ import {
 import { PostLoadingIndicator } from "@components/common";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout";
+import { formatArtistTypesToString } from '@utils';
 
 const Timeline: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuth(); // This now has your actual user data!
   const {
     showCommentForm,
     posts,
@@ -89,16 +90,16 @@ const Timeline: React.FC = () => {
       {showPostForm && <PostFormModal user_id={user?.id} />}
       {showCommentForm && <CommentFormModal />}
 
-      {/* Profile Header Card */}
+      {/* Profile Header Card - NOW DYNAMIC! */}
       <div className="mb-6">
         <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300">
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-            {/* Avatar */}
+            {/* Avatar - NOW SHOWS YOUR ACTUAL PROFILE PICTURE */}
             <div className="relative group">
               <div className="avatar">
                 <div className="w-32 h-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4 shadow-xl group-hover:ring-secondary transition-all duration-300">
                   <img
-                    src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png"
+                    src={user?.profile_picture || "/static_img/default-pic-min.jpg"}
                     alt="profile avatar"
                     className="object-cover"
                   />
@@ -107,15 +108,15 @@ const Timeline: React.FC = () => {
               <div className="absolute bottom-2 right-2 w-4 h-4 bg-success rounded-full border-2 border-base-100"></div>
             </div>
 
-            {/* Profile Info */}
+            {/* Profile Info - NOW SHOWS YOUR ACTUAL DATA */}
             <div className="flex-1 text-center lg:text-left">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
                 <div>
                   <h2 className="text-3xl font-bold text-base-content mb-1">
-                    Chernobog
+                    {user?.fullname || user?.username || "User"}
                   </h2>
                   <p className="text-base-content/60 font-medium">
-                    @chernobog_art
+                    @{user?.username || "username"}
                   </p>
                 </div>
                 
@@ -148,29 +149,29 @@ const Timeline: React.FC = () => {
                 </div>
               </div>
 
+              {/* Bio/Artist Types - NOW SHOWS YOUR ACTUAL ARTIST TYPES */}
               <p className="text-base-content/70 text-sm lg:text-base mb-4 max-w-2xl">
-                Digital artist specializing in character design and concept art.
-                Currently working on a fantasy novel illustration series. Open
-                for commissions! 🎨✨
+                {formatArtistTypesToString(user?.artist_types || [])}
+                {user?.artist_types && user.artist_types.length > 0 && " artist"}
               </p>
 
-              {/* Stats */}
+              {/* Stats - PLACEHOLDER FOR NOW (you can add real stats later) */}
               <div className="flex justify-center lg:justify-start gap-6 lg:gap-8">
                 <button className="hover:scale-105 transition-transform">
                   <div className="text-center">
-                    <h4 className="text-2xl font-bold text-base-content">248</h4>
+                    <h4 className="text-2xl font-bold text-base-content">{posts.length}</h4>
                     <p className="text-base-content/60 text-sm">Posts</p>
                   </div>
                 </button>
                 <button className="hover:scale-105 transition-transform">
                   <div className="text-center">
-                    <h4 className="text-2xl font-bold text-base-content">12.5k</h4>
+                    <h4 className="text-2xl font-bold text-base-content">0</h4>
                     <p className="text-base-content/60 text-sm">Followers</p>
                   </div>
                 </button>
                 <button className="hover:scale-105 transition-transform">
                   <div className="text-center">
-                    <h4 className="text-2xl font-bold text-base-content">892</h4>
+                    <h4 className="text-2xl font-bold text-base-content">0</h4>
                     <p className="text-base-content/60 text-sm">Following</p>
                   </div>
                 </button>
