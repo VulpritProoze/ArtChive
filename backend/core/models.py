@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
 from common.utils import choices
 from .manager import CustomUserManager
+from common.utils.choices import TRANSACTION_OBJECT_CHOICES
+import uuid
 
 class User(AbstractUser):
     USERNAME_FIELD = 'email'
@@ -40,3 +42,17 @@ class Artist(models.Model):
 
     def __str__(self):
         return f"Artist profile for {self.user.username}"
+    
+class BrushDripWallet(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    balance = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+class BrushDripTransaction(models.Model):
+    drip_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    amount = models.IntegerField(default=0)
+    transaction_object_type = models.CharField(choices=TRANSACTION_OBJECT_CHOICES, max_length=500)  # Object type e.g. if transaction made by "praising", then "praise". We know it's a transaction connect to Praise object
+    transaction_object_id = models.CharField(max_length=2000)   # Object's ID
+    transacted_at = models.DateTimeField(auto_now_add=True) 
+    transacted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_by')
+    transacted_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_to')

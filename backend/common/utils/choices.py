@@ -63,3 +63,15 @@ FELLOW_STATUS = [
     ('accepted', 'accepted'),
     ('blocked', 'blocked')
 ]
+
+TRANSACTION_OBJECT_CHOICES = [
+    ('praise', 'Praise'),
+    ('brush_gradient', 'Brush Gradient'),
+    ('critique', 'Critique'),
+]
+
+TRANSACTION_TYPES = SimpleNamespace(
+    praise='Praise',
+    brush_gradient='Brush Gradient',
+    critique='Critique'
+)
