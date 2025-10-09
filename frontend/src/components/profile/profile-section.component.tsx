@@ -25,7 +25,7 @@ const ProfileComponent: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   useEffect(() => {
     fetchProfile();
@@ -76,8 +76,20 @@ const ProfileComponent: React.FC = () => {
         });
 
         setIsEditing(false);
-        fetchProfile();
         toast.success("Profile updated successfully!");
+        
+        // Fetch updated profile data
+        await fetchProfile();
+        
+        // Refresh user context to update header and other components
+        if (refreshUser) {
+          await refreshUser();
+        }
+        
+        // Optional: Force page refresh to ensure all components are updated
+        // Uncomment the line below if you want a full page refresh
+        // window.location.reload();
+        
       } else {
         console.error("User is null or not available");
       }
