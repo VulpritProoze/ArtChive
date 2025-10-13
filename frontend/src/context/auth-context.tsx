@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState<User>(null);
   const [collectiveMemberships, setCollectiveMemberships] = useState<CollectiveMemberType>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [componentLoading, setComponentLoading] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
   const getUserId = () => {
@@ -205,6 +206,7 @@ export const AuthProvider = ({ children }) => {
 
 
   const logout = async (): Promise<void> => {
+    setComponentLoading(true)
     try {
       await api.post("api/core/auth/logout/", {}, { withCredentials: true });
     } catch (error) {
@@ -212,6 +214,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setCollectiveMemberships(null)
+      setComponentLoading(false)
     }
   };
 
@@ -244,6 +247,7 @@ export const AuthProvider = ({ children }) => {
     isMemberOfACollective,
     isAdminOfACollective,
     initializeAuth,
+    componentLoading,
   };
 
   return (

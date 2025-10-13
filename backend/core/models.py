@@ -41,12 +41,15 @@ class Artist(models.Model):
     artist_types = ArrayField(models.CharField(max_length=50), default=list, blank=True, help_text='Select artist types (e.g. visual arts, literary arts, etc.)')
 
     def __str__(self):
-        return f"Artist profile for {self.user.username}"
+        return f"Artist profile for {self.user_id.username}"
     
 class BrushDripWallet(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_wallet')
     balance = models.IntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s wallet. Balance: {self.balance}"
 
 class BrushDripTransaction(models.Model):
     drip_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -56,3 +59,13 @@ class BrushDripTransaction(models.Model):
     transacted_at = models.DateTimeField(auto_now_add=True) 
     transacted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_by')
     transacted_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_to')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['transacted_by']),
+            models.Index(fields=['transacted_to']),
+            models.Index(fields=['transaction_object_type', 'transaction_object_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.transacted_by} sent {self.amount} to {self.transacted_to}. {self.transaction_object_type}"

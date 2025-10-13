@@ -16,7 +16,9 @@ class Post(models.Model):
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
 
     def __str__(self):
-        return f'[{self.post_id}] by {self.author}'
+        desc = self.description or ""
+        desc = desc[:15] + '...' if len(desc) > 15 else desc
+        return f'[{self.post_id}] by {self.author} - "{desc}"'
 
 class NovelPost(models.Model):
     chapter = models.PositiveIntegerField()
@@ -70,6 +72,11 @@ class Critique(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     post_id = models.ForeignKey(Post, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
+
+    def __str__(self):
+        imp = self.impression or ""
+        imp = imp[:15] + '...' if len(imp) > 15 else imp
+        return f'[{self.critique_id}] by {self.author} - "{imp}"'
 
 class Event(models.Model):
     event_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

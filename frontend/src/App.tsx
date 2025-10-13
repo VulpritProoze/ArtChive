@@ -14,6 +14,7 @@ import {
   GalleryIndex,
   Profile,
   Timeline,
+  BrushDripsPage,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -72,6 +73,8 @@ function App() {
 
                 {/* Protected routes (with auth check) */}
                 <Route element={<ProtectedRoute />}>
+                  <Route path="/profile/me" element={<Profile />} />
+                  <Route path="/drips" element={<BrushDripsPage />} />
                   <Route
                     path="/home"
                     element={
@@ -88,7 +91,6 @@ function App() {
                       </PostProvider>
                     }
                   />
-                  <Route path="/profile/me" element={<Profile />} />
 
                   {/* Collective Routes Layout */}
                   <Route

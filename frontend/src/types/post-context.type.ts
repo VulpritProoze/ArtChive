@@ -105,4 +105,25 @@ export type PostContextType = {
   handleCritiqueReplyFormChange: (critiqueId: string, text: string) => void;
   toggleCritiqueReplies: (critiqueId: string) => void;
   toggleCritiqueReplyForm: (critiqueId: string) => void;
+
+  // Praise states
+  loadingPraise: { [postId: string]: boolean };
+  praiseStatus: { [postId: string]: { count: number; isPraised: boolean } };
+
+  // Praise methods
+  praisePost: (postId: string) => Promise<void>;
+  fetchPraiseStatus: (postId: string) => Promise<void>;
+
+  // Trophy states
+  loadingTrophy: { [postId: string]: boolean };
+  trophyStatus: { [postId: string]: { counts: any; userAwarded: string[] } };
+  showTrophyModal: boolean;
+  selectedPostForTrophy: string | null;
+
+  // Trophy methods
+  awardTrophy: (postId: string, trophyType: string) => Promise<void>;
+  fetchTrophyStatus: (postId: string) => Promise<void>;
+  openTrophyModal: (postId: string) => void;
+  closeTrophyModal: () => void;
+  setShowTrophyModal: Dispatch<SetStateAction<boolean>>;
 };

@@ -5,11 +5,13 @@ import {
   PostFormModal,
   PostViewModal,
   CritiqueFormModal,
+  TrophySelectionModal,
 } from "@components/common/posts-feature/modal";
 import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
+import { Link } from "react-router-dom";
 
 const Index: React.FC = () => {
   const {
@@ -85,13 +87,14 @@ const Index: React.FC = () => {
       {showPostForm && <PostFormModal />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
+      <TrophySelectionModal />
 
       {/* Page Content */}
       <div className="mb-12">
         {/* Header Section with Create Post Button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-base-200/50 rounded-xl p-4">
           <div>
-            <h2 className="text-3xl font-bold text-base-content bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Feed
             </h2>
             <p className="text-sm text-base-content/60 mt-1">

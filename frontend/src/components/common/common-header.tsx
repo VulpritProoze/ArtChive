@@ -34,6 +34,7 @@ export default function CommonHeader({ user }: { user: User }) {
 
         {/* Right Section */}
         <div className="flex items-center gap-8">
+
           {/* User Profile */}
           <div className="flex items-center gap-3">
             <Link to="/profile">

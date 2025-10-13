@@ -1,13 +1,14 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
+from django.db import transaction as db_transaction
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import PermissionDenied
 from core.models import User, Artist
+from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
 from common.utils import choices
-from PIL import Image 
-from .pagination import CommentPagination
+from core.models import Artist, BrushDripWallet, BrushDripTransaction
 from .models import *
-from core.models import Artist
+from PIL import Image 
 import io
         
 class NovelPostSerializer(serializers.ModelSerializer):
@@ -15,7 +16,7 @@ class NovelPostSerializer(serializers.ModelSerializer):
         model = NovelPost
         fields = ['chapter', 'content',]
 
-class PostCreateSerializer(serializers.ModelSerializer):
+class PostCreateSerializer(ModelSerializer):
     '''
     Serializer for Posts creation. A post can either be default, novel, image, or video.
     
@@ -733,3 +734,283 @@ class CritiqueDeleteSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Must confirm deletion")
         return value
+
+
+class PostPraiseSerializer(ModelSerializer):
+    """Serializer for viewing PostPraise with author details"""
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+    author_fullname = serializers.SerializerMethodField()
+    post_description = serializers.CharField(source='post_id.description', read_only=True)
+
+    class Meta:
+        model = PostPraise
+        fields = [
+            'id', 'post_id', 'author', 'praised_at',
+            'author_username', 'author_picture', 'author_fullname',
+            'post_description'
+        ]
+        read_only_fields = ['id', 'author', 'praised_at']
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+
+class PostPraiseCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating PostPraise - costs 1 Brush Drip"""
+
+    class Meta:
+        model = PostPraise
+        fields = ['post_id']
+
+    def validate_post_id(self, value):
+        """Validate the post exists"""
+        if not value:
+            raise serializers.ValidationError("Post is required")
+        return value
+
+    def validate(self, data):
+        """
+        Validate:
+        1. User is not praising their own post
+        2. User hasn't already praised this post
+        3. User has sufficient Brush Drips (1 required)
+        """
+        request = self.context.get('request')
+        if not request:
+            raise serializers.ValidationError("Request context is required")
+
+        user = request.user
+        post = data['post_id']
+
+        # Check if praising own post
+        if post.author == user:
+            raise serializers.ValidationError("You cannot praise your own post")
+
+        # Check if already praised
+        if PostPraise.objects.filter(post_id=post, author=user).exists():
+            raise serializers.ValidationError("You have already praised this post")
+
+        # Check if user has sufficient Brush Drips
+        try:
+            wallet = BrushDripWallet.objects.get(user=user)
+            if wallet.balance < 1:
+                raise serializers.ValidationError(
+                    f"Insufficient Brush Drips. You need 1 Brush Drip to praise a post. "
+                    f"Current balance: {wallet.balance}"
+                )
+        except BrushDripWallet.DoesNotExist:
+            raise serializers.ValidationError("Wallet not found for this user")
+
+        # Check if post author has a wallet
+        try:
+            BrushDripWallet.objects.get(user=post.author)
+        except BrushDripWallet.DoesNotExist:
+            raise serializers.ValidationError("Post author does not have a wallet")
+
+        return data
+
+    def create(self, validated_data):
+        """
+        Create PostPraise and process Brush Drip transaction atomically
+        """
+        request = self.context.get('request')
+        user = request.user
+        post = validated_data['post_id']
+        post_author = post.author
+
+        with db_transaction.atomic():
+            # Lock wallets to prevent race conditions
+            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+            # Final balance check
+            if sender_wallet.balance < 1:
+                raise serializers.ValidationError("Insufficient Brush Drips")
+
+            # Update balances
+            sender_wallet.balance -= 1
+            receiver_wallet.balance += 1
+
+            sender_wallet.save()
+            receiver_wallet.save()
+
+            # Create PostPraise
+            post_praise = PostPraise.objects.create(
+                post_id=post,
+                author=user
+            )
+
+            # Create transaction record
+            BrushDripTransaction.objects.create(
+                amount=1,
+                transaction_object_type='praise',
+                transaction_object_id=str(post_praise.id),
+                transacted_by=user,
+                transacted_to=post_author
+            )
+
+        return post_praise
+
+    def to_representation(self, instance):
+        """Return detailed PostPraise info after creation"""
+        return PostPraiseSerializer(instance, context=self.context).data
+
+
+class PostTrophySerializer(ModelSerializer):
+    """Serializer for viewing PostTrophy with author and trophy details"""
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+    author_fullname = serializers.SerializerMethodField()
+    post_description = serializers.CharField(source='post_id.description', read_only=True)
+    trophy_type_name = serializers.CharField(source='post_trophy_type.trophy', read_only=True)
+    trophy_brush_drip_value = serializers.IntegerField(source='post_trophy_type.brush_drip_value', read_only=True)
+
+    class Meta:
+        model = PostTrophy
+        fields = [
+            'id', 'post_id', 'author', 'awarded_at', 'post_trophy_type',
+            'author_username', 'author_picture', 'author_fullname',
+            'post_description', 'trophy_type_name', 'trophy_brush_drip_value'
+        ]
+        read_only_fields = ['id', 'author', 'awarded_at']
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+
+class PostTrophyCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating PostTrophy - costs 5/10/20 Brush Drips based on trophy type"""
+    trophy_type = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = PostTrophy
+        fields = ['post_id', 'trophy_type']
+
+    def validate_post_id(self, value):
+        """Validate the post exists"""
+        if not value:
+            raise serializers.ValidationError("Post is required")
+        return value
+
+    def validate_trophy_type(self, value):
+        """Validate trophy type is valid"""
+        if value not in TROPHY_BRUSH_DRIP_COSTS:
+            raise serializers.ValidationError(
+                f"Invalid trophy type. Must be one of: {', '.join(TROPHY_BRUSH_DRIP_COSTS.keys())}"
+            )
+        return value
+
+    def validate(self, data):
+        """
+        Validate:
+        1. User is not awarding trophy to their own post
+        2. User hasn't already awarded this trophy type to this post
+        3. User has sufficient Brush Drips
+        """
+        request = self.context.get('request')
+        if not request:
+            raise serializers.ValidationError("Request context is required")
+
+        user = request.user
+        post = data['post_id']
+        trophy_type = data['trophy_type']
+        required_amount = TROPHY_BRUSH_DRIP_COSTS[trophy_type]
+
+        # Check if awarding trophy to own post
+        if post.author == user:
+            raise serializers.ValidationError("You cannot award a trophy to your own post")
+
+        # Check if already awarded this trophy type to this post
+        try:
+            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type)
+            if PostTrophy.objects.filter(
+                post_id=post,
+                author=user,
+                post_trophy_type=trophy_type_obj
+            ).exists():
+                raise serializers.ValidationError(
+                    f"You have already awarded a {trophy_type.replace('_', ' ').title()} to this post"
+                )
+        except TrophyType.DoesNotExist:
+            raise serializers.ValidationError(f"Trophy type '{trophy_type}' not found in database")
+
+        # Check if user has sufficient Brush Drips
+        try:
+            wallet = BrushDripWallet.objects.get(user=user)
+            if wallet.balance < required_amount:
+                raise serializers.ValidationError(
+                    f"Insufficient Brush Drips. You need {required_amount} Brush Drips to award a "
+                    f"{trophy_type.replace('_', ' ').title()}. Current balance: {wallet.balance}"
+                )
+        except BrushDripWallet.DoesNotExist:
+            raise serializers.ValidationError("Wallet not found for this user")
+
+        # Check if post author has a wallet
+        try:
+            BrushDripWallet.objects.get(user=post.author)
+        except BrushDripWallet.DoesNotExist:
+            raise serializers.ValidationError("Post author does not have a wallet")
+
+        return data
+
+    def create(self, validated_data):
+        """
+        Create PostTrophy and process Brush Drip transaction atomically
+        """
+
+        request = self.context.get('request')
+        user = request.user
+        post = validated_data['post_id']
+        post_author = post.author
+        trophy_type_name = validated_data.pop('trophy_type')
+        required_amount = TROPHY_BRUSH_DRIP_COSTS[trophy_type_name]
+
+        with db_transaction.atomic():
+            # Get the TrophyType object
+            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type_name)
+
+            # Lock wallets to prevent race conditions
+            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+            # Final balance check
+            if sender_wallet.balance < required_amount:
+                raise serializers.ValidationError("Insufficient Brush Drips")
+
+            # Update balances
+            sender_wallet.balance -= required_amount
+            receiver_wallet.balance += required_amount
+
+            sender_wallet.save()
+            receiver_wallet.save()
+
+            # Create PostTrophy
+            post_trophy = PostTrophy.objects.create(
+                post_id=post,
+                author=user,
+                post_trophy_type=trophy_type_obj
+            )
+
+            # Create transaction record
+            BrushDripTransaction.objects.create(
+                amount=required_amount,
+                transaction_object_type='trophy',
+                transaction_object_id=str(post_trophy.id),
+                transacted_by=user,
+                transacted_to=post_author
+            )
+
+        return post_trophy
+
+    def to_representation(self, instance):
+        """Return detailed PostTrophy info after creation"""
+        return PostTrophySerializer(instance, context=self.context).data

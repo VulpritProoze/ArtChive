@@ -13,8 +13,10 @@ import {
   faCommentDots,
   faPaperPlane,
   faStar,
+  faHandsClapping,
+  faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface PostCardPostItem extends Post {
   novel_post: NovelPost[];
@@ -27,12 +29,28 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
     loadingHearts,
     loadingComments,
     loadingCritiques,
-    fetchCritiquesForPost
+    fetchCritiquesForPost,
+    praisePost,
+    loadingPraise,
+    praiseStatus,
+    fetchPraiseStatus,
+    openTrophyModal,
+    trophyStatus,
+    fetchTrophyStatus,
   } = usePostContext();
 
   const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
     "comments"
   );
+
+  // Fetch praise and trophy status on mount
+  useEffect(() => {
+    fetchPraiseStatus(postItem.post_id);
+    fetchTrophyStatus(postItem.post_id);
+  }, [postItem.post_id]);
+
+  const currentPraiseStatus = praiseStatus[postItem.post_id];
+  const currentTrophyStatus = trophyStatus[postItem.post_id];
 
   return (
     <>
@@ -129,6 +147,50 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                 />
               </button>
 
+              {/* Praise */}
+              <button
+                className={`btn btn-ghost btn-sm btn-circle relative ${
+                  currentPraiseStatus?.isPraised ? "text-warning" : ""
+                }`}
+                onClick={() => praisePost(postItem.post_id)}
+                disabled={
+                  loadingPraise[postItem.post_id] ||
+                  currentPraiseStatus?.isPraised
+                }
+                title={
+                  currentPraiseStatus?.isPraised
+                    ? "Already praised"
+                    : "Praise this post (1 Brush Drip)"
+                }
+              >
+                {loadingPraise[postItem.post_id] ? (
+                  <span className="loading loading-spinner loading-xs"></span>
+                ) : (
+                  <FontAwesomeIcon
+                    icon={faHandsClapping}
+                    className="text-xl hover:scale-110 transition-transform"
+                  />
+                )}
+              </button>
+
+              {/* Trophy */}
+              <button
+                className="btn btn-ghost btn-sm btn-circle relative"
+                onClick={() => openTrophyModal(postItem.post_id)}
+                title="Award a trophy"
+              >
+                <FontAwesomeIcon
+                  icon={faTrophy}
+                  className="text-xl hover:scale-110 transition-transform"
+                />
+                {currentTrophyStatus?.userAwarded &&
+                  currentTrophyStatus.userAwarded.length > 0 && (
+                    <span className="absolute -top-1 -right-1 badge badge-xs badge-warning">
+                      {currentTrophyStatus.userAwarded.length}
+                    </span>
+                  )}
+              </button>
+
               {/* Share (no implementation yet) */}
               <button className="btn btn-ghost btn-sm btn-circle">
                 <FontAwesomeIcon
@@ -148,10 +210,38 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
           </div>
 
           {/* Likes Count */}
-          <div className="mb-2 flex flex-row gap-2 items-center">
+          <div className="mb-2 flex flex-row gap-3 items-center flex-wrap">
             <p className="text-sm font-semibold text-base-content">
               {postItem.hearts_count || 0} likes
             </p>
+
+            {/* Praise Count */}
+            {currentPraiseStatus && currentPraiseStatus.count > 0 && (
+              <p className="text-sm font-semibold text-warning">
+                {currentPraiseStatus.count} praises
+              </p>
+            )}
+
+            {/* Trophy Count */}
+            {currentTrophyStatus && currentTrophyStatus.counts && (
+              <div className="flex gap-2 text-sm">
+                {currentTrophyStatus.counts.bronze_stroke > 0 && (
+                  <span className="text-orange-700 font-semibold">
+                    🥉 {currentTrophyStatus.counts.bronze_stroke}
+                  </span>
+                )}
+                {currentTrophyStatus.counts.golden_bristle > 0 && (
+                  <span className="text-yellow-600 font-semibold">
+                    🥈 {currentTrophyStatus.counts.golden_bristle}
+                  </span>
+                )}
+                {currentTrophyStatus.counts.diamond_canvas > 0 && (
+                  <span className="text-blue-600 font-semibold">
+                    🥇 {currentTrophyStatus.counts.diamond_canvas}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Time Posted */}
             <p className="text-xs text-base-content/50 uppercase">
