@@ -13,6 +13,13 @@ POST_TROPHY_CHOICES = (
     ('diamond_canvas', 'diamond_canvas'),
 )
 
+# Trophy Brush Drip costs
+TROPHY_BRUSH_DRIP_COSTS = {
+    'bronze_stroke': 5,
+    'golden_bristle': 10,
+    'diamond_canvas': 20,
+}
+
 CRITIQUE_IMPRESSIONS = (
     ('positive', 'positive'),
     ('negative', 'negative'),
@@ -66,12 +73,14 @@ FELLOW_STATUS = [
 
 TRANSACTION_OBJECT_CHOICES = [
     ('praise', 'Praise'),
+    ('trophy', 'Trophy'),
     ('brush_gradient', 'Brush Gradient'),
     ('critique', 'Critique'),
 ]
 
 TRANSACTION_TYPES = SimpleNamespace(
     praise='Praise',
+    trophy='Trophy',
     brush_gradient='Brush Gradient',
     critique='Critique'
 )

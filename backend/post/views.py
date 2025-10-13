@@ -15,15 +15,17 @@ from .serializers import (
     TopLevelCommentsViewSerializer, CommentReplyViewSerializer,
     CommentReplyCreateSerializer, ReplyUpdateSerializer,
     CommentCreateSerializer, CommentUpdateSerializer,
-    CritiqueSerializer, CritiqueCreateSerializer, 
+    CritiqueSerializer, CritiqueCreateSerializer,
     CritiqueUpdateSerializer, CritiqueDeleteSerializer,
     CritiqueReplySerializer, CritiqueReplyCreateSerializer,
-    PostListViewSerializer, PostDetailViewSerializer
+    PostListViewSerializer, PostDetailViewSerializer,
+    PostPraiseSerializer, PostPraiseCreateSerializer,
+    PostTrophySerializer, PostTrophyCreateSerializer
 )
 from core.models import User
 from core.permissions import IsAuthorOrSuperUser
 from collective.models import CollectiveMember
-from .models import Post, Comment, NovelPost, PostHeart, Critique
+from .models import Post, Comment, NovelPost, PostHeart, Critique, PostPraise, PostTrophy, TrophyType
 from .pagination import PostPagination, CommentPagination, CritiquePagination
 
 
@@ -536,3 +538,274 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
             is_critique_reply=True,
             is_deleted=False
         ).select_related('author', 'post_id', 'critique_id')
+
+
+# ============================================================================
+# POST PRAISE VIEWS
+# ============================================================================
+
+class PostPraiseCreateView(generics.CreateAPIView):
+    """
+    Create a praise for a post (costs 1 Brush Drip)
+    POST /api/posts/praise/create/
+
+    Body: { "post_id": "<uuid>" }
+
+    This endpoint:
+    1. Validates user has 1 Brush Drip
+    2. Creates PostPraise record
+    3. Deducts 1 Brush Drip from user
+    4. Adds 1 Brush Drip to post author
+    5. Creates transaction record
+
+    All operations are atomic (either all succeed or all fail)
+    """
+    serializer_class = PostPraiseCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            self.perform_create(serializer)
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create praise: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class PostPraiseListView(generics.ListAPIView):
+    """
+    List all praises for a specific post
+    GET /api/posts/<post_id>/praises/
+    """
+    serializer_class = PostPraiseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        return PostPraise.objects.filter(
+            post_id=post_id
+        ).select_related('author', 'post_id').order_by('-praised_at')
+
+
+class UserPraisedPostsListView(generics.ListAPIView):
+    """
+    List all posts praised by the current user
+    GET /api/posts/praise/list/me/
+    """
+    serializer_class = PostPraiseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return PostPraise.objects.filter(
+            author=self.request.user
+        ).select_related('author', 'post_id').order_by('-praised_at')
+
+
+class PostPraiseCountView(APIView):
+    """
+    Get praise count for a specific post
+    GET /api/posts/<post_id>/praises/count/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, post_id):
+        post = get_object_or_404(Post, post_id=post_id)
+        praise_count = PostPraise.objects.filter(post_id=post).count()
+
+        # Check if current user has praised this post
+        is_praised_by_user = PostPraise.objects.filter(
+            post_id=post,
+            author=request.user
+        ).exists()
+
+        return Response({
+            'post_id': str(post_id),
+            'praise_count': praise_count,
+            'is_praised_by_user': is_praised_by_user
+        }, status=status.HTTP_200_OK)
+
+
+class PostPraiseCheckView(APIView):
+    """
+    Check if current user has praised a specific post
+    GET /api/posts/<post_id>/praise/check/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, post_id):
+        post = get_object_or_404(Post, post_id=post_id)
+        is_praised = PostPraise.objects.filter(
+            post_id=post,
+            author=request.user
+        ).exists()
+
+        return Response({
+            'post_id': str(post_id),
+            'is_praised_by_user': is_praised
+        }, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# POST TROPHY VIEWS
+# ============================================================================
+
+class PostTrophyCreateView(generics.CreateAPIView):
+    """
+    Create a trophy for a post (costs 5/10/20 Brush Drips based on trophy type)
+    POST /api/posts/trophy/create/
+
+    Body: {
+        "post_id": "<uuid>",
+        "trophy_type": "bronze_stroke" | "golden_bristle" | "diamond_canvas"
+    }
+
+    Trophy costs:
+    - bronze_stroke: 5 Brush Drips
+    - golden_bristle: 10 Brush Drips
+    - diamond_canvas: 20 Brush Drips
+
+    This endpoint:
+    1. Validates user has sufficient Brush Drips
+    2. Creates PostTrophy record
+    3. Deducts Brush Drips from user
+    4. Adds Brush Drips to post author
+    5. Creates transaction record
+
+    All operations are atomic (either all succeed or all fail)
+    """
+    serializer_class = PostTrophyCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            self.perform_create(serializer)
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to award trophy: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class PostTrophyListView(generics.ListAPIView):
+    """
+    List all trophies for a specific post
+    GET /api/posts/<post_id>/trophies/
+    """
+    serializer_class = PostTrophySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        return PostTrophy.objects.filter(
+            post_id=post_id
+        ).select_related('author', 'post_id', 'post_trophy_type').order_by('-awarded_at')
+
+
+class UserAwardedTrophiesListView(generics.ListAPIView):
+    """
+    List all trophies awarded by the current user
+    GET /api/posts/trophy/list/me/
+    """
+    serializer_class = PostTrophySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return PostTrophy.objects.filter(
+            author=self.request.user
+        ).select_related('author', 'post_id', 'post_trophy_type').order_by('-awarded_at')
+
+
+class PostTrophyCountView(APIView):
+    """
+    Get trophy count for a specific post (grouped by trophy type)
+    GET /api/posts/<post_id>/trophies/count/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, post_id):
+        post = get_object_or_404(Post, post_id=post_id)
+
+        # Count trophies by type
+        trophy_counts = {}
+        total_count = 0
+
+        for trophy_type in TrophyType.objects.all():
+            count = PostTrophy.objects.filter(
+                post_id=post,
+                post_trophy_type=trophy_type
+            ).count()
+            trophy_counts[trophy_type.trophy] = count
+            total_count += count
+
+        # Check which trophies current user has awarded to this post
+        user_awarded_trophies = list(
+            PostTrophy.objects.filter(
+                post_id=post,
+                author=request.user
+            ).values_list('post_trophy_type__trophy', flat=True)
+        )
+
+        return Response({
+            'post_id': str(post_id),
+            'trophy_counts': trophy_counts,
+            'total_trophy_count': total_count,
+            'user_awarded_trophies': user_awarded_trophies
+        }, status=status.HTTP_200_OK)
+
+
+class PostTrophyCheckView(APIView):
+    """
+    Check if current user has awarded a specific trophy type to a post
+    GET /api/posts/<post_id>/trophy/check/?trophy_type=<type>
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, post_id):
+        post = get_object_or_404(Post, post_id=post_id)
+        trophy_type = request.query_params.get('trophy_type', None)
+
+        if not trophy_type:
+            return Response(
+                {'error': 'trophy_type query parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type)
+            has_awarded = PostTrophy.objects.filter(
+                post_id=post,
+                author=request.user,
+                post_trophy_type=trophy_type_obj
+            ).exists()
+
+            return Response({
+                'post_id': str(post_id),
+                'trophy_type': trophy_type,
+                'has_awarded': has_awarded
+            }, status=status.HTTP_200_OK)
+        except TrophyType.DoesNotExist:
+            return Response(
+                {'error': f'Trophy type "{trophy_type}" not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )

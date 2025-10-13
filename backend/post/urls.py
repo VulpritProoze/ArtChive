@@ -8,13 +8,17 @@ from .views import (
     CritiqueCreateView, CritiqueDetailView, CritiqueDeleteView,
     CritiqueUpdateView, UserCritiquesListView,
     CritiqueReplyListView, CritiqueReplyCreateView,
-    CritiqueReplyDetailView
+    CritiqueReplyDetailView, PostPraiseCreateView, PostPraiseListView,
+    UserPraisedPostsListView, PostPraiseCountView, PostPraiseCheckView,
+    PostTrophyCreateView, PostTrophyListView, UserAwardedTrophiesListView,
+    PostTrophyCountView, PostTrophyCheckView
 )
 
 '''
 Some notes:
 1. To update critique reply, use comment-reply-update route.
 2. To delete comment reply & critique reply, use comment-delete route.
+3. PostPraise and PostTrophy cannot be updated or deleted - they're permanent once created.
 '''
 urlpatterns = [
     path('', PostListView.as_view(), name='post-list'),
@@ -46,4 +50,18 @@ urlpatterns = [
     path('heart/list/me/', UserHeartedPostsListView.as_view(), name='user-hearted-posts'),
     path('<uuid:post_id>/hearts/', PostHeartsListView.as_view(), name='post-hearts-list'),
     path('<uuid:post_id>/unheart/', PostHeartDestroyView.as_view(), name='post-unheart-react'),
+
+    # PostPraise endpoints (costs 1 Brush Drip, cannot be deleted or updated)
+    path('praise/create/', PostPraiseCreateView.as_view(), name='post-praise-create'),
+    path('praise/list/me/', UserPraisedPostsListView.as_view(), name='user-praised-posts'),
+    path('<uuid:post_id>/praises/', PostPraiseListView.as_view(), name='post-praises-list'),
+    path('<uuid:post_id>/praises/count/', PostPraiseCountView.as_view(), name='post-praise-count'),
+    path('<uuid:post_id>/praise/check/', PostPraiseCheckView.as_view(), name='post-praise-check'),
+
+    # PostTrophy endpoints (costs 5/10/20 Brush Drips, cannot be deleted or updated)
+    path('trophy/create/', PostTrophyCreateView.as_view(), name='post-trophy-create'),
+    path('trophy/list/me/', UserAwardedTrophiesListView.as_view(), name='user-awarded-trophies'),
+    path('<uuid:post_id>/trophies/', PostTrophyListView.as_view(), name='post-trophies-list'),
+    path('<uuid:post_id>/trophies/count/', PostTrophyCountView.as_view(), name='post-trophy-count'),
+    path('<uuid:post_id>/trophy/check/', PostTrophyCheckView.as_view(), name='post-trophy-check'),
 ]
