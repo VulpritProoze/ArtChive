@@ -113,3 +113,52 @@ export interface CritiqueReplyForm {
   text: string;
   critique_id: string;
 }
+
+export interface PostPraise {
+  id: number;
+  post_id: string;
+  author: number;
+  praised_at: string;
+  author_username: string;
+  author_picture?: string;
+  author_fullname: string;
+  post_description: string;
+}
+
+export interface PostTrophy {
+  id: number;
+  post_id: string;
+  author: number;
+  awarded_at: string;
+  post_trophy_type: number;
+  author_username: string;
+  author_picture?: string;
+  author_fullname: string;
+  post_description: string;
+  trophy_type_name: string;
+  trophy_brush_drip_value: number;
+}
+
+export interface TrophyType {
+  name: string;
+  displayName: string;
+  cost: number;
+  icon: string;
+}
+
+export interface PraiseStatusResponse {
+  post_id: string;
+  praise_count: number;
+  is_praised_by_user: boolean;
+}
+
+export interface TrophyStatusResponse {
+  post_id: string;
+  trophy_counts: {
+    bronze_stroke: number;
+    golden_bristle: number;
+    diamond_canvas: number;
+  };
+  total_trophy_count: number;
+  user_awarded_trophies: string[];
+}

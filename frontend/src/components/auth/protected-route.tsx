@@ -19,6 +19,5 @@ export default function ProtectedRoute() {
         return <Outlet />
     }
 
-    toast.warn('You are currently not logged in.')
     return <Navigate to='/login' replace />
 }

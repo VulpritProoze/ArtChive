@@ -5,6 +5,7 @@ import {
   PostFormModal,
   PostViewModal,
   CritiqueFormModal,
+  TrophySelectionModal,
 } from "@components/common/posts-feature/modal";
 import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
@@ -86,6 +87,7 @@ const Index: React.FC = () => {
       {showPostForm && <PostFormModal />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
+      <TrophySelectionModal />
 
       <span className="text-xs text-muted">kwaa lng ni later. temporary para maka navigate ani nga page</span>
       <Link to='/drips' className="btn btn-secondary">Drips</Link>

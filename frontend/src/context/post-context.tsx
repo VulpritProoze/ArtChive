@@ -98,6 +98,16 @@ export const PostProvider = ({ children }) => {
   const [critiqueReplyForms, setCritiqueReplyForms] = useState<{ [critiqueId: string]: CritiqueReplyForm }>({});
   const [loadingCritiqueReplies, setLoadingCritiqueReplies] = useState<{ [critiqueId: string]: boolean }>({});
 
+  // Praise states
+  const [loadingPraise, setLoadingPraise] = useState<{ [postId: string]: boolean }>({});
+  const [praiseStatus, setPraiseStatus] = useState<{ [postId: string]: { count: number; isPraised: boolean } }>({});
+
+  // Trophy states
+  const [loadingTrophy, setLoadingTrophy] = useState<{ [postId: string]: boolean }>({});
+  const [trophyStatus, setTrophyStatus] = useState<{ [postId: string]: { counts: any; userAwarded: string[] } }>({});
+  const [showTrophyModal, setShowTrophyModal] = useState(false);
+  const [selectedPostForTrophy, setSelectedPostForTrophy] = useState<string | null>(null);
+
 
   /* CRITIQUE FUNCTIONALITY */
   const fetchCritiquesForPost = async (postId: string, page: number, append: boolean) => {
@@ -289,6 +299,94 @@ export const PostProvider = ({ children }) => {
       return updatedCritiques;
     });
   }
+
+  /* PRAISE FUNCTIONALITY */
+  const praisePost = useCallback(async (postId: string) => {
+    // Show confirmation dialog
+    if (!window.confirm("Are you sure you want to praise this post? This will cost 1 Brush Drip.")) {
+      return;
+    }
+
+    try {
+      setLoadingPraise((prev) => ({ ...prev, [postId]: true }));
+
+      await post.post("/praise/create/", { post_id: postId });
+
+      // Refresh praise status
+      await fetchPraiseStatus(postId);
+
+      toast.success("Post praised successfully!");
+    } catch (error) {
+      console.error("Praise post error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingPraise((prev) => ({ ...prev, [postId]: false }));
+    }
+  }, []);
+
+  const fetchPraiseStatus = async (postId: string) => {
+    try {
+      const response = await post.get(`/${postId}/praises/count/`);
+      setPraiseStatus((prev) => ({
+        ...prev,
+        [postId]: {
+          count: response.data.praise_count,
+          isPraised: response.data.is_praised_by_user,
+        },
+      }));
+    } catch (error) {
+      console.error("Fetch praise status error: ", error);
+    }
+  };
+
+  /* TROPHY FUNCTIONALITY */
+  const awardTrophy = useCallback(async (postId: string, trophyType: string) => {
+    try {
+      setLoadingTrophy((prev) => ({ ...prev, [postId]: true }));
+
+      await post.post("/trophy/create/", {
+        post_id: postId,
+        trophy_type: trophyType,
+      });
+
+      // Refresh trophy status
+      await fetchTrophyStatus(postId);
+
+      toast.success(`Trophy awarded successfully!`);
+      setShowTrophyModal(false);
+      setSelectedPostForTrophy(null);
+    } catch (error) {
+      console.error("Award trophy error: ", error);
+      toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setLoadingTrophy((prev) => ({ ...prev, [postId]: false }));
+    }
+  }, []);
+
+  const fetchTrophyStatus = async (postId: string) => {
+    try {
+      const response = await post.get(`/${postId}/trophies/count/`);
+      setTrophyStatus((prev) => ({
+        ...prev,
+        [postId]: {
+          counts: response.data.trophy_counts,
+          userAwarded: response.data.user_awarded_trophies,
+        },
+      }));
+    } catch (error) {
+      console.error("Fetch trophy status error: ", error);
+    }
+  };
+
+  const openTrophyModal = (postId: string) => {
+    setSelectedPostForTrophy(postId);
+    setShowTrophyModal(true);
+  };
+
+  const closeTrophyModal = () => {
+    setShowTrophyModal(false);
+    setSelectedPostForTrophy(null);
+  };
 
 
   /* REPLY FUNCTIONALITY */
@@ -843,6 +941,23 @@ export const PostProvider = ({ children }) => {
     handleCritiqueReplyFormChange,
     toggleCritiqueReplies,
     toggleCritiqueReplyForm,
+
+    // Praise functionality
+    praisePost,
+    fetchPraiseStatus,
+    loadingPraise,
+    praiseStatus,
+
+    // Trophy functionality
+    awardTrophy,
+    fetchTrophyStatus,
+    loadingTrophy,
+    trophyStatus,
+    showTrophyModal,
+    setShowTrophyModal,
+    selectedPostForTrophy,
+    openTrophyModal,
+    closeTrophyModal,
   };
 
   return (
