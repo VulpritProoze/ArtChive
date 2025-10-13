@@ -1,9 +1,12 @@
 // artchive/frontend/src/common/layout/MainLayout.tsx
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
 import { formatArtistTypesToString } from '@utils';
+import useToggleTheme from "@hooks/use-theme";
+import { faBell, faCoins, faLock, faMoon, faPalette, faQuestionCircle, faSignOutAlt, faSun, faUser } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -18,6 +21,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const { user } = useAuth();
   const location = useLocation();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isDarkMode, toggleDarkMode } = useToggleTheme();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -26,6 +31,50 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     { path: "/gallery", label: "Gallery", icon: "🖼️" },
     { path: "/collective", label: "Collective", icon: "👥" },
     { path: "/profile", label: "Profile", icon: "👤" },
+  ];
+
+  const settingsItems = [
+    { 
+      label: "Account", 
+      icon: faUser, 
+      action: () => { 
+        setIsSettingsOpen(false);
+        // Navigate to account settings
+      } 
+    },
+    { 
+      label: "Notifications", 
+      icon: faBell, 
+      action: () => { 
+        setIsSettingsOpen(false);
+        // Navigate to notifications settings
+      } 
+    },
+    { 
+      label: "Privacy", 
+      icon: faLock, 
+      action: () => { 
+        setIsSettingsOpen(false);
+        // Navigate to privacy settings
+      } 
+    },
+    { 
+      label: "Help", 
+      icon: faQuestionCircle, 
+      action: () => { 
+        setIsSettingsOpen(false);
+        // Navigate to help center
+      } 
+    },
+    { 
+      label: "Drips", 
+      icon: faCoins, 
+      action: () => { 
+        setIsSettingsOpen(false);
+        // Navigate to Drips page
+        window.location.href = '/drips';
+      } 
+    },
   ];
 
   return (
@@ -132,7 +181,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     />
                   </svg>
                 </button>
-                <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" title="Settings">
+                <button 
+                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" 
+                  title="Settings"
+                  onClick={() => setIsSettingsOpen(true)}
+                >
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -183,6 +236,80 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </header>
 
+      {/* Settings Sidebar Overlay */}
+      {isSettingsOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          onClick={() => setIsSettingsOpen(false)}
+        />
+      )}
+
+      {/* Settings Sidebar */}
+      <div 
+        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isSettingsOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300">
+            <h2 className="text-xl font-bold">Settings</h2>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => setIsSettingsOpen(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Settings Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-2">
+              {settingsItems.map((item, index) => (
+                <button
+                  key={index}
+                  className="flex items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
+                  onClick={item.action}
+                >
+                  <FontAwesomeIcon icon={item.icon} className="text-lg" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Theme Toggle */}
+            <div className="mt-6 pt-4 border-t border-base-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FontAwesomeIcon icon={faPalette} className="text-lg" />
+                  <span className="font-medium">Appearance</span>
+                </div>
+                <button 
+                  className="btn btn-ghost btn-sm"
+                  onClick={toggleDarkMode}
+                >
+                  {isDarkMode ? (
+                    <FontAwesomeIcon icon={faSun} className="text-yellow-400" />
+                  ) : (
+                    <FontAwesomeIcon icon={faMoon} className="text-gray-700" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Logout */}
+            <div className="mt-4">
+              <LogoutButton 
+                className="w-full justify-start p-3 rounded-lg transition-colors"
+                icon={<FontAwesomeIcon icon={faSignOutAlt} className="mr-3" />}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content Area */}
       <div className="container max-w-7xl mx-auto px-4 lg:px-8 py-6">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
@@ -206,7 +333,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 ))}
               </nav>
 
-              <LogoutButton />
             </aside>
           )}
 

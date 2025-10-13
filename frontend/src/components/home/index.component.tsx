@@ -89,15 +89,12 @@ const Index: React.FC = () => {
       {showCritiqueForm && <CritiqueFormModal />}
       <TrophySelectionModal />
 
-      <span className="text-xs text-muted">kwaa lng ni later. temporary para maka navigate ani nga page</span>
-      <Link to='/drips' className="btn btn-secondary">Drips</Link>
-
       {/* Page Content */}
       <div className="mb-12">
         {/* Header Section with Create Post Button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-base-200/50 rounded-xl p-4">
           <div>
-            <h2 className="text-3xl font-bold text-base-content bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Feed
             </h2>
             <p className="text-sm text-base-content/60 mt-1">

@@ -30,4 +30,5 @@ export type AuthContextType = {
   isMemberOfACollective: (collectiveId: string | undefined) => boolean;
   isAdminOfACollective: (collectiveId: string | undefined) => boolean;
   initializeAuth,
+  componentLoading: boolean,
 };
