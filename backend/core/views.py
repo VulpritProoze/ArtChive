@@ -2,18 +2,25 @@ from django.shortcuts import render
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.files.storage import default_storage
+from django.db.models import Q, Sum, Count
 from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, ExpiredTokenError
 from rest_framework.throttling import ScopedRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
-from .serializers import UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer
-from .models import User
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
+from .serializers import (
+    UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer,
+    BrushDripWalletSerializer, BrushDripTransactionListSerializer,
+    BrushDripTransactionDetailSerializer, BrushDripTransactionCreateSerializer,
+    BrushDripTransactionStatsSerializer
+)
+from .models import User, BrushDripWallet, BrushDripTransaction
 from decouple import config
 import os
 
@@ -279,5 +286,280 @@ class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
 
             except Exception as e:
                 print(f'Error deleting old profile picture: {e}')
-        
+
         serializer.save()
+
+
+# ============================================================================
+# BRUSH DRIP TRANSACTION VIEWS
+# ============================================================================
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Retrieve authenticated user wallet information',
+    responses={
+        200: BrushDripWalletSerializer,
+        401: OpenApiResponse(description='Unauthorized'),
+        404: OpenApiResponse(description='Wallet not found')
+    }
+)
+class BrushDripWalletRetrieveView(generics.RetrieveAPIView):
+    """
+    GET: Retrieve current user's wallet information
+    """
+    serializer_class = BrushDripWalletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        """Get wallet for authenticated user"""
+        try:
+            return BrushDripWallet.objects.get(user=self.request.user)
+        except BrushDripWallet.DoesNotExist:
+            return Response(
+                {'error': 'Wallet not found for this user'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Retrieve any user wallet information by user ID',
+    responses={
+        200: BrushDripWalletSerializer,
+        401: OpenApiResponse(description='Unauthorized'),
+        404: OpenApiResponse(description='Wallet not found')
+    }
+)
+class BrushDripWalletDetailView(generics.RetrieveAPIView):
+    """
+    GET: Retrieve wallet information for specific user
+    """
+    serializer_class = BrushDripWalletSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = BrushDripWallet.objects.select_related('user').all()
+    lookup_field = 'user_id'
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='List all transactions with filtering and pagination',
+    parameters=[
+        OpenApiParameter(name='user_id', description='Filter by user ID (sent or received)', type=int),
+        OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
+        OpenApiParameter(name='sent_only', description='Show only sent transactions', type=bool),
+        OpenApiParameter(name='received_only', description='Show only received transactions', type=bool),
+    ],
+    responses={
+        200: BrushDripTransactionListSerializer(many=True),
+        401: OpenApiResponse(description='Unauthorized')
+    }
+)
+class BrushDripTransactionListView(generics.ListAPIView):
+    """
+    GET: List transactions with optional filtering
+    Query params:
+    - user_id: Filter transactions for specific user (sent or received)
+    - transaction_type: Filter by transaction object type
+    - sent_only: Only show sent transactions
+    - received_only: Only show received transactions
+    """
+    serializer_class = BrushDripTransactionListSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = BrushDripTransaction.objects.select_related(
+            'transacted_by', 'transacted_to'
+        ).all().order_by('-transacted_at')
+
+        # Filter by user_id (sent or received)
+        user_id = self.request.query_params.get('user_id', None)
+        if user_id:
+            queryset = queryset.filter(
+                Q(transacted_by_id=user_id) | Q(transacted_to_id=user_id)
+            )
+
+        # Filter by transaction type
+        transaction_type = self.request.query_params.get('transaction_type', None)
+        if transaction_type:
+            queryset = queryset.filter(transaction_object_type=transaction_type)
+
+        # Filter sent only
+        sent_only = self.request.query_params.get('sent_only', None)
+        if sent_only and sent_only.lower() == 'true':
+            queryset = queryset.filter(transacted_by=self.request.user)
+
+        # Filter received only
+        received_only = self.request.query_params.get('received_only', None)
+        if received_only and received_only.lower() == 'true':
+            queryset = queryset.filter(transacted_to=self.request.user)
+
+        return queryset
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Get current user transaction history',
+    parameters=[
+        OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
+    ],
+    responses={
+        200: BrushDripTransactionListSerializer(many=True),
+        401: OpenApiResponse(description='Unauthorized')
+    }
+)
+class BrushDripMyTransactionsView(generics.ListAPIView):
+    """
+    GET: List all transactions for authenticated user (sent and received)
+    """
+    serializer_class = BrushDripTransactionListSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = BrushDripTransaction.objects.select_related(
+            'transacted_by', 'transacted_to'
+        ).filter(
+            Q(transacted_by=self.request.user) | Q(transacted_to=self.request.user)
+        ).order_by('-transacted_at')
+
+        # Optional filter by transaction type
+        transaction_type = self.request.query_params.get('transaction_type', None)
+        if transaction_type:
+            queryset = queryset.filter(transaction_object_type=transaction_type)
+
+        return queryset
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Retrieve detailed transaction information by ID',
+    responses={
+        200: BrushDripTransactionDetailSerializer,
+        401: OpenApiResponse(description='Unauthorized'),
+        404: OpenApiResponse(description='Transaction not found')
+    }
+)
+class BrushDripTransactionDetailView(generics.RetrieveAPIView):
+    """
+    GET: Retrieve detailed transaction information
+    """
+    serializer_class = BrushDripTransactionDetailSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = BrushDripTransaction.objects.select_related(
+        'transacted_by', 'transacted_to'
+    ).all()
+    lookup_field = 'drip_id'
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Create a new brush drip transaction',
+    request=BrushDripTransactionCreateSerializer,
+    responses={
+        201: BrushDripTransactionDetailSerializer,
+        400: OpenApiResponse(description='Invalid data or insufficient balance'),
+        401: OpenApiResponse(description='Unauthorized')
+    },
+    examples=[
+        OpenApiExample(
+            'Example Request',
+            value={
+                'amount': 100,
+                'transaction_object_type': 'praise',
+                'transaction_object_id': '12345',
+                'transacted_by': 1,
+                'transacted_to': 2
+            },
+            request_only=True
+        )
+    ]
+)
+class BrushDripTransactionCreateView(APIView):
+    """
+    POST: Create a new transaction
+    Body:
+    - amount: Transaction amount (positive integer)
+    - transaction_object_type: Type of transaction (praise, brush_gradient, critique)
+    - transaction_object_id: ID of related object
+    - transacted_to: Receiver user ID
+    Note: transacted_by is automatically set to the authenticated user
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = BrushDripTransactionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            # Set transacted_by to current authenticated user
+            transaction = serializer.save(transacted_by=request.user)
+
+            # Return detailed transaction info
+            detail_serializer = BrushDripTransactionDetailSerializer(transaction)
+            return Response(
+                detail_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Transaction failed: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+@extend_schema(
+    tags=['Brush Drips'],
+    description='Get transaction statistics for authenticated user',
+    responses={
+        200: BrushDripTransactionStatsSerializer,
+        401: OpenApiResponse(description='Unauthorized')
+    }
+)
+class BrushDripTransactionStatsView(APIView):
+    """
+    GET: Get transaction statistics for authenticated user
+    Returns:
+    - total_sent: Total brush drips sent
+    - total_received: Total brush drips received
+    - net_balance: Difference (received - sent)
+    - transaction_count_sent: Number of transactions sent
+    - transaction_count_received: Number of transactions received
+    - total_transaction_count: Total number of transactions
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Aggregate sent transactions
+        sent_stats = BrushDripTransaction.objects.filter(
+            transacted_by=user
+        ).aggregate(
+            total_sent=Sum('amount'),
+            count_sent=Count('drip_id')
+        )
+
+        # Aggregate received transactions
+        received_stats = BrushDripTransaction.objects.filter(
+            transacted_to=user
+        ).aggregate(
+            total_received=Sum('amount'),
+            count_received=Count('drip_id')
+        )
+
+        # Calculate stats
+        total_sent = sent_stats['total_sent'] or 0
+        total_received = received_stats['total_received'] or 0
+        count_sent = sent_stats['count_sent'] or 0
+        count_received = received_stats['count_received'] or 0
+
+        stats = {
+            'total_sent': total_sent,
+            'total_received': total_received,
+            'net_balance': total_received - total_sent,
+            'transaction_count_sent': count_sent,
+            'transaction_count_received': count_received,
+            'total_transaction_count': count_sent + count_received
+        }
+
+        serializer = BrushDripTransactionStatsSerializer(stats)
+        return Response(serializer.data, status=status.HTTP_200_OK)

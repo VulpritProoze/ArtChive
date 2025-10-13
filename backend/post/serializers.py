@@ -4,10 +4,9 @@ from django.core.validators import FileExtensionValidator
 from django.core.exceptions import PermissionDenied
 from core.models import User, Artist
 from common.utils import choices
-from PIL import Image 
-from .pagination import CommentPagination
-from .models import *
 from core.models import Artist
+from .models import *
+from PIL import Image 
 import io
         
 class NovelPostSerializer(serializers.ModelSerializer):
@@ -15,7 +14,7 @@ class NovelPostSerializer(serializers.ModelSerializer):
         model = NovelPost
         fields = ['chapter', 'content',]
 
-class PostCreateSerializer(serializers.ModelSerializer):
+class PostCreateSerializer(ModelSerializer):
     '''
     Serializer for Posts creation. A post can either be default, novel, image, or video.
     

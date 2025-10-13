@@ -5,17 +5,18 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.validators import FileExtensionValidator
 from datetime import date
 from collective.models import CollectiveMember
-from .models import User, Artist
+from .models import User, Artist, BrushDripWallet, BrushDripTransaction
 
 class UserSerializer(ModelSerializer):
     collective_memberships = serializers.SerializerMethodField()
     artist_types = serializers.SerializerMethodField()
     fullname = serializers.SerializerMethodField()
+    brushdrips_count = serializers.IntegerField(source='user_wallet.balance')
 
     class Meta:
         model = User 
-        fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
-        read_only_fields = ['id', 'email', 'username', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
         # Return a list of collective_ids user has joined
@@ -240,3 +241,148 @@ class ProfileViewUpdateSerializer(ModelSerializer):
             representation['artistTypes'] = []
         
         return representation
+
+class BrushDripWalletSerializer(ModelSerializer):
+    """Serializer for wallet information with user details"""
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = BrushDripWallet
+        fields = ['id', 'user', 'username', 'email', 'balance', 'updated_at']
+        read_only_fields = ['id', 'user', 'username', 'email', 'balance', 'updated_at']
+
+
+class BrushDripTransactionListSerializer(ModelSerializer):
+    """Lightweight serializer for transaction lists"""
+    transacted_by_username = serializers.CharField(source='transacted_by.username', read_only=True)
+    transacted_to_username = serializers.CharField(source='transacted_to.username', read_only=True)
+    transacted_by_profile_picture = serializers.ImageField(source='transacted_by.profile_picture', read_only=True)
+    transacted_to_profile_picture = serializers.ImageField(source='transacted_to.profile_picture', read_only=True)
+
+    class Meta:
+        model = BrushDripTransaction
+        fields = [
+            'drip_id', 'amount', 'transaction_object_type', 'transaction_object_id',
+            'transacted_at', 'transacted_by', 'transacted_by_username', 'transacted_by_profile_picture',
+            'transacted_to', 'transacted_to_username', 'transacted_to_profile_picture'
+        ]
+        read_only_fields = ['drip_id', 'transacted_at']
+
+
+class BrushDripTransactionDetailSerializer(ModelSerializer):
+    """Detailed serializer with full user information"""
+    transacted_by_user = UserSerializer(source='transacted_by', read_only=True)
+    transacted_to_user = UserSerializer(source='transacted_to', read_only=True)
+
+    class Meta:
+        model = BrushDripTransaction
+        fields = [
+            'drip_id', 'amount', 'transaction_object_type', 'transaction_object_id',
+            'transacted_at', 'transacted_by', 'transacted_by_user',
+            'transacted_to', 'transacted_to_user'
+        ]
+        read_only_fields = ['drip_id', 'transacted_at']
+
+
+class BrushDripTransactionCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new transactions with validation"""
+
+    class Meta:
+        model = BrushDripTransaction
+        fields = [
+            'amount', 'transaction_object_type', 'transaction_object_id',
+            'transacted_by', 'transacted_to'
+        ]
+
+    def validate_amount(self, value):
+        """Validate transaction amount"""
+        if value <= 0:
+            raise serializers.ValidationError("Transaction amount must be greater than 0.")
+        if value > 1000000:
+            raise serializers.ValidationError("Transaction amount cannot exceed 1,000,000 brush drips.")
+        return value
+
+    def validate(self, data):
+        """Validate transaction logic"""
+        transacted_by = data.get('transacted_by')
+        transacted_to = data.get('transacted_to')
+        amount = data.get('amount')
+
+        # Check if users are the same
+        if transacted_by == transacted_to:
+            raise serializers.ValidationError("Cannot transfer brush drips to yourself.")
+
+        # Check if sender exists
+        if not transacted_by:
+            raise serializers.ValidationError("Sender is required.")
+
+        # Check if receiver exists
+        if not transacted_to:
+            raise serializers.ValidationError("Receiver is required.")
+
+        # Check if sender has sufficient balance
+        try:
+            sender_wallet = BrushDripWallet.objects.get(user=transacted_by)
+            if sender_wallet.balance < amount:
+                raise serializers.ValidationError(
+                    f"Insufficient balance. Available: {sender_wallet.balance}, Required: {amount}"
+                )
+        except BrushDripWallet.DoesNotExist:
+            raise serializers.ValidationError("Sender wallet not found.")
+
+        # Check if receiver wallet exists
+        if not BrushDripWallet.objects.filter(user=transacted_to).exists():
+            raise serializers.ValidationError("Receiver wallet not found.")
+
+        return data
+
+    def create(self, validated_data):
+        """Create transaction and update wallet balances atomically"""
+        from django.db import transaction as db_transaction
+
+        transacted_by = validated_data['transacted_by']
+        transacted_to = validated_data['transacted_to']
+        amount = validated_data['amount']
+
+        with db_transaction.atomic():
+            # Lock wallets for update to prevent race conditions
+            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=transacted_by)
+            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=transacted_to)
+
+            # Double-check balance (for safety)
+            if sender_wallet.balance < amount:
+                raise serializers.ValidationError("Insufficient balance.")
+
+            # Update balances
+            sender_wallet.balance -= amount
+            receiver_wallet.balance += amount
+
+            sender_wallet.save()
+            receiver_wallet.save()
+
+            # Create transaction record
+            transaction_record = BrushDripTransaction.objects.create(**validated_data)
+
+        return transaction_record
+
+
+class BrushDripTransactionStatsSerializer(serializers.Serializer):
+    """Serializer for transaction statistics"""
+    total_sent = serializers.IntegerField()
+    total_received = serializers.IntegerField()
+    net_balance = serializers.IntegerField()
+    transaction_count_sent = serializers.IntegerField()
+    transaction_count_received = serializers.IntegerField()
+    total_transaction_count = serializers.IntegerField()
+
+
+# Legacy serializers for backward compatibility
+class FetchBrushDripsInfoSerializer(BrushDripWalletSerializer):
+    """Legacy serializer - use BrushDripWalletSerializer instead"""
+    pass
+
+
+class FetchBrushDripsTransactions(BrushDripTransactionListSerializer):
+    """Legacy serializer - use BrushDripTransactionListSerializer instead"""
+    pass

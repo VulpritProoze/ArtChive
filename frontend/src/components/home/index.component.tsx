@@ -10,6 +10,7 @@ import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
+import { Link } from "react-router-dom";
 
 const Index: React.FC = () => {
   const {
@@ -85,6 +86,9 @@ const Index: React.FC = () => {
       {showPostForm && <PostFormModal />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
+
+      <span className="text-xs text-muted">kwaa lng ni later. temporary para maka navigate ani nga page</span>
+      <Link to='/drips' className="btn btn-secondary">Drips</Link>
 
       {/* Page Content */}
       <div className="mb-12">

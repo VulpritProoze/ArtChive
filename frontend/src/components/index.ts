@@ -27,3 +27,6 @@ export { default as CollectiveHome } from './collective/inside-collective.compon
 
 // Gallery
 export { default as GalleryIndex } from './gallery/index.component'
+
+// Brush Drips
+export { default as BrushDripsPage } from './brush-drips/index.component'
