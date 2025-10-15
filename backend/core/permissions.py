@@ -93,3 +93,15 @@ class IsCollectiveAdmin(BasePermission):
             collective_role=COLLECTIVE_ROLES.admin,
             collective_id=collective,
         ).exists()
+
+class IsGalleryOwner(BasePermission):
+    """
+    Allows access only to gallery owners.
+    Works for Gallery objects where owner field exists.
+    """
+    message = 'Only the gallery owner can perform this action.'
+    
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_superuser:
+            return True
+        return obj.owner == request.user
