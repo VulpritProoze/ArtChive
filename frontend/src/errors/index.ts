@@ -1,3 +1,5 @@
 export * from './posts.error'
 export * from './collective.error'
 export * from './default.error'
+export * from './auth.error'
+export * from './brush-drips.error'

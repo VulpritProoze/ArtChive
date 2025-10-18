@@ -74,7 +74,7 @@ FELLOW_STATUS = [
 TRANSACTION_OBJECT_CHOICES = [
     ('praise', 'Praise'),
     ('trophy', 'Trophy'),
-    ('brush_gradient', 'Brush Gradient'),
+    # ('brush_gradient', 'Brush Gradient'),
     ('critique', 'Critique'),
 ]
 

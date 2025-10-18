@@ -401,6 +401,8 @@ class BrushDripTransactionListView(generics.ListAPIView):
     description='Get current user transaction history',
     parameters=[
         OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
+        OpenApiParameter(name='sent_only', description='Show only sent transactions', type=bool),
+        OpenApiParameter(name='received_only', description='Show only received transactions', type=bool),
     ],
     responses={
         200: BrushDripTransactionListSerializer(many=True),
@@ -410,16 +412,39 @@ class BrushDripTransactionListView(generics.ListAPIView):
 class BrushDripMyTransactionsView(generics.ListAPIView):
     """
     GET: List all transactions for authenticated user (sent and received)
+    Query params:
+    - transaction_type: Filter by transaction object type
+    - sent_only: Only show sent transactions (true/false)
+    - received_only: Only show received transactions (true/false)
     """
     serializer_class = BrushDripTransactionListSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = BrushDripTransaction.objects.select_related(
-            'transacted_by', 'transacted_to'
-        ).filter(
-            Q(transacted_by=self.request.user) | Q(transacted_to=self.request.user)
-        ).order_by('-transacted_at')
+        user = self.request.user
+
+        # Check for sent_only and received_only filters
+        sent_only = self.request.query_params.get('sent_only', None)
+        received_only = self.request.query_params.get('received_only', None)
+
+        # Build base queryset with appropriate filter
+        if sent_only and sent_only.lower() == 'true':
+            # Only sent transactions
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(transacted_by=user).order_by('-transacted_at')
+        elif received_only and received_only.lower() == 'true':
+            # Only received transactions
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(transacted_to=user).order_by('-transacted_at')
+        else:
+            # All transactions (sent or received)
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(
+                Q(transacted_by=user) | Q(transacted_to=user)
+            ).order_by('-transacted_at')
 
         # Optional filter by transaction type
         transaction_type = self.request.query_params.get('transaction_type', None)

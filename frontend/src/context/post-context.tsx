@@ -21,7 +21,7 @@ import type {
 import { post, collective } from "@lib/api";
 import { toast } from "react-toastify";
 import { handleApiError } from "@utils";
-import { fetchPostsErrors, defaultErrors } from "@errors";
+import { fetchPostsErrors, defaultErrors, brushDripTransactionErrors } from "@errors";
 
 type fetchCommentsForPostType = (
   postId: string, // fetch comments of that postId
@@ -318,7 +318,7 @@ export const PostProvider = ({ children }) => {
       toast.success("Post praised successfully!");
     } catch (error) {
       console.error("Praise post error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error(handleApiError(error, brushDripTransactionErrors));
     } finally {
       setLoadingPraise((prev) => ({ ...prev, [postId]: false }));
     }
@@ -357,7 +357,7 @@ export const PostProvider = ({ children }) => {
       setSelectedPostForTrophy(null);
     } catch (error) {
       console.error("Award trophy error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error(handleApiError(error, brushDripTransactionErrors));
     } finally {
       setLoadingTrophy((prev) => ({ ...prev, [postId]: false }));
     }

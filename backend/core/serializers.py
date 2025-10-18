@@ -245,12 +245,21 @@ class ProfileViewUpdateSerializer(ModelSerializer):
 class BrushDripWalletSerializer(ModelSerializer):
     """Serializer for wallet information with user details"""
     username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    middle_name = serializers.CharField(source='user.middle_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    profile_picture = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
         model = BrushDripWallet
-        fields = ['id', 'user', 'username', 'email', 'balance', 'updated_at']
+        fields = ['id', 'user', 'username', 'first_name', 'middle_name', 'last_name', 'profile_picture', 'email', 'balance', 'updated_at']
         read_only_fields = ['id', 'user', 'username', 'email', 'balance', 'updated_at']
+
+    def get_profile_picture(self, obj):
+        if obj.user.profile_picture:
+            return obj.user.profile_picture.url
+        return None
 
 
 class BrushDripTransactionListSerializer(ModelSerializer):
@@ -274,13 +283,16 @@ class BrushDripTransactionDetailSerializer(ModelSerializer):
     """Detailed serializer with full user information"""
     transacted_by_user = UserSerializer(source='transacted_by', read_only=True)
     transacted_to_user = UserSerializer(source='transacted_to', read_only=True)
+    transacted_by_profile_picture = serializers.ImageField(source='transacted_by.profile_picture', read_only=True)
+    transacted_to_profile_picture = serializers.ImageField(source='transacted_to.profile_picture', read_only=True)
 
     class Meta:
         model = BrushDripTransaction
         fields = [
             'drip_id', 'amount', 'transaction_object_type', 'transaction_object_id',
             'transacted_at', 'transacted_by', 'transacted_by_user',
-            'transacted_to', 'transacted_to_user'
+            'transacted_to', 'transacted_to_user',
+            'transacted_by_profile_picture', 'transacted_to_profile_picture',
         ]
         read_only_fields = ['drip_id', 'transacted_at']
 
@@ -375,14 +387,3 @@ class BrushDripTransactionStatsSerializer(serializers.Serializer):
     transaction_count_sent = serializers.IntegerField()
     transaction_count_received = serializers.IntegerField()
     total_transaction_count = serializers.IntegerField()
-
-
-# Legacy serializers for backward compatibility
-class FetchBrushDripsInfoSerializer(BrushDripWalletSerializer):
-    """Legacy serializer - use BrushDripWalletSerializer instead"""
-    pass
-
-
-class FetchBrushDripsTransactions(BrushDripTransactionListSerializer):
-    """Legacy serializer - use BrushDripTransactionListSerializer instead"""
-    pass

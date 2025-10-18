@@ -1,6 +1,6 @@
 // artchive/frontend/src/common/layout/MainLayout.tsx
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
 import { formatArtistTypesToString } from '@utils';
@@ -21,6 +21,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
 
@@ -72,7 +73,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       action: () => { 
         setIsSettingsOpen(false);
         // Navigate to Drips page
-        window.location.href = '/drips';
+        navigate('/drips')
       } 
     },
   ];
@@ -150,7 +151,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               )}
 
               {/* Action Buttons */}
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" title="Messages">
                   <svg
                     className="w-5 h-5"
@@ -246,7 +247,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Settings Sidebar */}
       <div 
-        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-60 transform transition-transform duration-300 ease-in-out ${
           isSettingsOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -270,7 +271,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {settingsItems.map((item, index) => (
                 <button
                   key={index}
-                  className="flex items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
+                  className="flex hover:cursor-pointer items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
                   onClick={item.action}
                 >
                   <FontAwesomeIcon icon={item.icon} className="text-lg" />

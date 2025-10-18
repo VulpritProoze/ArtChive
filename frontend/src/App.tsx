@@ -15,6 +15,7 @@ import {
   Profile,
   Timeline,
   BrushDripsPage,
+  BrushDripsTransactions,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -75,6 +76,8 @@ function App() {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/profile/me" element={<Profile />} />
                   <Route path="/drips" element={<BrushDripsPage />} />
+                  <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
+                  
                   <Route
                     path="/home"
                     element={
