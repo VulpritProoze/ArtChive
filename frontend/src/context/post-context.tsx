@@ -101,12 +101,16 @@ export const PostProvider = ({ children }) => {
   // Praise states
   const [loadingPraise, setLoadingPraise] = useState<{ [postId: string]: boolean }>({});
   const [praiseStatus, setPraiseStatus] = useState<{ [postId: string]: { count: number; isPraised: boolean } }>({});
+  const [showPraiseListModal, setShowPraiseListModal] = useState(false);
+  const [selectedPostForPraiseList, setSelectedPostForPraiseList] = useState<string | null>(null);
 
   // Trophy states
   const [loadingTrophy, setLoadingTrophy] = useState<{ [postId: string]: boolean }>({});
   const [trophyStatus, setTrophyStatus] = useState<{ [postId: string]: { counts: any; userAwarded: string[] } }>({});
   const [showTrophyModal, setShowTrophyModal] = useState(false);
   const [selectedPostForTrophy, setSelectedPostForTrophy] = useState<string | null>(null);
+  const [showTrophyListModal, setShowTrophyListModal] = useState(false);
+  const [selectedPostForTrophyList, setSelectedPostForTrophyList] = useState<string | null>(null);
 
 
   /* CRITIQUE FUNCTIONALITY */
@@ -386,6 +390,26 @@ export const PostProvider = ({ children }) => {
   const closeTrophyModal = () => {
     setShowTrophyModal(false);
     setSelectedPostForTrophy(null);
+  };
+
+  const openPraiseListModal = (postId: string) => {
+    setSelectedPostForPraiseList(postId);
+    setShowPraiseListModal(true);
+  };
+
+  const closePraiseListModal = () => {
+    setShowPraiseListModal(false);
+    setSelectedPostForPraiseList(null);
+  };
+
+  const openTrophyListModal = (postId: string) => {
+    setSelectedPostForTrophyList(postId);
+    setShowTrophyListModal(true);
+  };
+
+  const closeTrophyListModal = () => {
+    setShowTrophyListModal(false);
+    setSelectedPostForTrophyList(null);
   };
 
 
@@ -947,6 +971,10 @@ export const PostProvider = ({ children }) => {
     fetchPraiseStatus,
     loadingPraise,
     praiseStatus,
+    showPraiseListModal,
+    selectedPostForPraiseList,
+    openPraiseListModal,
+    closePraiseListModal,
 
     // Trophy functionality
     awardTrophy,
@@ -958,6 +986,10 @@ export const PostProvider = ({ children }) => {
     selectedPostForTrophy,
     openTrophyModal,
     closeTrophyModal,
+    showTrophyListModal,
+    selectedPostForTrophyList,
+    openTrophyListModal,
+    closeTrophyListModal,
   };
 
   return (
