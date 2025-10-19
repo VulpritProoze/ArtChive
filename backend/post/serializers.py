@@ -456,6 +456,19 @@ class CommentCreateSerializer(ModelSerializer):
         extra_kwargs = {
             'post_id': {'required': False},
         }
+
+    def create(self, validated_data):
+        from notification.utils import create_comment_notification
+
+        # Create the comment
+        comment = super().create(validated_data)
+
+        # Send notification to post author
+        if comment.post_id:
+            post_author = comment.post_id.author
+            create_comment_notification(comment, post_author)
+
+        return comment
     
 class CommentUpdateSerializer(ModelSerializer):
     class Meta:

@@ -14,7 +14,7 @@ import {
   ChannelEditModal,
 } from "@components/common/collective-feature/modal";
 import type { Channel } from "@types";
-import { CommonHeader } from "@components/common";
+
 import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
 
 const CollectiveHome = () => {
@@ -134,7 +134,7 @@ const CollectiveHome = () => {
     )}
 
       {/* Header */}
-      <CommonHeader user={user} />
+      
 
       <div className="mx-8 mt-4">
         {collectiveData && (

@@ -31,3 +31,6 @@ export { default as GalleryIndex } from './gallery/index.component'
 // Brush Drips
 export { default as BrushDripsPage } from './brush-drips/index.component'
 export { default as BrushDripsTransactions } from './brush-drips/transactions.component'
+
+// Notifications
+export { default as NotificationIndex } from './notifications/index.component'

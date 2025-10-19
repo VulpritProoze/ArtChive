@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const fetchUser = async (): Promise<User> => {
+    setIsLoading(true)
     try {
       const response = await api.get("api/core/auth/me/", {
         withCredentials: true,
@@ -31,6 +32,8 @@ export const AuthProvider = ({ children }) => {
       console.error("Failed to fetch user: ", error);
       setUser(null);
       return null
+    } finally {
+      setIsLoading(false)
     }
   };
 

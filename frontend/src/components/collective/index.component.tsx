@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
-import { CommonHeader } from "@components/common";
+
 import { useCollectiveContext } from "@context/collective-context";
 import { LoadingSpinner } from "@components/loading-spinner";
 
@@ -33,7 +33,7 @@ export default function Index() {
 
   return (
     <div className="container max-w-full w-full">
-      <CommonHeader user={user} />
+      
 
       <div className="mx-8 mt-4">
         <h1 className="text-3xl font-bold text-center my-8">Collectives</h1>

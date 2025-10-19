@@ -68,7 +68,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
     <>
       <div
         key={postItem.post_id}
-        className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
+        className="card bg-base-200 border border-base-300 rounded-xl shadow-sm"
       >
         {/* Post Header - Instagram Style */}
         <PostHeader postItem={postItem} />
@@ -101,7 +101,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
 
         {/* Text-only post (default type) */}
         {(!postItem.post_type || postItem.post_type === "default") && (
-          <div className="p-6 bg-base-100">
+          <div className="p-6">
             <div className="prose max-w-none">
               <p className="text-base-content whitespace-pre-wrap">
                 {postItem.description}

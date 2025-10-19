@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/collective/', include('collective.urls'), name='collective'),
     path('api/gallery/', include('gallery.urls'), name='gallery'),
     path('api/avatar/', include('gallery.urls'), name='avatar'),
+    path('api/notifications/', include('notification.urls'), name='notifications'),
     # Schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

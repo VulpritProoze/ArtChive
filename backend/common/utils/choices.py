@@ -84,3 +84,17 @@ TRANSACTION_TYPES = SimpleNamespace(
     brush_gradient='Brush Gradient',
     critique='Critique'
 )
+
+NOTIFICATION_OBJECT_CHOICES = [
+    ('post_comment', 'Post Comment'),
+    ('post_critique', 'Post Critique'),
+    ('post_praise', 'Post Praise'),
+    ('post_trophy', 'Post Trophy')
+]
+
+NOTIFICATION_TYPES = SimpleNamespace(
+    post_comment='Post Comment',
+    post_critique='Post Critique',
+    post_praise='Post Praise',
+    post_trophy='Post Trophy'
+)
