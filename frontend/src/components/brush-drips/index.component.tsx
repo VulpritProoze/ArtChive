@@ -63,7 +63,7 @@ export default function Index() {
                 {loading ? (
                     <LoadingSpinner text={"Your hard-earned brush drips is currently loading... "} />
                 ) : (
-                    <div className="container max-w-7xl mx-auto px-4 py-8">
+                    <div className="container max-w-7xl pb-20 mx-auto px-4 py-8">
                         {/* Page Header */}
                         <div className="mb-8">
                             <h1 className="text-4xl font-bold text-base-content mb-2 flex items-center gap-3">

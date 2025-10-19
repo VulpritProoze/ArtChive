@@ -59,9 +59,11 @@ export default function Transactions() {
 
       const response = await core.get<TransactionsResponse>(url, { params });
 
+      // Handle paginated response
       const newTransactions = response.data.results || [];
       setTransactions(newTransactions);
 
+      // Handle pagination data
       const totalCount = response.data.count || 0;
       const totalPages = Math.ceil(totalCount / 20);
 

@@ -21,6 +21,7 @@ from .serializers import (
     BrushDripTransactionStatsSerializer
 )
 from .models import User, BrushDripWallet, BrushDripTransaction
+from .pagination import BrushDripsTransactionPagination
 from decouple import config
 import os
 
@@ -419,6 +420,7 @@ class BrushDripMyTransactionsView(generics.ListAPIView):
     """
     serializer_class = BrushDripTransactionListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = BrushDripsTransactionPagination
 
     def get_queryset(self):
         user = self.request.user

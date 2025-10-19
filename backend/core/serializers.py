@@ -248,19 +248,13 @@ class BrushDripWalletSerializer(ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
-    profile_picture = serializers.SerializerMethodField()
+    profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
         model = BrushDripWallet
         fields = ['id', 'user', 'username', 'first_name', 'middle_name', 'last_name', 'profile_picture', 'email', 'balance', 'updated_at']
         read_only_fields = ['id', 'user', 'username', 'email', 'balance', 'updated_at']
-
-    def get_profile_picture(self, obj):
-        if obj.user.profile_picture:
-            return obj.user.profile_picture.url
-        return None
-
 
 class BrushDripTransactionListSerializer(ModelSerializer):
     """Lightweight serializer for transaction lists"""
