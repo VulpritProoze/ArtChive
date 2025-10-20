@@ -39,7 +39,7 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   return (
     <div
       className={`${
-        depth > 0 ? "ml-12 mt-3" : "py-3 border-b border-gray-100"
+        depth > 0 ? "ml-12 mt-3" : "py-3 border-b border-base-300"
       }`}
     >
       {/* Comment Content */}
@@ -60,19 +60,19 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
         </div>
 
         {/* Comment Body */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 text-base-content">
           {/* Username and Text */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-sm text-gray-900">
+                <span className="font-semibold text-sm">
                   {comment.author_username}
                 </span>
-                <p className="text-xs text-base-content/70">
+                <p className="text-xs">
                   {formatArtistTypesArrToString(comment.author_artist_types)}
                 </p>
               </div>
-              <span className="text-sm text-gray-900 whitespace-pre-wrap break-words">
+              <span className="text-sm whitespace-pre-wrap break-words">
                 {comment.text}
               </span>
 

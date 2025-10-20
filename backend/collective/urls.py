@@ -1,10 +1,18 @@
 from django.urls import path
+
 from .views import (
-    CollectiveDetailsView, CollectiveCreateView, ChannelListView, 
-    ChannelCreateView, InsideCollectiveView, InsideCollectivePostsView, 
-    JoinCollectiveView, CollectiveMembershipsView,
-    BecomeCollectiveAdminView, LeaveCollectiveView,
-    ChannelUpdateView, ChannelDeleteView
+    BecomeCollectiveAdminView,
+    ChannelCreateView,
+    ChannelDeleteView,
+    ChannelListView,
+    ChannelUpdateView,
+    CollectiveCreateView,
+    CollectiveDetailsView,
+    CollectiveMembershipsView,
+    InsideCollectivePostsView,
+    InsideCollectiveView,
+    JoinCollectiveView,
+    LeaveCollectiveView,
 )
 
 urlpatterns = [

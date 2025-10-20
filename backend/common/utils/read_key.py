@@ -1,5 +1,7 @@
-from decouple import config
 from pathlib import Path
+
+from decouple import config
+
 
 def read_key(file_path):
     try:

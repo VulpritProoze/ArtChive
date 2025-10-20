@@ -1,25 +1,38 @@
-from django.shortcuts import get_object_or_404
 from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, CreateAPIView, RetrieveAPIView, UpdateAPIView, DestroyAPIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 from rest_framework import status
-from core.permissions import IsCollectiveMember, IsCollectiveAdmin
-from common.utils.choices import CHANNEL_TYPES
-from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
-from post.models import Post
-from .serializers import (
-    CollectiveDetailsSerializer, CollectiveCreateSerializer, 
-    ChannelSerializer, InsideCollectiveViewSerializer, 
-    InsideCollectivePostsViewSerializer, 
-    JoinCollectiveSerializer, CollectiveMemberSerializer,
-    BecomeCollectiveAdminSerializer, LeaveCollectiveSerializer,
-    ChannelCreateSerializer, ChannelUpdateSerializer
+from rest_framework.generics import (
+    CreateAPIView,
+    DestroyAPIView,
+    ListAPIView,
+    RetrieveAPIView,
+    UpdateAPIView,
 )
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
+from core.permissions import IsCollectiveAdmin, IsCollectiveMember
+from post.models import Post
+
+from .models import Channel, Collective, CollectiveMember
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
-from .models import Collective, Channel, CollectiveMember
+from .serializers import (
+    BecomeCollectiveAdminSerializer,
+    ChannelCreateSerializer,
+    ChannelSerializer,
+    ChannelUpdateSerializer,
+    CollectiveCreateSerializer,
+    CollectiveDetailsSerializer,
+    CollectiveMemberSerializer,
+    InsideCollectivePostsViewSerializer,
+    InsideCollectiveViewSerializer,
+    JoinCollectiveSerializer,
+    LeaveCollectiveSerializer,
+)
+
 
 class CollectiveDetailsView(ListAPIView):
     serializer_class = CollectiveDetailsSerializer
@@ -72,7 +85,7 @@ class CollectiveCreateView(APIView):
                 )
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
+        except Exception:
             return Response(
                 {"detail": "Failed to create collective and channels."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -103,7 +116,7 @@ class ChannelUpdateView(UpdateAPIView):
     def get_object(self):
         collective_id = self.kwargs['collective_id']
         channel_id = self.request.data.get('channel_id')
-        return get_object_or_404(Channel, 
+        return get_object_or_404(Channel,
             channel_id=channel_id,
             collective__collective_id=collective_id
         )
@@ -122,7 +135,7 @@ class ChannelDeleteView(DestroyAPIView):
     def get_object(self):
         collective_id = self.kwargs['collective_id']
         channel_id = self.request.data.get('channel_id')
-        return get_object_or_404(Channel, 
+        return get_object_or_404(Channel,
             channel_id=channel_id,
             collective__collective_id=collective_id
         )
@@ -158,7 +171,7 @@ class JoinCollectiveView(APIView):
         serializer.is_valid(raise_exception=True)
         member = serializer.save()
         username = request.user.username
-        
+
         return Response({
             'message': f'{username} has successfully joined this collective',
             'collective_id': str(member.collective_id),
@@ -169,7 +182,7 @@ class JoinCollectiveView(APIView):
  '''
 class BecomeCollectiveAdminView(APIView):
     permission_classes = [IsAuthenticated, IsCollectiveMember]
-    
+
     def patch(self, request, collective_id=None):
         if collective_id:
             data = { 'collective_id': collective_id }

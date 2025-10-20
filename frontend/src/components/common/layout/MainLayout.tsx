@@ -1,12 +1,13 @@
 // artchive/frontend/src/common/layout/MainLayout.tsx
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
 import { formatArtistTypesToString } from '@utils';
 import useToggleTheme from "@hooks/use-theme";
 import { faBell, faCoins, faLock, faMoon, faPalette, faQuestionCircle, faSignOutAlt, faSun, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import NotificationDropdown from "@components/notifications/notification-dropdown.component";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
 
@@ -42,13 +44,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         // Navigate to account settings
       } 
     },
-    { 
-      label: "Notifications", 
-      icon: faBell, 
-      action: () => { 
+    {
+      label: "Notifications",
+      icon: faBell,
+      action: () => {
         setIsSettingsOpen(false);
-        // Navigate to notifications settings
-      } 
+        navigate('/notifications');
+      }
     },
     { 
       label: "Privacy", 
@@ -72,7 +74,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       action: () => { 
         setIsSettingsOpen(false);
         // Navigate to Drips page
-        window.location.href = '/drips';
+        navigate('/drips')
       } 
     },
   ];
@@ -150,7 +152,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               )}
 
               {/* Action Buttons */}
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" title="Messages">
                   <svg
                     className="w-5 h-5"
@@ -166,23 +168,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     />
                   </svg>
                 </button>
-                <button className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" title="Notifications">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                    />
-                  </svg>
-                </button>
-                <button 
-                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200" 
+                <NotificationDropdown />
+                <button
+                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200"
                   title="Settings"
                   onClick={() => setIsSettingsOpen(true)}
                 >
@@ -246,7 +234,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       {/* Settings Sidebar */}
       <div 
-        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-60 transform transition-transform duration-300 ease-in-out ${
           isSettingsOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -270,7 +258,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {settingsItems.map((item, index) => (
                 <button
                   key={index}
-                  className="flex items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
+                  className="flex hover:cursor-pointer items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
                   onClick={item.action}
                 >
                   <FontAwesomeIcon icon={item.icon} className="text-lg" />

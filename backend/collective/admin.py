@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
+
 from collective.models import CollectiveMember
+
 
 @admin.register(CollectiveMember)
 class CollectiveAdmin(ModelAdmin):

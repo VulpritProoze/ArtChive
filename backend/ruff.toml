@@ -1,0 +1,31 @@
+# ruff.toml
+
+# Project-wide settings (not under [lint])
+line-length = 88
+target-version = "py312"
+
+# Linting rules and behavior
+[lint]
+# Enable powerful bug-catching and style rules
+select = [
+  "E",   # pycodestyle errors (indentation, whitespace)
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes — undefined names, unused imports ✅
+  "B",   # bugbear — common pitfalls
+  "I",   # isort — import sorting
+  "C4",  # comprehensions — cleaner list/dict expressions
+  "T20", # detect print() statements
+]
+
+# Ignore line length — let formatter handle it
+ignore = ["E501"]
+
+# Auto-fix safe issues
+fixable = ["ALL"]
+unfixable = []
+
+# Per-file ignores
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]        # unused imports OK in __init__
+"tests/**/*" = ["T20", "S101"]  # allow print() and assert in tests
+"migrations/**/*" = ["E", "W"]  # ignore style in Django migrations

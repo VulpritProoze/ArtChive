@@ -1,9 +1,10 @@
-// components/LoadingSpinner.tsx
+
+// Full-screen centered loading spinner (your original)
 export function LoadingSpinner({ text }: { text?: string }) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen p-8">
-        <span className="loading loading-spinner loading-lg text-primary"></span>
-        {text && <p className="mt-4 text-sm opacity-70">{text}</p>}
-      </div>
-    );
-  }
+  return (
+    <div className="flex flex-col items-center justify-center h-screen p-8">
+      <span className="loading loading-spinner loading-lg text-primary"></span>
+      {text && <p className="mt-4 text-sm opacity-70">{text}</p>}
+    </div>
+  );
+}

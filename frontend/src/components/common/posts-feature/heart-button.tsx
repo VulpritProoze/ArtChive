@@ -23,7 +23,7 @@ const HeartButton: React.FC<HeartButtonProps> = ({
   onUnheart,
   isLoading = false,
   size = 'md',
-  className = 'text-black'
+  className = ''
 }) => {
   const handleClick = () => {
     if (isLoading) return;

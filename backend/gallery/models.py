@@ -1,7 +1,10 @@
+import uuid
+
 from django.db import models
+
 from common.utils import choices
 from core.models import User
-import uuid
+
 
 class Gallery(models.Model):
     gallery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -9,9 +12,18 @@ class Gallery(models.Model):
     description = models.CharField(max_length=4096)
     status = models.CharField(choices=choices.COLLECTIVE_STATUS)
     picture = models.ImageField(default='static/images/default_600x400.png')
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.title}, owned by {self.creator.username}"
+
+    def delete(self, *args, **kwargs):
+        self.is_deleted = True
+        self.save()
+
 class GalleryItem(models.Model):
     item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     image_url = models.ImageField(default='static/images/default_600x400.png')
@@ -32,13 +44,13 @@ class GalleryComment(models.Model):
     is_reply_to_item = models.BooleanField()    # if true, replies_to_item must not be null
     replies_to_item = models.ForeignKey('ItemFeedback', on_delete=models.SET_NULL, blank=True, null=True)   # reply to itemfeedback
     replies_to_gallery = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True) # reply to a gallerycomment
-    
+
 class GalleryAward(models.Model):
     gallery_id = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name='gallery_award')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gallery_award')
     awarded_at = models.DateTimeField(auto_now_add=True)
     gallery_award_type = models.ForeignKey('AwardType', on_delete=models.RESTRICT, related_name='gallery_award')
-    
+
 class AwardType(models.Model):
     award = models.CharField(max_length=100)
     brush_drip_value = models.IntegerField()

@@ -1,14 +1,20 @@
+import uuid
+
 from django.core.validators import FileExtensionValidator
+from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
+
 from common.utils.choices import FACEBOOK_RULES
-from common.utils.constants import ALLOWED_EXTENSIONS_FOR_IMAGES, MAX_FILE_SIZE_FOR_IMAGES
+from common.utils.constants import (
+    ALLOWED_EXTENSIONS_FOR_IMAGES,
+    MAX_FILE_SIZE_FOR_IMAGES,
+)
+from post.models import Post
 from post.serializers import PostViewSerializer
-from post.models import Post, NovelPost
-from core.models import User
-from .models import Collective, Channel, CollectiveMember
-from PIL import Image
-import uuid
+
+from .models import Channel, Collective, CollectiveMember
+
 
 class CollectiveSerializer(ModelSerializer):
     class Meta:
@@ -115,7 +121,7 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
             validated_data['rules'] = FACEBOOK_RULES.copy()
         if 'artist_types' not in validated_data:
             validated_data['artist_types'] = []
-        
+
         return super().create(validated_data)
 
     def to_representation(self, instance):
@@ -140,7 +146,7 @@ class ChannelCreateSerializer(ModelSerializer):
         if len(value.strip()) == 0:
             raise serializers.ValidationError("Title cannot be empty or just whitespace.")
         return value.strip()
-    
+
     def validate_collective(self, value):
         """
         Check that the collective_id exists and is valid.
@@ -194,7 +200,7 @@ class JoinCollectiveSerializer(Serializer):
             return Collective.objects.get(collective_id=value)
         except Collective.DoesNotExist:
             raise serializers.ValidationError('Collective not found')
-        
+
     def create(self, validated_data):
         collective = validated_data['collective_id']
         user = self.context['request'].user
