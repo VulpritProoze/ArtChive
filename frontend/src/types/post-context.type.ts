@@ -30,6 +30,7 @@ export type PostContextType = {
 
   // Posts
   posts;
+  setPosts,
   pagination;
   expandedPost;
   setExpandedPost;

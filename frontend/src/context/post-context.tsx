@@ -901,6 +901,7 @@ export const PostProvider = ({ children }) => {
 
     // Posts
     posts,
+    setPosts,
     pagination,
     expandedPost,
     setExpandedPost,
