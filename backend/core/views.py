@@ -1,29 +1,39 @@
-from django.shortcuts import render
+import os
+
+from decouple import config
 from django.conf import settings
-from django.contrib.auth import authenticate
 from django.core.files.storage import default_storage
-from django.db.models import Q, Sum, Count
-from rest_framework.response import Response
-from rest_framework import status, generics
-from rest_framework.views import APIView
+from django.db.models import Count, Q, Sum
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+from rest_framework import generics, status
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.exceptions import TokenError, ExpiredTokenError
-from rest_framework.throttling import ScopedRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
-from .serializers import (
-    UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer,
-    BrushDripWalletSerializer, BrushDripTransactionListSerializer,
-    BrushDripTransactionDetailSerializer, BrushDripTransactionCreateSerializer,
-    BrushDripTransactionStatsSerializer
-)
-from .models import User, BrushDripWallet, BrushDripTransaction
+
+from .models import BrushDripTransaction, BrushDripWallet, User
 from .pagination import BrushDripsTransactionPagination
-from decouple import config
-import os
+from .serializers import (
+    BrushDripTransactionCreateSerializer,
+    BrushDripTransactionDetailSerializer,
+    BrushDripTransactionListSerializer,
+    BrushDripTransactionStatsSerializer,
+    BrushDripWalletSerializer,
+    LoginSerializer,
+    ProfileViewUpdateSerializer,
+    RegistrationSerializer,
+    UserSerializer,
+)
+
 
 @extend_schema(
     tags=['Authentication'],
@@ -137,19 +147,19 @@ class CookieTokenRefreshView(TokenRefreshView):
         except ExpiredTokenError:
             # Handle expired refresh token - CLEAR COOKIES
             response = Response(
-                {'error': 'Refresh token has expired. Please login again.'}, 
+                {'error': 'Refresh token has expired. Please login again.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-            
+
             # Clear both cookies
             response.delete_cookie('access_token')
             response.delete_cookie('refresh_token')
             return response
-            
-        except TokenError as e:
+
+        except TokenError:
             # Handle other token errors
             response = Response(
-                {'error': 'Invalid refresh token'}, 
+                {'error': 'Invalid refresh token'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
             response.delete_cookie('access_token')
@@ -167,7 +177,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 class UserInfoView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
-    
+
     def get_object(self):
         return self.request.user
 
@@ -258,7 +268,7 @@ class RegistrationView(APIView):
                         'artist_types': user.artist.artist_types
                     }
                 }
-            
+
                 return Response(response_data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({ 'error': f'Error creating user: {str(e)}' }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

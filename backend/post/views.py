@@ -1,32 +1,63 @@
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count, Sum
 from collections import deque
+
 from django.db import transaction
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.generics import CreateAPIView, ListAPIView, DestroyAPIView, UpdateAPIView, RetrieveAPIView
-from .serializers import (
-    PostCreateSerializer, PostDeleteSerializer,
-    CommentSerializer, CommentDeleteSerializer,
-    PostHeartCreateSerializer, PostHeartSerializer, PostUpdateSerializer,
-    TopLevelCommentsViewSerializer, CommentReplyViewSerializer,
-    CommentReplyCreateSerializer, ReplyUpdateSerializer,
-    CommentCreateSerializer, CommentUpdateSerializer,
-    CritiqueSerializer, CritiqueCreateSerializer,
-    CritiqueUpdateSerializer, CritiqueDeleteSerializer,
-    CritiqueReplySerializer, CritiqueReplyCreateSerializer,
-    PostListViewSerializer, PostDetailViewSerializer,
-    PostPraiseSerializer, PostPraiseCreateSerializer,
-    PostTrophySerializer, PostTrophyCreateSerializer
+from rest_framework.generics import (
+    CreateAPIView,
+    DestroyAPIView,
+    ListAPIView,
+    RetrieveAPIView,
+    UpdateAPIView,
 )
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from collective.models import CollectiveMember
 from core.models import User
 from core.permissions import IsAuthorOrSuperUser
-from collective.models import CollectiveMember
-from .models import Post, Comment, NovelPost, PostHeart, Critique, PostPraise, PostTrophy, TrophyType
-from .pagination import PostPagination, CommentPagination, CritiquePagination
+
+from .models import (
+    Comment,
+    Critique,
+    NovelPost,
+    Post,
+    PostHeart,
+    PostPraise,
+    PostTrophy,
+    TrophyType,
+)
+from .pagination import CommentPagination, CritiquePagination, PostPagination
+from .serializers import (
+    CommentCreateSerializer,
+    CommentDeleteSerializer,
+    CommentReplyCreateSerializer,
+    CommentReplyViewSerializer,
+    CommentSerializer,
+    CommentUpdateSerializer,
+    CritiqueCreateSerializer,
+    CritiqueDeleteSerializer,
+    CritiqueReplyCreateSerializer,
+    CritiqueReplySerializer,
+    CritiqueSerializer,
+    CritiqueUpdateSerializer,
+    PostCreateSerializer,
+    PostDeleteSerializer,
+    PostDetailViewSerializer,
+    PostHeartCreateSerializer,
+    PostHeartSerializer,
+    PostListViewSerializer,
+    PostPraiseCreateSerializer,
+    PostPraiseSerializer,
+    PostTrophyCreateSerializer,
+    PostTrophySerializer,
+    PostUpdateSerializer,
+    ReplyUpdateSerializer,
+    TopLevelCommentsViewSerializer,
+)
 
 
 class PostCreateView(generics.CreateAPIView):
@@ -47,7 +78,7 @@ class PostListView(generics.ListAPIView):
     - /posts/?page_size=20 (20 posts per page)
     '''
     serializer_class = PostListViewSerializer
-    pagination_class = PostPagination  
+    pagination_class = PostPagination
 
     def get_queryset(self):
         '''
@@ -103,14 +134,14 @@ class OwnPostsListView(generics.ListAPIView):
         ).select_related(
             'author',
         ).order_by('-created_at')
-    
+
 class PostCommentsView(generics.ListAPIView):
     '''
     Fetch all top-level comments
     '''
     serializer_class = TopLevelCommentsViewSerializer
     pagination_class = CommentPagination
-    
+
     def get_queryset(self):
         post_id = self.kwargs['post_id']
 
@@ -120,7 +151,7 @@ class PostCommentsView(generics.ListAPIView):
             critique_id__isnull=True,
             is_deleted=False    # Fetch only non soft-deleted comments
             ).annotate(
-                reply_count=Count('comment_reply', 
+                reply_count=Count('comment_reply',
                     filter=Q(
                         comment_reply__is_deleted=False
                     ))
@@ -129,7 +160,7 @@ class PostCommentsView(generics.ListAPIView):
             ).order_by(
                 '-created_at'
             )
-    
+
     def list(self, request, *args, **kwargs):
         # Get the full queryset (before pagination)
         queryset = self.filter_queryset(self.get_queryset())
@@ -155,7 +186,7 @@ class PostCommentsView(generics.ListAPIView):
             'results': serializer.data,
             'total_comments': total_comments
         })
-        
+
 class PostCommentsReplyView(ListAPIView):
     '''
     Fetch all reply comments
@@ -173,7 +204,7 @@ class PostCommentsReplyView(ListAPIView):
             ).order_by(
                 '-created_at'
             )
-    
+
 class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = CommentReplyCreateSerializer
     permission_classes = [IsAuthenticated]
@@ -193,7 +224,7 @@ class PostCommentsReplyDetailView(ListAPIView):
         comment_id = self.kwargs['comment_id']
         # Safely get the parent comment (returns 404 if not found)
         parent_comment = get_object_or_404(Comment, comment_id=comment_id)
-        
+
         return Comment.objects.filter(
             replies_to=parent_comment,      # ← replies TO this comment
             critique_id__isnull=True,
@@ -246,7 +277,7 @@ class PostDeleteView(generics.DestroyAPIView):
 class CommentListView(generics.ListAPIView):
     queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
     serializer_class = CommentSerializer
-    pagination_class = CommentPagination  
+    pagination_class = CommentPagination
 
 
 class CommentDetailView(generics.RetrieveAPIView):
@@ -302,8 +333,8 @@ class CommentDeleteView(APIView):
 
         # Validate confirmation using serializer
         serializer = CommentDeleteSerializer(
-            instance, 
-            data=request.data, 
+            instance,
+            data=request.data,
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
@@ -358,8 +389,8 @@ class PostHeartDestroyView(generics.DestroyAPIView):
     def get_object(self):
         post_id = self.kwargs.get('post_id')
         return get_object_or_404(
-            PostHeart, 
-            post_id=post_id, 
+            PostHeart,
+            post_id=post_id,
             author=self.request.user
         )
 
@@ -394,7 +425,7 @@ class CritiqueListView(ListAPIView):
     def get_queryset(self):
         post_id = self.kwargs['post_id']
         return Critique.objects.filter(
-            post_id=post_id, 
+            post_id=post_id,
             is_deleted=False
         ).annotate(
             reply_count=Count('critique_reply',
@@ -456,18 +487,18 @@ class CritiqueDeleteView(DestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         critique = self.get_object()
-        
+
         # Check ownership
         if critique.author != request.user and not request.user.is_staff:
             return Response(
                 {"error": "You can only delete your own critiques"},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         # Soft delete
         critique.is_deleted = True
         critique.save()
-        
+
         return Response(
             {"message": "Critique deleted successfully"},
             status=status.HTTP_200_OK
@@ -486,7 +517,7 @@ class UserCritiquesListView(ListAPIView):
             author=self.request.user,
             is_deleted=False
         ).select_related('author', 'post_id')
-    
+
 class CritiqueReplyListView(generics.ListAPIView):
     """
     List all replies for a specific critique
@@ -507,7 +538,7 @@ class CritiqueReplyListView(generics.ListAPIView):
         queryset = self.get_queryset()
         reply_count = queryset.count()  # Efficient count
         serializer = self.get_serializer(queryset, many=True)
-        
+
         return Response({
             "results": serializer.data,
             "reply_count": reply_count

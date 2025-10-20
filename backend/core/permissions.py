@@ -1,7 +1,9 @@
-from rest_framework.permissions import BasePermission
 from django.shortcuts import get_object_or_404
-from common.utils.choices import COLLECTIVE_ROLES
+from rest_framework.permissions import BasePermission
+
 from collective.models import Channel, Collective, CollectiveMember
+from common.utils.choices import COLLECTIVE_ROLES
+
 
 class IsAuthorOrSuperUser(BasePermission):
     """

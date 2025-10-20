@@ -1,14 +1,18 @@
-from django.db import models
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
+
 from common.utils import choices
-from .manager import CustomUserManager
 from common.utils.choices import TRANSACTION_OBJECT_CHOICES
-import uuid
+
+from .manager import CustomUserManager
+
 
 class User(AbstractUser):
     USERNAME_FIELD = 'email'
-    
+
     # Change the username field to be 'email'
     email = models.EmailField(unique=True)
     REQUIRED_FIELDS = []
@@ -21,6 +25,7 @@ class User(AbstractUser):
     country = models.CharField(max_length=100, default='N/A', blank=True)
     contact_no = models.CharField(max_length=20, default='N/A',blank=True)
     birthday = models.DateField(blank=True, null=True, help_text='Enter user\'s date of birth')
+    is_deleted = models.BooleanField(default=False)
 
     # profile
     profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/images/')
@@ -29,6 +34,11 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    # Soft deletion
+    def delete(self, *args, **kwargs):
+        self.is_deleted = True
+        self.save()
 
 class UserFellow(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fellow_relationship')
@@ -42,7 +52,7 @@ class Artist(models.Model):
 
     def __str__(self):
         return f"Artist profile for {self.user_id.username}"
-    
+
 class BrushDripWallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_wallet')
     balance = models.IntegerField(default=0)
@@ -56,7 +66,7 @@ class BrushDripTransaction(models.Model):
     amount = models.IntegerField(default=0)
     transaction_object_type = models.CharField(choices=TRANSACTION_OBJECT_CHOICES, max_length=500)  # Object type e.g. if transaction made by "praising", then "praise". We know it's a transaction connect to Praise object
     transaction_object_id = models.CharField(max_length=2000)   # Object's ID
-    transacted_at = models.DateTimeField(auto_now_add=True) 
+    transacted_at = models.DateTimeField(auto_now_add=True)
     transacted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_by')
     transacted_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='brushdrip_transacted_to')
 

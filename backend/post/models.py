@@ -1,9 +1,12 @@
-from django.db import models
-from core.models import User
-from collective.models import Collective, Channel
-from common.utils import choices
 import uuid
-    
+
+from django.db import models
+
+from collective.models import Channel, Collective
+from common.utils import choices
+from core.models import User
+
+
 class Post(models.Model):
     post_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     description = models.TextField()
@@ -11,6 +14,7 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     image_url = models.ImageField(upload_to='posts/images/', blank=True, null=True)
     video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
     post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
@@ -24,7 +28,7 @@ class NovelPost(models.Model):
     chapter = models.PositiveIntegerField()
     content = models.TextField()
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='novel_post')
-    
+
 class PostHeart(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_heart')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_heart')
@@ -32,18 +36,18 @@ class PostHeart(models.Model):
 
     def __str__(self):
         return f'{self.author} hearted {self.post_id}'
-    
+
 class PostPraise(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_praise')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_praise')
     praised_at = models.DateTimeField(auto_now_add=True)
-    
+
 class PostTrophy(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_trophy')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_trophy')
     awarded_at = models.DateTimeField(auto_now_add=True)
     post_trophy_type = models.ForeignKey('TrophyType', on_delete=models.RESTRICT, related_name='post_trophy')
-    
+
 class TrophyType(models.Model):
     trophy = models.CharField(max_length=100)
     brush_drip_value = models.IntegerField()
@@ -62,7 +66,7 @@ class Comment(models.Model):
     critique_id = models.ForeignKey('Critique', on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_reply')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_comment')
     replies_to = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='comment_reply')
-    
+
 class Critique(models.Model):
     critique_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
@@ -86,7 +90,7 @@ class Event(models.Model):
     end = models.DateTimeField()
     details = models.TextField()
     collective = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='event', default='00000000-0000-0000-0000-000000000001')
-    
+
 class EventComment(models.Model):
     event_comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
@@ -96,7 +100,7 @@ class EventComment(models.Model):
     event_id = models.ForeignKey(Event, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='event_comment')
     replying_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='event_comment')
-    
+
 class ArtChallenge(models.Model):
     challenge_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)

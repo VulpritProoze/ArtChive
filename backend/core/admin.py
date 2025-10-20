@@ -1,5 +1,6 @@
 from django.contrib import admin
-from core.models import User, Artist, BrushDripWallet, BrushDripTransaction
+
+from core.models import Artist, BrushDripTransaction, BrushDripWallet, User
 
 admin.site.register(User)
 admin.site.register(Artist)

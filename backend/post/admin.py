@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
-from .models import Post, Comment, Collective, Critique
+
+from .models import Collective, Comment, Critique, Post
 
 admin.site.register(Post)
 admin.site.register(Collective)

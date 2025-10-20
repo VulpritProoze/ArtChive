@@ -1,8 +1,15 @@
-from django.db import models
-from django.contrib.postgres.fields import ArrayField
-from core.models import User
-from common.utils.choices import FACEBOOK_RULES, CHANNEL_TYPE_CHOICES, COLLECTIVE_ROLES_CHOICES
 import uuid
+
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
+
+from common.utils.choices import (
+    CHANNEL_TYPE_CHOICES,
+    COLLECTIVE_ROLES_CHOICES,
+    FACEBOOK_RULES,
+)
+from core.models import User
+
 
 class Collective(models.Model):
     """
@@ -10,7 +17,7 @@ class Collective(models.Model):
     """
     def default_rules():
         return FACEBOOK_RULES.copy()
-    
+
     collective_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=4096)
@@ -19,7 +26,7 @@ class Collective(models.Model):
     picture = models.ImageField(default='static/images/defaut_600x400.png')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
 class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='collective_member')
     collective_role = models.CharField(choices=COLLECTIVE_ROLES_CHOICES, max_length=50, default='member')
@@ -27,7 +34,7 @@ class CollectiveMember(models.Model):
 
     def __str__(self):
         return f'{self.member.username}'
-    
+
 class Channel(models.Model):
     channel_id =  models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)

@@ -1,11 +1,12 @@
 from django.urls import path
+
 from .views import (
-    NotificationListView,
+    NotificationDeleteView,
     NotificationDetailView,
-    NotificationMarkAsReadView,
+    NotificationListView,
     NotificationMarkAllAsReadView,
+    NotificationMarkAsReadView,
     NotificationUnreadCountView,
-    NotificationDeleteView
 )
 
 urlpatterns = [

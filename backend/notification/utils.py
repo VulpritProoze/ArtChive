@@ -1,8 +1,10 @@
-from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Notification, NotificationNotifier
-from core.models import User
+from channels.layers import get_channel_layer
+
 from common.utils.choices import NOTIFICATION_TYPES
+from core.models import User
+
+from .models import Notification, NotificationNotifier
 
 
 def create_notification(

@@ -1,10 +1,11 @@
-from rest_framework import generics, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.db.models import Prefetch
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import Notification, NotificationNotifier
-from .serializers import NotificationSerializer, NotificationMarkAsReadSerializer
+from .serializers import NotificationMarkAsReadSerializer, NotificationSerializer
 
 
 class NotificationListView(generics.ListAPIView):

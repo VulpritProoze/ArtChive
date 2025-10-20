@@ -1,6 +1,7 @@
 # For local development
 
 import os
+
 from .base import *
 
 ALLOWED_HOSTS = [
