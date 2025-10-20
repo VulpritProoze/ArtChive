@@ -27,10 +27,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: "/home", label: "Home", icon: "🏠" },
-    { path: "/gallery", label: "Gallery", icon: "🖼️" },
-    { path: "/collective", label: "Collective", icon: "👥" },
-    { path: "/profile", label: "Profile", icon: "👤" },
+    { path: "/home", label: "Home", icon: "" },
+    { path: "/gallery", label: "Gallery", icon: "" },
+    { path: "/collective", label: "Collective", icon: "" },
+    { path: "/profile", label: "Profile", icon: "" },
   ];
 
   const settingsItems = [
@@ -355,7 +355,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {/* Popular This Week */}
               <div className="bg-base-200/50 rounded-xl p-4 hover:shadow-lg transition-shadow">
                 <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
-                  <span>🔥</span>
+                 
                   Popular This Week
                 </h3>
                 <div className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow group">
@@ -377,7 +377,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {/* Active Fellows */}
               <div className="bg-base-200/50 rounded-xl p-4">
                 <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
-                  <span>✨</span>
+                  <span></span>
                   Active Fellows
                 </h3>
                 <ul className="flex flex-col gap-3">

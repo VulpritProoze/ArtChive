@@ -32,8 +32,17 @@ export default function Index() {
 
   return (
     <MainLayout showSidebar={true} showRightSidebar={true}>
+      <div>
+          <button
+            onClick={() => navigate("create")}
+            className="btn btn-primary"
+          >
+            Create
+          </button>
+        </div>
       <div className="space-y-6">
         {/* Page Header */}
+        
         <div className="bg-base-200/50 rounded-xl p-6">
           <h1 className="text-3xl font-bold text-base-content mb-2">
             Discover Collectives
