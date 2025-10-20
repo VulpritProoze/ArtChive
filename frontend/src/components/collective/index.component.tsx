@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
-import { CommonHeader } from "@components/common";
+import { MainLayout } from "@components/common/layout";
 import { useCollectiveContext } from "@context/collective-context";
 import { LoadingSpinner } from "@components/loading-spinner";
 
@@ -27,107 +27,148 @@ export default function Index() {
     navigate(`/collective/${collectiveId}`);
   };
 
-  if(loading) return (
-    <LoadingSpinner text={"Loading collective details..."} />
-  )
+  if (loading)
+    return <LoadingSpinner text={"Loading collective details..."} />;
 
   return (
-    <div className="container max-w-full w-full">
-      <CommonHeader user={user} />
-
-      <div className="mx-8 mt-4">
-        <h1 className="text-3xl font-bold text-center my-8">Collectives</h1>
-
-        <div>
-          <button
-            onClick={() => navigate("create")}
-            className="btn btn-primary"
-          >
-            Create
-          </button>
+    <MainLayout showSidebar={true} showRightSidebar={true}>
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="bg-base-200/50 rounded-xl p-6">
+          <h1 className="text-3xl font-bold text-base-content mb-2">
+            Discover Collectives
+          </h1>
+          <p className="text-base-content/70">
+            Join artist communities and collaborate with fellow creators
+          </p>
         </div>
 
-        <div className="mt-4">
+        {/* Collectives Grid */}
+        <div>
           {collectives.length === 0 ? (
-            <div className="text-center my-16">
-              <p className="text-lg">No collectives found.</p>
+            <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
+              <div className="text-6xl mb-4">🎨</div>
+              <p className="text-lg font-semibold text-base-content">
+                No collectives found.
+              </p>
+              <p className="text-sm text-base-content/60 mt-2">
+                Be the first to create one!
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4">
               {collectives.map((collective) => (
                 <div
                   key={collective.collective_id}
-                  className="card bg-base-100 shadow-xl"
+                  className="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 border border-base-300 cursor-pointer"
+                  onClick={() => handleCollectiveClick(collective.collective_id)}
                 >
-                  <div className="card-body">
-                    <h2 className="card-title">{collective.title}</h2>
-                    <p>{collective.collective_id}</p>
-                    <p>{collective.description}</p>
-
-                    {isMemberOfACollective(collective.collective_id) ? (
-                      <div className="hover:cursor-not-allowed">
-                        <button className="btn btn-primary w-full" disabled>
-                          Already joined
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                          handleJoinCollective(collective.collective_id)
-                        }
-                      >
-                        Join Collective
-                      </button>
-                    )}
-
-                    {collective.artist_types.length > 0 && (
-                      <div className="my-2">
-                        <div className="text-sm font-semibold mb-1">
-                          Artist Types:
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {collective.artist_types.map((type, index) => (
-                            <span key={index} className="badge badge-outline">
-                              {type}
-                            </span>
-                          ))}
+                  <div className="card-body p-4">
+                    <div className="flex gap-4">
+                      {/* Collective Thumbnail */}
+                      <div className="flex-shrink-0">
+                        <div className="w-20 h-20 bg-base-300 rounded-lg overflow-hidden">
+                          <img
+                            src={collective.thumbnail || "/images/collective-placeholder.jpg"}
+                            alt={collective.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://via.placeholder.com/80x80?text=Art";
+                            }}
+                          />
                         </div>
                       </div>
-                    )}
 
-                    {collective.channels.length > 0 && (
-                      <div className="my-2">
-                        <div className="text-sm font-semibold mb-1">
-                          Channels:
+                      {/* Collective Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h2 className="text-lg font-bold text-base-content mb-1">
+                              {collective.title}
+                            </h2>
+                            <div className="flex items-center gap-3 text-sm text-base-content/70">
+                              <span>495 members</span>
+                              <span className="flex items-center gap-1">
+                                ❤️ 7114
+                              </span>
+                              <span className="flex items-center gap-1">
+                                💬 2161
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-cyan-500 text-sm font-medium">130 online</span>
+                            <div className="text-xs text-base-content/50 mt-1">
+                              Active {new Date(collective.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {collective.channels.map((channel) => (
-                            <span
-                              key={channel.channel_id}
-                              className="badge badge-info h-12"
+
+                        {/* Artist Types */}
+                        {collective.artist_types.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {collective.artist_types.slice(0, 4).map((type, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 bg-base-200 text-xs rounded-full text-base-content/80"
+                              >
+                                {type}
+                              </span>
+                            ))}
+                            {collective.artist_types.length > 4 && (
+                              <span className="px-3 py-1 bg-base-200 text-xs rounded-full text-base-content/60">
+                                +{collective.artist_types.length - 4} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Channels */}
+                        {collective.channels.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {collective.channels.slice(0, 3).map((channel) => (
+                              <div
+                                key={channel.channel_id}
+                                className="flex items-center gap-2 text-sm text-base-content/70"
+                              >
+                                <span className="flex items-center gap-1">
+                                  <span className="text-base-content/50">#</span>
+                                  {channel.title}
+                                </span>
+                                <span className="badge badge-primary badge-sm">88</span>
+                              </div>
+                            ))}
+                            {collective.channels.length > 3 && (
+                              <span className="text-xs text-base-content/50">
+                                +{collective.channels.length - 3} more channels
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action Buttons - Hidden on hover/click to go to page */}
+                        <div className="flex gap-2 mt-3">
+                          {isMemberOfACollective(collective.collective_id) ? (
+                            <button 
+                              className="btn btn-sm btn-primary" 
+                              disabled
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {channel.title}, {channel.channel_id}
-                            </span>
-                          ))}
+                              ✓ Joined
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleJoinCollective(collective.collective_id);
+                              }}
+                            >
+                              Join
+                            </button>
+                          )}
                         </div>
                       </div>
-                    )}
-
-                    <div className="flex flex-row-reverse">
-                      <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                          handleCollectiveClick(collective.collective_id)
-                        }
-                      >
-                        Visit Collective
-                      </button>
-                    </div>
-
-                    <div className="text-xs text-gray-500 mt-2">
-                      Created:{" "}
-                      {new Date(collective.created_at).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
@@ -136,6 +177,6 @@ export default function Index() {
           )}
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 }
