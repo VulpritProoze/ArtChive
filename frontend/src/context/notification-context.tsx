@@ -14,7 +14,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const reconnectAttemptsRef = useRef(0);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const maxReconnectAttempts = 5;
+  const connectionTimeout = 10000; // 10 seconds timeout for handshake
 
   // Check if user is authenticated (user is authenticated if user object exists)
   const isAuthenticated = !!user;
@@ -111,8 +113,23 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // in the handshake request when connecting from the same origin
       const ws = new WebSocket(`${WS_BASE_URL}/ws/notifications/`);
 
+      // Set timeout for connection handshake
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.warn('⏱️ WebSocket connection timeout - closing connection');
+          ws.close();
+        }
+      }, connectionTimeout);
+
       ws.onopen = () => {
         console.log('✅ WebSocket connected');
+
+        // Clear connection timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = undefined;
+        }
+
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
       };
@@ -183,6 +200,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
+    }
+
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = undefined;
     }
 
     if (wsRef.current) {
@@ -197,11 +220,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // Initialize on mount and when authentication state changes
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Fetch initial data
+      // Fetch initial data FIRST (priority)
       fetchNotifications();
-
-      // Connect to WebSocket
-      connectWebSocket();
 
       // Request browser notification permission
       if ('Notification' in window && Notification.permission === 'default') {
@@ -221,7 +241,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       disconnectWebSocket();
     };
-  }, [isAuthenticated, user]); // Only depend on auth state
+  }, [isAuthenticated, user, fetchNotifications, disconnectWebSocket]);
+
+  // Separate effect for WebSocket - deferred to avoid blocking
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    // Defer WebSocket connection by 1 second to allow critical data fetching first
+    // This prevents WebSocket handshake from blocking API calls
+    const deferredConnectionTimeout = setTimeout(() => {
+      console.log('🔌 Initiating deferred WebSocket connection...');
+      connectWebSocket();
+    }, 1000); // 1 second delay
+
+    return () => {
+      clearTimeout(deferredConnectionTimeout);
+    };
+  }, [isAuthenticated, user, connectWebSocket]);
 
   const value: NotificationContextType = {
     notifications,

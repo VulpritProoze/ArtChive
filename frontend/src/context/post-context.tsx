@@ -322,7 +322,7 @@ export const PostProvider = ({ children }) => {
       toast.success("Post praised successfully!");
     } catch (error) {
       console.error("Praise post error: ", error);
-      toast.error(handleApiError(error, brushDripTransactionErrors));
+      toast.error(handleApiError(error, brushDripTransactionErrors, true));
     } finally {
       setLoadingPraise((prev) => ({ ...prev, [postId]: false }));
     }

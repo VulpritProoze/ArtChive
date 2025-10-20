@@ -145,11 +145,10 @@ class PostCommentsView(generics.ListAPIView):
     def get_queryset(self):
         post_id = self.kwargs['post_id']
 
-        return Comment.objects.filter(
+        return Comment.objects.get_active_objects().filter(
             post_id=post_id,
             replies_to__isnull=True,
-            critique_id__isnull=True,
-            is_deleted=False    # Fetch only non soft-deleted comments
+            critique_id__isnull=True
             ).annotate(
                 reply_count=Count('comment_reply',
                     filter=Q(
@@ -166,9 +165,8 @@ class PostCommentsView(generics.ListAPIView):
         queryset = self.filter_queryset(self.get_queryset())
         post_id = self.kwargs['post_id']
 
-        total_comments = Comment.objects.filter(
-            post_id=post_id,
-            is_deleted=False
+        total_comments = Comment.objects.get_active_objects().filter(
+            post_id=post_id
         ).count()
 
         # Let DRF handle pagination and serialization
@@ -195,10 +193,9 @@ class PostCommentsReplyView(ListAPIView):
     pagination_class = CommentPagination
 
     def get_queryset(self):
-        return Comment.objects.filter(
+        return Comment.objects.get_active_objects().filter(
             replies_to__isnull=False,
-            critique_id__isnull=True,
-            is_deleted=False    # Fetch only non soft-deleted comments
+            critique_id__isnull=True
             ).select_related(
                 'author',
             ).order_by(
@@ -210,7 +207,7 @@ class CommentReplyCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
 class CommentReplyUpdateView(generics.UpdateAPIView):
-    queryset = Comment.objects.filter(replies_to__isnull=False, is_deleted=False)
+    queryset = Comment.objects.get_active_objects().filter(replies_to__isnull=False)
     serializer_class = ReplyUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
@@ -225,10 +222,9 @@ class PostCommentsReplyDetailView(ListAPIView):
         # Safely get the parent comment (returns 404 if not found)
         parent_comment = get_object_or_404(Comment, comment_id=comment_id)
 
-        return Comment.objects.filter(
+        return Comment.objects.get_active_objects().filter(
             replies_to=parent_comment,      # ← replies TO this comment
-            critique_id__isnull=True,
-            is_deleted=False
+            critique_id__isnull=True
         ).select_related(
             'author'
         ).order_by('-created_at')
@@ -275,7 +271,7 @@ class PostDeleteView(generics.DestroyAPIView):
         instance.delete()
 
 class CommentListView(generics.ListAPIView):
-    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
+    queryset = Comment.objects.get_active_objects().select_related('author', 'post_id')
     serializer_class = CommentSerializer
     pagination_class = CommentPagination
 
@@ -285,26 +281,34 @@ class CommentDetailView(generics.RetrieveAPIView):
     View for retrieving a single comment.
     No authentication required if comments are public.
     """
-    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
+    queryset = Comment.objects.get_active_objects().select_related('author', 'post_id')
     serializer_class = CommentSerializer
     lookup_field = 'comment_id'
 
 
 
 class CommentCreateView(generics.CreateAPIView):
-    queryset = Comment.objects.filter(is_deleted=False)
+    queryset = Comment.objects.get_active_objects()
     serializer_class = CommentCreateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        from notification.utils import create_comment_notification
+
+        # Create the comment
+        comment = serializer.save(author=self.request.user)
+
+        # Send notification to post author
+        if comment.post_id:
+            post_author = comment.post_id.author
+            create_comment_notification(comment, post_author)
 
 class CommentUpdateView(generics.UpdateAPIView):
     """
     View for updating a comment.
     Requires authentication and ownership/admin rights.
     """
-    queryset = Comment.objects.filter(is_deleted=False).select_related('author', 'post_id')
+    queryset = Comment.objects.get_active_objects().select_related('author', 'post_id')
     serializer_class = CommentUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
     lookup_field = 'comment_id'
@@ -319,7 +323,7 @@ class CommentDeleteView(APIView):
     def delete(self, request, comment_id):
         # Fetch the comment (only non-deleted)
         instance = get_object_or_404(
-            Comment.objects.filter(is_deleted=False),
+            Comment.objects.get_active_objects(),
             comment_id=comment_id
         )
 
@@ -358,16 +362,14 @@ class CommentDeleteView(APIView):
             if not current.is_deleted:
                 comments_to_delete.append(current)
                 # Get direct replies that are not deleted
-                replies = Comment.objects.filter(
-                    replies_to=current,
-                    is_deleted=False
+                replies = Comment.objects.get_active_objects().filter(
+                    replies_to=current
                 )
                 queue.extend(replies)
 
-        # Bulk update to soft-delete
-        if comments_to_delete:
-            comment_ids = [c.comment_id for c in comments_to_delete]
-            Comment.objects.filter(comment_id__in=comment_ids).update(is_deleted=True)
+        # Use the delete() method for each comment (soft deletion)
+        for comment in comments_to_delete:
+            comment.delete()
 
 class PostHeartCreateView(generics.CreateAPIView):
     """Create a heart for a post"""
@@ -424,9 +426,8 @@ class CritiqueListView(ListAPIView):
 
     def get_queryset(self):
         post_id = self.kwargs['post_id']
-        return Critique.objects.filter(
-            post_id=post_id,
-            is_deleted=False
+        return Critique.objects.get_active_objects().filter(
+            post_id=post_id
         ).annotate(
             reply_count=Count('critique_reply',
                 filter=Q(
@@ -443,7 +444,15 @@ class CritiqueCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        from notification.utils import create_critique_notification
+
+        # Create the critique
+        critique = serializer.save()
+
+        # Send notification to post author
+        if critique.post_id:
+            post_author = critique.post_id.author
+            create_critique_notification(critique, post_author)
 
 class CritiqueDetailView(RetrieveAPIView):
     """
@@ -454,7 +463,7 @@ class CritiqueDetailView(RetrieveAPIView):
     lookup_field = 'critique_id'
 
     def get_queryset(self):
-        return Critique.objects.filter(is_deleted=False).select_related('author', 'post_id')
+        return Critique.objects.get_active_objects().select_related('author', 'post_id')
 
 class CritiqueUpdateView(UpdateAPIView):
     """
@@ -465,7 +474,7 @@ class CritiqueUpdateView(UpdateAPIView):
     lookup_field = 'critique_id'
 
     def get_queryset(self):
-        return Critique.objects.filter(is_deleted=False)
+        return Critique.objects.get_active_objects()
 
     def perform_update(self, serializer):
         # Ensure the user owns the critique
@@ -483,26 +492,11 @@ class CritiqueDeleteView(DestroyAPIView):
     lookup_field = 'critique_id'
 
     def get_queryset(self):
-        return Critique.objects.filter(is_deleted=False)
+        return Critique.objects.get_active_objects()
 
-    def delete(self, request, *args, **kwargs):
-        critique = self.get_object()
-
-        # Check ownership
-        if critique.author != request.user and not request.user.is_staff:
-            return Response(
-                {"error": "You can only delete your own critiques"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        # Soft delete
-        critique.is_deleted = True
-        critique.save()
-
-        return Response(
-            {"message": "Critique deleted successfully"},
-            status=status.HTTP_200_OK
-        )
+    def perform_destroy(self, instance):
+        # Simply call delete() which now performs soft deletion
+        instance.delete()
 
 class UserCritiquesListView(ListAPIView):
     """
@@ -513,9 +507,8 @@ class UserCritiquesListView(ListAPIView):
     pagination_class = CritiquePagination
 
     def get_queryset(self):
-        return Critique.objects.filter(
-            author=self.request.user,
-            is_deleted=False
+        return Critique.objects.get_active_objects().filter(
+            author=self.request.user
         ).select_related('author', 'post_id')
 
 class CritiqueReplyListView(generics.ListAPIView):
@@ -528,10 +521,9 @@ class CritiqueReplyListView(generics.ListAPIView):
 
     def get_queryset(self):
         critique_id = self.kwargs['critique_id']
-        return Comment.objects.filter(
+        return Comment.objects.get_active_objects().filter(
             critique_id=critique_id,
-            is_critique_reply=True,
-            is_deleted=False
+            is_critique_reply=True
         ).select_related('author', 'post_id', 'critique_id')
 
     def list(self, request, *args, **kwargs):
@@ -565,9 +557,8 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
     lookup_field = 'comment_id'
 
     def get_queryset(self):
-        return Comment.objects.filter(
-            is_critique_reply=True,
-            is_deleted=False
+        return Comment.objects.get_active_objects().filter(
+            is_critique_reply=True
         ).select_related('author', 'post_id', 'critique_id')
 
 
@@ -595,7 +586,50 @@ class PostPraiseCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        from django.db import transaction as db_transaction
+        from core.models import BrushDripWallet, BrushDripTransaction
+        from notification.utils import create_praise_notification
+
+        user = self.request.user
+        post = serializer.validated_data['post_id']
+        post_author = post.author
+
+        with db_transaction.atomic():
+            # Lock wallets to prevent race conditions
+            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+            # Final balance check
+            if sender_wallet.balance < 1:
+                raise serializers.ValidationError("Insufficient Brush Drips")
+
+            # Update balances
+            sender_wallet.balance -= 1
+            receiver_wallet.balance += 1
+
+            sender_wallet.save()
+            receiver_wallet.save()
+
+            # Create PostPraise
+            post_praise = PostPraise.objects.create(
+                post_id=post,
+                author=user
+            )
+
+            # Create transaction record
+            BrushDripTransaction.objects.create(
+                amount=1,
+                transaction_object_type='praise',
+                transaction_object_id=str(post_praise.id),
+                transacted_by=user,
+                transacted_to=post_author
+            )
+
+            # Send notification to post author
+            create_praise_notification(post_praise, post_author)
+
+        # Update serializer instance for response
+        serializer.instance = post_praise
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={'request': request})
@@ -719,7 +753,57 @@ class PostTrophyCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        from django.db import transaction as db_transaction
+        from core.models import BrushDripWallet, BrushDripTransaction
+        from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
+        from notification.utils import create_trophy_notification
+
+        user = self.request.user
+        post = serializer.validated_data['post_id']
+        post_author = post.author
+        trophy_type_name = serializer.validated_data['trophy_type']
+        required_amount = TROPHY_BRUSH_DRIP_COSTS[trophy_type_name]
+
+        with db_transaction.atomic():
+            # Get the TrophyType object
+            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type_name)
+
+            # Lock wallets to prevent race conditions
+            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+            # Final balance check
+            if sender_wallet.balance < required_amount:
+                raise serializers.ValidationError("Insufficient Brush Drips")
+
+            # Update balances
+            sender_wallet.balance -= required_amount
+            receiver_wallet.balance += required_amount
+
+            sender_wallet.save()
+            receiver_wallet.save()
+
+            # Create PostTrophy
+            post_trophy = PostTrophy.objects.create(
+                post_id=post,
+                author=user,
+                post_trophy_type=trophy_type_obj
+            )
+
+            # Create transaction record
+            BrushDripTransaction.objects.create(
+                amount=required_amount,
+                transaction_object_type='trophy',
+                transaction_object_id=str(post_trophy.id),
+                transacted_by=user,
+                transacted_to=post_author
+            )
+
+            # Send notification to post author
+            create_trophy_notification(post_trophy, post_author)
+
+        # Update serializer instance for response
+        serializer.instance = post_trophy
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={'request': request})

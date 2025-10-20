@@ -384,7 +384,7 @@ class PostViewSerializer(serializers.ModelSerializer):
         return full_name if full_name else user.username
 
     def get_comment_count(self, obj):
-        return obj.post_comment.filter(is_deleted=False).count()
+        return obj.post_comment.get_active_objects().count()
 
 
 class PostDetailViewSerializer(PostViewSerializer):
@@ -401,7 +401,7 @@ class PostListViewSerializer(PostViewSerializer):
 
     def get_comments(self, obj):
         """Get first 2 comments for this post"""
-        comments = obj.post_comment.filter(is_deleted=False).order_by('-created_at')[:2]  # Get latest 2 comments
+        comments = obj.post_comment.get_active_objects().order_by('-created_at')[:2]  # Get latest 2 comments
         return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -456,7 +456,7 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
 
     def get_reply_count(self, obj):
         '''Get reply counts'''
-        return obj.comment_reply.filter(is_deleted=False).count()
+        return obj.comment_reply.get_active_objects().count()
 
 class CommentCreateSerializer(ModelSerializer):
     class Meta:
@@ -466,18 +466,6 @@ class CommentCreateSerializer(ModelSerializer):
             'post_id': {'required': False},
         }
 
-    def create(self, validated_data):
-        from notification.utils import create_comment_notification
-
-        # Create the comment
-        comment = super().create(validated_data)
-
-        # Send notification to post author
-        if comment.post_id:
-            post_author = comment.post_id.author
-            create_comment_notification(comment, post_author)
-
-        return comment
 
 class CommentUpdateSerializer(ModelSerializer):
     class Meta:
@@ -589,7 +577,7 @@ class CritiqueReplySerializer(CommentSerializer):
 
     def get_reply_count(self, obj):
         '''Get reply counts'''
-        return obj.comment_reply.filter(is_deleted=False).count()
+        return obj.comment_reply.get_active_objects().count()
 
 class CritiqueReplyCreateSerializer(ModelSerializer):
     class Meta:
@@ -707,10 +695,9 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
             data['author'] = request.user
 
         # Check if user already created a critique for this post
-        if Critique.objects.filter(
+        if Critique.objects.get_active_objects().filter(
             post_id=data['post_id'],
-            author=data['author'],
-            is_deleted=False
+            author=data['author']
         ).exists():
             raise serializers.ValidationError("You have already created a critique for this post")
 
@@ -836,48 +823,6 @@ class PostPraiseCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
-        """
-        Create PostPraise and process Brush Drip transaction atomically
-        """
-        request = self.context.get('request')
-        user = request.user
-        post = validated_data['post_id']
-        post_author = post.author
-
-        with db_transaction.atomic():
-            # Lock wallets to prevent race conditions
-            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
-            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
-
-            # Final balance check
-            if sender_wallet.balance < 1:
-                raise serializers.ValidationError("Insufficient Brush Drips")
-
-            # Update balances
-            sender_wallet.balance -= 1
-            receiver_wallet.balance += 1
-
-            sender_wallet.save()
-            receiver_wallet.save()
-
-            # Create PostPraise
-            post_praise = PostPraise.objects.create(
-                post_id=post,
-                author=user
-            )
-
-            # Create transaction record
-            BrushDripTransaction.objects.create(
-                amount=1,
-                transaction_object_type='praise',
-                transaction_object_id=str(post_praise.id),
-                transacted_by=user,
-                transacted_to=post_author
-            )
-
-        return post_praise
-
     def to_representation(self, instance):
         """Return detailed PostPraise info after creation"""
         return PostPraiseSerializer(instance, context=self.context).data
@@ -983,55 +928,6 @@ class PostTrophyCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Post author does not have a wallet")
 
         return data
-
-    def create(self, validated_data):
-        """
-        Create PostTrophy and process Brush Drip transaction atomically
-        """
-
-        request = self.context.get('request')
-        user = request.user
-        post = validated_data['post_id']
-        post_author = post.author
-        trophy_type_name = validated_data.pop('trophy_type')
-        required_amount = TROPHY_BRUSH_DRIP_COSTS[trophy_type_name]
-
-        with db_transaction.atomic():
-            # Get the TrophyType object
-            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type_name)
-
-            # Lock wallets to prevent race conditions
-            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
-            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
-
-            # Final balance check
-            if sender_wallet.balance < required_amount:
-                raise serializers.ValidationError("Insufficient Brush Drips")
-
-            # Update balances
-            sender_wallet.balance -= required_amount
-            receiver_wallet.balance += required_amount
-
-            sender_wallet.save()
-            receiver_wallet.save()
-
-            # Create PostTrophy
-            post_trophy = PostTrophy.objects.create(
-                post_id=post,
-                author=user,
-                post_trophy_type=trophy_type_obj
-            )
-
-            # Create transaction record
-            BrushDripTransaction.objects.create(
-                amount=required_amount,
-                transaction_object_type='trophy',
-                transaction_object_id=str(post_trophy.id),
-                transacted_by=user,
-                transacted_to=post_author
-            )
-
-        return post_trophy
 
     def to_representation(self, instance):
         """Return detailed PostTrophy info after creation"""

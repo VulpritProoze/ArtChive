@@ -40,6 +40,12 @@ class User(AbstractUser):
         self.is_deleted = True
         self.save()
 
+class InactiveUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = "Inactive User"
+        verbose_name_plural = "Inactive Users"
+
 class UserFellow(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fellow_relationship')
     fellow_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fellow_relationship_as_fellow')

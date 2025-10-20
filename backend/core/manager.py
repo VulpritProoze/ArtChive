@@ -26,3 +26,6 @@ class CustomUserManager(BaseUserManager):
 
     def get_active_users(self):
         return self.get_queryset().filter(is_deleted=False)
+
+    def get_inactive_users(self):
+        return self.get_queryset().filter(is_deleted=True)

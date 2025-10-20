@@ -76,25 +76,27 @@ TRANSACTION_OBJECT_CHOICES = [
     ('trophy', 'Trophy'),
     # ('brush_gradient', 'Brush Gradient'),
     ('critique', 'Critique'),
+    ('admin_override', 'Admin Override'),
 ]
 
 TRANSACTION_TYPES = SimpleNamespace(
     praise='Praise',
     trophy='Trophy',
     brush_gradient='Brush Gradient',
-    critique='Critique'
+    critique='Critique',
+    admin_override='Admin Override',
 )
 
 NOTIFICATION_OBJECT_CHOICES = [
     ('post_comment', 'Post Comment'),
     ('post_critique', 'Post Critique'),
     ('post_praise', 'Post Praise'),
-    ('post_trophy', 'Post Trophy')
+    ('post_trophy', 'Post Trophy'),
 ]
 
 NOTIFICATION_TYPES = SimpleNamespace(
     post_comment='Post Comment',
     post_critique='Post Critique',
     post_praise='Post Praise',
-    post_trophy='Post Trophy'
+    post_trophy='Post Trophy',
 )
