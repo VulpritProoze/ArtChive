@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
-from decouple import config
 import os
 import sys
 
+from decouple import config
+
+
 def main():
     settings_module = config("DJANGO_SETTINGS_MODULE", default=None)
-    
+
     if sys.argv[1] == "test":
         if settings_module:
             print(

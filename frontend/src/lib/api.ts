@@ -21,6 +21,14 @@ export const core = axios.create({
     withCredentials: true,
 })
 
+export const notification = axios.create({
+    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/notifications/`,
+    withCredentials: true,
+})
+
+// WebSocket Base URL
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+
 // Flag to prevent multiple refresh requests
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -147,7 +155,7 @@ api.interceptors.response.use(
 );
 
 // 🚨 SIMPLIFIED interceptors for other instances - no refresh logic, just logout on 401
-const instances = [post, collective, core];
+const instances = [post, collective, core, notification];
 
 instances.forEach(instance => {
   // Request interceptor

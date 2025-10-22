@@ -15,12 +15,15 @@ import {
   Profile,
   Timeline,
   BrushDripsPage,
+  BrushDripsTransactions,
+  NotificationIndex,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
 import { LoadingProvider } from "@context/loading-context";
 import { CollectiveProvider } from "@context/collective-context";
+import { NotificationProvider } from "@context/notification-context";
 import useToggleTheme from "@hooks/use-theme";
 import { ToastContainer } from "react-toastify";
 
@@ -59,9 +62,10 @@ function ThemedToastContainer() {
 function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <LoadingProvider>
-          <Router>
+      <NotificationProvider>
+        <ThemeProvider>
+          <LoadingProvider>
+            <Router>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
                 {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
@@ -75,6 +79,9 @@ function App() {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/profile/me" element={<Profile />} />
                   <Route path="/drips" element={<BrushDripsPage />} />
+                  <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
+                  <Route path="/notifications" element={<NotificationIndex />} />
+
                   <Route
                     path="/home"
                     element={
@@ -125,9 +132,10 @@ function App() {
               </Routes>
             </Suspense>
             <ThemedToastContainer />
-          </Router>
-        </LoadingProvider>
-      </ThemeProvider>
+            </Router>
+          </LoadingProvider>
+        </ThemeProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

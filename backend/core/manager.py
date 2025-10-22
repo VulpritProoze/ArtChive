@@ -1,10 +1,11 @@
 from django.contrib.auth.models import BaseUserManager
 
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('Email is required')
-        
+
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password) # set_password hashes password
@@ -17,8 +18,14 @@ class CustomUserManager(BaseUserManager):
 
         if not extra_fields.get('is_staff'):
             raise ValueError('Superuser must have is_staff=True')
-        
+
         if not extra_fields.get('is_superuser'):
             raise ValueError('Superuser must have is_superuser=True')
-        
+
         return self.create_user(email, password, **extra_fields)
+
+    def get_active_users(self):
+        return self.get_queryset().filter(is_deleted=False)
+
+    def get_inactive_users(self):
+        return self.get_queryset().filter(is_deleted=True)

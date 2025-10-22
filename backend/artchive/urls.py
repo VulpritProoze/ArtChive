@@ -1,9 +1,13 @@
-from django.contrib import admin
-from django.conf.urls.static import static
-from django.conf import settings
-from django.urls import path, include
 from decouple import config
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -12,6 +16,7 @@ urlpatterns = [
     path('api/collective/', include('collective.urls'), name='collective'),
     path('api/gallery/', include('gallery.urls'), name='gallery'),
     path('api/avatar/', include('gallery.urls'), name='avatar'),
+    path('api/notifications/', include('notification.urls'), name='notifications'),
     # Schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

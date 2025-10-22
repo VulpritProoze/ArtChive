@@ -1,28 +1,39 @@
-from django.shortcuts import render
+import os
+
+from decouple import config
 from django.conf import settings
-from django.contrib.auth import authenticate
 from django.core.files.storage import default_storage
-from django.db.models import Q, Sum, Count
-from rest_framework.response import Response
-from rest_framework import status, generics
-from rest_framework.views import APIView
+from django.db.models import Count, Q, Sum
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+from rest_framework import generics, status
 from rest_framework.generics import RetrieveAPIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.exceptions import TokenError, ExpiredTokenError
-from rest_framework.throttling import ScopedRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
+
+from .models import BrushDripTransaction, BrushDripWallet, User
+from .pagination import BrushDripsTransactionPagination
 from .serializers import (
-    UserSerializer, LoginSerializer, RegistrationSerializer, ProfileViewUpdateSerializer,
-    BrushDripWalletSerializer, BrushDripTransactionListSerializer,
-    BrushDripTransactionDetailSerializer, BrushDripTransactionCreateSerializer,
-    BrushDripTransactionStatsSerializer
+    BrushDripTransactionCreateSerializer,
+    BrushDripTransactionDetailSerializer,
+    BrushDripTransactionListSerializer,
+    BrushDripTransactionStatsSerializer,
+    BrushDripWalletSerializer,
+    LoginSerializer,
+    ProfileViewUpdateSerializer,
+    RegistrationSerializer,
+    UserSerializer,
 )
-from .models import User, BrushDripWallet, BrushDripTransaction
-from decouple import config
-import os
+
 
 @extend_schema(
     tags=['Authentication'],
@@ -136,19 +147,19 @@ class CookieTokenRefreshView(TokenRefreshView):
         except ExpiredTokenError:
             # Handle expired refresh token - CLEAR COOKIES
             response = Response(
-                {'error': 'Refresh token has expired. Please login again.'}, 
+                {'error': 'Refresh token has expired. Please login again.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-            
+
             # Clear both cookies
             response.delete_cookie('access_token')
             response.delete_cookie('refresh_token')
             return response
-            
-        except TokenError as e:
+
+        except TokenError:
             # Handle other token errors
             response = Response(
-                {'error': 'Invalid refresh token'}, 
+                {'error': 'Invalid refresh token'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
             response.delete_cookie('access_token')
@@ -166,7 +177,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 class UserInfoView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
-    
+
     def get_object(self):
         return self.request.user
 
@@ -257,7 +268,7 @@ class RegistrationView(APIView):
                         'artist_types': user.artist.artist_types
                     }
                 }
-            
+
                 return Response(response_data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({ 'error': f'Error creating user: {str(e)}' }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -401,6 +412,8 @@ class BrushDripTransactionListView(generics.ListAPIView):
     description='Get current user transaction history',
     parameters=[
         OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
+        OpenApiParameter(name='sent_only', description='Show only sent transactions', type=bool),
+        OpenApiParameter(name='received_only', description='Show only received transactions', type=bool),
     ],
     responses={
         200: BrushDripTransactionListSerializer(many=True),
@@ -410,16 +423,40 @@ class BrushDripTransactionListView(generics.ListAPIView):
 class BrushDripMyTransactionsView(generics.ListAPIView):
     """
     GET: List all transactions for authenticated user (sent and received)
+    Query params:
+    - transaction_type: Filter by transaction object type
+    - sent_only: Only show sent transactions (true/false)
+    - received_only: Only show received transactions (true/false)
     """
     serializer_class = BrushDripTransactionListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = BrushDripsTransactionPagination
 
     def get_queryset(self):
-        queryset = BrushDripTransaction.objects.select_related(
-            'transacted_by', 'transacted_to'
-        ).filter(
-            Q(transacted_by=self.request.user) | Q(transacted_to=self.request.user)
-        ).order_by('-transacted_at')
+        user = self.request.user
+
+        # Check for sent_only and received_only filters
+        sent_only = self.request.query_params.get('sent_only', None)
+        received_only = self.request.query_params.get('received_only', None)
+
+        # Build base queryset with appropriate filter
+        if sent_only and sent_only.lower() == 'true':
+            # Only sent transactions
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(transacted_by=user).order_by('-transacted_at')
+        elif received_only and received_only.lower() == 'true':
+            # Only received transactions
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(transacted_to=user).order_by('-transacted_at')
+        else:
+            # All transactions (sent or received)
+            queryset = BrushDripTransaction.objects.select_related(
+                'transacted_by', 'transacted_to'
+            ).filter(
+                Q(transacted_by=user) | Q(transacted_to=user)
+            ).order_by('-transacted_at')
 
         # Optional filter by transaction type
         transaction_type = self.request.query_params.get('transaction_type', None)

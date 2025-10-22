@@ -54,7 +54,7 @@ const CommentsRenderer = ({
           )}
 
           {/* Fading overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-base-100 via-transparent to-transparent pointer-events-none z-10 mb-2" />
+          <div className="absolute inset-0 bg-gradient-to-t from-base-200 via-transparent to-transparent pointer-events-none z-10 mb-2" />
 
           {/* Last two comments with decreasing opacity */}
           {hasComments ? (
@@ -66,7 +66,7 @@ const CommentsRenderer = ({
               return (
                 <>
                   {/* Fading overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-base-100 via-transparent to-transparent pointer-events-none z-10 mb-2" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-base-200 via-transparent to-transparent pointer-events-none z-10 mb-2" />
                   <div
                     key={comment.comment_id}
                     className="bg-base-200 p-3 rounded-lg transition-all duration-300"
@@ -77,7 +77,7 @@ const CommentsRenderer = ({
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <p className="font-medium text-sm flex flex-row gap-1">
+                        <p className="font-medium  text-sm flex flex-row gap-1">
                           {comment.author_picture ? (
                             <img
                               src={comment.author_picture}
@@ -85,7 +85,7 @@ const CommentsRenderer = ({
                               className="w-8 h-8 rounded-full border border-base-300"
                             />
                           ) : (
-                            <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center text-white justify-center text-xs font-bold">
                               {comment.author_username
                                 ?.charAt(0)
                                 .toUpperCase() || "U"}

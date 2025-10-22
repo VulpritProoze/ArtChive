@@ -30,6 +30,7 @@ export type PostContextType = {
 
   // Posts
   posts;
+  setPosts,
   pagination;
   expandedPost;
   setExpandedPost;
@@ -109,16 +110,22 @@ export type PostContextType = {
   // Praise states
   loadingPraise: { [postId: string]: boolean };
   praiseStatus: { [postId: string]: { count: number; isPraised: boolean } };
+  showPraiseListModal: boolean;
+  selectedPostForPraiseList: string | null;
 
   // Praise methods
   praisePost: (postId: string) => Promise<void>;
   fetchPraiseStatus: (postId: string) => Promise<void>;
+  openPraiseListModal: (postId: string) => void;
+  closePraiseListModal: () => void;
 
   // Trophy states
   loadingTrophy: { [postId: string]: boolean };
   trophyStatus: { [postId: string]: { counts: any; userAwarded: string[] } };
   showTrophyModal: boolean;
   selectedPostForTrophy: string | null;
+  showTrophyListModal: boolean;
+  selectedPostForTrophyList: string | null;
 
   // Trophy methods
   awardTrophy: (postId: string, trophyType: string) => Promise<void>;
@@ -126,4 +133,6 @@ export type PostContextType = {
   openTrophyModal: (postId: string) => void;
   closeTrophyModal: () => void;
   setShowTrophyModal: Dispatch<SetStateAction<boolean>>;
+  openTrophyListModal: (postId: string) => void;
+  closeTrophyListModal: () => void;
 };

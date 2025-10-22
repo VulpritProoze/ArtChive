@@ -4,6 +4,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from 'react-hook-form'
+import { loginErrors } from "@errors";
+import { handleApiError } from "@utils";
+import { toast } from "react-toastify";
 
 export default function Login() {
   const { login } = useAuth();
@@ -33,10 +36,8 @@ export default function Login() {
       await login(data.email, data.password);
       navigate("/home");
     } catch (error) {
-      setError("root", {
-        message: "Invalid email or password. Please try again.",
-      });
-      console.error("Login failed:", error);
+      const errMessage = handleApiError(error, loginErrors) 
+      toast.error(errMessage)
     }
   };
 

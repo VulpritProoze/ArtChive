@@ -6,6 +6,10 @@ import {
   CommentsRenderer,
   CritiqueSection,
 } from "@components/common/posts-feature";
+import { 
+  PraiseListModal,
+  TrophyListModal,
+} from "@components/common/posts-feature/modal"
 import { usePostContext } from "@context/post-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -37,6 +41,14 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
     openTrophyModal,
     trophyStatus,
     fetchTrophyStatus,
+    openPraiseListModal,
+    closePraiseListModal,
+    showPraiseListModal,
+    selectedPostForPraiseList,
+    openTrophyListModal,
+    closeTrophyListModal,
+    showTrophyListModal,
+    selectedPostForTrophyList,
   } = usePostContext();
 
   const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
@@ -56,7 +68,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
     <>
       <div
         key={postItem.post_id}
-        className="card bg-base-100 border border-base-300 rounded-xl shadow-sm"
+        className="card bg-base-200 border border-base-300 rounded-xl shadow-sm"
       >
         {/* Post Header - Instagram Style */}
         <PostHeader postItem={postItem} />
@@ -89,7 +101,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
 
         {/* Text-only post (default type) */}
         {(!postItem.post_type || postItem.post_type === "default") && (
-          <div className="p-6 bg-base-100">
+          <div className="p-6">
             <div className="prose max-w-none">
               <p className="text-base-content whitespace-pre-wrap">
                 {postItem.description}
@@ -215,16 +227,22 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
               {postItem.hearts_count || 0} likes
             </p>
 
-            {/* Praise Count */}
+            {/* Praise Count - Clickable */}
             {currentPraiseStatus && currentPraiseStatus.count > 0 && (
-              <p className="text-sm font-semibold text-warning">
+              <button
+                onClick={() => openPraiseListModal(postItem.post_id)}
+                className="text-sm font-semibold text-warning hover:underline cursor-pointer transition-all hover:scale-105"
+              >
                 {currentPraiseStatus.count} praises
-              </p>
+              </button>
             )}
 
-            {/* Trophy Count */}
+            {/* Trophy Count - Clickable */}
             {currentTrophyStatus && currentTrophyStatus.counts && (
-              <div className="flex gap-2 text-sm">
+              <button
+                onClick={() => openTrophyListModal(postItem.post_id)}
+                className="flex gap-2 text-sm hover:opacity-80 transition-all cursor-pointer"
+              >
                 {currentTrophyStatus.counts.bronze_stroke > 0 && (
                   <span className="text-orange-700 font-semibold">
                     🥉 {currentTrophyStatus.counts.bronze_stroke}
@@ -240,7 +258,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                     🥇 {currentTrophyStatus.counts.diamond_canvas}
                   </span>
                 )}
-              </div>
+              </button>
             )}
 
             {/* Time Posted */}
@@ -281,6 +299,24 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
           )}
         </div>
       </div>
+
+      {/* Praise List Modal */}
+      {showPraiseListModal && selectedPostForPraiseList === postItem.post_id && (
+        <PraiseListModal
+          isOpen={showPraiseListModal}
+          onClose={closePraiseListModal}
+          postId={postItem.post_id}
+        />
+      )}
+
+      {/* Trophy List Modal */}
+      {showTrophyListModal && selectedPostForTrophyList === postItem.post_id && (
+        <TrophyListModal
+          isOpen={showTrophyListModal}
+          onClose={closeTrophyListModal}
+          postId={postItem.post_id}
+        />
+      )}
     </>
   );
 }

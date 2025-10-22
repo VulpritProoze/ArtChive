@@ -1,11 +1,19 @@
 from django.urls import path
+
 from .views import (
-    LoginView, LogoutView, UserInfoView, CookieTokenRefreshView,
-    RegistrationView, ProfileRetrieveUpdateView,
-    BrushDripWalletRetrieveView, BrushDripWalletDetailView,
-    BrushDripTransactionListView, BrushDripMyTransactionsView,
-    BrushDripTransactionDetailView, BrushDripTransactionCreateView,
-    BrushDripTransactionStatsView
+    BrushDripMyTransactionsView,
+    BrushDripTransactionCreateView,
+    BrushDripTransactionDetailView,
+    BrushDripTransactionListView,
+    BrushDripTransactionStatsView,
+    BrushDripWalletDetailView,
+    BrushDripWalletRetrieveView,
+    CookieTokenRefreshView,
+    LoginView,
+    LogoutView,
+    ProfileRetrieveUpdateView,
+    RegistrationView,
+    UserInfoView,
 )
 
 urlpatterns = [

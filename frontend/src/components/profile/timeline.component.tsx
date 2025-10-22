@@ -17,6 +17,7 @@ const Timeline: React.FC = () => {
   const { user } = useAuth(); // This now has your actual user data!
   const {
     showCommentForm,
+    setPosts,
     posts,
     pagination,
     showPostForm,
@@ -76,6 +77,10 @@ const Timeline: React.FC = () => {
     fetchPosts(1, false, null, user?.id);
   }, [fetchPosts]);
 
+  useEffect(() => {
+    setPosts([])
+  }, [])
+
   const tabs = [
     { id: "timeline", label: "Timeline", icon: "📝" },
     { id: "works", label: "Works", icon: "🎨" },
@@ -119,7 +124,7 @@ const Timeline: React.FC = () => {
                     @{user?.username || "username"}
                   </p>
                 </div>
-                
+
                 {/* Action Buttons */}
                 <div className="flex flex-wrap justify-center lg:justify-end gap-2">
                   <Link
@@ -189,11 +194,10 @@ const Timeline: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${activeTab === tab.id
                     ? "bg-primary text-primary-content shadow-md scale-[1.02]"
                     : "hover:bg-base-300 text-base-content"
-                }`}
+                  }`}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
