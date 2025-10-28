@@ -99,7 +99,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const connectWebSocket = useCallback(() => {
     // Security: Only connect if user is authenticated
     if (!isAuthenticated || !user) {
-      console.log('⚠️ Cannot connect WebSocket: User not authenticated');
+      // console.log('⚠️ Cannot connect WebSocket: User not authenticated');
       return;
     }
 
@@ -179,7 +179,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // and we haven't exceeded max attempts
         if (isAuthenticated && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          console.log(`🔄 Reconnecting in ${delay}ms... (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
+          // console.log(`🔄 Reconnecting in ${delay}ms... (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++;
@@ -196,7 +196,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
-    console.log('Disconnecting WebSocket...');
+    // console.log('Disconnecting WebSocket...');
 
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -252,7 +252,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Defer WebSocket connection by 1 second to allow critical data fetching first
     // This prevents WebSocket handshake from blocking API calls
     const deferredConnectionTimeout = setTimeout(() => {
-      console.log('🔌 Initiating deferred WebSocket connection...');
+      // console.log('🔌 Initiating deferred WebSocket connection...');
       connectWebSocket();
     }, 1000); // 1 second delay
 

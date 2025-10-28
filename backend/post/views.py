@@ -17,8 +17,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from collective.models import CollectiveMember
-from core.models import User
+from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
+from core.models import BrushDripTransaction, BrushDripWallet, User
 from core.permissions import IsAuthorOrSuperUser
+from notification.utils import (
+    create_comment_notification,
+    create_critique_notification,
+    create_praise_notification,
+    create_trophy_notification,
+)
 
 from .models import (
     Comment,
@@ -293,8 +300,6 @@ class CommentCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_create(self, serializer):
-        from notification.utils import create_comment_notification
-
         # Create the comment
         comment = serializer.save(author=self.request.user)
 
@@ -444,8 +449,6 @@ class CritiqueCreateView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        from notification.utils import create_critique_notification
-
         # Create the critique
         critique = serializer.save()
 
@@ -566,7 +569,7 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
 # POST PRAISE VIEWS
 # ============================================================================
 
-class PostPraiseCreateView(generics.CreateAPIView):
+class PostPraiseCreateView(APIView):
     """
     Create a praise for a post (costs 1 Brush Drip)
     POST /api/posts/praise/create/
@@ -582,65 +585,62 @@ class PostPraiseCreateView(generics.CreateAPIView):
 
     All operations are atomic (either all succeed or all fail)
     """
-    serializer_class = PostPraiseCreateSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        from django.db import transaction as db_transaction
-        from core.models import BrushDripWallet, BrushDripTransaction
-        from notification.utils import create_praise_notification
+    def post(self, request):
+        # Validate request data
+        serializer = PostPraiseCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
 
-        user = self.request.user
+        user = request.user
         post = serializer.validated_data['post_id']
         post_author = post.author
 
-        with db_transaction.atomic():
-            # Lock wallets to prevent race conditions
-            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
-            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
-
-            # Final balance check
-            if sender_wallet.balance < 1:
-                raise serializers.ValidationError("Insufficient Brush Drips")
-
-            # Update balances
-            sender_wallet.balance -= 1
-            receiver_wallet.balance += 1
-
-            sender_wallet.save()
-            receiver_wallet.save()
-
-            # Create PostPraise
-            post_praise = PostPraise.objects.create(
-                post_id=post,
-                author=user
-            )
-
-            # Create transaction record
-            BrushDripTransaction.objects.create(
-                amount=1,
-                transaction_object_type='praise',
-                transaction_object_id=str(post_praise.id),
-                transacted_by=user,
-                transacted_to=post_author
-            )
-
-            # Send notification to post author
-            create_praise_notification(post_praise, post_author)
-
-        # Update serializer instance for response
-        serializer.instance = post_praise
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-
         try:
-            self.perform_create(serializer)
+            with transaction.atomic():
+                # Lock wallets to prevent race conditions
+                sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+                receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+                # Final balance check
+                if sender_wallet.balance < 1:
+                    return Response(
+                        {'error': 'Insufficient Brush Drips'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Update balances
+                sender_wallet.balance -= 1
+                receiver_wallet.balance += 1
+
+                sender_wallet.save()
+                receiver_wallet.save()
+
+                # Create PostPraise
+                post_praise = PostPraise.objects.create(
+                    post_id=post,
+                    author=user
+                )
+
+                # Create transaction record
+                BrushDripTransaction.objects.create(
+                    amount=1,
+                    transaction_object_type='praise',
+                    transaction_object_id=str(post_praise.id),
+                    transacted_by=user,
+                    transacted_to=post_author
+                )
+
+                # Send notification to post author
+                create_praise_notification(post_praise, post_author)
+
+            # Return serialized response
+            response_serializer = PostPraiseSerializer(post_praise, context={'request': request})
             return Response(
-                serializer.data,
+                response_serializer.data,
                 status=status.HTTP_201_CREATED
             )
+
         except Exception as e:
             return Response(
                 {'error': f'Failed to create praise: {str(e)}'},
@@ -725,7 +725,7 @@ class PostPraiseCheckView(APIView):
 # POST TROPHY VIEWS
 # ============================================================================
 
-class PostTrophyCreateView(generics.CreateAPIView):
+class PostTrophyCreateView(APIView):
     """
     Create a trophy for a post (costs 5/10/20 Brush Drips based on trophy type)
     POST /api/posts/trophy/create/
@@ -749,72 +749,68 @@ class PostTrophyCreateView(generics.CreateAPIView):
 
     All operations are atomic (either all succeed or all fail)
     """
-    serializer_class = PostTrophyCreateSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        from django.db import transaction as db_transaction
-        from core.models import BrushDripWallet, BrushDripTransaction
-        from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
-        from notification.utils import create_trophy_notification
+    def post(self, request):
+        # Validate request data
+        serializer = PostTrophyCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
 
-        user = self.request.user
+        user = request.user
         post = serializer.validated_data['post_id']
         post_author = post.author
         trophy_type_name = serializer.validated_data['trophy_type']
         required_amount = TROPHY_BRUSH_DRIP_COSTS[trophy_type_name]
 
-        with db_transaction.atomic():
-            # Get the TrophyType object
-            trophy_type_obj = TrophyType.objects.get(trophy=trophy_type_name)
-
-            # Lock wallets to prevent race conditions
-            sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
-            receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
-
-            # Final balance check
-            if sender_wallet.balance < required_amount:
-                raise serializers.ValidationError("Insufficient Brush Drips")
-
-            # Update balances
-            sender_wallet.balance -= required_amount
-            receiver_wallet.balance += required_amount
-
-            sender_wallet.save()
-            receiver_wallet.save()
-
-            # Create PostTrophy
-            post_trophy = PostTrophy.objects.create(
-                post_id=post,
-                author=user,
-                post_trophy_type=trophy_type_obj
-            )
-
-            # Create transaction record
-            BrushDripTransaction.objects.create(
-                amount=required_amount,
-                transaction_object_type='trophy',
-                transaction_object_id=str(post_trophy.id),
-                transacted_by=user,
-                transacted_to=post_author
-            )
-
-            # Send notification to post author
-            create_trophy_notification(post_trophy, post_author)
-
-        # Update serializer instance for response
-        serializer.instance = post_trophy
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-
         try:
-            self.perform_create(serializer)
+            with transaction.atomic():
+                # Get the TrophyType object
+                trophy_type_obj = TrophyType.objects.get(trophy=trophy_type_name)
+
+                # Lock wallets to prevent race conditions
+                sender_wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+                receiver_wallet = BrushDripWallet.objects.select_for_update().get(user=post_author)
+
+                # Final balance check
+                if sender_wallet.balance < required_amount:
+                    return Response(
+                        {'error': 'Insufficient Brush Drips'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Update balances
+                sender_wallet.balance -= required_amount
+                receiver_wallet.balance += required_amount
+
+                sender_wallet.save()
+                receiver_wallet.save()
+
+                # Create PostTrophy
+                post_trophy = PostTrophy.objects.create(
+                    post_id=post,
+                    author=user,
+                    post_trophy_type=trophy_type_obj
+                )
+
+                # Create transaction record
+                BrushDripTransaction.objects.create(
+                    amount=required_amount,
+                    transaction_object_type='trophy',
+                    transaction_object_id=str(post_trophy.id),
+                    transacted_by=user,
+                    transacted_to=post_author
+                )
+
+                # Send notification to post author
+                create_trophy_notification(post_trophy, post_author)
+
+            # Return serialized response
+            response_serializer = PostTrophySerializer(post_trophy, context={'request': request})
             return Response(
-                serializer.data,
+                response_serializer.data,
                 status=status.HTTP_201_CREATED
             )
+
         except Exception as e:
             return Response(
                 {'error': f'Failed to award trophy: {str(e)}'},

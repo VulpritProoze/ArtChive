@@ -116,7 +116,9 @@ export default function NotificationDropdown() {
         <div className="absolute right-0 mt-4 w-96 bg-base-100 rounded-lg shadow-2xl border border-base-300 z-50 max-h-[600px] flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between sticky top-0 bg-base-100 rounded-t-lg">
-            <h3 className="text-lg font-bold text-base-content">Notifications</h3>
+            <h3 className="text-lg font-bold text-base-content">
+              <Link to="/notifications" className="link-hover">Notifications</Link>
+            </h3>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}

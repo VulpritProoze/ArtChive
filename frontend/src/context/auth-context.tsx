@@ -83,7 +83,6 @@ export const AuthProvider = ({ children }) => {
   }
 
   const initializeAuth = async () => {
-    if (initialized) return
     setIsLoading(true)
     try {
       await fetchUser()
@@ -92,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       throw err
     } finally {
       setIsLoading(false)
-      setInitialized(true);
+      setInitialized(true)
     }
   }
 
@@ -182,8 +181,8 @@ export const AuthProvider = ({ children }) => {
 
       await fetchUser();
       await fetchCollectiveMemberDetails()
-      toast.success('Login successful!')
-    } catch (error) {      
+      setInitialized(true)
+    } catch (error) {
       console.error("Login failed: ", error);
       throw error
     }
@@ -199,6 +198,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setCollectiveMemberships(null)
+      setInitialized(false)
       setComponentLoading(false)
     }
   };
@@ -223,8 +223,9 @@ export const AuthProvider = ({ children }) => {
     logout,
     register,
     isLoading,
+    initialized,
     refreshToken,
-    refreshUser, // NEW: Added refreshUser to context
+    refreshUser,
     getUserId,
     collectiveMemberships,
     fetchCollectiveMemberDetails,

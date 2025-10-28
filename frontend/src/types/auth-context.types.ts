@@ -21,8 +21,9 @@ export type AuthContextType = {
     artistTypes: string[]
   ) => Promise<boolean>;
   isLoading: boolean;
+  initialized: boolean;
   refreshToken: () => Promise<void>;
-  refreshUser: () => Promise<User>; 
+  refreshUser: () => Promise<User>;
   getUserId: () => number | null;
   collectiveMemberships;
   fetchCollectiveMemberDetails: () => Promise<CollectiveMemberType>;
