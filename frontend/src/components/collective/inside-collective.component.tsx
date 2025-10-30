@@ -471,7 +471,7 @@ const CollectiveHome = () => {
               {/* Member Avatars */}
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex -space-x-2">
-                  {collectiveData.members.map((member) => (
+                  {collectiveData.members.slice(0, 10).map((member) => (
                     <div key={member.id} className="w-10 h-10 rounded-full border-2 border-base-100 overflow-hidden">
                       <img
                         src={member.profile_picture}

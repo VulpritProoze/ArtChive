@@ -98,6 +98,8 @@ class CollectiveCreateView(APIView):
                 )
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
+        # Will have to add one more feature: On collective create, the creator will automatically become admin
+
         except Exception:
             return Response(
                 {"detail": "Failed to create collective and channels."},
