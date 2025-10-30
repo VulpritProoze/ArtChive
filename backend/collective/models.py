@@ -31,6 +31,8 @@ class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='collective_member')
     collective_role = models.CharField(choices=COLLECTIVE_ROLES_CHOICES, max_length=50, default='member')
     member = models.ForeignKey(User, on_delete=models.CASCADE, related_name='collective_member')
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'{self.member.username}'
@@ -43,3 +45,29 @@ class Channel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     collective = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='collective_channel')
+
+class AdminRequest(models.Model):
+    """
+    Model to track admin role requests in collectives.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    request_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    collective = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='admin_requests')
+    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_requests')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    message = models.TextField(max_length=500, blank=True, help_text='Optional message from requester')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_admin_requests')
+
+    class Meta:
+        unique_together = ('collective', 'requester', 'status')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.requester.username} -> {self.collective.title} ({self.status})"

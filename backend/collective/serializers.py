@@ -13,7 +13,7 @@ from common.utils.constants import (
 from post.models import Post
 from post.serializers import PostViewSerializer
 
-from .models import Channel, Collective, CollectiveMember
+from .models import Channel, Collective, CollectiveMember, AdminRequest
 
 
 class CollectiveSerializer(ModelSerializer):
@@ -39,10 +39,38 @@ class CollectiveMemberSerializer(ModelSerializer):
 class CollectiveDetailsSerializer(ModelSerializer):
     # nested serializer
     channels = CollectiveChannelSerializer(source='collective_channel', many=True, read_only=True)
+    user_membership = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Collective
         fields = '__all__'
+
+    def get_user_membership(self, obj):
+        """Get the current user's membership info for this collective."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            try:
+                membership = CollectiveMember.objects.get(
+                    collective_id=obj,
+                    member=request.user
+                )
+                return {
+                    'is_member': True,
+                    'role': membership.collective_role,
+                    'joined_at': membership.created_at
+                }
+            except CollectiveMember.DoesNotExist:
+                return {
+                    'is_member': False,
+                    'role': None,
+                    'joined_at': None
+                }
+        return None
+
+    def get_member_count(self, obj):
+        """Get total member count for this collective."""
+        return CollectiveMember.objects.filter(collective_id=obj).count()
 
 class CollectiveCreateSerializer(serializers.ModelSerializer):
     title = serializers.CharField(max_length=100, trim_whitespace=True)
@@ -275,3 +303,302 @@ class BecomeCollectiveAdminSerializer(Serializer):
         member_record.save(update_fields=['collective_role'])  # Optimize DB write
 
         return member_record
+
+# ============================================================================
+# COLLECTIVE MEMBER MANAGEMENT SERIALIZERS
+# ============================================================================
+
+class CollectiveMemberDetailSerializer(ModelSerializer):
+    """Detailed serializer for collective members with user info."""
+    member_id = serializers.IntegerField(source='member.id', read_only=True)
+    username = serializers.CharField(source='member.username', read_only=True)
+    first_name = serializers.CharField(source='member.first_name', read_only=True)
+    middle_name = serializers.CharField(source='member.middle_name', read_only=True)
+    last_name = serializers.CharField(source='member.last_name', read_only=True)
+    profile_picture = serializers.ImageField(source='member.profile_picture', read_only=True)
+    artist_types = serializers.ListField(source='member.artist_types', read_only=True)
+
+    class Meta:
+        model = CollectiveMember
+        fields = ['id', 'member_id', 'username', 'first_name', 'middle_name', 'last_name',
+                  'profile_picture', 'artist_types', 'collective_role', 'collective_id']
+
+class KickMemberSerializer(Serializer):
+    """Serializer for kicking a member from a collective."""
+    member_id = serializers.IntegerField()
+    collective_id = serializers.UUIDField()
+
+    def validate_collective_id(self, value):
+        """Validate that collective exists."""
+        if not Collective.objects.filter(collective_id=value).exists():
+            raise serializers.ValidationError('Collective not found.')
+        return value
+
+    def validate(self, data):
+        """Validate that member exists in collective and isn't kicking themselves."""
+        user = self.context['request'].user
+        member_id = data['member_id']
+        collective_id = data['collective_id']
+
+        # Check if user is trying to kick themselves
+        if user.id == member_id:
+            raise serializers.ValidationError('You cannot kick yourself from the collective.')
+
+        # Check if target member exists in collective
+        try:
+            self._member_to_kick = CollectiveMember.objects.get(
+                member_id=member_id,
+                collective_id=collective_id
+            )
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('Member not found in this collective.')
+
+        # Prevent kicking any admin - they must be demoted first
+        if self._member_to_kick.collective_role == 'admin':
+            raise serializers.ValidationError('Cannot kick an admin. Please demote them to member first.')
+
+        return data
+
+class PromoteMemberSerializer(Serializer):
+    """Serializer for promoting a member to admin."""
+    member_id = serializers.IntegerField()
+    collective_id = serializers.UUIDField()
+
+    def validate_collective_id(self, value):
+        """Validate that collective exists."""
+        if not Collective.objects.filter(collective_id=value).exists():
+            raise serializers.ValidationError('Collective not found.')
+        return value
+
+    def validate(self, data):
+        """Validate that member exists and is not already an admin."""
+        user = self.context['request'].user
+        member_id = data['member_id']
+        collective_id = data['collective_id']
+
+        # Check if current user is an admin
+        try:
+            admin_member = CollectiveMember.objects.get(
+                member_id=user.id,
+                collective_id=collective_id
+            )
+            if admin_member.collective_role != 'admin':
+                raise serializers.ValidationError('Only admins can promote members.')
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('You are not a member of this collective.')
+
+        # Check if target member exists in collective
+        try:
+            self._member_to_promote = CollectiveMember.objects.get(
+                member_id=member_id,
+                collective_id=collective_id
+            )
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('Member not found in this collective.')
+
+        # Check if already an admin
+        if self._member_to_promote.collective_role == 'admin':
+            raise serializers.ValidationError('This member is already an admin.')
+
+        return data
+
+    def save(self):
+        """Promote the member to admin."""
+        self._member_to_promote.collective_role = 'admin'
+        self._member_to_promote.save(update_fields=['collective_role'])
+        return self._member_to_promote
+
+class DemoteAdminSerializer(Serializer):
+    """Serializer for demoting an admin to member."""
+    member_id = serializers.IntegerField()
+    collective_id = serializers.UUIDField()
+
+    def validate_collective_id(self, value):
+        """Validate that collective exists."""
+        if not Collective.objects.filter(collective_id=value).exists():
+            raise serializers.ValidationError('Collective not found.')
+        return value
+
+    def validate(self, data):
+        """Validate that member exists, is an admin, and isn't the last admin."""
+        user = self.context['request'].user
+        member_id = data['member_id']
+        collective_id = data['collective_id']
+
+        # Check if current user is an admin
+        try:
+            admin_member = CollectiveMember.objects.get(
+                member_id=user.id,
+                collective_id=collective_id
+            )
+            if admin_member.collective_role != 'admin':
+                raise serializers.ValidationError('Only admins can demote other admins.')
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('You are not a member of this collective.')
+
+        # Check if target member exists in collective
+        try:
+            self._member_to_demote = CollectiveMember.objects.get(
+                member_id=member_id,
+                collective_id=collective_id
+            )
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('Member not found in this collective.')
+
+        # Check if they are actually an admin
+        if self._member_to_demote.collective_role != 'admin':
+            raise serializers.ValidationError('This member is not an admin.')
+
+        # Count remaining admins
+        admin_count = CollectiveMember.objects.filter(
+            collective_id=collective_id,
+            collective_role='admin'
+        ).count()
+
+        if admin_count <= 1:
+            raise serializers.ValidationError('Cannot demote the last admin of the collective.')
+
+        return data
+
+    def save(self):
+        """Demote the admin to member."""
+        self._member_to_demote.collective_role = 'member'
+        self._member_to_demote.save(update_fields=['collective_role'])
+        return self._member_to_demote
+
+# ============================================================================
+# ADMIN REQUEST SERIALIZERS
+# ============================================================================
+
+class AdminRequestSerializer(ModelSerializer):
+    """Serializer for admin requests."""
+    requester_username = serializers.CharField(source='requester.username', read_only=True)
+    requester_first_name = serializers.CharField(source='requester.first_name', read_only=True)
+    requester_middle_name = serializers.CharField(source='requester.middle_name', read_only=True)
+    requester_last_name = serializers.CharField(source='requester.last_name', read_only=True)
+    requester_profile_picture = serializers.ImageField(source='requester.profile_picture', read_only=True)
+    collective_title = serializers.CharField(source='collective.title', read_only=True)
+
+    class Meta:
+        model = AdminRequest
+        fields = ['request_id', 'collective', 'collective_title', 'requester',
+                  'requester_username', 'requester_first_name', 'requester_middle_name',
+                  'requester_last_name', 'requester_profile_picture',
+                  'status', 'message', 'created_at', 'updated_at', 'reviewed_by']
+        read_only_fields = ['request_id', 'requester', 'status', 'created_at', 'updated_at', 'reviewed_by']
+
+class AdminRequestCreateSerializer(Serializer):
+    """Serializer for creating admin requests."""
+    collective_id = serializers.UUIDField()
+    message = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+    def validate_collective_id(self, value):
+        """Validate that collective exists."""
+        try:
+            return Collective.objects.get(collective_id=value)
+        except Collective.DoesNotExist:
+            raise serializers.ValidationError('Collective not found.')
+
+    def validate(self, data):
+        """Validate that user is a member and hasn't already requested."""
+        user = self.context['request'].user
+        collective = data['collective_id']
+
+        # Check if user is a member
+        try:
+            member = CollectiveMember.objects.get(
+                member=user,
+                collective_id=collective
+            )
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('You must be a member of this collective to request admin role.')
+
+        # Check if already an admin
+        if member.collective_role == 'admin':
+            raise serializers.ValidationError('You are already an admin of this collective.')
+
+        # Check if there's already a pending request
+        if AdminRequest.objects.filter(
+            collective=collective,
+            requester=user,
+            status='pending'
+        ).exists():
+            raise serializers.ValidationError('You already have a pending admin request for this collective.')
+
+        return data
+
+    def create(self, validated_data):
+        """Create admin request."""
+        collective = validated_data['collective_id']
+        message = validated_data.get('message', '')
+        user = self.context['request'].user
+
+        return AdminRequest.objects.create(
+            collective=collective,
+            requester=user,
+            message=message,
+            status='pending'
+        )
+
+class AcceptAdminRequestSerializer(Serializer):
+    """Serializer for accepting/rejecting admin requests."""
+    request_id = serializers.UUIDField()
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+
+    def validate_request_id(self, value):
+        """Validate that request exists and is pending."""
+        try:
+            request = AdminRequest.objects.select_related('collective', 'requester').get(request_id=value)
+        except AdminRequest.DoesNotExist:
+            raise serializers.ValidationError('Admin request not found.')
+
+        if request.status != 'pending':
+            raise serializers.ValidationError(f'This request has already been {request.status}.')
+
+        self._admin_request = request
+        return value
+
+    def validate(self, data):
+        """Validate that current user is an admin of the collective."""
+        user = self.context['request'].user
+        admin_request = self._admin_request
+
+        # Check if user is admin of the collective
+        try:
+            member = CollectiveMember.objects.get(
+                member=user,
+                collective_id=admin_request.collective
+            )
+            if member.collective_role != 'admin':
+                raise serializers.ValidationError('Only admins can approve/reject admin requests.')
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError('You are not a member of this collective.')
+
+        return data
+
+    def save(self):
+        """Process the admin request."""
+        action = self.validated_data['action']
+        admin_request = self._admin_request
+        reviewer = self.context['request'].user
+
+        if action == 'approve':
+            # Update request status
+            admin_request.status = 'approved'
+            admin_request.reviewed_by = reviewer
+            admin_request.save()
+
+            # Promote member to admin
+            member = CollectiveMember.objects.get(
+                member=admin_request.requester,
+                collective_id=admin_request.collective
+            )
+            member.collective_role = 'admin'
+            member.save(update_fields=['collective_role'])
+
+        elif action == 'reject':
+            admin_request.status = 'rejected'
+            admin_request.reviewed_by = reviewer
+            admin_request.save()
+
+        return admin_request

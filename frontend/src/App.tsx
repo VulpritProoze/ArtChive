@@ -10,6 +10,8 @@ import {
   Collective,
   CollectiveCreate,
   CollectiveHome,
+  CollectiveMembers,
+  CollectiveAdmin,
   Home,
   GalleryIndex,
   Profile,
@@ -126,6 +128,8 @@ function App() {
                           </PostProvider>
                         }
                       />
+                      <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                      <Route path=":collectiveId/admin" element={<CollectiveAdmin />} />
                     </Route>
                   </Route>
 

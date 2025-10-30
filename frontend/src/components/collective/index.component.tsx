@@ -92,7 +92,7 @@ export default function Index() {
                               {collective.title}
                             </h2>
                             <div className="flex items-center gap-3 text-sm text-base-content/70">
-                              <span>495 members</span>
+                              <span>{collective.member_count || 'N/A'} members</span>
                               <span className="flex items-center gap-1">
                                 ❤️ 7114
                               </span>

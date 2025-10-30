@@ -28,6 +28,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Construct full name from separate fields
+  const getFullName = () => {
+    if (!user) return '';
+    const parts = [user.first_name, user.middle_name, user.last_name].filter(Boolean);
+    return parts.join(' ');
+  };
+
   const navItems = [
     { path: "/home", label: "Home", icon: "" },
     { path: "/gallery", label: "Gallery", icon: "" },
@@ -132,7 +139,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <Link to="/profile">
                     <img
                       src={user.profile_picture}
-                      alt={user.fullname}
+                      alt={getFullName()}
                       className="w-10 h-10 rounded-full border border-base-300 hover:border-primary transition-colors"
                     />
                   </Link>
@@ -140,7 +147,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <div className="hidden md:block">
                     <Link to="/profile">
                       <h5 className="text-sm font-semibold text-base-content hover:text-primary transition-colors">
-                        {user.fullname}
+                        {getFullName()}
                       </h5>
                     </Link>
                     <p className="text-xs text-primary">@{user.username}</p>

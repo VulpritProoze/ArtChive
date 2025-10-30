@@ -17,20 +17,27 @@ from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from core.permissions import IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
-from .models import Channel, Collective, CollectiveMember
+from .models import Channel, Collective, CollectiveMember, AdminRequest
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .serializers import (
+    AcceptAdminRequestSerializer,
+    AdminRequestCreateSerializer,
+    AdminRequestSerializer,
     BecomeCollectiveAdminSerializer,
     ChannelCreateSerializer,
     ChannelSerializer,
     ChannelUpdateSerializer,
     CollectiveCreateSerializer,
     CollectiveDetailsSerializer,
+    CollectiveMemberDetailSerializer,
     CollectiveMemberSerializer,
+    DemoteAdminSerializer,
     InsideCollectivePostsViewSerializer,
     InsideCollectiveViewSerializer,
     JoinCollectiveSerializer,
+    KickMemberSerializer,
     LeaveCollectiveSerializer,
+    PromoteMemberSerializer,
 )
 
 
@@ -41,10 +48,16 @@ class CollectiveDetailsView(ListAPIView):
     def get_queryset(self):
         return Collective.objects.prefetch_related('collective_channel').all()
 
+    def get_serializer_context(self):
+        """Pass request to serializer for user membership info."""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
 class CollectiveCreateView(APIView):
     '''
     Create a new Collective along with default channels.
-    
+
     Example usage (multipart/form-data):
     - title: "Digital Artists United"
     - description: "A collaborative space..."
@@ -231,3 +244,174 @@ class CollectiveMembershipsView(ListAPIView):
 
     def get_queryset(self):
         return CollectiveMember.objects.filter(member=self.request.user).all()
+
+# ============================================================================
+# COLLECTIVE MEMBER MANAGEMENT VIEWS
+# ============================================================================
+
+class CollectiveMembersListView(ListAPIView):
+    """
+    List all members of a collective.
+    GET /api/collective/<collective_id>/members/
+    """
+    serializer_class = CollectiveMemberDetailSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+
+    def get_queryset(self):
+        collective_id = self.kwargs['collective_id']
+        return CollectiveMember.objects.filter(
+            collective_id=collective_id
+        ).select_related('member').order_by('-collective_role', 'member__username')
+
+class KickMemberView(APIView):
+    """
+    Kick a member from a collective (admin only).
+    DELETE /api/collective/<collective_id>/members/kick/
+    Body: { "member_id": <user_id> }
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def delete(self, request, collective_id):
+        data = {
+            'member_id': request.data.get('member_id'),
+            'collective_id': collective_id
+        }
+
+        serializer = KickMemberSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        # Delete the member
+        member_to_kick = serializer._member_to_kick
+        kicked_username = member_to_kick.member.username
+        member_to_kick.delete()
+
+        return Response({
+            'message': f'{kicked_username} has been removed from the collective.'
+        }, status=status.HTTP_200_OK)
+
+class PromoteMemberView(APIView):
+    """
+    Promote a member to admin role (admin only).
+    POST /api/collective/<collective_id>/members/promote/
+    Body: { "member_id": <user_id> }
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def post(self, request, collective_id):
+        data = {
+            'member_id': request.data.get('member_id'),
+            'collective_id': collective_id
+        }
+
+        serializer = PromoteMemberSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        promoted_member = serializer.save()
+
+        return Response({
+            'message': f'{promoted_member.member.username} has been promoted to admin.',
+            'member_id': promoted_member.member.id,
+            'role': promoted_member.collective_role
+        }, status=status.HTTP_200_OK)
+
+class DemoteAdminView(APIView):
+    """
+    Demote an admin to member role (admin only).
+    POST /api/collective/<collective_id>/members/demote/
+    Body: { "member_id": <user_id> }
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def post(self, request, collective_id):
+        data = {
+            'member_id': request.data.get('member_id'),
+            'collective_id': collective_id
+        }
+
+        serializer = DemoteAdminSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        demoted_member = serializer.save()
+
+        return Response({
+            'message': f'{demoted_member.member.username} has been demoted to member.',
+            'member_id': demoted_member.member.id,
+            'role': demoted_member.collective_role
+        }, status=status.HTTP_200_OK)
+
+# ============================================================================
+# ADMIN REQUEST VIEWS
+# ============================================================================
+
+class AdminRequestCreateView(APIView):
+    """
+    Request to become an admin of a collective.
+    POST /api/collective/<collective_id>/admin/request/
+    Body: { "message": "optional message" }
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+
+    def post(self, request, collective_id):
+        data = {
+            'collective_id': collective_id,
+            'message': request.data.get('message', '')
+        }
+
+        serializer = AdminRequestCreateSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        admin_request = serializer.save()
+
+        # Return the created request
+        response_serializer = AdminRequestSerializer(admin_request)
+
+        return Response({
+            'message': 'Admin request submitted successfully.',
+            'request': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+class AdminRequestListView(ListAPIView):
+    """
+    List all pending admin requests for a collective (admin only).
+    GET /api/collective/<collective_id>/admin/requests/
+    """
+    serializer_class = AdminRequestSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def get_queryset(self):
+        collective_id = self.kwargs['collective_id']
+        status_filter = self.request.query_params.get('status', 'pending')
+
+        queryset = AdminRequest.objects.filter(
+            collective_id=collective_id
+        ).select_related('requester', 'collective', 'reviewed_by')
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        return queryset.order_by('-created_at')
+
+class AcceptAdminRequestView(APIView):
+    """
+    Accept or reject an admin request (admin only).
+    POST /api/collective/admin/requests/<request_id>/process/
+    Body: { "action": "approve" | "reject" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        data = {
+            'request_id': request_id,
+            'action': request.data.get('action')
+        }
+
+        serializer = AcceptAdminRequestSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        admin_request = serializer.save()
+
+        response_serializer = AdminRequestSerializer(admin_request)
+
+        action = data['action']
+        message = f'Admin request has been {action}d successfully.'
+
+        return Response({
+            'message': message,
+            'request': response_serializer.data
+        }, status=status.HTTP_200_OK)

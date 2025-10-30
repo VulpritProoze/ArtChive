@@ -7,7 +7,9 @@ export type User = {
   is_superuser: boolean;
   profile_picture: string;
   artist_types: string[];
-  fullname: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
   brushdrips_count: string
   collective_memberships: CollectiveMember[];
 } | null;

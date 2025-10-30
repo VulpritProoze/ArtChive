@@ -10,6 +10,7 @@ export interface Collective {
   collective_id: string;
   channels: Channel[];
   members: any[];
+  member_count: number
   title: string;
   description: string;
   rules: string[];

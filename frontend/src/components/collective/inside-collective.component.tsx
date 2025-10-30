@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePostContext } from "@context/post-context";
 import { useCollectivePostContext } from "@context/collective-post-context";
 import useCollective from "@hooks/use-collective";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import {
   PostFormModal,
@@ -18,10 +18,11 @@ import { MainLayout } from "@components/common/layout";
 import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
 import { LoadingSpinner } from "../loading-spinner";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog } from "@fortawesome/free-solid-svg-icons";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
+  const navigate = useNavigate();
   const {
     showCommentForm,
     posts,
@@ -164,6 +165,26 @@ const CollectiveHome = () => {
                 </svg>
               </button>
 
+              {/* Navigation Links */}
+              <div className="mb-4 space-y-1">
+                <button
+                  onClick={() => navigate(`/collective/${collectiveId}/members`)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+                >
+                  <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
+                  <span>Members</span>
+                </button>
+                {isAdminOfACollective(collectiveData.collective_id) && (
+                  <button
+                    onClick={() => navigate(`/collective/${collectiveId}/admin`)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
+                    <span>Admin Panel</span>
+                  </button>
+                )}
+              </div>
+
               {/* EVENTS Section */}
               <div className="mb-4">
                 <button
@@ -277,6 +298,32 @@ const CollectiveHome = () => {
                 >
                   <FontAwesomeIcon icon={faTimes} className="text-xl" />
                 </button>
+              </div>
+
+              {/* Navigation Links */}
+              <div className="mb-4 space-y-1">
+                <button
+                  onClick={() => {
+                    navigate(`/collective/${collectiveId}/members`);
+                    setShowMobileSidebar(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+                >
+                  <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
+                  <span>Members</span>
+                </button>
+                {isAdminOfACollective(collectiveData.collective_id) && (
+                  <button
+                    onClick={() => {
+                      navigate(`/collective/${collectiveId}/admin`);
+                      setShowMobileSidebar(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
+                    <span>Admin Panel</span>
+                  </button>
+                )}
               </div>
 
               {/* EVENTS Section */}

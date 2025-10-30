@@ -24,6 +24,8 @@ export { default as Timeline } from './profile/timeline.component'
 export { default as Collective } from './collective/index.component'
 export { default as CollectiveCreate } from './collective/collective-create.component'
 export { default as CollectiveHome } from './collective/inside-collective.component'
+export { default as CollectiveMembers } from './collective/collective-members.component'
+export { default as CollectiveAdmin } from './collective/collective-admin.component'
 
 // Gallery
 export { default as GalleryIndex } from './gallery/index.component'
