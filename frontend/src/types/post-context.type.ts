@@ -44,6 +44,8 @@ export type PostContextType = {
   setLoading;
   loadingMore;
   setLoadingMore;
+  submittingPost: boolean;
+  setSubmittingPost: Dispatch<SetStateAction<boolean>>;
   fetchPosts;
   handlePostSubmit;
   deletePost;

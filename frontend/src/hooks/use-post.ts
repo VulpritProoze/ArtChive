@@ -1,5 +1,6 @@
 import { usePostContext } from "@context/post-context";
 import type { Post, Comment } from "@types";
+import { useCollectivePostContext } from "@context/collective-post-context";
 
 const usePost = () => {
   const {
@@ -11,6 +12,7 @@ const usePost = () => {
     deletePost,
     dropdownOpen,
     setDropdownOpen,
+    postForm,
 
     // Comments
     setCommentForm,
@@ -27,6 +29,15 @@ const usePost = () => {
     toggleReplies,
     toggleReplyForm,
   } = usePostContext();
+
+  // Try to get collective context if available (optional)
+  let selectedChannel = null;
+  try {
+    const collectiveContext = useCollectivePostContext();
+    selectedChannel = collectiveContext?.selectedChannel;
+  } catch {
+    // Not in a collective context, that's fine
+  }
 
   // Setup edit forms
   const setupEditPost = (postItem: Post) => {
@@ -89,7 +100,9 @@ const usePost = () => {
   };
 
   const handleDeletePost = (postId: string) => {
-    deletePost(postId);
+    // Pass channel_id from postForm or selectedChannel context
+    const channel_id = postForm?.channel_id || selectedChannel?.channel_id;
+    deletePost(postId, channel_id);
     setDropdownOpen(null);
   };
 

@@ -90,9 +90,11 @@ class PostListView(generics.ListAPIView):
     def get_queryset(self):
         '''
         Fetch public posts, and also posts from collectives the user has joined.
+        Only returns active (non-deleted) posts.
         '''
         user = self.request.user
-        queryset = Post.objects.prefetch_related(
+        # Use get_active_objects() to filter out soft-deleted posts
+        queryset = Post.objects.get_active_objects().prefetch_related(
             'novel_post',
             'channel',
             'channel__collective'  # needed for collective filtering
@@ -112,7 +114,7 @@ class PostListView(generics.ListAPIView):
             # Posts from joined collectives
             joined_posts = Q(channel__collective__in=joined_collectives)
 
-            # Combine: public posts OR posts fromoined collectives
+            # Combine: public posts OR posts from joined collectives
             return queryset.filter(public_posts | joined_posts)
 
         # Returns only public posts if unauthenticated
@@ -136,7 +138,8 @@ class OwnPostsListView(generics.ListAPIView):
         user_id = self.kwargs['id']
         user = get_object_or_404(User, id=user_id)
 
-        return Post.objects.filter(author=user).prefetch_related(
+        # Use get_active_objects() to filter out soft-deleted posts
+        return Post.objects.get_active_objects().filter(author=user).prefetch_related(
             'novel_post',
         ).select_related(
             'author',
@@ -237,7 +240,8 @@ class PostCommentsReplyDetailView(ListAPIView):
         ).order_by('-created_at')
 
 class PostDetailView(generics.RetrieveAPIView):
-    queryset = Post.objects.prefetch_related(
+    # Use get_active_objects() to filter out soft-deleted posts
+    queryset = Post.objects.get_active_objects().prefetch_related(
             'novel_post',
         ).select_related(
             'author',
@@ -246,7 +250,8 @@ class PostDetailView(generics.RetrieveAPIView):
     lookup_field = 'post_id'
 
 class PostUpdateView(generics.UpdateAPIView):
-    queryset = Post.objects.prefetch_related(
+    # Use get_active_objects() to filter out soft-deleted posts
+    queryset = Post.objects.get_active_objects().prefetch_related(
             'novel_post',
         ).select_related(
             'author',
@@ -256,7 +261,8 @@ class PostUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
 class PostDeleteView(generics.DestroyAPIView):
-    queryset = Post.objects.prefetch_related(
+    # Use get_active_objects() to filter out soft-deleted posts
+    queryset = Post.objects.get_active_objects().prefetch_related(
             'novel_post',
         ).select_related(
             'author',

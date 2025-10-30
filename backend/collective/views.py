@@ -156,11 +156,12 @@ class InsideCollectivePostsView(ListAPIView):
     pagination_class = CollectivePostsPagination
     permission_classes = [IsAuthenticated, IsCollectiveMember]
 
-    # Filter out posts by channel and collective
+    # Filter out posts by channel and collective, only show active (non-deleted) posts
     def get_queryset(self):
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
-        return Post.objects.filter(channel=channel).select_related('author').order_by('-created_at')
+        # Use get_active_objects() to filter out soft-deleted posts
+        return Post.objects.get_active_objects().filter(channel=channel).select_related('author').order_by('-created_at')
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]

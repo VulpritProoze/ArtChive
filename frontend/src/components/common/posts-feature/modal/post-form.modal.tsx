@@ -3,7 +3,7 @@ import { AddChapterRenderer, AddMediaRenderer } from '@components/common'
 import { useAuth } from "@context/auth-context";
 
 export default function PostFormModal({channel_id, user_id} : {channel_id?: string, user_id?: number}) {
-  const { editing, handlePostSubmit, postForm, handlePostFormChange, setPostForm, resetForms} = usePostContext()
+  const { editing, handlePostSubmit, postForm, handlePostFormChange, setPostForm, resetForms, submittingPost} = usePostContext()
   const { user } = useAuth();
 
   return (
@@ -40,12 +40,18 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
               </h2>
             </div>
             
-            <button 
+            <button
               type="submit"
               form="post-form"
-              className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-primary/50"
+              disabled={submittingPost}
+              className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {editing ? (
+              {submittingPost ? (
+                <>
+                  <span className="loading loading-spinner loading-sm"></span>
+                  {editing ? "Updating..." : "Posting..."}
+                </>
+              ) : editing ? (
                 <>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

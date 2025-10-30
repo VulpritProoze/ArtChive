@@ -16,6 +16,9 @@ import {
 import type { Channel } from "@types";
 import { MainLayout } from "@components/common/layout";
 import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
+import { LoadingSpinner } from "../loading-spinner";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes } from "@fortawesome/free-solid-svg-icons";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
@@ -49,6 +52,9 @@ const CollectiveHome = () => {
   const [showEventsDropdown, setShowEventsDropdown] = useState(false);
   const [showChannelsDropdown, setShowChannelsDropdown] = useState(true);
   const [showMediaDropdown, setShowMediaDropdown] = useState(false);
+  const [showJoinedDropdown, setShowJoinedDropdown] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const joinedButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchCollectiveData(collectiveId);
@@ -113,9 +119,7 @@ const CollectiveHome = () => {
   if (!collectiveData) {
     return (
       <MainLayout showSidebar={false} showRightSidebar={false}>
-        <div className="flex justify-center items-center h-64">
-          <div className="loading loading-spinner loading-lg"></div>
-        </div>
+        <LoadingSpinner text={"Loading collective..."}></LoadingSpinner>
       </MainLayout>
     );
   }
@@ -130,8 +134,26 @@ const CollectiveHome = () => {
       {showCommentForm && <CommentFormModal channel_id={selectedChannel?.channel_id} />}
 
       <MainLayout showSidebar={false} showRightSidebar={false}>
+        {/* Mobile Menu Button - Fixed at top */}
+        <button
+          className="fixed top-20 left-4 z-50 lg:hidden btn btn-circle btn-primary shadow-lg"
+          onClick={() => setShowMobileSidebar(true)}
+          aria-label="Open sidebar menu"
+        >
+          <FontAwesomeIcon icon={faBars} className="text-xl" />
+        </button>
+
+        {/* Mobile Sidebar Backdrop */}
+        {showMobileSidebar && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setShowMobileSidebar(false)}
+          />
+        )}
+
         <div className="flex gap-6">
           {/* LEFT SIDEBAR - Custom for Collective */}
+          {/* Desktop Sidebar */}
           <aside className="w-60 flex-shrink-0 hidden lg:block">
             <div className="bg-base-200/50 rounded-xl p-3 sticky top-20">
               {/* Collective Name Dropdown */}
@@ -239,6 +261,127 @@ const CollectiveHome = () => {
             </div>
           </aside>
 
+          {/* Mobile Sidebar - Slide-in drawer */}
+          <aside
+            className={`fixed top-0 left-0 h-full w-72 bg-base-200 z-50 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+              showMobileSidebar ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <div className="p-4">
+              {/* Close button */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">{collectiveData.title}</h2>
+                <button
+                  className="btn btn-ghost btn-sm btn-circle"
+                  onClick={() => setShowMobileSidebar(false)}
+                >
+                  <FontAwesomeIcon icon={faTimes} className="text-xl" />
+                </button>
+              </div>
+
+              {/* EVENTS Section */}
+              <div className="mb-4">
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+                  onClick={() => setShowEventsDropdown(!showEventsDropdown)}
+                >
+                  <span>EVENTS</span>
+                  <svg className={`w-4 h-4 transition-transform ${showEventsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showEventsDropdown && (
+                  <div className="mt-1 space-y-1">
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded">
+                      <span>📅</span>
+                      <span>Community Exhibition</span>
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded">
+                      <span>🎙️</span>
+                      <span>Live Critique Session</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* POST CHANNELS Section */}
+              <div className="mb-4">
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+                  onClick={() => setShowChannelsDropdown(!showChannelsDropdown)}
+                >
+                  <span>POST CHANNELS</span>
+                  <svg className={`w-4 h-4 transition-transform ${showChannelsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showChannelsDropdown && (
+                  <div className="mt-1 space-y-1">
+                    {collectiveData.channels.map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
+                          selectedChannel?.channel_id === channel.channel_id
+                            ? 'bg-primary text-primary-content'
+                            : 'hover:bg-base-300'
+                        }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          setShowMobileSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">88</span>
+                        )}
+                      </button>
+                    ))}
+                    {isAdminOfACollective(collectiveData.collective_id) && (
+                      <button
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded text-base-content/70"
+                        onClick={() => {
+                          setShowCreateChannelModal(true);
+                          setShowMobileSidebar(false);
+                        }}
+                      >
+                        <span>+</span>
+                        <span>Create Channel</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* MEDIA CHANNELS Section */}
+              <div>
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+                  onClick={() => setShowMediaDropdown(!showMediaDropdown)}
+                >
+                  <span>MEDIA CHANNELS</span>
+                  <svg className={`w-4 h-4 transition-transform ${showMediaDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showMediaDropdown && (
+                  <div className="mt-1 space-y-1">
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded">
+                      <span>🎤</span>
+                      <span>voice-chat</span>
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded">
+                      <span>📹</span>
+                      <span>live-streams</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+
           {/* MAIN CONTENT */}
           <main className="flex-1 min-w-0">
             {/* Hero Image */}
@@ -303,9 +446,64 @@ const CollectiveHome = () => {
                   <span className="mr-2">📤</span>
                   Share
                 </button>
-                <button className={`btn ${isMemberOfACollective(collectiveData.collective_id) ? 'btn-success' : 'btn-outline'}`}>
-                  {isMemberOfACollective(collectiveData.collective_id) ? '✓ Joined' : 'Join'}
-                </button>
+                {isMemberOfACollective(collectiveData.collective_id) ? (
+                  <div
+                    className="relative"
+                    ref={joinedButtonRef}
+                    onMouseEnter={() => setShowJoinedDropdown(true)}
+                    onMouseLeave={() => setShowJoinedDropdown(false)}
+                  >
+                    <button className="btn btn-success">
+                      <FontAwesomeIcon icon={faCheck} className="mr-2" />
+                      Joined
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showJoinedDropdown && (
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50 overflow-hidden">
+                        <button
+                          className="w-full px-4 py-3 text-left hover:bg-error hover:text-error-content transition-colors flex items-center gap-3 group"
+                          onClick={() => {
+                            handleLeaveCollective(collectiveData.collective_id);
+                            setShowJoinedDropdown(false);
+                          }}
+                        >
+                          <FontAwesomeIcon
+                            icon={faRightFromBracket}
+                            className="w-4 h-4 text-error group-hover:text-error-content"
+                          />
+                          <div>
+                            <div className="font-semibold">Leave Collective</div>
+                            <div className="text-xs opacity-70">You can rejoin anytime</div>
+                          </div>
+                        </button>
+
+                        <div className="border-t border-base-300"></div>
+
+                        <button
+                          className="w-full px-4 py-3 text-left hover:bg-base-200 transition-colors flex items-center gap-3"
+                          onClick={() => {
+                            handleBecomeAdmin(collectiveData.collective_id);
+                            setShowJoinedDropdown(false);
+                          }}
+                        >
+                          <FontAwesomeIcon
+                            icon={faUserShield}
+                            className="w-4 h-4 text-primary"
+                          />
+                          <div>
+                            <div className="font-semibold">Apply to Join as Admin</div>
+                            <div className="text-xs opacity-70">Request admin privileges</div>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button className="btn btn-outline">
+                    Join
+                  </button>
+                )}
               </div>
 
               {/* Post Input */}

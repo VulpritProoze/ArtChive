@@ -52,6 +52,7 @@ export const PostProvider = ({ children }) => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [submittingPost, setSubmittingPost] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [pagination, setPagination] = useState<Pagination>({
@@ -784,6 +785,8 @@ export const PostProvider = ({ children }) => {
     console.log(channel_id, user_id);
 
     try {
+      setSubmittingPost(true);
+
       const formData = new FormData();
       formData.append("description", postForm.description);
       formData.append("post_type", postForm.post_type);
@@ -822,18 +825,20 @@ export const PostProvider = ({ children }) => {
     } catch (error) {
       console.error("Post submission error: ", error);
       toast.error(handleApiError(error, defaultErrors));
+    } finally {
+      setSubmittingPost(false);
     }
   };
 
-  const deletePost = async (postId: string) => {
+  const deletePost = async (postId: string, channel_id?: string, user_id?: number) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
       await post.delete(`/delete/${postId}/`, { data: { confirm: true } });
       toast.success("Post deleted successfully");
 
-      // Refresh posts (could optimize by filtering locally)
-      refreshPosts();
+      // Refresh posts with context (channel or user)
+      refreshPosts(channel_id, user_id);
     } catch (error) {
       console.error("Post deletion error: ", error);
       toast.error(handleApiError(error, defaultErrors));
@@ -915,6 +920,8 @@ export const PostProvider = ({ children }) => {
     setLoading,
     loadingMore,
     setLoadingMore,
+    submittingPost,
+    setSubmittingPost,
     fetchPosts,
     handlePostSubmit,
     deletePost,

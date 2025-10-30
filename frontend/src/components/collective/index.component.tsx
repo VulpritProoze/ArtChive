@@ -3,7 +3,6 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { useCollectiveContext } from "@context/collective-context";
-import { LoadingSpinner } from "@components/loading-spinner";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -26,9 +25,6 @@ export default function Index() {
   const handleCollectiveClick = (collectiveId: string) => {
     navigate(`/collective/${collectiveId}`);
   };
-
-  if (loading)
-    return <LoadingSpinner text={"Loading collective details..."} />;
 
   return (
     <MainLayout showSidebar={true} showRightSidebar={true}>
@@ -54,7 +50,7 @@ export default function Index() {
 
         {/* Collectives Grid */}
         <div>
-          {collectives.length === 0 ? (
+          {(collectives.length === 0 && loading) ? (
             <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
               <div className="text-6xl mb-4">🎨</div>
               <p className="text-lg font-semibold text-base-content">
@@ -78,11 +74,11 @@ export default function Index() {
                       <div className="flex-shrink-0">
                         <div className="w-20 h-20 bg-base-300 rounded-lg overflow-hidden">
                           <img
-                            src={collective.thumbnail || "/images/collective-placeholder.jpg"}
+                            src={collective.picture}
                             alt={collective.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              e.currentTarget.src = "https://via.placeholder.com/80x80?text=Art";
+                              e.currentTarget.src = "";
                             }}
                           />
                         </div>
