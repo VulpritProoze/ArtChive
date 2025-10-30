@@ -34,3 +34,9 @@ export { default as BrushDripsTransactions } from './brush-drips/transactions.co
 
 // Notifications
 export { default as NotificationIndex } from './notifications/index.component'
+
+// Post
+export { default as PostDetail } from './post/post-detail.component'
+
+// Error pages
+export { default as NotFound } from './error/not-found.component'

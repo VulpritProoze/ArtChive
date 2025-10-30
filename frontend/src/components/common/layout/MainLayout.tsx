@@ -80,7 +80,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-base-100">
+    <div className="min-h-screen bg-base-100 pb-20">
       {/* Enhanced Header/Navbar */}
       <header className="sticky top-0 z-50 bg-base-100/80 backdrop-blur-lg border-b border-base-300 shadow-sm">
         <div className="container max-w-7xl mx-auto px-4 lg:px-8">

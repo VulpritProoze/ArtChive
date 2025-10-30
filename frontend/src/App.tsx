@@ -17,6 +17,8 @@ import {
   BrushDripsPage,
   BrushDripsTransactions,
   NotificationIndex,
+  PostDetail,
+  NotFound,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -128,7 +130,14 @@ function App() {
                   </Route>
 
                   <Route path="/gallery" element={<GalleryIndex />} />
+
+                  {/* Individual Post Route */}
+                  <Route path="/post/:postId" element={<PostDetail />} />
                 </Route>
+
+                {/* 404 Not Found - Must be last */}
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
             <ThemedToastContainer />
