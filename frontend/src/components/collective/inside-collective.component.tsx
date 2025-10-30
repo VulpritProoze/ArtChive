@@ -452,7 +452,7 @@ const CollectiveHome = () => {
                   🔒 Private Group
                 </span>
                 <span className="flex items-center gap-1">
-                  👥 1,245 members
+                  👥 {collectiveData.member_count || 0} members
                 </span>
               </div>
 
@@ -471,12 +471,13 @@ const CollectiveHome = () => {
               {/* Member Avatars */}
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex -space-x-2">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-base-100 overflow-hidden">
+                  {collectiveData.members.map((member) => (
+                    <div key={member.id} className="w-10 h-10 rounded-full border-2 border-base-100 overflow-hidden">
                       <img
-                        src={`https://randomuser.me/api/portraits/${i % 2 === 0 ? 'women' : 'men'}/${i}.jpg`}
-                        alt={`Member ${i}`}
+                        src={member.profile_picture}
+                        alt={member.username}
                         className="w-full h-full object-cover"
+                        title={`@${member.username}`}
                       />
                     </div>
                   ))}

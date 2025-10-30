@@ -6,10 +6,22 @@ export interface CollectiveMember {
   member: number;
 }
 
+export interface Member {
+  id: number;
+  member_id: number;
+  username: string;
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  profile_picture: string | null;
+  artist_types: string[];
+  collective_role: "member" | "admin";
+}
+
 export interface Collective {
   collective_id: string;
   channels: Channel[];
-  members: any[];
+  members: Member[];
   member_count: number
   title: string;
   description: string;

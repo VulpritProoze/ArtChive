@@ -8,18 +8,7 @@ import { handleApiError } from "@utils";
 import { useAuth } from "@context/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShield, faUser, faCrown } from "@fortawesome/free-solid-svg-icons";
-
-interface Member {
-  id: number;
-  member_id: number;
-  username: string;
-  first_name: string;
-  middle_name: string;
-  last_name: string;
-  profile_picture: string | null;
-  artist_types: string[];
-  collective_role: "member" | "admin";
-}
+import type { Member } from "@types";
 
 // Helper function to construct full name
 const getFullName = (member: Member) => {

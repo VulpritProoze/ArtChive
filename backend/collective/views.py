@@ -17,7 +17,7 @@ from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from core.permissions import IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
-from .models import Channel, Collective, CollectiveMember, AdminRequest
+from .models import AdminRequest, Channel, Collective, CollectiveMember
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .serializers import (
     AcceptAdminRequestSerializer,

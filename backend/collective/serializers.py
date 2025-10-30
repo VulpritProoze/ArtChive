@@ -203,17 +203,32 @@ class ChannelDeleteSerializer(ModelSerializer):
         pass
 
 
-class CollectiveMemberSerializer(ModelSerializer):
+class CollectiveMemberDetailSerializer(ModelSerializer):
+    """Detailed serializer for collective members with user info."""
+    member_id = serializers.IntegerField(source='member.id', read_only=True)
+    username = serializers.CharField(source='member.username', read_only=True)
+    first_name = serializers.CharField(source='member.first_name', read_only=True)
+    middle_name = serializers.CharField(source='member.middle_name', read_only=True)
+    last_name = serializers.CharField(source='member.last_name', read_only=True)
+    profile_picture = serializers.ImageField(source='member.profile_picture', read_only=True)
+    artist_types = serializers.ListField(source='member.artist_types', read_only=True)
+
     class Meta:
         model = CollectiveMember
-        fields = '__all__'
+        fields = ['id', 'member_id', 'username', 'first_name', 'middle_name', 'last_name',
+                  'profile_picture', 'artist_types', 'collective_role', 'collective_id']
 
 class InsideCollectiveViewSerializer(ModelSerializer):
     channels = CollectiveChannelSerializer(source='collective_channel', many=True, read_only=True)
-    members = CollectiveMemberSerializer(source='collective_member', many=True, read_only=True)
+    members = CollectiveMemberDetailSerializer(source='collective_member', many=True, read_only=True)
+    member_count = serializers.SerializerMethodField()
     class Meta:
         model = Collective
         fields = '__all__'
+
+    def get_member_count(self, obj):
+        """Get total member count for this collective."""
+        return CollectiveMember.objects.filter(collective_id=obj).count()
 
 class InsideCollectivePostsViewSerializer(PostViewSerializer):
     class Meta:
@@ -307,21 +322,6 @@ class BecomeCollectiveAdminSerializer(Serializer):
 # ============================================================================
 # COLLECTIVE MEMBER MANAGEMENT SERIALIZERS
 # ============================================================================
-
-class CollectiveMemberDetailSerializer(ModelSerializer):
-    """Detailed serializer for collective members with user info."""
-    member_id = serializers.IntegerField(source='member.id', read_only=True)
-    username = serializers.CharField(source='member.username', read_only=True)
-    first_name = serializers.CharField(source='member.first_name', read_only=True)
-    middle_name = serializers.CharField(source='member.middle_name', read_only=True)
-    last_name = serializers.CharField(source='member.last_name', read_only=True)
-    profile_picture = serializers.ImageField(source='member.profile_picture', read_only=True)
-    artist_types = serializers.ListField(source='member.artist_types', read_only=True)
-
-    class Meta:
-        model = CollectiveMember
-        fields = ['id', 'member_id', 'username', 'first_name', 'middle_name', 'last_name',
-                  'profile_picture', 'artist_types', 'collective_role', 'collective_id']
 
 class KickMemberSerializer(Serializer):
     """Serializer for kicking a member from a collective."""
