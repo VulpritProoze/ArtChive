@@ -70,8 +70,11 @@ class GalleryItem(models.Model):
                                            help_text="Additional achievement data")
     
     # Link to related objects (if achievement is based on something)
-    related_post = models.ForeignKey('posts.Post', on_delete=models.SET_NULL, null=True, blank=True)
-    related_trophy = models.ForeignKey('posts.PostTrophy', on_delete=models.SET_NULL, null=True, blank=True)
+    # Store as string IDs instead of ForeignKeys to avoid app dependencies
+    related_post_id = models.CharField(max_length=255, null=True, blank=True,
+                                    help_text="UUID of related post if applicable")
+    related_trophy_id = models.CharField(max_length=255, null=True, blank=True,
+                                        help_text="ID of related trophy if applicable")
     
     created_at = models.DateTimeField(auto_now_add=True)
     is_featured = models.BooleanField(default=False)

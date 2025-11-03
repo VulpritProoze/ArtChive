@@ -24,12 +24,12 @@ class GalleryItemSerializer(serializers.ModelSerializer):
             'category', 'category_name', 'category_icon',
             'title', 'image_url', 'description', 'visibility',
             'is_achievement', 'achievement_type', 'achievement_date', 'achievement_metadata',
-            'related_post', 'related_trophy',
+            'related_post_id', 'related_trophy_id',
             'created_at', 'is_featured'
         ]
         read_only_fields = ['item_id', 'owner', 'created_at', 'is_achievement', 
                            'achievement_type', 'achievement_date', 'achievement_metadata',
-                           'related_post', 'related_trophy']
+                           'related_post_id', 'related_trophy_id']
     
     def create(self, validated_data):
         # Set owner from request context

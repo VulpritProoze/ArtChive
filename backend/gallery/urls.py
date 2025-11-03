@@ -1,7 +1,3 @@
-
-urlpatterns = [
-
-]
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -19,10 +15,9 @@ router.register(r'layout', GalleryLayoutViewSet, basename='gallery-layout')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('api/gallery/', include('gallery.urls')),
 ]
 
-# API Endpoints Summary:
+# API Endpoints (accessed via /api/gallery/ prefix from main urls.py):
 # 
 # Galleries:
 #   GET    /api/gallery/galleries/                    - List galleries

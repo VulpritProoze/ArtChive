@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('gallery', '0004_gallery_creator_gallery_is_deleted'),
-        ('posts', '0001_initial'),  # Adjust based on your posts app migration
+        #('posts', '0001_initial'),  # Adjust based on your posts app migration
     ]
 
     operations = [
@@ -90,13 +90,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='galleryitem',
-            name='related_post',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='posts.post'),
+            name='related_post_id',
+            field=models.CharField(blank=True, help_text='UUID of related post if applicable', max_length=255, null=True),
         ),
         migrations.AddField(
             model_name='galleryitem',
-            name='related_trophy',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='posts.posttrophy'),
+            name='related_trophy_id',
+            field=models.CharField(blank=True, help_text='ID of related trophy if applicable', max_length=255, null=True),
         ),
         migrations.AddField(
             model_name='galleryitem',
