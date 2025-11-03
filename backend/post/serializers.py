@@ -28,7 +28,7 @@ class NovelPostSerializer(serializers.ModelSerializer):
 class PostCreateSerializer(ModelSerializer):
     '''
     Serializer for Posts creation. A post can either be default, novel, image, or video.
-    
+
     Default post fields:
     - description
     - post type (default)
@@ -360,10 +360,18 @@ class PostViewSerializer(serializers.ModelSerializer):
 
     def get_hearts_count(self, obj):
         """Get the number of hearts for this post"""
-        return obj.post_heart.count()  # Using the related_name from PostHeart model
+        # Use annotated field if available (from PostListView optimization)
+        if hasattr(obj, 'total_hearts_count'):
+            return obj.total_hearts_count
+        # Fallback for other views that don't annotate
+        return obj.post_heart.count()
 
     def get_is_hearted_by_user(self, obj):
         """Check if the current user has hearted this post"""
+        # Use annotated field if available (from PostListView optimization)
+        if hasattr(obj, 'is_hearted_by_current_user'):
+            return obj.is_hearted_by_current_user
+        # Fallback for other views that don't annotate
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.post_heart.filter(author=request.user).exists()
@@ -384,6 +392,10 @@ class PostViewSerializer(serializers.ModelSerializer):
         return full_name if full_name else user.username
 
     def get_comment_count(self, obj):
+        # Use annotated field if available (from PostListView optimization)
+        if hasattr(obj, 'total_comment_count'):
+            return obj.total_comment_count
+        # Fallback for other views that don't annotate
         return obj.post_comment.get_active_objects().count()
 
 
@@ -401,7 +413,11 @@ class PostListViewSerializer(PostViewSerializer):
 
     def get_comments(self, obj):
         """Get first 2 comments for this post"""
-        comments = obj.post_comment.get_active_objects().order_by('-created_at')[:2]  # Get latest 2 comments
+        # Use the prefetched data (from post_comment Prefetch in view)
+        # Access it via .all() to use the prefetch cache, then slice in Python
+        all_comments = obj.post_comment.all()  # This uses prefetch cache
+        # Get first 2 from the already-sorted and already-loaded list
+        comments = list(all_comments)[:2]
         return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):

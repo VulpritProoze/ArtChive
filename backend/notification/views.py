@@ -1,9 +1,12 @@
+from functools import cache
+
 from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .cache_utils import get_notification_cache_key
 from .models import Notification, NotificationNotifier
 from .serializers import NotificationMarkAsReadSerializer, NotificationSerializer
 
@@ -18,6 +21,22 @@ class NotificationListView(generics.ListAPIView):
     """
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        '''Override list method to add cache support'''
+        user_id = request.user.id
+        cache_key = get_notification_cache_key(user_id)
+
+        # Return cached data
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # If no cached data
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, 600)  # Cache for 600 seconds (10 minutes)
+
+        return response
 
     def get_queryset(self):
         user = self.request.user
@@ -46,6 +65,21 @@ class NotificationDetailView(generics.RetrieveAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'notification_id'
+
+    def retrieve(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_notification_cache_key(user_id)
+
+        # Return cached data
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # If no cached data
+        response = super().retrieve(request, *args, **kwargs)
+        cache.set(cache_key, response.data, 600)  # Cache for 600 seconds (10 minutes)
+
+        return response
 
     def get_queryset(self):
         return Notification.objects.filter(
