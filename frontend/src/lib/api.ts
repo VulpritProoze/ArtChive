@@ -26,6 +26,11 @@ export const notification = axios.create({
     withCredentials: true,
 })
 
+export const gallery = axios.create({
+    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/gallery/`,
+    withCredentials: true,
+})
+
 // WebSocket Base URL
 export const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
 
@@ -155,7 +160,7 @@ api.interceptors.response.use(
 );
 
 // 🚨 SIMPLIFIED interceptors for other instances - no refresh logic, just logout on 401
-const instances = [post, collective, core, notification];
+const instances = [post, collective, core, notification, gallery];
 
 instances.forEach(instance => {
   // Request interceptor

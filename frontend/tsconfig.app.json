@@ -37,8 +37,12 @@
       "@lib/*": ["./lib/*"],
       "@types/*": ["./types/*"],
       "@types": ["./types"],
+      "@services/*": ["./services/*"],
+      "@services": ["./services"],
       "@utils/*": ["./utils/*"],
-      "@utils": ["./utils"]
+      "@utils": ["./utils"],
+      "@data/*": ["./data/*"],
+      "@data": ["./data"]
     }
   },
   "include": ["src/**/*"]

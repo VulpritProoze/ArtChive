@@ -14,6 +14,7 @@ import {
   CollectiveAdmin,
   Home,
   GalleryIndex,
+  GalleryEditor,
   Profile,
   Timeline,
   BrushDripsPage,
@@ -132,6 +133,7 @@ function App() {
                     </Route>
 
                     <Route path="/gallery" element={<GalleryIndex />} />
+                    <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
 
                     {/* Individual Post Route */}
                     <Route path="/post/:postId" element={<PostDetail />} />
