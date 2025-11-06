@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-python manage.py makemigrations # remove in prod
-python manage.py migrate        # remove in prod
+# python manage.py makemigrations # remove in prod
+# python manage.py migrate        # remove in prod
 
 python manage.py loaddata common/fixtures/trophy_types.json
 python manage.py loaddata common/fixtures/award_types.json

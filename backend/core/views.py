@@ -4,7 +4,7 @@ from decouple import config
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.storage import default_storage
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, Q, Sum
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,

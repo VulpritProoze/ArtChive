@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faQuoteLeft } from "@fortawesome/free-solid-svg-icons";
 import { useState, useEffect, useMemo } from "react";
-import { ImageWithSkeleton } from "../image-with-skeleton";
 
 interface Review {
   id: number;
@@ -204,10 +203,12 @@ const ReviewCarousel = () => {
                     }`}
                   >
                     <div className="flex items-center mb-4">
-                      <ImageWithSkeleton
+                      <img
                         src={card.avatar.trim()}
                         alt={card.name}
-                        className=""
+                        className="w-16 h-16 rounded-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                       <div className="ml-4">
                         <h3 className="font-bold text-lg">{card.name}</h3>

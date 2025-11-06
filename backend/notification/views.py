@@ -1,5 +1,4 @@
-from functools import cache
-
+from django.core.cache import cache
 from django.db.models import Prefetch
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
