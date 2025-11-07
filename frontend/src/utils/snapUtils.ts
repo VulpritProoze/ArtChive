@@ -26,36 +26,111 @@ export function snapPosition(
   objects: CanvasObject[],
   currentObjectId: string,
   width: number,
-  height: number
+  height: number,
+  objectWidth?: number,
+  objectHeight?: number
 ): SnapResult {
   let snappedX = x;
   let snappedY = y;
   const guides: SnapGuide[] = [];
 
-  // Grid snapping
-  if (gridEnabled) {
-    snappedX = snapToGrid(snappedX);
-    snappedY = snapToGrid(snappedY);
+  // Get current object for center calculations
+  const currentObject = objects.find(obj => obj.id === currentObjectId);
+  const currWidth = objectWidth || getObjectWidth(currentObject!) || 0;
+  const currHeight = objectHeight || getObjectHeight(currentObject!) || 0;
+  const currCenterX = x + currWidth / 2;
+  const currCenterY = y + currHeight / 2;
+
+  // Canvas center snapping
+  if (snapEnabled) {
+    const canvasCenterX = width / 2;
+    const canvasCenterY = height / 2;
+
+    // Snap to canvas center (based on object's center)
+    if (Math.abs(currCenterX - canvasCenterX) < SNAP_THRESHOLD) {
+      snappedX = canvasCenterX - currWidth / 2;
+      guides.push({ type: 'vertical', position: canvasCenterX });
+    }
+
+    if (Math.abs(currCenterY - canvasCenterY) < SNAP_THRESHOLD) {
+      snappedY = canvasCenterY - currHeight / 2;
+      guides.push({ type: 'horizontal', position: canvasCenterY });
+    }
   }
 
-  // Object snapping
+  // Grid snapping with visual guides (snap both edges and center)
+  if (gridEnabled && snapEnabled) {
+    // Try snapping object's center to grid
+    const gridCenterX = snapToGrid(currCenterX);
+    const gridCenterY = snapToGrid(currCenterY);
+
+    // Check if center should snap to grid
+    if (Math.abs(currCenterX - gridCenterX) < SNAP_THRESHOLD && !guides.some(g => g.type === 'vertical')) {
+      snappedX = gridCenterX - currWidth / 2;
+      guides.push({ type: 'vertical', position: gridCenterX });
+    }
+
+    if (Math.abs(currCenterY - gridCenterY) < SNAP_THRESHOLD && !guides.some(g => g.type === 'horizontal')) {
+      snappedY = gridCenterY - currHeight / 2;
+      guides.push({ type: 'horizontal', position: gridCenterY });
+    }
+
+    // If center didn't snap, try snapping top-left corner to grid
+    if (!guides.some(g => g.type === 'vertical')) {
+      const gridX = snapToGrid(x);
+      if (Math.abs(x - gridX) < SNAP_THRESHOLD) {
+        snappedX = gridX;
+        guides.push({ type: 'vertical', position: gridX });
+      }
+    }
+
+    if (!guides.some(g => g.type === 'horizontal')) {
+      const gridY = snapToGrid(y);
+      if (Math.abs(y - gridY) < SNAP_THRESHOLD) {
+        snappedY = gridY;
+        guides.push({ type: 'horizontal', position: gridY });
+      }
+    }
+
+    console.log('[snapUtils] Grid snapping:', {
+      original: { x, y },
+      snapped: { x: snappedX, y: snappedY },
+      guides: guides.length,
+    });
+  }
+
+  // Object-to-object snapping (edges and centers)
   if (snapEnabled) {
     const otherObjects = objects.filter((obj) => obj.id !== currentObjectId);
 
-    // Find nearby edges
     let closestX: number | null = null;
     let closestY: number | null = null;
     let minXDist = SNAP_THRESHOLD;
     let minYDist = SNAP_THRESHOLD;
 
     for (const obj of otherObjects) {
-      const objRight = obj.x + (getObjectWidth(obj) || 0);
-      const objBottom = obj.y + (getObjectHeight(obj) || 0);
+      const objWidth = getObjectWidth(obj) || 0;
+      const objHeight = getObjectHeight(obj) || 0;
+      const objRight = obj.x + objWidth;
+      const objBottom = obj.y + objHeight;
+      const objCenterX = obj.x + objWidth / 2;
+      const objCenterY = obj.y + objHeight / 2;
 
-      // Check horizontal alignment
+      const currRight = x + currWidth;
+      const currBottom = y + currHeight;
+
+      // Check horizontal alignment (left edge, center, right edge)
       const xDistances = [
+        // Left edges align
         { pos: obj.x, dist: Math.abs(x - obj.x) },
+        // Right edges align
+        { pos: objRight - currWidth, dist: Math.abs(x - (objRight - currWidth)) },
+        // Centers align
+        { pos: objCenterX - currWidth / 2, dist: Math.abs(currCenterX - objCenterX) },
+        // Current left to obj right
         { pos: objRight, dist: Math.abs(x - objRight) },
+        // Current right to obj left
+        { pos: obj.x - currWidth, dist: Math.abs(currRight - obj.x) },
       ];
 
       for (const { pos, dist } of xDistances) {
@@ -65,10 +140,18 @@ export function snapPosition(
         }
       }
 
-      // Check vertical alignment
+      // Check vertical alignment (top edge, center, bottom edge)
       const yDistances = [
+        // Top edges align
         { pos: obj.y, dist: Math.abs(y - obj.y) },
+        // Bottom edges align
+        { pos: objBottom - currHeight, dist: Math.abs(y - (objBottom - currHeight)) },
+        // Centers align
+        { pos: objCenterY - currHeight / 2, dist: Math.abs(currCenterY - objCenterY) },
+        // Current top to obj bottom
         { pos: objBottom, dist: Math.abs(y - objBottom) },
+        // Current bottom to obj top
+        { pos: obj.y - currHeight, dist: Math.abs(currBottom - obj.y) },
       ];
 
       for (const { pos, dist } of yDistances) {
@@ -79,14 +162,19 @@ export function snapPosition(
       }
     }
 
-    if (closestX !== null) {
+    // Apply object snapping only if not already snapping to canvas center or grid
+    if (closestX !== null && !guides.some(g => g.type === 'vertical')) {
       snappedX = closestX;
-      guides.push({ type: 'vertical', position: closestX });
+      // Calculate guide position based on which alignment was used
+      const guidePosX = closestX + currWidth / 2;
+      guides.push({ type: 'vertical', position: guidePosX });
     }
 
-    if (closestY !== null) {
+    if (closestY !== null && !guides.some(g => g.type === 'horizontal')) {
       snappedY = closestY;
-      guides.push({ type: 'horizontal', position: closestY });
+      // Calculate guide position based on which alignment was used
+      const guidePosY = closestY + currHeight / 2;
+      guides.push({ type: 'horizontal', position: guidePosY });
     }
   }
 

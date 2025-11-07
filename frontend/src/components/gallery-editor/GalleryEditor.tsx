@@ -316,7 +316,9 @@ export function GalleryEditor() {
             width={editorState.width}
             height={editorState.height}
             gridEnabled={editorState.gridEnabled}
+            snapEnabled={editorState.snapEnabled}
             snapGuides={snapGuides}
+            onSnapGuidesChange={setSnapGuides}
           />
 
           {/* Zoom indicator */}
@@ -334,7 +336,7 @@ export function GalleryEditor() {
 
         {/* Right Sidebar - Layers Panel */}
         {!isPreviewMode && showLayers && (
-          <div className="shrink-0 overflow-hidden">
+          <div className="shrink-0 border-l border-1 border-base-300 overflow-hidden">
             <LayerPanel
               objects={editorState.objects}
               selectedIds={editorState.selectedIds}
@@ -348,7 +350,7 @@ export function GalleryEditor() {
 
         {/* Right Sidebar - Properties Panel */}
         {!isPreviewMode && showProperties && (
-          <div className="shrink-0 overflow-hidden">
+          <div className="shrink-0 border-l border-1 border-base-300 overflow-hidden">
             <PropertiesPanel
               selectedObjects={selectedObjects}
               onUpdate={editorState.updateObject}

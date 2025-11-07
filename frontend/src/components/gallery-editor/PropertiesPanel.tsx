@@ -10,12 +10,13 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
   console.log('[PropertiesPanel] Rendering', { selectedCount: selectedObjects.length });
 
   const [localValues, setLocalValues] = useState<Record<string, any>>({});
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    if (selectedObjects.length === 1) {
+    if (selectedObjects.length === 1 && !isDragging) {
       setLocalValues(selectedObjects[0]);
     }
-  }, [selectedObjects]);
+  }, [selectedObjects, isDragging]);
 
   if (selectedObjects.length === 0) {
     return (
@@ -39,6 +40,17 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
   const handleChange = (key: string, value: any) => {
     setLocalValues((prev) => ({ ...prev, [key]: value }));
     onUpdate(obj.id, { [key]: value });
+  };
+
+  const handleSliderChange = (key: string, value: any) => {
+    // Only update local state while dragging
+    setLocalValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSliderCommit = (key: string, value: any) => {
+    // Commit to actual state when done dragging
+    onUpdate(obj.id, { [key]: value });
+    setIsDragging(false);
   };
 
   return (
@@ -125,7 +137,13 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
             min="0"
             max="360"
             value={localValues.rotation || 0}
-            onChange={(e) => handleChange('rotation', parseFloat(e.target.value))}
+            onInput={(e) => {
+              setIsDragging(true);
+              handleSliderChange('rotation', parseFloat((e.target as HTMLInputElement).value));
+            }}
+            onChange={(e) => handleSliderCommit('rotation', parseFloat(e.target.value))}
+            onMouseUp={(e) => handleSliderCommit('rotation', parseFloat((e.target as HTMLInputElement).value))}
+            onTouchEnd={(e) => handleSliderCommit('rotation', parseFloat((e.target as HTMLInputElement).value))}
           />
           <div className="text-xs text-center">{Math.round(localValues.rotation || 0)}°</div>
         </div>
@@ -140,7 +158,13 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
             max="1"
             step="0.1"
             value={localValues.opacity ?? 1}
-            onChange={(e) => handleChange('opacity', parseFloat(e.target.value))}
+            onInput={(e) => {
+              setIsDragging(true);
+              handleSliderChange('opacity', parseFloat((e.target as HTMLInputElement).value));
+            }}
+            onChange={(e) => handleSliderCommit('opacity', parseFloat(e.target.value))}
+            onMouseUp={(e) => handleSliderCommit('opacity', parseFloat((e.target as HTMLInputElement).value))}
+            onTouchEnd={(e) => handleSliderCommit('opacity', parseFloat((e.target as HTMLInputElement).value))}
           />
           <div className="text-xs text-center">{Math.round((localValues.opacity ?? 1) * 100)}%</div>
         </div>

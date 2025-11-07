@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Text as KonvaText, Image as KonvaImage, Line, Group } from 'react-konva';
 import type { CanvasObject, ImageObject, SnapGuide } from '@types';
 import { CanvasTransformer } from './CanvasTransformer';
+import { snapPosition } from '@utils/snapUtils';
 import useImage from 'use-image';
 
 interface CanvasStageProps {
@@ -17,7 +18,9 @@ interface CanvasStageProps {
   width: number;
   height: number;
   gridEnabled?: boolean;
+  snapEnabled?: boolean;
   snapGuides?: SnapGuide[];
+  onSnapGuidesChange?: (guides: SnapGuide[]) => void;
 }
 
 export function CanvasStage({
@@ -33,10 +36,13 @@ export function CanvasStage({
   width,
   height,
   gridEnabled = false,
+  snapEnabled = false,
   snapGuides = [],
+  onSnapGuidesChange,
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [isTransforming, setIsTransforming] = useState(false);
   const lastPanPos = useRef({ x: 0, y: 0 });
 
   // Handle wheel zoom
@@ -69,10 +75,18 @@ export function CanvasStage({
 
   // Handle panning
   const handleMouseDown = (e: any) => {
-    const clickedOnEmpty = e.target === e.target.getStage() || e.target.getClassName() === 'Rect' && e.target.attrs.fill === 'white';
+    const targetClass = e.target.getClassName();
+
+    // Don't do anything if clicking on transformer or its handles
+    if (targetClass === 'Transformer' || e.target.getParent()?.getClassName() === 'Transformer') {
+      console.log('[CanvasStage] Clicked on transformer, ignoring');
+      return;
+    }
+
+    const clickedOnEmpty = e.target === e.target.getStage() || (targetClass === 'Rect' && e.target.attrs.fill === 'white');
 
     console.log('[CanvasStage] Mouse down:', {
-      targetClass: e.target.getClassName(),
+      targetClass,
       isStage: e.target === e.target.getStage(),
       clickedOnEmpty,
     });
@@ -149,9 +163,16 @@ export function CanvasStage({
             <CanvasObjectRenderer
               key={obj.id}
               object={obj}
+              allObjects={objects}
               isSelected={selectedIds.includes(obj.id)}
               onSelect={() => onSelect([obj.id])}
               onUpdate={(updates) => onUpdateObject(obj.id, updates)}
+              gridEnabled={gridEnabled}
+              snapEnabled={snapEnabled}
+              canvasWidth={width}
+              canvasHeight={height}
+              onSnapGuidesChange={onSnapGuidesChange}
+              isTransforming={isTransforming}
             />
           ))}
 
@@ -160,6 +181,8 @@ export function CanvasStage({
             selectedIds={selectedIds}
             objects={objects}
             onUpdate={onUpdateObject}
+            onTransformStart={() => setIsTransforming(true)}
+            onTransformEnd={() => setIsTransforming(false)}
           />
 
           {/* Snap Guides */}
@@ -171,6 +194,7 @@ export function CanvasStage({
                 stroke="blue"
                 strokeWidth={1 / zoom}
                 dash={[10 / zoom, 5 / zoom]}
+                listening={false}
               />
             ) : (
               <Line
@@ -179,6 +203,7 @@ export function CanvasStage({
                 stroke="blue"
                 strokeWidth={1 / zoom}
                 dash={[10 / zoom, 5 / zoom]}
+                listening={false}
               />
             )
           )}
@@ -223,13 +248,81 @@ function CanvasGrid({ width, height }: { width: number; height: number }) {
 // Canvas Object Renderer
 interface CanvasObjectRendererProps {
   object: CanvasObject;
+  allObjects: CanvasObject[];
   isSelected: boolean;
   onSelect: () => void;
   onUpdate: (updates: Partial<CanvasObject>) => void;
+  gridEnabled?: boolean;
+  snapEnabled?: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
+  onSnapGuidesChange?: (guides: SnapGuide[]) => void;
+  isTransforming?: boolean;
 }
 
-function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: CanvasObjectRendererProps) {
+function CanvasObjectRenderer({
+  object,
+  allObjects,
+  isSelected,
+  onSelect,
+  onUpdate,
+  gridEnabled = false,
+  snapEnabled = false,
+  canvasWidth,
+  canvasHeight,
+  onSnapGuidesChange,
+  isTransforming = false,
+}: CanvasObjectRendererProps) {
+  const handleDragMove = (e: any) => {
+    // Skip snapping if object is being transformed (rotated/resized)
+    if (isTransforming) return;
+
+    if (!gridEnabled && !snapEnabled) return;
+
+    const node = e.target;
+
+    // Get object dimensions for snapping calculations
+    // Handle circles differently (they use radius instead of width/height)
+    let objWidth: number;
+    let objHeight: number;
+
+    if (object.type === 'circle') {
+      const radius = node.radius() * (node.scaleX() || 1);
+      objWidth = radius * 2;
+      objHeight = radius * 2;
+    } else {
+      objWidth = (node.width?.() || 0) * (node.scaleX() || 1);
+      objHeight = (node.height?.() || 0) * (node.scaleY() || 1);
+    }
+
+    const result = snapPosition(
+      node.x(),
+      node.y(),
+      gridEnabled,
+      snapEnabled,
+      allObjects,
+      object.id,
+      canvasWidth,
+      canvasHeight,
+      objWidth,
+      objHeight
+    );
+
+    // Apply snapped position
+    node.position({ x: result.x, y: result.y });
+
+    // Update snap guides
+    if (onSnapGuidesChange) {
+      onSnapGuidesChange(result.guides);
+    }
+  };
+
   const handleDragEnd = (e: any) => {
+    // Clear snap guides
+    if (onSnapGuidesChange) {
+      onSnapGuidesChange([]);
+    }
+
     onUpdate({
       x: e.target.x(),
       y: e.target.y(),
@@ -256,6 +349,7 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
           draggable={object.draggable !== false}
           onClick={onSelect}
           onTap={onSelect}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       );
@@ -277,6 +371,7 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
           draggable={object.draggable !== false}
           onClick={onSelect}
           onTap={onSelect}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       );
@@ -302,12 +397,27 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
           draggable={object.draggable !== false}
           onClick={onSelect}
           onTap={onSelect}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       );
 
     case 'image':
-      return <ImageRenderer object={object} isSelected={isSelected} onSelect={onSelect} onUpdate={onUpdate} />;
+      return (
+        <ImageRenderer
+          object={object}
+          allObjects={allObjects}
+          isSelected={isSelected}
+          onSelect={onSelect}
+          onUpdate={onUpdate}
+          gridEnabled={gridEnabled}
+          snapEnabled={snapEnabled}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          onSnapGuidesChange={onSnapGuidesChange}
+          isTransforming={isTransforming}
+        />
+      );
 
     case 'line':
       return (
@@ -327,6 +437,7 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
           draggable={object.draggable !== false}
           onClick={onSelect}
           onTap={onSelect}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
       );
@@ -346,6 +457,7 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
           draggable={object.draggable !== false}
           onClick={onSelect}
           onTap={onSelect}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         >
           <Rect
@@ -360,9 +472,16 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
             <CanvasObjectRenderer
               key={child.id}
               object={child}
+              allObjects={allObjects}
               isSelected={false}
               onSelect={() => {}}
               onUpdate={() => {}}
+              gridEnabled={gridEnabled}
+              snapEnabled={snapEnabled}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              onSnapGuidesChange={onSnapGuidesChange}
+              isTransforming={isTransforming}
             />
           ))}
         </Group>
@@ -374,11 +493,59 @@ function CanvasObjectRenderer({ object, isSelected, onSelect, onUpdate }: Canvas
 }
 
 // Image Renderer with loading
-function ImageRenderer({ object, isSelected, onSelect, onUpdate }: CanvasObjectRendererProps) {
+function ImageRenderer({
+  object,
+  allObjects,
+  isSelected,
+  onSelect,
+  onUpdate,
+  gridEnabled = false,
+  snapEnabled = false,
+  canvasWidth,
+  canvasHeight,
+  onSnapGuidesChange,
+  isTransforming = false,
+}: CanvasObjectRendererProps) {
   const imageObj = object as ImageObject;
   const [image] = useImage(imageObj.src, 'anonymous');
 
+  const handleDragMove = (e: any) => {
+    // Skip snapping if object is being transformed (rotated/resized)
+    if (isTransforming) return;
+
+    if (!gridEnabled && !snapEnabled) return;
+
+    const node = e.target;
+
+    // Get object dimensions for snapping calculations
+    const objWidth = node.width() * (node.scaleX() || 1);
+    const objHeight = node.height() * (node.scaleY() || 1);
+
+    const result = snapPosition(
+      node.x(),
+      node.y(),
+      gridEnabled,
+      snapEnabled,
+      allObjects,
+      object.id,
+      canvasWidth,
+      canvasHeight,
+      objWidth,
+      objHeight
+    );
+
+    node.position({ x: result.x, y: result.y });
+
+    if (onSnapGuidesChange) {
+      onSnapGuidesChange(result.guides);
+    }
+  };
+
   const handleDragEnd = (e: any) => {
+    if (onSnapGuidesChange) {
+      onSnapGuidesChange([]);
+    }
+
     onUpdate({
       x: e.target.x(),
       y: e.target.y(),
@@ -416,6 +583,7 @@ function ImageRenderer({ object, isSelected, onSelect, onUpdate }: CanvasObjectR
       draggable={object.draggable !== false}
       onClick={onSelect}
       onTap={onSelect}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     />
   );

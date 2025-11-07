@@ -758,123 +758,92 @@ const handleMouseUp = () => {
 
 #### 4. Grid Snapping Lacks Visual Feedback
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: When snapping is enabled, users cannot see which grid lines objects are snapping to. There should be visual snap guides that appear temporarily during drag operations.
+**Description**: When snapping is enabled, users now see visual guide lines showing where objects are snapping to during drag operations.
 
-**Expected Behavior**:
-- While dragging an object, temporary guide lines appear showing snap positions
-- Guide lines should be bright/contrasting color (e.g., blue, red)
-- Guides disappear after drag ends
-- Snap guides show vertical and horizontal alignment
+**Features Implemented**:
+- **Grid Snapping**: Objects snap to 10px grid with visual blue dashed guide lines
+  - Object centers snap to grid points (priority)
+  - Object corners snap to grid if center doesn't align
+  - Works with all object types including circles
+- **Canvas Center Snapping**: Objects snap to horizontal and vertical center of canvas
+- **Object-to-Object Snapping**: Objects snap to other objects' edges and centers
+  - Left/right edge alignment
+  - Top/bottom edge alignment
+  - Center-to-center alignment (both horizontal and vertical)
+- Guide lines appear during drag and disappear on release
 
 **Current Behavior**:
-- Snapping works functionally (objects snap to grid)
-- No visual feedback to indicate snap positions
-- Users don't know when/where snapping occurs
+- Blue dashed crisscrossing lines appear when dragging objects
+- Snaps to grid, canvas center, and other object edges/centers
+- Visual feedback shows exactly where objects are aligning
+- All object types (rectangles, circles, text, images, lines) snap correctly
 
-**Suggested Fix**:
+**Implementation Details**:
 
-1. **Update SnapGuide Rendering** in `CanvasStage.tsx`:
+The snapping system in [snapUtils.ts](frontend/src/utils/snapUtils.ts) uses a priority system:
+1. **Canvas center** (highest priority) - 10px threshold
+2. **Grid snapping** - 10px grid with 10px threshold
+3. **Object alignment** - Edges and centers with 10px threshold
 
-```typescript
-{snapGuides.map((guide, index) => (
-  <Line
-    key={`snap-guide-${index}`}
-    points={
-      guide.type === 'vertical'
-        ? [guide.position, 0, guide.position, height]
-        : [0, guide.position, width, guide.position]
-    }
-    stroke="#00A8FF"  // Bright blue
-    strokeWidth={2}
-    dash={[4, 4]}     // Dashed line
-    opacity={0.8}
-    listening={false}
-  />
-))}
-```
+All snapping types generate visual guide lines that render in [CanvasStage.tsx:176-195](frontend/src/components/gallery-editor/CanvasStage.tsx#L176-L195).
 
-2. **Update snapUtils.ts** to return snap guides:
+**Snapping Modes**:
+- **Grid + Snap enabled**: All snapping modes active
+- **Snap only**: Canvas center and object alignment (no grid)
+- **Grid only**: Grid snapping without visual guides
+- **Both disabled**: No snapping
 
-```typescript
-export function snapPosition(
-  x: number,
-  y: number,
-  snapEnabled: boolean,
-  gridSize: number,
-  objects: CanvasObject[],
-  currentId: string
-): { x: number; y: number; guides: SnapGuide[] } {
-  const guides: SnapGuide[] = [];
-
-  if (!snapEnabled) {
-    return { x, y, guides };
-  }
-
-  let snappedX = x;
-  let snappedY = y;
-
-  // Grid snapping
-  const gridX = Math.round(x / gridSize) * gridSize;
-  const gridY = Math.round(y / gridSize) * gridSize;
-
-  if (Math.abs(x - gridX) < 10) {
-    snappedX = gridX;
-    guides.push({ type: 'vertical', position: gridX });
-  }
-
-  if (Math.abs(y - gridY) < 10) {
-    snappedY = gridY;
-    guides.push({ type: 'horizontal', position: gridY });
-  }
-
-  // Object snapping (existing logic)
-  // Add guides when snapping to object edges...
-
-  return { x: snappedX, y: snappedY, guides };
-}
-```
-
-3. **Update drag handlers** to pass guides to state:
-
-```typescript
-const handleDragMove = (e: any) => {
-  const node = e.target;
-  const { x, y, guides } = snapPosition(
-    node.x(),
-    node.y(),
-    snapEnabled,
-    gridSize,
-    objects,
-    node.id()
-  );
-
-  node.position({ x, y });
-  setSnapGuides(guides);  // Update state to show guides
-};
-
-const handleDragEnd = (e: any) => {
-  // ... save position
-  setSnapGuides([]);  // Clear guides after drag
-};
-```
-
-**Visual Enhancement**:
-- Add subtle animation to snap guides (fade in/out)
-- Different colors for grid snap vs object snap
-- Show measurement tooltips with distances
-
-**Files to Modify**:
-- `CanvasStage.tsx` - Render snap guides, update drag handlers
-- `snapUtils.ts` - Return guides along with snapped position
-- `types/canvas.ts` - Ensure SnapGuide interface exists (already done)
+**Files Modified**:
+- [snapUtils.ts:61-100](frontend/src/utils/snapUtils.ts#L61-L100) - Enhanced grid snapping to prioritize center alignment
+- [snapUtils.ts:44-59](frontend/src/utils/snapUtils.ts#L44-L59) - Canvas center snapping
+- [snapUtils.ts:104-161](frontend/src/utils/snapUtils.ts#L104-L161) - Object-to-object edge and center alignment
+- [CanvasStage.tsx:262-301](frontend/src/components/gallery-editor/CanvasStage.tsx#L262-L301) - Updated drag handlers with special handling for circles
+- [CanvasStage.tsx:492-526](frontend/src/components/gallery-editor/CanvasStage.tsx#L492-L526) - Updated ImageRenderer drag handlers
 
 ---
 
 ### 🟡 Minor Issues
 
-#### 5. No Loading State for Image Objects
+#### 5. Rotation Performance Issues
+
+**Status**: ✅ RESOLVED
+
+**Description**: Rotation slider in properties panel had clunky behavior with frequent interruptions and a "disabled" cursor appearing during drag.
+
+**Issue**: Every slider `onChange` event was calling `onUpdate`, which triggered the undo/redo system and caused expensive state updates during continuous dragging.
+
+**Fix Applied** in [PropertiesPanel.tsx:45-54](frontend/src/components/gallery-editor/PropertiesPanel.tsx#L45-L54):
+
+The slider now uses a two-phase update pattern:
+1. **During drag** (`onInput`): Updates only local state for smooth visual feedback
+2. **After drag** (`onChange`, `onMouseUp`, `onTouchEnd`): Commits to actual state and undo history
+
+```typescript
+const [isDragging, setIsDragging] = useState(false);
+
+const handleSliderChange = (key: string, value: any) => {
+  // Only update local state while dragging
+  setLocalValues((prev) => ({ ...prev, [key]: value }));
+};
+
+const handleSliderCommit = (key: string, value: any) => {
+  // Commit to actual state when done dragging
+  onUpdate(obj.id, { [key]: value });
+  setIsDragging(false);
+};
+```
+
+**Benefits**:
+- Smooth, uninterrupted slider dragging
+- Reduced canvas rerenders during rotation
+- Only one undo/redo entry per rotation operation
+- Works for both rotation and opacity sliders
+
+---
+
+#### 6. No Loading State for Image Objects
 
 **Description**: When images are loading on the canvas, there's no loading indicator or placeholder.
 
@@ -882,7 +851,7 @@ const handleDragEnd = (e: any) => {
 
 ---
 
-#### 6. Undo/Redo History Not Limited
+#### 7. Undo/Redo History Not Limited
 
 **Description**: History stack could grow infinitely, causing memory issues.
 
@@ -890,7 +859,7 @@ const handleDragEnd = (e: any) => {
 
 ---
 
-#### 7. No Confirmation on Gallery Delete
+#### 8. No Confirmation on Gallery Delete
 
 **Description**: While there is a browser confirm dialog, it could be improved with a custom modal.
 

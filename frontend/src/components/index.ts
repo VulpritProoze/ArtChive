@@ -29,6 +29,7 @@ export { default as CollectiveAdmin } from './collective/collective-admin.compon
 
 // Gallery
 export { default as GalleryIndex } from './gallery/index.component'
+export { default as MyGalleries } from './gallery/my-galleries.component'
 export { default as GalleryEditor } from './gallery/editor.component'
 
 // Brush Drips

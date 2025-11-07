@@ -22,6 +22,7 @@ import {
   NotificationIndex,
   PostDetail,
   NotFound,
+  MyGalleries,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -133,6 +134,7 @@ function App() {
                     </Route>
 
                     <Route path="/gallery" element={<GalleryIndex />} />
+                    <Route path="/gallery/me" element={<MyGalleries />} />
                     <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
 
                     {/* Individual Post Route */}
