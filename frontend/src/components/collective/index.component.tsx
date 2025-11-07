@@ -29,16 +29,16 @@ export default function Index() {
   return (
     <MainLayout showSidebar={true} showRightSidebar={true}>
       <div>
-          <button
-            onClick={() => navigate("create")}
-            className="btn btn-primary"
-          >
-            Create
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("create")}
+          className="btn btn-primary"
+        >
+          Create
+        </button>
+      </div>
       <div className="space-y-6">
         {/* Page Header */}
-        
+
         <div className="bg-base-200/50 rounded-xl p-6">
           <h1 className="text-3xl font-bold text-base-content mb-2">
             Discover Collectives
@@ -93,8 +93,9 @@ export default function Index() {
                             </h2>
                             <div className="flex items-center gap-3 text-sm text-base-content/70">
                               <span>{collective.member_count || 'N/A'} members</span>
-                              <span className="flex items-center gap-1">
-                                ❤️ 7114
+                              <span className="flex items-center gap-1" title="Brush Drips Count">
+                                <span className="w-3 h-3 rounded-full bg-primary"></span>
+                                {collective.brush_drips_count || 0}
                               </span>
                               <span className="flex items-center gap-1">
                                 💬 2161
@@ -154,8 +155,8 @@ export default function Index() {
                         {/* Action Buttons - Hidden on hover/click to go to page */}
                         <div className="flex gap-2 mt-3">
                           {isMemberOfACollective(collective.collective_id) ? (
-                            <button 
-                              className="btn btn-sm btn-primary" 
+                            <button
+                              className="btn btn-sm btn-primary"
                               disabled
                               onClick={(e) => e.stopPropagation()}
                             >
