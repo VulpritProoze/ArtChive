@@ -230,6 +230,15 @@ export function GalleryEditor() {
     );
   }
 
+  // Log render state
+  console.log('[GalleryEditor] Rendering', {
+    showLayers,
+    showProperties,
+    isPreviewMode,
+    objectCount: editorState.objects.length,
+    selectedCount: editorState.selectedIds.length,
+  });
+
   return (
     <div className="h-screen flex flex-col bg-base-100">
       {/* Toolbar */}
@@ -258,19 +267,25 @@ export function GalleryEditor() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Left Sidebar - Toggle Panels */}
         {!isPreviewMode && (
-          <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2">
+          <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 shrink-0">
             <button
-              onClick={() => setShowLayers(!showLayers)}
+              onClick={() => {
+                console.log('[GalleryEditor] Toggling layers:', !showLayers);
+                setShowLayers(!showLayers);
+              }}
               className={`btn btn-sm ${showLayers ? 'btn-primary' : 'btn-ghost'}`}
               title="Layers"
             >
               <Layers className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setShowProperties(!showProperties)}
+              onClick={() => {
+                console.log('[GalleryEditor] Toggling properties:', !showProperties);
+                setShowProperties(!showProperties);
+              }}
               className={`btn btn-sm ${showProperties ? 'btn-primary' : 'btn-ghost'}`}
               title="Properties"
             >
@@ -287,7 +302,7 @@ export function GalleryEditor() {
         )}
 
         {/* Canvas Area */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-hidden">
           <CanvasStage
             objects={editorState.objects.filter(obj => obj.visible !== false)}
             selectedIds={isPreviewMode ? [] : editorState.selectedIds}
@@ -319,22 +334,26 @@ export function GalleryEditor() {
 
         {/* Right Sidebar - Layers Panel */}
         {!isPreviewMode && showLayers && (
-          <LayerPanel
-            objects={editorState.objects}
-            selectedIds={editorState.selectedIds}
-            onSelect={editorState.selectObjects}
-            onToggleVisibility={handleToggleVisibility}
-            onDelete={editorState.deleteObject}
-            onReorder={handleReorder}
-          />
+          <div className="shrink-0 overflow-hidden">
+            <LayerPanel
+              objects={editorState.objects}
+              selectedIds={editorState.selectedIds}
+              onSelect={editorState.selectObjects}
+              onToggleVisibility={handleToggleVisibility}
+              onDelete={editorState.deleteObject}
+              onReorder={handleReorder}
+            />
+          </div>
         )}
 
         {/* Right Sidebar - Properties Panel */}
         {!isPreviewMode && showProperties && (
-          <PropertiesPanel
-            selectedObjects={selectedObjects}
-            onUpdate={editorState.updateObject}
-          />
+          <div className="shrink-0 overflow-hidden">
+            <PropertiesPanel
+              selectedObjects={selectedObjects}
+              onUpdate={editorState.updateObject}
+            />
+          </div>
         )}
       </div>
 

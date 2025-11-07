@@ -69,11 +69,20 @@ export function CanvasStage({
 
   // Handle panning
   const handleMouseDown = (e: any) => {
-    // Check if clicking on empty canvas (stage)
-    if (e.target === e.target.getStage()) {
+    const clickedOnEmpty = e.target === e.target.getStage() || e.target.getClassName() === 'Rect' && e.target.attrs.fill === 'white';
+
+    console.log('[CanvasStage] Mouse down:', {
+      targetClass: e.target.getClassName(),
+      isStage: e.target === e.target.getStage(),
+      clickedOnEmpty,
+    });
+
+    // Check if clicking on empty canvas (stage or background)
+    if (clickedOnEmpty) {
       setIsPanning(true);
       const pos = e.target.getStage().getPointerPosition();
       lastPanPos.current = { x: pos.x, y: pos.y };
+      console.log('[CanvasStage] Started panning from:', lastPanPos.current);
 
       // Deselect all
       onSelect([]);
@@ -87,14 +96,21 @@ export function CanvasStage({
     if (!stage) return;
 
     const pos = stage.getPointerPosition();
+    if (!pos) return;
+
     const dx = pos.x - lastPanPos.current.x;
     const dy = pos.y - lastPanPos.current.y;
+
+    console.log('[CanvasStage] Panning delta:', { dx, dy, newPan: { x: panX + dx, y: panY + dy } });
 
     onPan(panX + dx, panY + dy);
     lastPanPos.current = { x: pos.x, y: pos.y };
   };
 
   const handleMouseUp = () => {
+    if (isPanning) {
+      console.log('[CanvasStage] Stopped panning');
+    }
     setIsPanning(false);
   };
 
@@ -112,6 +128,7 @@ export function CanvasStage({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         draggable={false}
       >
         <Layer>

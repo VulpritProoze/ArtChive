@@ -688,7 +688,7 @@ In `GalleryEditor.tsx`, pass the prop:
 
 #### 3. Canvas Panning Only Works Outside Canvas Area
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
 **Description**: Users expect to pan the canvas by dragging anywhere on the canvas background. Currently, panning only works when the mouse is dragged outside the canvas boundaries.
 
@@ -697,83 +697,62 @@ In `GalleryEditor.tsx`, pass the prop:
 - OR Space + drag anywhere = pan
 - Smooth panning within canvas bounds
 
-**Current Behavior**:
-- Panning only triggers when mouse moves outside canvas
-- No visual feedback for pan mode
+**Resolution**:
+Fixed in [CanvasStage.tsx:72-115](frontend/src/components/gallery-editor/CanvasStage.tsx#L72-L115)
 
-**Root Cause**:
-Likely the `onDragMove` or pan detection logic is not capturing events within the Stage boundaries.
+The issue was that the mouse down handler only detected clicks on the Stage itself (`e.target === e.target.getStage()`), but not on the white background Rect.
 
-**Suggested Fix**:
-
-In `CanvasStage.tsx`, implement proper pan detection:
+**Fix Applied**:
 
 ```typescript
-const [isPanning, setIsPanning] = useState(false);
-const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
-
 const handleMouseDown = (e: any) => {
-  // Check if clicking on empty stage (not on an object)
-  if (e.target === e.target.getStage()) {
+  // Detect clicks on empty canvas (Stage OR white background Rect)
+  const clickedOnEmpty =
+    e.target === e.target.getStage() ||
+    (e.target.getClassName() === 'Rect' && e.target.attrs.fill === 'white');
+
+  if (clickedOnEmpty) {
     setIsPanning(true);
     const pos = e.target.getStage().getPointerPosition();
-    setPanStart({ x: pos.x - panX, y: pos.y - panY });
+    lastPanPos.current = { x: pos.x, y: pos.y };
+    onSelect([]); // Deselect all objects
   }
 };
 
 const handleMouseMove = (e: any) => {
-  if (!isPanning || !panStart) return;
+  if (!isPanning) return;
 
-  const stage = e.target.getStage();
+  const stage = stageRef.current;
+  if (!stage) return;
+
   const pos = stage.getPointerPosition();
+  if (!pos) return;
 
-  onPan(
-    pos.x - panStart.x,
-    pos.y - panStart.y
-  );
+  const dx = pos.x - lastPanPos.current.x;
+  const dy = pos.y - lastPanPos.current.y;
+
+  onPan(panX + dx, panY + dy);
+  lastPanPos.current = { x: pos.x, y: pos.y };
 };
 
 const handleMouseUp = () => {
   setIsPanning(false);
-  setPanStart(null);
 };
 
 <Stage
   onMouseDown={handleMouseDown}
   onMouseMove={handleMouseMove}
   onMouseUp={handleMouseUp}
-  onMouseLeave={handleMouseUp}
+  onMouseLeave={handleMouseUp}  // Stop panning when mouse leaves canvas
   // ... other props
 >
 ```
 
-**Alternative**: Implement Space key modifier:
-
-```typescript
-const [spacePressed, setSpacePressed] = useState(false);
-
-useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.code === 'Space') setSpacePressed(true);
-  };
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.code === 'Space') setSpacePressed(false);
-  };
-
-  window.addEventListener('keydown', handleKeyDown);
-  window.addEventListener('keyup', handleKeyUp);
-
-  return () => {
-    window.removeEventListener('keydown', handleKeyDown);
-    window.removeEventListener('keyup', handleKeyUp);
-  };
-}, []);
-
-// Then in mouse handlers, check spacePressed
-```
-
-**Files to Modify**:
-- `CanvasStage.tsx` - Pan interaction logic
+**Key Changes**:
+1. Added check for white background Rect clicks: `e.target.getClassName() === 'Rect' && e.target.attrs.fill === 'white'`
+2. Added `onMouseLeave` to stop panning when cursor leaves canvas
+3. Added debug logging to help troubleshoot
+4. Added null check for `getPointerPosition()` return value
 
 ---
 

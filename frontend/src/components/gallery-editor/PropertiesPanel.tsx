@@ -7,6 +7,8 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelProps) {
+  console.log('[PropertiesPanel] Rendering', { selectedCount: selectedObjects.length });
+
   const [localValues, setLocalValues] = useState<Record<string, any>>({});
 
   useEffect(() => {

@@ -18,6 +18,8 @@ export function LayerPanel({
   onDelete,
   onReorder,
 }: LayerPanelProps) {
+  console.log('[LayerPanel] Rendering', { objectCount: objects.length, selectedCount: selectedIds.length });
+
   const getObjectIcon = (type: string) => {
     switch (type) {
       case 'rect':
