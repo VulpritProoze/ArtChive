@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 
 from collective.models import Channel, Collective
 from common.utils import choices
@@ -15,7 +16,7 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     image_url = models.ImageField(upload_to='posts/images/', blank=True, null=True)
-    video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True)
+    video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True, storage=VideoMediaCloudinaryStorage())
     is_deleted = models.BooleanField(default=False)
     post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
