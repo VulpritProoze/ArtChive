@@ -28,7 +28,7 @@ class User(AbstractUser):
     is_deleted = models.BooleanField(default=False)
 
     # profile
-    profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/images/')
+    profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/')
 
     objects = CustomUserManager()
 

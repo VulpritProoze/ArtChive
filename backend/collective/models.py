@@ -23,7 +23,7 @@ class Collective(models.Model):
     description = models.CharField(max_length=4096)
     rules = ArrayField(models.CharField(max_length=100), blank=True, default=default_rules)
     artist_types = ArrayField(models.CharField(max_length=50), default=list, blank=True, help_text='Select artist types (e.g. visual arts, literary arts, etc.)')
-    picture = models.ImageField(default='static/images/defaut_600x400.png')
+    picture = models.ImageField(default='static/images/defaut_600x400.png', upload_to='collective/')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,8 +1,12 @@
 from collections import deque
 
+from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Value
+from django.db.models.fields import BooleanField
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import (
@@ -27,6 +31,7 @@ from notification.utils import (
     create_trophy_notification,
 )
 
+from .cache_utils import get_post_list_cache_key, get_post_list_count_cache_key
 from .models import (
     Comment,
     Critique,
@@ -78,14 +83,54 @@ class PostCreateView(generics.CreateAPIView):
 
 class PostListView(generics.ListAPIView):
     '''
-    Paginated list of all posts
+    Paginated list of all posts with caching
     Example URLs:
     - /posts/ (first 10 posts)
     - /posts/?page=2 (next 10 posts)
     - /posts/?page_size=20 (20 posts per page)
+
+    Cache is automatically invalidated when posts, comments, or hearts are modified.
+    Cache TTL: 5 minutes (300 seconds)
     '''
     serializer_class = PostListViewSerializer
     pagination_class = PostPagination
+
+    '''
+    def list(self, request, *args, **kwargs):
+        """
+        Override list to add caching support.
+        Cache key is based on user ID, page number, and page size.
+        """
+        # Get pagination parameters
+        page = request.query_params.get('page', 1)
+        try:
+            page = int(page)
+        except (ValueError, TypeError):
+            page = 1
+
+        page_size = request.query_params.get('page_size', 10)
+        try:
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page_size = 10
+
+        # Generate cache key
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_list_cache_key(user_id, page, page_size)
+
+        # Try to get from cache
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+
+        # If not in cache, get from database
+        response = super().list(request, *args, **kwargs)
+
+        # Cache the response data for 5 minutes (300 seconds)
+        cache.set(cache_key, response.data, 300)
+
+        return response
+    '''
 
     def get_queryset(self):
         '''
@@ -93,26 +138,54 @@ class PostListView(generics.ListAPIView):
         Only returns active (non-deleted) posts.
         '''
         user = self.request.user
-        # Use get_active_objects() to filter out soft-deleted posts
-        queryset = Post.objects.get_active_objects().prefetch_related(
+
+        # Optimize comment prefetch - prefetch ALL active comments with their authors
+        # The serializer will limit to first 2 in get_comments()
+        comments_prefetch = Prefetch(
+            'post_comment',
+            queryset=Comment.objects.get_active_objects()
+                .select_related('author', 'author__artist')
+                .order_by('-created_at')
+        )
+
+        # Build base queryset with common optimizations
+        queryset = Post.objects.get_active_objects().annotate(
+            # Annotate comment count to avoid separate COUNT queries
+            total_comment_count=Count('post_comment', filter=Q(post_comment__is_deleted=False)),
+            # Annotate hearts count to avoid separate COUNT queries
+            total_hearts_count=Count('post_heart'),
+        ).prefetch_related(
             'novel_post',
             'channel',
-            'channel__collective'  # needed for collective filtering
+            'channel__collective',  # needed for collective filtering
+            comments_prefetch,  # Optimized comment prefetch with author and artist
+            'post_heart',  # Prefetch all hearts for is_hearted check
         ).select_related(
             'author',
+            'author__artist',  # Fetch artist info for post author
         ).order_by('-created_at')
 
-        # Always include public posts (from the known public channel)
-        public_channel_id = '00000000-0000-0000-0000-000000000001'
-        public_posts = Q(channel=public_channel_id)
-
+        # If user is authenticated, annotate whether they hearted each post
         if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_hearted_by_current_user=Exists(
+                    PostHeart.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                )
+            )
+
             joined_collectives = CollectiveMember.objects.filter(
                 member=user
             ).values_list('collective_id', flat=True)
 
             # Posts from joined collectives
             joined_posts = Q(channel__collective__in=joined_collectives)
+
+            # Always include public posts (from the known public channel)
+            public_channel_id = '00000000-0000-0000-0000-000000000001'
+            public_posts = Q(channel=public_channel_id)
 
             # Combine: public posts OR posts from joined collectives
             return queryset.filter(public_posts | joined_posts)

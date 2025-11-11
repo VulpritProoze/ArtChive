@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -17,6 +18,7 @@ from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from core.permissions import IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
+from .cache_utils import get_collective_memberships_cache_key
 from .models import AdminRequest, Channel, Collective, CollectiveMember
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .serializers import (
@@ -46,7 +48,11 @@ class CollectiveDetailsView(ListAPIView):
     pagination_class = CollectiveDetailsPagination
 
     def get_queryset(self):
-        return Collective.objects.prefetch_related('collective_channel').all()
+        return Collective.objects.prefetch_related(
+            'collective_channel',
+            'collective_member',
+            'collective_member__member__user_wallet',
+        ).all()
 
     def get_serializer_context(self):
         """Pass request to serializer for user membership info."""
@@ -240,12 +246,36 @@ class IsCollectiveMemberView(RetrieveAPIView):
 class CollectiveMembershipsView(ListAPIView):
     """
     Fetch the collectives that the authenticated user is a member of.
+
+    Cache is automatically invalidated when user joins/leaves a collective or role changes.
+    Cache TTL: 10 minutes (600 seconds)
     """
     permission_classes = [IsAuthenticated]
     serializer_class = CollectiveMemberSerializer
 
+    def list(self, request, *args, **kwargs):
+        """Override list to add caching support."""
+        user_id = request.user.id
+        cache_key = get_collective_memberships_cache_key(user_id)
+
+        # Try to get from cache
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # If not in cache, get from database
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Cache the response data for 10 minutes (600 seconds)
+        cache.set(cache_key, serializer.data, 600)
+
+        return Response(serializer.data)
+
     def get_queryset(self):
-        return CollectiveMember.objects.filter(member=self.request.user).all()
+        return CollectiveMember.objects.filter(
+            member=self.request.user
+        ).select_related('collective_id').all()
 
 # ============================================================================
 # COLLECTIVE MEMBER MANAGEMENT VIEWS
