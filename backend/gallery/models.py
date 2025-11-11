@@ -11,7 +11,7 @@ class Gallery(models.Model):
     title = models.CharField(max_length=512)
     description = models.CharField(max_length=4096)
     status = models.CharField(choices=choices.COLLECTIVE_STATUS)
-    picture = models.ImageField(default='static/images/default_600x400.png')
+    picture = models.ImageField(default='static/images/default_600x400.png', upload_to='gallery/')
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

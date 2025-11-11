@@ -88,6 +88,8 @@ class PostCreateSerializer(ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()
+            # Reset file pointer after verification so Cloudinary can read it
+            value.seek(0)
         except Exception:
             raise serializers.ValidationError('Invalid image file')
         return value
@@ -239,6 +241,8 @@ class PostUpdateSerializer(ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()
+            # Reset file pointer after verification so Cloudinary can read it
+            value.seek(0)
         except Exception:
             raise serializers.ValidationError('Invalid image file')
         return value

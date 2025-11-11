@@ -3,6 +3,7 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { useCollectiveContext } from "@context/collective-context";
+import { LoadingSpinner } from "@components/loading-spinner";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -50,7 +51,9 @@ export default function Index() {
 
         {/* Collectives Grid */}
         <div>
-          {(collectives.length === 0 && loading) ? (
+          {loading ? (
+            <LoadingSpinner text="Loading collectives..." />
+          ) : collectives.length === 0 ? (
             <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
               <div className="text-6xl mb-4">🎨</div>
               <p className="text-lg font-semibold text-base-content">
