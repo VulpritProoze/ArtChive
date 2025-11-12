@@ -20,17 +20,27 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
 
   if (selectedObjects.length === 0) {
     return (
-      <div className="bg-base-200 border-l border-base-300 w-64 p-4">
-        <p className="text-sm text-gray-500">Select an object to edit properties</p>
+      <div className="bg-base-200 flex flex-col h-full">
+        <div className="p-3 border-b border-base-300 shrink-0">
+          <h3 className="font-bold text-sm">Properties</h3>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-gray-500">Select an object to edit properties</p>
+        </div>
       </div>
     );
   }
 
   if (selectedObjects.length > 1) {
     return (
-      <div className="bg-base-200 border-l border-base-300 w-64 p-4">
-        <p className="text-sm text-gray-500">Multiple objects selected</p>
-        <p className="text-xs text-gray-400 mt-2">Multi-edit coming soon!</p>
+      <div className="bg-base-200 flex flex-col h-full">
+        <div className="p-3 border-b border-base-300 shrink-0">
+          <h3 className="font-bold text-sm">Properties</h3>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-gray-500">Multiple objects selected</p>
+          <p className="text-xs text-gray-400 mt-2">Multi-edit coming soon!</p>
+        </div>
       </div>
     );
   }
@@ -54,13 +64,13 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
   };
 
   return (
-    <div className="bg-base-200 border-l border-base-300 w-64 flex flex-col h-full overflow-y-auto">
-      <div className="p-3 border-b border-base-300">
+    <div className="bg-base-200 flex flex-col h-full">
+      <div className="p-3 border-b border-base-300 shrink-0">
         <h3 className="font-bold text-sm">Properties</h3>
         <p className="text-xs text-gray-500 capitalize">{obj.type}</p>
       </div>
 
-      <div className="p-3 space-y-4">
+      <div className="p-3 space-y-4 overflow-y-auto flex-1 min-h-0">
         {/* Position */}
         <div>
           <label className="label label-text text-xs font-semibold">Position</label>

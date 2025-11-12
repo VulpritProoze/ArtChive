@@ -21,6 +21,8 @@ interface CanvasStageProps {
   snapEnabled?: boolean;
   snapGuides?: SnapGuide[];
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
+  onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
+  isSelectMode?: boolean;
 }
 
 export function CanvasStage({
@@ -39,11 +41,15 @@ export function CanvasStage({
   snapEnabled = false,
   snapGuides = [],
   onSnapGuidesChange,
+  onContextMenu,
+  isSelectMode = true,
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [isTransforming, setIsTransforming] = useState(false);
   const lastPanPos = useRef({ x: 0, y: 0 });
+  const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
 
   // Handle wheel zoom
   const handleWheel = (e: any) => {
@@ -73,9 +79,10 @@ export function CanvasStage({
     onPan(newPos.x, newPos.y);
   };
 
-  // Handle panning
+  // Handle panning and selection
   const handleMouseDown = (e: any) => {
     const targetClass = e.target.getClassName();
+    const targetId = e.target.id();
 
     // Don't do anything if clicking on transformer or its handles
     if (targetClass === 'Transformer' || e.target.getParent()?.getClassName() === 'Transformer') {
@@ -83,20 +90,52 @@ export function CanvasStage({
       return;
     }
 
-    const clickedOnEmpty = e.target === e.target.getStage() || (targetClass === 'Rect' && e.target.attrs.fill === 'white');
+    // Check if we clicked on a canvas object by checking if the target has an ID that matches an object
+    const clickedOnObject = targetId && objects.some(obj => obj.id === targetId);
+
+    // Also check if we clicked on a child of a Group (children have listening=false but just to be safe)
+    const isChildOfGroup = e.target.getParent()?.getClassName() === 'Group' &&
+                           e.target.getParent()?.id() &&
+                           objects.some(obj => obj.id === e.target.getParent()?.id());
+
+    const clickedOnEmpty = !clickedOnObject && !isChildOfGroup &&
+                          (e.target === e.target.getStage() ||
+                           (targetClass === 'Rect' && e.target.attrs.fill === 'white' && !targetId));
 
     console.log('[CanvasStage] Mouse down:', {
       targetClass,
+      targetId,
+      clickedOnObject,
+      isChildOfGroup,
       isStage: e.target === e.target.getStage(),
       clickedOnEmpty,
+      isSelectMode,
     });
 
     // Check if clicking on empty canvas (stage or background)
     if (clickedOnEmpty) {
-      setIsPanning(true);
-      const pos = e.target.getStage().getPointerPosition();
-      lastPanPos.current = { x: pos.x, y: pos.y };
-      console.log('[CanvasStage] Started panning from:', lastPanPos.current);
+      const stage = e.target.getStage();
+      const pos = stage.getPointerPosition();
+
+      if (isSelectMode) {
+        // Start selection box
+        setIsSelecting(true);
+        const transform = stage.getAbsoluteTransform().copy().invert();
+        const stagePos = transform.point(pos);
+
+        setSelectionBox({
+          x1: stagePos.x,
+          y1: stagePos.y,
+          x2: stagePos.x,
+          y2: stagePos.y,
+        });
+        console.log('[CanvasStage] Started selection from:', stagePos);
+      } else {
+        // Start panning
+        setIsPanning(true);
+        lastPanPos.current = { x: pos.x, y: pos.y };
+        console.log('[CanvasStage] Started panning from:', lastPanPos.current);
+      }
 
       // Deselect all
       onSelect([]);
@@ -104,28 +143,82 @@ export function CanvasStage({
   };
 
   const handleMouseMove = (e: any) => {
-    if (!isPanning) return;
-
     const stage = stageRef.current;
     if (!stage) return;
 
     const pos = stage.getPointerPosition();
     if (!pos) return;
 
-    const dx = pos.x - lastPanPos.current.x;
-    const dy = pos.y - lastPanPos.current.y;
+    if (isPanning) {
+      const dx = pos.x - lastPanPos.current.x;
+      const dy = pos.y - lastPanPos.current.y;
 
-    console.log('[CanvasStage] Panning delta:', { dx, dy, newPan: { x: panX + dx, y: panY + dy } });
+      console.log('[CanvasStage] Panning delta:', { dx, dy, newPan: { x: panX + dx, y: panY + dy } });
 
-    onPan(panX + dx, panY + dy);
-    lastPanPos.current = { x: pos.x, y: pos.y };
+      onPan(panX + dx, panY + dy);
+      lastPanPos.current = { x: pos.x, y: pos.y };
+    } else if (isSelecting && selectionBox) {
+      // Update selection box
+      const transform = stage.getAbsoluteTransform().copy().invert();
+      const stagePos = transform.point(pos);
+
+      setSelectionBox({
+        ...selectionBox,
+        x2: stagePos.x,
+        y2: stagePos.y,
+      });
+    }
   };
 
   const handleMouseUp = () => {
     if (isPanning) {
       console.log('[CanvasStage] Stopped panning');
+      setIsPanning(false);
+    } else if (isSelecting && selectionBox) {
+      console.log('[CanvasStage] Stopped selecting');
+
+      // Calculate which objects are within selection box
+      const box = {
+        x: Math.min(selectionBox.x1, selectionBox.x2),
+        y: Math.min(selectionBox.y1, selectionBox.y2),
+        width: Math.abs(selectionBox.x2 - selectionBox.x1),
+        height: Math.abs(selectionBox.y2 - selectionBox.y1),
+      };
+
+      const selected = objects.filter(obj => {
+        // Get object bounds
+        let objX = obj.x;
+        let objY = obj.y;
+        let objWidth = 0;
+        let objHeight = 0;
+
+        if ('width' in obj && obj.width !== undefined) {
+          objWidth = obj.width * (obj.scaleX || 1);
+        }
+        if ('height' in obj && obj.height !== undefined) {
+          objHeight = obj.height * (obj.scaleY || 1);
+        }
+        if ('radius' in obj && obj.radius !== undefined) {
+          const radiusX = obj.radius * (obj.scaleX || 1);
+          const radiusY = obj.radius * (obj.scaleY || 1);
+          objWidth = radiusX * 2;
+          objHeight = radiusY * 2;
+        }
+
+        // Check if object intersects with selection box
+        return !(objX + objWidth < box.x ||
+                 objX > box.x + box.width ||
+                 objY + objHeight < box.y ||
+                 objY > box.y + box.height);
+      });
+
+      if (selected.length > 0) {
+        onSelect(selected.map(obj => obj.id));
+      }
+
+      setIsSelecting(false);
+      setSelectionBox(null);
     }
-    setIsPanning(false);
   };
 
   return (
@@ -173,6 +266,7 @@ export function CanvasStage({
               canvasHeight={height}
               onSnapGuidesChange={onSnapGuidesChange}
               isTransforming={isTransforming}
+              onContextMenu={onContextMenu}
             />
           ))}
 
@@ -184,6 +278,21 @@ export function CanvasStage({
             onTransformStart={() => setIsTransforming(true)}
             onTransformEnd={() => setIsTransforming(false)}
           />
+
+          {/* Selection Box */}
+          {selectionBox && (
+            <Rect
+              x={Math.min(selectionBox.x1, selectionBox.x2)}
+              y={Math.min(selectionBox.y1, selectionBox.y2)}
+              width={Math.abs(selectionBox.x2 - selectionBox.x1)}
+              height={Math.abs(selectionBox.y2 - selectionBox.y1)}
+              fill="rgba(0, 123, 255, 0.1)"
+              stroke="#007bff"
+              strokeWidth={2 / zoom}
+              dash={[10 / zoom, 5 / zoom]}
+              listening={false}
+            />
+          )}
 
           {/* Snap Guides */}
           {snapGuides.map((guide, index) =>
@@ -258,6 +367,7 @@ interface CanvasObjectRendererProps {
   canvasHeight: number;
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
   isTransforming?: boolean;
+  onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
 }
 
 function CanvasObjectRenderer({
@@ -272,6 +382,7 @@ function CanvasObjectRenderer({
   canvasHeight,
   onSnapGuidesChange,
   isTransforming = false,
+  onContextMenu,
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -484,6 +595,134 @@ function CanvasObjectRenderer({
               isTransforming={isTransforming}
             />
           ))}
+        </Group>
+      );
+
+    case 'group':
+      return (
+        <Group
+          id={object.id}
+          x={object.x}
+          y={object.y}
+          width={object.width}
+          height={object.height}
+          rotation={object.rotation}
+          scaleX={object.scaleX}
+          scaleY={object.scaleY}
+          opacity={object.opacity}
+          draggable={object.draggable !== false}
+          onClick={onSelect}
+          onTap={onSelect}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
+        >
+          {/* Render children - they are non-interactive since the group handles all interactions */}
+          {object.children?.map((child) => {
+            // Render children directly without drag handlers
+            switch (child.type) {
+              case 'rect':
+                return (
+                  <Rect
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    width={(child as any).width}
+                    height={(child as any).height}
+                    fill={(child as any).fill}
+                    stroke={(child as any).stroke}
+                    strokeWidth={(child as any).strokeWidth}
+                    cornerRadius={(child as any).cornerRadius}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={false}
+                  />
+                );
+              case 'circle':
+                return (
+                  <Circle
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    radius={(child as any).radius}
+                    fill={(child as any).fill}
+                    stroke={(child as any).stroke}
+                    strokeWidth={(child as any).strokeWidth}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={false}
+                  />
+                );
+              case 'text':
+                return (
+                  <KonvaText
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    text={(child as any).text}
+                    fontSize={(child as any).fontSize}
+                    fontFamily={(child as any).fontFamily}
+                    fill={(child as any).fill}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={false}
+                  />
+                );
+              case 'line':
+                return (
+                  <Line
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    points={(child as any).points}
+                    stroke={(child as any).stroke}
+                    strokeWidth={(child as any).strokeWidth}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={false}
+                  />
+                );
+              case 'image':
+                // For images in groups, render simple placeholder
+                return (
+                  <Rect
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    width={(child as any).width}
+                    height={(child as any).height}
+                    fill="#ddd"
+                    stroke="#999"
+                    strokeWidth={1}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={false}
+                  />
+                );
+              default:
+                return null;
+            }
+          })}
         </Group>
       );
 

@@ -20,6 +20,34 @@ export function LayerPanel({
 }: LayerPanelProps) {
   console.log('[LayerPanel] Rendering', { objectCount: objects.length, selectedCount: selectedIds.length });
 
+  const handleLayerClick = (e: React.MouseEvent, objectId: string) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+Click: Toggle selection
+      if (selectedIds.includes(objectId)) {
+        // Deselect
+        onSelect(selectedIds.filter(id => id !== objectId));
+      } else {
+        // Add to selection
+        onSelect([...selectedIds, objectId]);
+      }
+    } else if (e.shiftKey && selectedIds.length > 0) {
+      // Shift+Click: Range select
+      const lastSelectedId = selectedIds[selectedIds.length - 1];
+      const lastIndex = objects.findIndex(obj => obj.id === lastSelectedId);
+      const clickedIndex = objects.findIndex(obj => obj.id === objectId);
+
+      if (lastIndex !== -1 && clickedIndex !== -1) {
+        const start = Math.min(lastIndex, clickedIndex);
+        const end = Math.max(lastIndex, clickedIndex);
+        const rangeIds = objects.slice(start, end + 1).map(obj => obj.id);
+        onSelect(rangeIds);
+      }
+    } else {
+      // Normal click: Select only this object
+      onSelect([objectId]);
+    }
+  };
+
   const getObjectIcon = (type: string) => {
     switch (type) {
       case 'rect':
@@ -34,6 +62,8 @@ export function LayerPanel({
         return '—';
       case 'gallery-item':
         return '📦';
+      case 'group':
+        return '📁';
       default:
         return '•';
     }
@@ -48,12 +78,12 @@ export function LayerPanel({
   };
 
   return (
-    <div className="bg-base-200 border-l border-base-300 w-64 flex flex-col h-full">
-      <div className="p-3 border-b border-base-300">
+    <div className="bg-base-200 flex flex-col h-full">
+      <div className="p-3 border-b border-base-300 shrink-0">
         <h3 className="font-bold text-sm">Layers</h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {objects.length === 0 ? (
           <div className="p-4 text-center text-gray-500 text-sm">
             No objects yet. Add some from the toolbar!
@@ -70,7 +100,7 @@ export function LayerPanel({
                   className={`p-2 flex items-center gap-2 cursor-pointer hover:bg-base-300 transition-colors ${
                     isSelected ? 'bg-primary/20 border-l-2 border-primary' : ''
                   }`}
-                  onClick={() => onSelect([obj.id])}
+                  onClick={(e) => handleLayerClick(e, obj.id)}
                 >
                   {/* Object Icon */}
                   <span className="text-lg w-6 text-center">{getObjectIcon(obj.type)}</span>

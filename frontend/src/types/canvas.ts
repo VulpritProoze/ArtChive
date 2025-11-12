@@ -1,6 +1,6 @@
 // Canvas object types for the gallery editor
 
-export type CanvasObjectType = 'rect' | 'circle' | 'text' | 'image' | 'line' | 'gallery-item';
+export type CanvasObjectType = 'rect' | 'circle' | 'text' | 'image' | 'line' | 'gallery-item' | 'group';
 
 export interface BaseCanvasObject {
   id: string;
@@ -77,13 +77,21 @@ export interface GalleryItemObject extends BaseCanvasObject {
   borderWidth?: number;
 }
 
+export interface GroupObject extends BaseCanvasObject {
+  type: 'group';
+  children: CanvasObject[];
+  width: number;
+  height: number;
+}
+
 export type CanvasObject =
   | RectObject
   | CircleObject
   | TextObject
   | ImageObject
   | LineObject
-  | GalleryItemObject;
+  | GalleryItemObject
+  | GroupObject;
 
 export interface CanvasState {
   objects: CanvasObject[];

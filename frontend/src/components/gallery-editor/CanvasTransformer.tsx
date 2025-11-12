@@ -92,9 +92,26 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         updates.scaleY = scaleY;
       }
 
-      // For circles, apply scale to radius
+      // For circles, preserve scaleX and scaleY to allow elliptical shapes
       if (currentObject && 'radius' in currentObject && currentObject.radius !== undefined) {
-        updates.radius = Math.max(5, currentObject.radius * scaleX);
+        // Keep the scale values instead of resetting them
+        // This allows circles to become ellipses (oblongs)
+        updates.scaleX = scaleX;
+        updates.scaleY = scaleY;
+      }
+
+      // For groups, maintain aspect ratio by using the average scale
+      if (currentObject && currentObject.type === 'group') {
+        // Use the average of scaleX and scaleY to maintain aspect ratio
+        const avgScale = (scaleX + scaleY) / 2;
+        updates.scaleX = avgScale;
+        updates.scaleY = avgScale;
+
+        // Update group dimensions
+        updates.width = Math.max(5, currentObject.width * avgScale);
+        updates.height = Math.max(5, currentObject.height * avgScale);
+
+        // Reset scale after baking into dimensions
         updates.scaleX = 1;
         updates.scaleY = 1;
       }

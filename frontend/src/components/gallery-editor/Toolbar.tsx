@@ -1,4 +1,4 @@
-import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Save, Eye, Grid, Magnet } from 'lucide-react';
+import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Save, Eye, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X } from 'lucide-react';
 import { useUploadImage } from '@/hooks/useUploadImage';
 import { toast } from 'react-toastify';
 
@@ -14,12 +14,20 @@ interface ToolbarProps {
   onTogglePreview: () => void;
   onToggleGrid: () => void;
   onToggleSnap: () => void;
+  onGroup: () => void;
+  onUngroup: () => void;
+  onToggleSelectMode: () => void;
+  onDeselectAll: () => void;
+  canGroup: boolean;
+  canUngroup: boolean;
   canUndo: boolean;
   canRedo: boolean;
   isSaving: boolean;
   isPreviewMode: boolean;
+  isSelectMode: boolean;
   gridEnabled: boolean;
   snapEnabled: boolean;
+  hasSelection: boolean;
   lastSaved?: Date | null;
 }
 
@@ -35,12 +43,20 @@ export function Toolbar({
   onTogglePreview,
   onToggleGrid,
   onToggleSnap,
+  onGroup,
+  onUngroup,
+  onToggleSelectMode,
+  onDeselectAll,
+  canGroup,
+  canUngroup,
   canUndo,
   canRedo,
   isSaving,
   isPreviewMode,
+  isSelectMode,
   gridEnabled,
   snapEnabled,
+  hasSelection,
   lastSaved,
 }: ToolbarProps) {
   const { upload, isUploading, progress } = useUploadImage();
@@ -65,6 +81,26 @@ export function Toolbar({
 
   return (
     <div className="bg-base-200 border-b border-base-300 p-3 flex items-center gap-2 flex-wrap">
+      {/* Selection Tool */}
+      <div className="flex gap-2 border-r border-base-300 pr-3">
+        <button
+          onClick={onToggleSelectMode}
+          className={`btn btn-sm ${isSelectMode ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+          data-tip="Selection Tool (V)"
+          disabled={isPreviewMode}
+        >
+          <MousePointer2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onDeselectAll}
+          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
+          data-tip="Deselect All (Esc)"
+          disabled={!hasSelection || isPreviewMode}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Add Objects Section */}
       <div className="flex gap-2 border-r border-base-300 pr-3">
         <button
@@ -118,6 +154,26 @@ export function Toolbar({
             <span className="text-xs">{progress}%</span>
           </div>
         )}
+      </div>
+
+      {/* Group/Ungroup Section */}
+      <div className="flex gap-2 border-r border-base-300 pr-3">
+        <button
+          onClick={onGroup}
+          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
+          data-tip="Group Objects (Ctrl+G)"
+          disabled={!canGroup || isPreviewMode}
+        >
+          <GroupIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onUngroup}
+          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
+          data-tip="Ungroup (Ctrl+Shift+G)"
+          disabled={!canUngroup || isPreviewMode}
+        >
+          <Ungroup className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Undo/Redo Section */}

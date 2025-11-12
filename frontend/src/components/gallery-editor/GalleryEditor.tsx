@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Layout, Palette, Layers } from 'lucide-react';
+import { Layout, Palette, Layers, Ungroup } from 'lucide-react';
 import { useCanvasState } from '@hooks/useCanvasState';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
@@ -20,6 +20,8 @@ export function GalleryEditor() {
   const [showProperties, setShowProperties] = useState(true);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
+  const [isSelectMode, setIsSelectMode] = useState(true);
 
   const editorState = useCanvasState({
     galleryId,
@@ -182,6 +184,53 @@ export function GalleryEditor() {
     toast.info('Reordering coming soon!');
   }, [editorState]);
 
+  // Group/Ungroup handlers
+  const handleGroup = useCallback(() => {
+    if (editorState.selectedIds.length >= 2) {
+      editorState.groupObjects(editorState.selectedIds);
+      toast.success('Objects grouped!');
+    } else {
+      toast.warning('Select at least 2 objects to group');
+    }
+  }, [editorState]);
+
+  const handleUngroup = useCallback(() => {
+    if (editorState.selectedIds.length === 1) {
+      const selectedObj = editorState.objects.find(o => o.id === editorState.selectedIds[0]);
+      if (selectedObj && selectedObj.type === 'group') {
+        editorState.ungroupObject(editorState.selectedIds[0]);
+        toast.success('Group ungrouped!');
+      } else {
+        toast.warning('Selected object is not a group');
+      }
+    } else {
+      toast.warning('Select a single group to ungroup');
+    }
+  }, [editorState]);
+
+  // Check if group/ungroup actions are available
+  const canGroup = editorState.selectedIds.length >= 2;
+  const canUngroup = editorState.selectedIds.length === 1 &&
+    editorState.objects.find(o => o.id === editorState.selectedIds[0])?.type === 'group';
+
+  // Handle context menu
+  const handleContextMenu = useCallback((e: React.MouseEvent, objectId: string) => {
+    e.preventDefault();
+    const obj = editorState.objects.find(o => o.id === objectId);
+    if (obj && obj.type === 'group') {
+      setContextMenu({ x: e.clientX, y: e.clientY, objectId });
+    }
+  }, [editorState.objects]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      window.addEventListener('click', handleClick);
+      return () => window.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -204,6 +253,24 @@ export function GalleryEditor() {
         toast.success('Gallery saved!');
       }
 
+      // Group
+      if ((e.ctrlKey || e.metaKey) && e.key === 'g' && !e.shiftKey) {
+        e.preventDefault();
+        handleGroup();
+      }
+
+      // Ungroup
+      if ((e.ctrlKey || e.metaKey) && e.key === 'g' && e.shiftKey) {
+        e.preventDefault();
+        handleUngroup();
+      }
+
+      // Toggle Select Mode
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        setIsSelectMode(true);
+      }
+
       // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (editorState.selectedIds.length > 0) {
@@ -211,11 +278,17 @@ export function GalleryEditor() {
           editorState.selectedIds.forEach(id => editorState.deleteObject(id));
         }
       }
+
+      // Deselect (Escape)
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        editorState.clearSelection();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editorState, isPreviewMode]);
+  }, [editorState, isPreviewMode, handleGroup, handleUngroup]);
 
   // Selected objects for properties panel
   const selectedObjects = editorState.objects.filter(obj =>
@@ -257,12 +330,20 @@ export function GalleryEditor() {
         onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
         onToggleGrid={editorState.toggleGrid}
         onToggleSnap={editorState.toggleSnap}
+        onGroup={handleGroup}
+        onUngroup={handleUngroup}
+        onToggleSelectMode={() => setIsSelectMode(!isSelectMode)}
+        onDeselectAll={editorState.clearSelection}
+        canGroup={canGroup}
+        canUngroup={canUngroup}
         canUndo={editorState.canUndo}
         canRedo={editorState.canRedo}
         isSaving={editorState.isSaving}
         isPreviewMode={isPreviewMode}
+        isSelectMode={isSelectMode}
         gridEnabled={editorState.gridEnabled}
         snapEnabled={editorState.snapEnabled}
+        hasSelection={editorState.selectedIds.length > 0}
         lastSaved={editorState.lastSaved}
       />
 
@@ -319,6 +400,8 @@ export function GalleryEditor() {
             snapEnabled={editorState.snapEnabled}
             snapGuides={snapGuides}
             onSnapGuidesChange={setSnapGuides}
+            onContextMenu={handleContextMenu}
+            isSelectMode={isSelectMode}
           />
 
           {/* Zoom indicator */}
@@ -334,27 +417,32 @@ export function GalleryEditor() {
           )}
         </div>
 
-        {/* Right Sidebar - Layers Panel */}
-        {!isPreviewMode && showLayers && (
-          <div className="shrink-0 border-l border-1 border-base-300 overflow-hidden">
-            <LayerPanel
-              objects={editorState.objects}
-              selectedIds={editorState.selectedIds}
-              onSelect={editorState.selectObjects}
-              onToggleVisibility={handleToggleVisibility}
-              onDelete={editorState.deleteObject}
-              onReorder={handleReorder}
-            />
-          </div>
-        )}
+        {/* Right Sidebar - Combined Panels */}
+        {!isPreviewMode && (showLayers || showProperties) && (
+          <div className="shrink-0 border-l border-1 border-base-300 w-80 flex flex-col overflow-hidden">
+            {/* Layers Panel */}
+            {showLayers && (
+              <div className="flex-1 flex flex-col border-b border-base-300 overflow-hidden min-h-0">
+                <LayerPanel
+                  objects={editorState.objects}
+                  selectedIds={editorState.selectedIds}
+                  onSelect={editorState.selectObjects}
+                  onToggleVisibility={handleToggleVisibility}
+                  onDelete={editorState.deleteObject}
+                  onReorder={handleReorder}
+                />
+              </div>
+            )}
 
-        {/* Right Sidebar - Properties Panel */}
-        {!isPreviewMode && showProperties && (
-          <div className="shrink-0 border-l border-1 border-base-300 overflow-hidden">
-            <PropertiesPanel
-              selectedObjects={selectedObjects}
-              onUpdate={editorState.updateObject}
-            />
+            {/* Properties Panel */}
+            {showProperties && (
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <PropertiesPanel
+                  selectedObjects={selectedObjects}
+                  onUpdate={editorState.updateObject}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -371,6 +459,26 @@ export function GalleryEditor() {
       {editorState.hasUnsavedChanges && !isPreviewMode && (
         <div className="absolute top-20 right-4 bg-warning text-warning-content px-3 py-1 rounded text-xs">
           Unsaved changes
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="absolute bg-base-200 border border-base-300 rounded-lg shadow-lg py-1 z-50"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+            onClick={() => {
+              editorState.ungroupObject(contextMenu.objectId);
+              toast.success('Group ungrouped!');
+              setContextMenu(null);
+            }}
+          >
+            <Ungroup className="w-4 h-4" />
+            Ungroup
+          </button>
         </div>
       )}
     </div>

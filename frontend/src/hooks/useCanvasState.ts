@@ -19,6 +19,8 @@ interface UseCanvasStateReturn extends EditorState {
   setPan: (x: number, y: number) => void;
   toggleGrid: () => void;
   toggleSnap: () => void;
+  groupObjects: (ids: string[]) => void;
+  ungroupObject: (groupId: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -233,6 +235,139 @@ export function useCanvasState({
     setState((prev) => ({ ...prev, snapEnabled: !prev.snapEnabled }));
   }, []);
 
+  const groupObjects = useCallback(
+    (ids: string[]) => {
+      if (ids.length < 2) {
+        console.warn('[useCanvasState] Need at least 2 objects to group');
+        return;
+      }
+
+      const objectsToGroup = state.objects.filter((o) => ids.includes(o.id));
+      if (objectsToGroup.length < 2) return;
+
+      // Calculate bounding box for the group
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+      objectsToGroup.forEach((obj) => {
+        const objMinX = obj.x;
+        const objMinY = obj.y;
+        let objMaxX = obj.x;
+        let objMaxY = obj.y;
+
+        if ('width' in obj && obj.width !== undefined) {
+          objMaxX = obj.x + obj.width * (obj.scaleX || 1);
+        }
+        if ('height' in obj && obj.height !== undefined) {
+          objMaxY = obj.y + obj.height * (obj.scaleY || 1);
+        }
+        if ('radius' in obj && obj.radius !== undefined) {
+          const radiusX = obj.radius * (obj.scaleX || 1);
+          const radiusY = obj.radius * (obj.scaleY || 1);
+          objMaxX = obj.x + radiusX;
+          objMaxY = obj.y + radiusY;
+        }
+
+        minX = Math.min(minX, objMinX);
+        minY = Math.min(minY, objMinY);
+        maxX = Math.max(maxX, objMaxX);
+        maxY = Math.max(maxY, objMaxY);
+      });
+
+      const groupWidth = maxX - minX;
+      const groupHeight = maxY - minY;
+
+      // Create children with relative positions
+      const children = objectsToGroup.map((obj) => ({
+        ...obj,
+        x: obj.x - minX,
+        y: obj.y - minY,
+      }));
+
+      const groupId = Math.random().toString(36).substring(2, 15);
+      const newGroup: CanvasObject = {
+        id: groupId,
+        type: 'group',
+        x: minX,
+        y: minY,
+        width: groupWidth,
+        height: groupHeight,
+        children,
+        draggable: true,
+      };
+
+      const command: Command = {
+        execute: () => {
+          setState((prev) => ({
+            ...prev,
+            objects: [
+              ...prev.objects.filter((o) => !ids.includes(o.id)),
+              newGroup,
+            ],
+            selectedIds: [groupId],
+          }));
+        },
+        undo: () => {
+          setState((prev) => ({
+            ...prev,
+            objects: [
+              ...prev.objects.filter((o) => o.id !== groupId),
+              ...objectsToGroup,
+            ],
+            selectedIds: ids,
+          }));
+        },
+        description: 'Group objects',
+      };
+      undoRedo.execute(command);
+    },
+    [state.objects, undoRedo]
+  );
+
+  const ungroupObject = useCallback(
+    (groupId: string) => {
+      const group = state.objects.find((o) => o.id === groupId);
+      if (!group || group.type !== 'group') {
+        console.warn('[useCanvasState] Object is not a group');
+        return;
+      }
+
+      // Convert children back to absolute positions
+      const ungroupedObjects = group.children.map((child) => ({
+        ...child,
+        x: child.x + group.x,
+        y: child.y + group.y,
+      }));
+
+      const childIds = ungroupedObjects.map((o) => o.id);
+
+      const command: Command = {
+        execute: () => {
+          setState((prev) => ({
+            ...prev,
+            objects: [
+              ...prev.objects.filter((o) => o.id !== groupId),
+              ...ungroupedObjects,
+            ],
+            selectedIds: childIds,
+          }));
+        },
+        undo: () => {
+          setState((prev) => ({
+            ...prev,
+            objects: [
+              ...prev.objects.filter((o) => !childIds.includes(o.id)),
+              group,
+            ],
+            selectedIds: [groupId],
+          }));
+        },
+        description: 'Ungroup objects',
+      };
+      undoRedo.execute(command);
+    },
+    [state.objects, undoRedo]
+  );
+
   const initializeState = useCallback((canvasData: { objects: CanvasObject[]; width?: number; height?: number; background?: string }) => {
     console.log('[useCanvasState] initializeState called with:', {
       objectCount: canvasData.objects.length,
@@ -265,6 +400,8 @@ export function useCanvasState({
     setPan,
     toggleGrid,
     toggleSnap,
+    groupObjects,
+    ungroupObject,
     undo: undoRedo.undo,
     redo: undoRedo.redo,
     canUndo: undoRedo.canUndo,
