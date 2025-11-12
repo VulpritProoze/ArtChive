@@ -6,6 +6,7 @@ from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 from collective.models import Channel, Collective
 from common.utils import choices
 from core.models import User
+from gallery.models import Gallery
 
 from .manager import SoftDeleteManager
 
@@ -76,6 +77,10 @@ class Comment(models.Model):
     critique_id = models.ForeignKey('Critique', on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_reply')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_comment')
     replies_to = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='comment_reply')
+    '''
+    Gallery comment
+    '''
+    gallery = models.ForeignKey(Gallery, on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_comment')
 
     objects = SoftDeleteManager()
 
