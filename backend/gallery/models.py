@@ -10,8 +10,9 @@ class Gallery(models.Model):
     gallery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)
     description = models.CharField(max_length=4096)
-    status = models.CharField(choices=choices.COLLECTIVE_STATUS)
-    picture = models.ImageField(default='static/images/default_600x400.png', upload_to='gallery/')
+    status = models.CharField(default=choices.GALLERY_STATUS.draft, choices=choices.GALLERY_STATUS_CHOICES)
+    picture = models.ImageField(default='static/images/default_600x400.png')
+    canvas_json = models.JSONField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -23,10 +24,6 @@ class Gallery(models.Model):
     def delete(self, *args, **kwargs):
         self.is_deleted = True
         self.save()
-
-class GalleryComment(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-    replies_to = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True) # reply to a gallerycomment
 
 class GalleryAward(models.Model):
     gallery_id = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name='gallery_award')
