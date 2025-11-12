@@ -48,7 +48,11 @@ class CollectiveDetailsView(ListAPIView):
     pagination_class = CollectiveDetailsPagination
 
     def get_queryset(self):
-        return Collective.objects.prefetch_related('collective_channel').all()
+        return Collective.objects.prefetch_related(
+            'collective_channel',
+            'collective_member',
+            'collective_member__member__user_wallet',
+        ).all()
 
     def get_serializer_context(self):
         """Pass request to serializer for user membership info."""

@@ -23,6 +23,7 @@ export interface Collective {
   channels: Channel[];
   members: Member[];
   member_count: number
+  brush_drips_count: number
   title: string;
   description: string;
   rules: string[];
