@@ -1,6 +1,8 @@
-import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Save, Eye, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X } from 'lucide-react';
+import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Save, Eye, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
 import { useUploadImage } from '@/hooks/useUploadImage';
 import { toast } from 'react-toastify';
+
+type EditorMode = 'pan' | 'move' | 'select';
 
 interface ToolbarProps {
   onAddRect: () => void;
@@ -16,7 +18,7 @@ interface ToolbarProps {
   onToggleSnap: () => void;
   onGroup: () => void;
   onUngroup: () => void;
-  onToggleSelectMode: () => void;
+  onSetMode: (mode: EditorMode) => void;
   onDeselectAll: () => void;
   canGroup: boolean;
   canUngroup: boolean;
@@ -24,7 +26,7 @@ interface ToolbarProps {
   canRedo: boolean;
   isSaving: boolean;
   isPreviewMode: boolean;
-  isSelectMode: boolean;
+  editorMode: EditorMode;
   gridEnabled: boolean;
   snapEnabled: boolean;
   hasSelection: boolean;
@@ -45,7 +47,7 @@ export function Toolbar({
   onToggleSnap,
   onGroup,
   onUngroup,
-  onToggleSelectMode,
+  onSetMode,
   onDeselectAll,
   canGroup,
   canUngroup,
@@ -53,7 +55,7 @@ export function Toolbar({
   canRedo,
   isSaving,
   isPreviewMode,
-  isSelectMode,
+  editorMode,
   gridEnabled,
   snapEnabled,
   hasSelection,
@@ -81,11 +83,27 @@ export function Toolbar({
 
   return (
     <div className="bg-base-200 border-b border-base-300 p-3 flex items-center gap-2 flex-wrap">
-      {/* Selection Tool */}
+      {/* Tool Modes */}
       <div className="flex gap-2 border-r border-base-300 pr-3">
         <button
-          onClick={onToggleSelectMode}
-          className={`btn btn-sm ${isSelectMode ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+          onClick={() => onSetMode('pan')}
+          className={`btn btn-sm ${editorMode === 'pan' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+          data-tip="Pan Tool (H)"
+          disabled={isPreviewMode}
+        >
+          <Hand className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onSetMode('move')}
+          className={`btn btn-sm ${editorMode === 'move' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+          data-tip="Move Tool (M)"
+          disabled={isPreviewMode}
+        >
+          <Move className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onSetMode('select')}
+          className={`btn btn-sm ${editorMode === 'select' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
           data-tip="Selection Tool (V)"
           disabled={isPreviewMode}
         >

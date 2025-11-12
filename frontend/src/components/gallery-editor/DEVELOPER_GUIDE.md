@@ -867,6 +867,240 @@ const handleSliderCommit = (key: string, value: any) => {
 
 ---
 
+#### 9. Grouped Objects Cannot Be Rescaled
+
+**Status**: ✅ RESOLVED
+
+**Description**: When a group object is selected, the transformer does not allow rescaling. Users cannot resize grouped objects.
+
+**Resolution**:
+Fixed in [CanvasTransformer.tsx:104-117](frontend/src/components/gallery-editor/CanvasTransformer.tsx#L104-L117)
+
+The transformer now properly handles group scaling:
+- Uses average of scaleX and scaleY to maintain aspect ratio
+- Updates group width and height based on scale
+- Resets scale values to 1 after baking into dimensions
+
+```typescript
+// For groups, maintain aspect ratio by using the average scale
+if (currentObject && currentObject.type === 'group') {
+  const avgScale = (scaleX + scaleY) / 2;
+  updates.scaleX = avgScale;
+  updates.scaleY = avgScale;
+
+  updates.width = Math.max(5, currentObject.width * avgScale);
+  updates.height = Math.max(5, currentObject.height * avgScale);
+
+  updates.scaleX = 1;
+  updates.scaleY = 1;
+}
+```
+
+---
+
+#### 10. Grouped Objects Cannot Be Moved
+
+**Status**: ✅ RESOLVED
+
+**Description**: Grouped objects cannot be dragged/moved as a unit. Only individual objects within the group can be moved.
+
+**Resolution**:
+Fixed in [CanvasStage.tsx:601-717](frontend/src/components/gallery-editor/CanvasStage.tsx#L601-L717)
+
+The key fix was setting `listening={false}` on all child elements within groups. This makes children non-interactive, so only the parent group handles mouse/touch events.
+
+```typescript
+case 'group':
+  return (
+    <Group
+      id={object.id}
+      draggable={object.draggable !== false}
+      onClick={onSelect}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
+    >
+      {object.children?.map((child) => {
+        // Render children with listening={false}
+        return <ChildShape listening={false} {...child} />;
+      })}
+    </Group>
+  );
+```
+
+**How It Works**:
+- Parent Group is draggable and handles all interactions
+- Children render visually but don't capture events (`listening={false}`)
+- Entire group moves as one unit
+- To move individual objects, user must ungroup first (right-click → ungroup)
+
+---
+
+#### 11. Template Objects Should Function Like Groups
+
+**Status**: ✅ RESOLVED
+
+**Description**: Template objects (gallery-item type) should behave like grouped objects, or ideally, be converted to use the group object type for consistency.
+
+**Resolution**:
+Fixed in [templates.ts](frontend/src/data/templates.ts)
+
+All templates have been converted from `type: 'gallery-item'` to `type: 'group'`. This unifies the codebase and allows templates to automatically inherit all group functionality:
+- Drag and move as a unit
+- Rescale with aspect ratio preservation
+- Ungroup via right-click context menu
+- Select in both pan and select modes
+
+**Changes Made**:
+- Changed all 5 templates from `gallery-item` to `group`
+- Removed unnecessary `background`, `borderColor`, `borderWidth` properties (not part of GroupObject interface)
+- Templates now use the same rendering and interaction logic as manually created groups
+
+**Note**: The `gallery-item` case in CanvasStage.tsx can now be removed if no longer needed, or kept for backward compatibility with existing saved galleries.
+
+---
+
+#### 12. Grid Mode Should Be Enabled By Default
+
+**Status**: ✅ RESOLVED
+
+**Description**: Grid should be visible by default when opening the editor to help with alignment.
+
+**Resolution**:
+Fixed in [useCanvasState.ts:49](frontend/src/hooks/useCanvasState.ts#L49)
+
+Changed default state from `gridEnabled: false` to `gridEnabled: true`:
+
+```typescript
+const [state, setState] = useState<EditorState>({
+  objects: [],
+  width: 1920,
+  height: 1080,
+  selectedIds: [],
+  clipboard: [],
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  gridEnabled: true,   // ✓ Now true by default
+  snapEnabled: true,
+  ...initialState,
+});
+```
+
+Now when users open the gallery editor, the grid will be visible immediately to help with object alignment and positioning.
+
+---
+
+#### 13. Deselect All Should Also Disable Select Tool
+
+**Status**: 🔴 Unresolved
+
+**Description**: When clicking the "Deselect All" button (X icon), it should also exit select mode and return to pan mode.
+
+**Expected Behavior**:
+- Click deselect button → clears selection AND exits select mode
+- ESC key → clears selection AND exits select mode
+- This provides a quick way to return to default pan/move state
+
+**Suggested Fix**:
+
+In `GalleryEditor.tsx`:
+```typescript
+const handleDeselectAll = () => {
+  editorState.clearSelection();
+  setIsSelectMode(false);
+};
+```
+
+Then pass `handleDeselectAll` instead of `editorState.clearSelection` to Toolbar.
+
+**Files to Modify**:
+- `GalleryEditor.tsx` - Create combined handler
+- Update keyboard shortcut handler for ESC key
+
+---
+
+#### 14. Text Box Double-Click Editing Not Working
+
+**Status**: 🔴 Unresolved
+
+**Description**: Double-clicking a text object should allow in-place editing. Currently, users cannot edit text directly on the canvas.
+
+**Expected Behavior**:
+- Double-click text object → converts to editable input/textarea
+- User types new text
+- Click outside or press Enter → commits changes
+
+**Suggested Implementation**:
+
+Use Konva's built-in text editing or create a custom HTML overlay:
+
+```typescript
+// In CanvasStage.tsx
+const handleTextDblClick = (textObj: TextObject) => {
+  // Create textarea overlay
+  const textarea = document.createElement('textarea');
+  textarea.value = textObj.text;
+  // Position it over the text object
+  // On blur/enter, update the text object
+};
+```
+
+**Additional Issues**:
+- Text box properties panel may also need improvements
+- Font selection, alignment, etc. should be easily accessible
+
+**Files to Modify**:
+- `CanvasStage.tsx` - Add double-click handler for text objects
+- `PropertiesPanel.tsx` - Enhance text editing controls
+
+---
+
+#### 15. Object-to-Object Grid Snapping Not Implemented
+
+**Status**: 🔴 Unresolved
+
+**Description**: Grid snapping should work between objects, not just to the canvas grid. When moving a rectangle next to another rectangle, snapping should trigger to align their edges.
+
+**Expected Behavior**:
+- Drag object A near object B → edges snap together
+- Visual guide lines show alignment
+- Works for all edge combinations (left-to-left, right-to-right, top-to-top, etc.)
+
+**Note**: Developer thought this was already fixed, but it may need reimplementation or verification.
+
+**Suggested Enhancement**:
+
+In `snapUtils.ts`, ensure object-to-object snapping is properly detecting and aligning edges:
+
+```typescript
+// Check all objects for edge alignment
+objects.forEach(otherObj => {
+  if (otherObj.id === currentId) return;
+
+  const threshold = 5; // px
+
+  // Left edge to left edge
+  if (Math.abs(x - otherObj.x) < threshold) {
+    snappedX = otherObj.x;
+    guides.push({ type: 'vertical', position: otherObj.x });
+  }
+
+  // Right edge to right edge
+  if (Math.abs((x + width) - (otherObj.x + otherObj.width)) < threshold) {
+    snappedX = otherObj.x + otherObj.width - width;
+    guides.push({ type: 'vertical', position: otherObj.x + otherObj.width });
+  }
+
+  // Similar for top/bottom edges
+});
+```
+
+**Files to Modify**:
+- `snapUtils.ts` - Add or verify object-to-object edge snapping logic
+- Test with multiple objects on canvas
+
+---
+
 ## Performance Considerations
 
 ### Canvas Objects

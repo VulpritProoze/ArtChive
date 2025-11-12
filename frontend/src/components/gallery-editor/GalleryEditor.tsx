@@ -12,6 +12,8 @@ import { LayerPanel } from './LayerPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { TemplateLibrary } from './TemplateLibrary';
 
+type EditorMode = 'pan' | 'move' | 'select';
+
 export function GalleryEditor() {
   const { galleryId } = useParams<{ galleryId: string }>();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -21,7 +23,7 @@ export function GalleryEditor() {
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
-  const [isSelectMode, setIsSelectMode] = useState(true);
+  const [editorMode, setEditorMode] = useState<EditorMode>('move');
 
   const editorState = useCanvasState({
     galleryId,
@@ -265,10 +267,22 @@ export function GalleryEditor() {
         handleUngroup();
       }
 
-      // Toggle Select Mode
+      // Toggle Select Mode with V
       if (e.key === 'v' || e.key === 'V') {
         e.preventDefault();
-        setIsSelectMode(true);
+        setEditorMode(prev => prev === 'select' ? 'move' : 'select');
+      }
+
+      // Move Mode with M
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        setEditorMode('move');
+      }
+
+      // Pan Mode with H (hand tool)
+      if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        setEditorMode('pan');
       }
 
       // Delete
@@ -279,10 +293,11 @@ export function GalleryEditor() {
         }
       }
 
-      // Deselect (Escape)
+      // Deselect (Escape) and return to move mode
       if (e.key === 'Escape') {
         e.preventDefault();
         editorState.clearSelection();
+        setEditorMode('move');
       }
     };
 
@@ -332,15 +347,18 @@ export function GalleryEditor() {
         onToggleSnap={editorState.toggleSnap}
         onGroup={handleGroup}
         onUngroup={handleUngroup}
-        onToggleSelectMode={() => setIsSelectMode(!isSelectMode)}
-        onDeselectAll={editorState.clearSelection}
+        onSetMode={setEditorMode}
+        onDeselectAll={() => {
+          editorState.clearSelection();
+          setEditorMode('move');
+        }}
         canGroup={canGroup}
         canUngroup={canUngroup}
         canUndo={editorState.canUndo}
         canRedo={editorState.canRedo}
         isSaving={editorState.isSaving}
         isPreviewMode={isPreviewMode}
-        isSelectMode={isSelectMode}
+        editorMode={editorMode}
         gridEnabled={editorState.gridEnabled}
         snapEnabled={editorState.snapEnabled}
         hasSelection={editorState.selectedIds.length > 0}
@@ -401,7 +419,7 @@ export function GalleryEditor() {
             snapGuides={snapGuides}
             onSnapGuidesChange={setSnapGuides}
             onContextMenu={handleContextMenu}
-            isSelectMode={isSelectMode}
+            editorMode={editorMode}
           />
 
           {/* Zoom indicator */}

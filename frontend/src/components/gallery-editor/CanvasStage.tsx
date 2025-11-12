@@ -5,6 +5,8 @@ import { CanvasTransformer } from './CanvasTransformer';
 import { snapPosition } from '@utils/snapUtils';
 import useImage from 'use-image';
 
+type EditorMode = 'pan' | 'move' | 'select';
+
 interface CanvasStageProps {
   objects: CanvasObject[];
   selectedIds: string[];
@@ -22,7 +24,7 @@ interface CanvasStageProps {
   snapGuides?: SnapGuide[];
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
-  isSelectMode?: boolean;
+  editorMode?: EditorMode;
 }
 
 export function CanvasStage({
@@ -42,7 +44,7 @@ export function CanvasStage({
   snapGuides = [],
   onSnapGuidesChange,
   onContextMenu,
-  isSelectMode = true,
+  editorMode = 'move',
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -109,7 +111,7 @@ export function CanvasStage({
       isChildOfGroup,
       isStage: e.target === e.target.getStage(),
       clickedOnEmpty,
-      isSelectMode,
+      editorMode,
     });
 
     // Check if clicking on empty canvas (stage or background)
@@ -117,7 +119,7 @@ export function CanvasStage({
       const stage = e.target.getStage();
       const pos = stage.getPointerPosition();
 
-      if (isSelectMode) {
+      if (editorMode === 'select') {
         // Start selection box
         setIsSelecting(true);
         const transform = stage.getAbsoluteTransform().copy().invert();
@@ -131,7 +133,7 @@ export function CanvasStage({
         });
         console.log('[CanvasStage] Started selection from:', stagePos);
       } else {
-        // Start panning
+        // Start panning (both pan and move mode allow panning on empty canvas)
         setIsPanning(true);
         lastPanPos.current = { x: pos.x, y: pos.y };
         console.log('[CanvasStage] Started panning from:', lastPanPos.current);
@@ -267,6 +269,7 @@ export function CanvasStage({
               onSnapGuidesChange={onSnapGuidesChange}
               isTransforming={isTransforming}
               onContextMenu={onContextMenu}
+              editorMode={editorMode}
             />
           ))}
 
@@ -368,6 +371,7 @@ interface CanvasObjectRendererProps {
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
   isTransforming?: boolean;
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
+  editorMode?: EditorMode;
 }
 
 function CanvasObjectRenderer({
@@ -383,6 +387,7 @@ function CanvasObjectRenderer({
   onSnapGuidesChange,
   isTransforming = false,
   onContextMenu,
+  editorMode = 'move',
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -392,7 +397,7 @@ function CanvasObjectRenderer({
 
     const node = e.target;
 
-    // Get object dimensions for snapping calculations
+    // Get object dimensions and rotation for snapping calculations
     // Handle circles differently (they use radius instead of width/height)
     let objWidth: number;
     let objHeight: number;
@@ -406,6 +411,8 @@ function CanvasObjectRenderer({
       objHeight = (node.height?.() || 0) * (node.scaleY() || 1);
     }
 
+    const rotation = node.rotation() || 0;
+
     const result = snapPosition(
       node.x(),
       node.y(),
@@ -416,7 +423,8 @@ function CanvasObjectRenderer({
       canvasWidth,
       canvasHeight,
       objWidth,
-      objHeight
+      objHeight,
+      rotation
     );
 
     // Apply snapped position
@@ -440,6 +448,9 @@ function CanvasObjectRenderer({
     });
   };
 
+  // Objects are only draggable in 'move' mode
+  const isDraggable = editorMode === 'move' && object.draggable !== false;
+
   switch (object.type) {
     case 'rect':
       return (
@@ -457,7 +468,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -479,7 +490,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -505,7 +516,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -545,7 +556,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -565,7 +576,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -610,7 +621,7 @@ function CanvasObjectRenderer({
           scaleX={object.scaleX}
           scaleY={object.scaleY}
           opacity={object.opacity}
-          draggable={object.draggable !== false}
+          draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
           onDragMove={handleDragMove}
@@ -627,7 +638,7 @@ function CanvasObjectRenderer({
             }
           }}
         >
-          {/* Render children - they are non-interactive since the group handles all interactions */}
+          {/* Render children - listening enabled so they can capture clicks for the group */}
           {object.children?.map((child) => {
             // Render children directly without drag handlers
             switch (child.type) {
@@ -647,7 +658,7 @@ function CanvasObjectRenderer({
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
                     opacity={child.opacity}
-                    listening={false}
+                    listening={true}
                   />
                 );
               case 'circle':
@@ -664,7 +675,7 @@ function CanvasObjectRenderer({
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
                     opacity={child.opacity}
-                    listening={false}
+                    listening={true}
                   />
                 );
               case 'text':
@@ -681,7 +692,7 @@ function CanvasObjectRenderer({
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
                     opacity={child.opacity}
-                    listening={false}
+                    listening={true}
                   />
                 );
               case 'line':
@@ -697,7 +708,7 @@ function CanvasObjectRenderer({
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
                     opacity={child.opacity}
-                    listening={false}
+                    listening={true}
                   />
                 );
               case 'image':
@@ -716,7 +727,7 @@ function CanvasObjectRenderer({
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
                     opacity={child.opacity}
-                    listening={false}
+                    listening={true}
                   />
                 );
               default:
@@ -756,9 +767,10 @@ function ImageRenderer({
 
     const node = e.target;
 
-    // Get object dimensions for snapping calculations
+    // Get object dimensions and rotation for snapping calculations
     const objWidth = node.width() * (node.scaleX() || 1);
     const objHeight = node.height() * (node.scaleY() || 1);
+    const rotation = node.rotation() || 0;
 
     const result = snapPosition(
       node.x(),
@@ -770,7 +782,8 @@ function ImageRenderer({
       canvasWidth,
       canvasHeight,
       objWidth,
-      objHeight
+      objHeight,
+      rotation
     );
 
     node.position({ x: result.x, y: result.y });

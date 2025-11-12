@@ -46,7 +46,7 @@ export function useCanvasState({
     zoom: 1,
     panX: 0,
     panY: 0,
-    gridEnabled: false,
+    gridEnabled: true,
     snapEnabled: true,
     ...initialState,
   });

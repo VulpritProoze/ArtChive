@@ -26,8 +26,24 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       .filter(Boolean);
 
     transformer.nodes(selectedNodes);
+
+    // Check if any selected object is a group
+    const hasGroupSelected = selectedIds.some(id => {
+      const obj = objects.find(o => o.id === id);
+      return obj?.type === 'group';
+    });
+
+    // Disable resizing for groups (but allow rotation)
+    if (hasGroupSelected) {
+      transformer.enabledAnchors(['middle-left', 'middle-right', 'top-center', 'bottom-center']);
+      transformer.resizeEnabled(false);
+    } else {
+      transformer.enabledAnchors(['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']);
+      transformer.resizeEnabled(true);
+    }
+
     transformer.getLayer()?.batchDraw();
-  }, [selectedIds]);
+  }, [selectedIds, objects]);
 
   const handleTransform = () => {
     console.log('[CanvasTransformer] Transform started');
@@ -100,28 +116,14 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         updates.scaleY = scaleY;
       }
 
-      // For groups, maintain aspect ratio by using the average scale
-      if (currentObject && currentObject.type === 'group') {
-        // Use the average of scaleX and scaleY to maintain aspect ratio
-        const avgScale = (scaleX + scaleY) / 2;
-        updates.scaleX = avgScale;
-        updates.scaleY = avgScale;
-
-        // Update group dimensions
-        updates.width = Math.max(5, currentObject.width * avgScale);
-        updates.height = Math.max(5, currentObject.height * avgScale);
-
-        // Reset scale after baking into dimensions
-        updates.scaleX = 1;
-        updates.scaleY = 1;
-      }
-
       console.log('[CanvasTransformer] Calling onUpdate with:', { id, updates });
       onUpdate(id, updates);
 
-      // Reset node scale after update
-      node.scaleX(1);
-      node.scaleY(1);
+      // Reset node scale after update (but not for circles which use scale)
+      if (currentObject && currentObject.type !== 'circle') {
+        node.scaleX(1);
+        node.scaleY(1);
+      }
     });
 
     // Notify that transformation is complete

@@ -15,14 +15,11 @@ export const galleryTemplates: Template[] = [
     description: 'Traditional gallery frame with image and caption',
     data: {
       id: generateId(),
-      type: 'gallery-item',
+      type: 'group',
       x: 100,
       y: 100,
       width: 300,
       height: 400,
-      background: '#ffffff',
-      borderColor: '#333333',
-      borderWidth: 2,
       children: [
         {
           id: generateId(),
@@ -68,14 +65,11 @@ export const galleryTemplates: Template[] = [
     description: 'Minimalist card design with shadow effect',
     data: {
       id: generateId(),
-      type: 'gallery-item',
+      type: 'group',
       x: 150,
       y: 150,
       width: 350,
       height: 450,
-      background: '#ffffff',
-      borderColor: '#e0e0e0',
-      borderWidth: 1,
       children: [
         {
           id: generateId(),
@@ -117,12 +111,11 @@ export const galleryTemplates: Template[] = [
     description: 'Image with overlaid text, perfect for featured content',
     data: {
       id: generateId(),
-      type: 'gallery-item',
+      type: 'group',
       x: 200,
       y: 100,
       width: 400,
       height: 300,
-      background: '#000000',
       children: [
         {
           id: generateId(),
@@ -173,13 +166,11 @@ export const galleryTemplates: Template[] = [
     description: 'Multi-image grid layout',
     data: {
       id: generateId(),
-      type: 'gallery-item',
+      type: 'group',
       x: 100,
       y: 100,
       width: 420,
       height: 420,
-      background: '#f5f5f5',
-      borderWidth: 0,
       children: [
         {
           id: generateId(),
@@ -234,14 +225,11 @@ export const galleryTemplates: Template[] = [
     description: 'Card with detailed information layout',
     data: {
       id: generateId(),
-      type: 'gallery-item',
+      type: 'group',
       x: 150,
       y: 150,
       width: 320,
       height: 480,
-      background: '#ffffff',
-      borderColor: '#dddddd',
-      borderWidth: 1,
       children: [
         {
           id: generateId(),
