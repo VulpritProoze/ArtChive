@@ -420,6 +420,7 @@ export function GalleryEditor() {
             onSnapGuidesChange={setSnapGuides}
             onContextMenu={handleContextMenu}
             editorMode={editorMode}
+            isPreviewMode={isPreviewMode}
           />
 
           {/* Zoom indicator */}

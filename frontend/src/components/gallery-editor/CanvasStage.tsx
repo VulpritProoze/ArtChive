@@ -25,6 +25,7 @@ interface CanvasStageProps {
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
   editorMode?: EditorMode;
+  isPreviewMode?: boolean;
 }
 
 export function CanvasStage({
@@ -45,6 +46,7 @@ export function CanvasStage({
   onSnapGuidesChange,
   onContextMenu,
   editorMode = 'move',
+  isPreviewMode = false,
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -52,6 +54,7 @@ export function CanvasStage({
   const lastPanPos = useRef({ x: 0, y: 0 });
   const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   // Handle wheel zoom
   const handleWheel = (e: any) => {
@@ -223,6 +226,12 @@ export function CanvasStage({
     }
   };
 
+  // Handle text editing
+  const handleTextEdit = (textId: string, newText: string) => {
+    onUpdateObject(textId, { text: newText });
+    setEditingTextId(null);
+  };
+
   return (
     <div className="relative bg-gray-100 dark:bg-gray-900 overflow-hidden">
       <Stage
@@ -270,6 +279,7 @@ export function CanvasStage({
               isTransforming={isTransforming}
               onContextMenu={onContextMenu}
               editorMode={editorMode}
+              isPreviewMode={isPreviewMode}
             />
           ))}
 
@@ -297,30 +307,44 @@ export function CanvasStage({
             />
           )}
 
-          {/* Snap Guides */}
+          {/* Snap Guides - More prominent visual feedback */}
           {snapGuides.map((guide, index) =>
             guide.type === 'vertical' ? (
               <Line
                 key={`guide-${index}`}
                 points={[guide.position, 0, guide.position, height]}
-                stroke="blue"
-                strokeWidth={1 / zoom}
-                dash={[10 / zoom, 5 / zoom]}
+                stroke="#FF00FF"
+                strokeWidth={2 / zoom}
+                dash={[4 / zoom, 4 / zoom]}
                 listening={false}
+                opacity={0.8}
               />
             ) : (
               <Line
                 key={`guide-${index}`}
                 points={[0, guide.position, width, guide.position]}
-                stroke="blue"
-                strokeWidth={1 / zoom}
-                dash={[10 / zoom, 5 / zoom]}
+                stroke="#FF00FF"
+                strokeWidth={2 / zoom}
+                dash={[4 / zoom, 4 / zoom]}
                 listening={false}
+                opacity={0.8}
               />
             )
           )}
         </Layer>
       </Stage>
+
+      {/* Text Editing Overlay */}
+      {editingTextId && (
+        <TextEditor
+          textObject={objects.find(obj => obj.id === editingTextId) as any}
+          zoom={zoom}
+          panX={panX}
+          panY={panY}
+          onSave={handleTextEdit}
+          onCancel={() => setEditingTextId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -372,6 +396,7 @@ interface CanvasObjectRendererProps {
   isTransforming?: boolean;
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
   editorMode?: EditorMode;
+  isPreviewMode?: boolean;
 }
 
 function CanvasObjectRenderer({
@@ -388,6 +413,7 @@ function CanvasObjectRenderer({
   isTransforming = false,
   onContextMenu,
   editorMode = 'move',
+  isPreviewMode = false,
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -448,8 +474,8 @@ function CanvasObjectRenderer({
     });
   };
 
-  // Objects are only draggable in 'move' mode
-  const isDraggable = editorMode === 'move' && object.draggable !== false;
+  // Objects are only draggable in 'move' mode and not in preview mode
+  const isDraggable = !isPreviewMode && editorMode === 'move' && object.draggable !== false;
 
   switch (object.type) {
     case 'rect':
@@ -519,6 +545,7 @@ function CanvasObjectRenderer({
           draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
+          onDblClick={() => setEditingTextId(object.id)}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
@@ -538,6 +565,8 @@ function CanvasObjectRenderer({
           canvasHeight={canvasHeight}
           onSnapGuidesChange={onSnapGuidesChange}
           isTransforming={isTransforming}
+          editorMode={editorMode}
+          isPreviewMode={isPreviewMode}
         />
       );
 
@@ -604,6 +633,7 @@ function CanvasObjectRenderer({
               canvasHeight={canvasHeight}
               onSnapGuidesChange={onSnapGuidesChange}
               isTransforming={isTransforming}
+              isPreviewMode={isPreviewMode}
             />
           ))}
         </Group>
@@ -755,6 +785,8 @@ function ImageRenderer({
   canvasHeight,
   onSnapGuidesChange,
   isTransforming = false,
+  editorMode = 'move',
+  isPreviewMode = false,
 }: CanvasObjectRendererProps) {
   const imageObj = object as ImageObject;
   const [image] = useImage(imageObj.src, 'anonymous');
@@ -804,6 +836,9 @@ function ImageRenderer({
     });
   };
 
+  // Objects are only draggable in 'move' mode and not in preview mode
+  const isDraggable = !isPreviewMode && editorMode === 'move' && object.draggable !== false;
+
   if (!image) {
     // Show loading placeholder
     return (
@@ -832,11 +867,80 @@ function ImageRenderer({
       scaleX={object.scaleX}
       scaleY={object.scaleY}
       opacity={object.opacity}
-      draggable={object.draggable !== false}
+      draggable={isDraggable}
       onClick={onSelect}
       onTap={onSelect}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
+    />
+  );
+}
+
+// Text Editor Component
+interface TextEditorProps {
+  textObject: any;
+  zoom: number;
+  panX: number;
+  panY: number;
+  onSave: (id: string, text: string) => void;
+  onCancel: () => void;
+}
+
+function TextEditor({ textObject, zoom, panX, panY, onSave, onCancel }: TextEditorProps) {
+  const [value, setValue] = useState(textObject.text || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    // Focus and select text on mount
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSave(textObject.id, value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  // Calculate position accounting for zoom and pan
+  const x = textObject.x * zoom + panX;
+  const y = textObject.y * zoom + panY;
+  const fontSize = (textObject.fontSize || 16) * zoom * (textObject.scaleX || 1);
+  const width = (textObject.width || 200) * zoom * (textObject.scaleX || 1);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={() => onSave(textObject.id, value)}
+      style={{
+        position: 'absolute',
+        left: `${x}px`,
+        top: `${y}px`,
+        width: `${width}px`,
+        fontSize: `${fontSize}px`,
+        fontFamily: textObject.fontFamily || 'Arial',
+        color: textObject.fill || '#000000',
+        background: 'transparent',
+        border: '2px solid #007bff',
+        padding: '4px',
+        resize: 'none',
+        outline: 'none',
+        overflow: 'hidden',
+        lineHeight: '1.2',
+        fontStyle: textObject.fontStyle === 'italic' ? 'italic' : 'normal',
+        fontWeight: textObject.fontStyle === 'bold' ? 'bold' : 'normal',
+        textDecoration: textObject.textDecoration || 'none',
+        textAlign: (textObject.align as 'left' | 'center' | 'right') || 'left',
+      }}
     />
   );
 }

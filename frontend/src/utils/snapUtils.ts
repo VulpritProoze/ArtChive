@@ -1,7 +1,8 @@
 import type { CanvasObject } from '@types';
 
 export const GRID_SIZE = 10;
-export const SNAP_THRESHOLD = 10;
+export const SNAP_THRESHOLD = 15; // Increased from 10 for stronger snapping
+export const SNAP_STRENGTH = 20; // Distance needed to break free from snap
 
 interface SnapResult {
   x: number;
@@ -286,6 +287,7 @@ function getObjectWidth(obj: CanvasObject): number | null {
     case 'rect':
     case 'image':
     case 'gallery-item':
+    case 'group':
       return obj.width * (obj.scaleX || 1);
     case 'circle':
       return obj.radius * 2 * (obj.scaleX || 1);
@@ -301,6 +303,7 @@ function getObjectHeight(obj: CanvasObject): number | null {
     case 'rect':
     case 'image':
     case 'gallery-item':
+    case 'group':
       return obj.height * (obj.scaleY || 1);
     case 'circle':
       return obj.radius * 2 * (obj.scaleY || 1);

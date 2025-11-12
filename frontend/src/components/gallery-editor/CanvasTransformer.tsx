@@ -87,10 +87,21 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       // Get the current object from the objects array to get the base width/height
       const currentObject = objects.find(obj => obj.id === id);
 
+      // Snap rotation to 45-degree increments
+      let rotation = node.rotation();
+      const rotationSnap = 45;
+      const snappedRotation = Math.round(rotation / rotationSnap) * rotationSnap;
+
+      // Only snap if close to a 45-degree mark (within 5 degrees)
+      if (Math.abs(rotation - snappedRotation) < 5) {
+        rotation = snappedRotation;
+        node.rotation(rotation); // Update node rotation for visual feedback
+      }
+
       const updates: any = {
         x: node.x(),
         y: node.y(),
-        rotation: node.rotation(),
+        rotation: rotation,
       };
 
       // For shapes with width/height, apply the scale to the base dimensions

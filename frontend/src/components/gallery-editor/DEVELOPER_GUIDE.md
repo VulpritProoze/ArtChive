@@ -990,114 +990,157 @@ Now when users open the gallery editor, the grid will be visible immediately to 
 
 ---
 
-#### 13. Deselect All Should Also Disable Select Tool
+#### 13. Snap Guide Lines Not Centered for Rotated Objects and Circles
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: When clicking the "Deselect All" button (X icon), it should also exit select mode and return to pan mode.
+**Description**: Snap guide lines were not appearing at the visual center of rotated objects and circles. For circles, the guide appeared at the bottom-right instead of the center. For rotated objects, the guide didn't account for the rotation transformation.
 
-**Expected Behavior**:
-- Click deselect button → clears selection AND exits select mode
-- ESC key → clears selection AND exits select mode
-- This provides a quick way to return to default pan/move state
+**Resolution**:
+Fixed in [snapUtils.ts:47-69](frontend/src/utils/snapUtils.ts#L47-L69) and [CanvasStage.tsx:414,770](frontend/src/components/gallery-editor/CanvasStage.tsx)
 
-**Suggested Fix**:
+**Key Changes**:
+1. **Circle Handling**: Circles in Konva have their position at the center (not top-left like rectangles). Updated all snap calculations to recognize circles and use their position directly as the center.
 
-In `GalleryEditor.tsx`:
-```typescript
-const handleDeselectAll = () => {
-  editorState.clearSelection();
-  setIsSelectMode(false);
-};
-```
+2. **Rotation-Aware Center Calculation**: For rotated objects, implemented trigonometric calculations to find where the visual center appears after rotation:
+   ```typescript
+   // Konva rotates around top-left corner (x, y)
+   const angleRad = (currRotation * Math.PI) / 180;
+   const centerOffsetX = halfWidth * Math.cos(angleRad) - halfHeight * Math.sin(angleRad);
+   const centerOffsetY = halfWidth * Math.sin(angleRad) + halfHeight * Math.cos(angleRad);
+   currCenterX = x + centerOffsetX;
+   currCenterY = y + centerOffsetY;
+   ```
 
-Then pass `handleDeselectAll` instead of `editorState.clearSelection` to Toolbar.
+3. **Reverse Calculation**: Added `centerToTopLeft()` helper function to convert snapped center position back to top-left position, accounting for rotation.
 
-**Files to Modify**:
-- `GalleryEditor.tsx` - Create combined handler
-- Update keyboard shortcut handler for ESC key
+4. **Unified Snap Application**: Updated canvas center, grid, and object-to-object snapping to apply both X and Y snaps together, maintaining rotational consistency.
+
+**Files Modified**:
+- `snapUtils.ts` - Added rotation parameter, circle detection, and rotation-aware calculations
+- `CanvasStage.tsx` - Pass rotation data to snapPosition function
 
 ---
 
 #### 14. Text Box Double-Click Editing Not Working
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: Double-clicking a text object should allow in-place editing. Currently, users cannot edit text directly on the canvas.
+**Description**: Double-clicking a text object now allows in-place editing with an HTML textarea overlay.
 
-**Expected Behavior**:
-- Double-click text object → converts to editable input/textarea
-- User types new text
-- Click outside or press Enter → commits changes
+**Resolution**:
+Fixed in [CanvasStage.tsx:55,523,864-931](frontend/src/components/gallery-editor/CanvasStage.tsx)
 
-**Suggested Implementation**:
+**Implementation**:
+1. Added `editingTextId` state to track which text object is being edited
+2. Added `onDblClick` handler to text objects that sets the editing state
+3. Created `TextEditor` component that renders an HTML textarea overlay
+4. Positioned textarea to match the text object's position, size, and styling (accounting for zoom and pan)
+5. Auto-focuses and selects text on mount for immediate editing
 
-Use Konva's built-in text editing or create a custom HTML overlay:
+**Features**:
+- Double-click any text object to edit
+- Textarea matches font size, family, color, and alignment
+- Press Enter (without Shift) to save
+- Press Escape to cancel
+- Click outside (blur) to save
+- Blue border indicates editing mode
 
+**Key Implementation Details**:
 ```typescript
-// In CanvasStage.tsx
-const handleTextDblClick = (textObj: TextObject) => {
-  // Create textarea overlay
-  const textarea = document.createElement('textarea');
-  textarea.value = textObj.text;
-  // Position it over the text object
-  // On blur/enter, update the text object
-};
+// Position calculation accounts for zoom and pan
+const x = textObject.x * zoom + panX;
+const y = textObject.y * zoom + panY;
+const fontSize = (textObject.fontSize || 16) * zoom * (textObject.scaleX || 1);
 ```
 
-**Additional Issues**:
-- Text box properties panel may also need improvements
-- Font selection, alignment, etc. should be easily accessible
-
-**Files to Modify**:
-- `CanvasStage.tsx` - Add double-click handler for text objects
-- `PropertiesPanel.tsx` - Enhance text editing controls
+**Files Modified**:
+- `CanvasStage.tsx` - Added double-click handler and TextEditor overlay component
 
 ---
 
-#### 15. Object-to-Object Grid Snapping Not Implemented
+#### 15. Object-to-Object Snapping and 45-Degree Rotation Snapping
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: Grid snapping should work between objects, not just to the canvas grid. When moving a rectangle next to another rectangle, snapping should trigger to align their edges.
+**Description**: Object-to-object edge and center snapping is now fully implemented with visual guides. Additionally, rotation now snaps to 45-degree increments when rotating objects.
 
-**Expected Behavior**:
-- Drag object A near object B → edges snap together
-- Visual guide lines show alignment
-- Works for all edge combinations (left-to-left, right-to-right, top-to-top, etc.)
+**Resolution**:
 
-**Note**: Developer thought this was already fixed, but it may need reimplementation or verification.
+**Part 1: Object-to-Object Snapping**
 
-**Suggested Enhancement**:
+Fixed in [snapUtils.ts:172-206](frontend/src/utils/snapUtils.ts#L172-L206)
 
-In `snapUtils.ts`, ensure object-to-object snapping is properly detecting and aligning edges:
+Object-to-object snapping was already implemented and working properly. The system detects and snaps to:
+- **Edge Alignment**: Left-to-left, right-to-right, top-to-top, bottom-to-bottom
+- **Center Alignment**: Horizontal center-to-center, vertical center-to-center
+- **Adjacent Positioning**: Left-to-right edges, top-to-bottom edges
+- **Threshold**: 15px detection range (increased for stronger snapping)
+- **Visual Feedback**: Prominent magenta dashed guide lines (#FF00FF, 2px width, 80% opacity) appear at alignment points for better visibility
+
+All object types (rectangles, circles, text, images, lines, groups) snap to each other correctly, with special handling for circles (which use center-based positioning in Konva).
+
+**Part 2: 45-Degree Rotation Snapping** (New Feature)
+
+Fixed in [CanvasTransformer.tsx:90-99](frontend/src/components/gallery-editor/CanvasTransformer.tsx#L90-L99)
+
+When rotating objects using the transformer:
+- Rotation snaps to 45-degree increments (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°, 360°)
+- Snap threshold: 5 degrees (only snaps if within 5° of a 45° mark)
+- Visual feedback: Object visually snaps when reaching the threshold
+- Works for all object types including groups
 
 ```typescript
-// Check all objects for edge alignment
-objects.forEach(otherObj => {
-  if (otherObj.id === currentId) return;
+// Snap rotation to 45-degree increments
+let rotation = node.rotation();
+const rotationSnap = 45;
+const snappedRotation = Math.round(rotation / rotationSnap) * rotationSnap;
 
-  const threshold = 5; // px
-
-  // Left edge to left edge
-  if (Math.abs(x - otherObj.x) < threshold) {
-    snappedX = otherObj.x;
-    guides.push({ type: 'vertical', position: otherObj.x });
-  }
-
-  // Right edge to right edge
-  if (Math.abs((x + width) - (otherObj.x + otherObj.width)) < threshold) {
-    snappedX = otherObj.x + otherObj.width - width;
-    guides.push({ type: 'vertical', position: otherObj.x + otherObj.width });
-  }
-
-  // Similar for top/bottom edges
-});
+// Only snap if close to a 45-degree mark (within 5 degrees)
+if (Math.abs(rotation - snappedRotation) < 5) {
+  rotation = snappedRotation;
+  node.rotation(rotation); // Update node rotation for visual feedback
+}
 ```
 
-**Files to Modify**:
-- `snapUtils.ts` - Add or verify object-to-object edge snapping logic
-- Test with multiple objects on canvas
+**Benefits**:
+- Easy alignment with cardinal and diagonal directions
+- Precise 90-degree rotations for perfect right angles
+- 45-degree angles for aesthetic diagonal layouts
+- Smooth rotation with automatic snapping near key angles
+
+**Files Modified**:
+- `snapUtils.ts` - Object-to-object snapping (already implemented, verified working)
+- `CanvasTransformer.tsx` - Added 45-degree rotation snapping
+
+---
+
+#### 16. Objects Draggable in Preview Mode
+
+**Status**: ✅ RESOLVED
+
+**Description**: In preview mode, objects should be non-interactive and non-draggable. Previously, objects could still be moved even when not selected in preview mode, which shouldn't happen.
+
+**Resolution**:
+Fixed in [CanvasStage.tsx:28,49,282,399,416,478,634](frontend/src/components/gallery-editor/CanvasStage.tsx)
+
+**Implementation**:
+1. Added `isPreviewMode?: boolean` prop to `CanvasStageProps` interface
+2. Added `isPreviewMode = false` parameter to `CanvasStage` function
+3. Passed `isPreviewMode` prop to all `CanvasObjectRenderer` calls (including child objects in groups)
+4. Updated `isDraggable` logic to check for preview mode:
+   ```typescript
+   // Objects are only draggable in 'move' mode and not in preview mode
+   const isDraggable = !isPreviewMode && editorMode === 'move' && object.draggable !== false;
+   ```
+
+**Result**:
+- When `isPreviewMode={true}` is passed to CanvasStage, all objects become non-draggable
+- Users can view the canvas in preview mode without accidentally moving objects
+- Works for all object types including groups and their children
+
+**Files Modified**:
+- `CanvasStage.tsx` - Added isPreviewMode prop and updated draggable logic
 
 ---
 
