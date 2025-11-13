@@ -25,6 +25,8 @@ class Gallery(models.Model):
         self.is_deleted = True
         self.save()
 
+    # need to add a softdeletemanager soon, and create active_objects and inactive_objects method
+
 class GalleryAward(models.Model):
     gallery_id = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name='gallery_award')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gallery_award')

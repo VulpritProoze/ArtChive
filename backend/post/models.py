@@ -1,7 +1,7 @@
 import uuid
 
-from django.db import models
 from cloudinary_storage.storage import VideoMediaCloudinaryStorage
+from django.db import models
 
 from collective.models import Channel, Collective
 from common.utils import choices

@@ -1,12 +1,12 @@
-from rest_framework import generics, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
-from django.core.files.storage import default_storage
-from django.conf import settings
 import os
 import uuid
+
+import cloudinary.uploader
+from rest_framework import generics, status
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Gallery
 from .serializers import GallerySerializer
@@ -83,24 +83,27 @@ class MediaUploadView(APIView):
             )
 
         try:
-            # Generate a unique filename
-            ext = os.path.splitext(image_file.name)[1]
-            filename = f"gallery_media/{uuid.uuid4()}{ext}"
+            # Get user ID for folder organization
+            user_id = request.user.id
 
-            # Save the file
-            path = default_storage.save(filename, image_file)
+            # Generate a unique public_id for Cloudinary
+            unique_id = str(uuid.uuid4())
+            public_id = f"gallery/editor/{user_id}/images/{unique_id}"
 
-            # Build the full URL
-            if settings.DEBUG:
-                base_url = request.build_absolute_uri(settings.MEDIA_URL)
-            else:
-                base_url = settings.MEDIA_URL
+            # Upload directly to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                image_file,
+                public_id=public_id,
+                folder=f"gallery/editor/{user_id}/images",
+                resource_type="image"
+            )
 
-            url = f"{base_url}{path}"
+            # Get the secure URL from Cloudinary (includes version hash)
+            url = upload_result.get('secure_url')
 
             return Response({
                 'url': url,
-                'filename': os.path.basename(path)
+                'filename': f"{unique_id}{os.path.splitext(image_file.name)[1]}"
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

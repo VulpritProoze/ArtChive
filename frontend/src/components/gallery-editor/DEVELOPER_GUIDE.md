@@ -971,94 +971,54 @@ Fixed in [snapUtils.ts:47-69](frontend/src/utils/snapUtils.ts#L47-L69) and [Canv
 
 #### 14. Text Box Double-Click Editing Not Working
 
-**Status**: ✅ RESOLVED
+**Status**: ❌ UNRESOLVED
 
-**Description**: Double-clicking a text object now allows in-place editing with an HTML textarea overlay.
+**Description**: Double-clicking a text object should allow in-place editing with an HTML textarea overlay, but it's currently not working as expected.
 
-**Resolution**:
-Fixed in [CanvasStage.tsx:55,523,864-931](frontend/src/components/gallery-editor/CanvasStage.tsx)
-
-**Implementation**:
-1. Added `editingTextId` state to track which text object is being edited
-2. Added `onDblClick` handler to text objects that sets the editing state
-3. Created `TextEditor` component that renders an HTML textarea overlay
-4. Positioned textarea to match the text object's position, size, and styling (accounting for zoom and pan)
-5. Auto-focuses and selects text on mount for immediate editing
-
-**Features**:
+**Expected Behavior**:
 - Double-click any text object to edit
-- Textarea matches font size, family, color, and alignment
+- Textarea should match font size, family, color, and alignment
 - Press Enter (without Shift) to save
 - Press Escape to cancel
 - Click outside (blur) to save
-- Blue border indicates editing mode
 
-**Key Implementation Details**:
-```typescript
-// Position calculation accounts for zoom and pan
-const x = textObject.x * zoom + panX;
-const y = textObject.y * zoom + panY;
-const fontSize = (textObject.fontSize || 16) * zoom * (textObject.scaleX || 1);
-```
+**Current Issue**: The double-click editing functionality is not functioning properly.
 
-**Files Modified**:
-- `CanvasStage.tsx` - Added double-click handler and TextEditor overlay component
+**Attempted Solution**:
+Previously attempted fix in CanvasStage.tsx with `editingTextId` state and TextEditor overlay component, but requires debugging and proper implementation.
 
 ---
 
-#### 15. Object-to-Object Snapping and 45-Degree Rotation Snapping
+#### 15. Object-to-Object Snapping and Rotation Snapping
 
-**Status**: ✅ RESOLVED
+**Status**: ❌ UNRESOLVED
 
-**Description**: Object-to-object edge and center snapping is now fully implemented with visual guides. Additionally, rotation now snaps to 45-degree increments when rotating objects.
+**Description**: Object-to-object snapping and rotation snapping are not working as expected. There's no tactile "feeling" that objects have snapped into place.
 
-**Resolution**:
+**Issues**:
 
-**Part 1: Object-to-Object Snapping**
+1. **Object-to-Object Snapping**: When an object's snap guide line aligns with another object's snap guide line, they should "lock" for a few pixels indicating they're aligned. Currently, this locking behavior is missing.
 
-Fixed in [snapUtils.ts:172-206](frontend/src/utils/snapUtils.ts#L172-L206)
+2. **Rotation Snapping**: When rotating objects, there's no feedback or "feeling" that the rotation has snapped to specific increments. The rotation feels continuous without any snapping points.
 
-Object-to-object snapping was already implemented and working properly. The system detects and snaps to:
-- **Edge Alignment**: Left-to-left, right-to-right, top-to-top, bottom-to-bottom
-- **Center Alignment**: Horizontal center-to-center, vertical center-to-center
-- **Adjacent Positioning**: Left-to-right edges, top-to-bottom edges
-- **Threshold**: 15px detection range (increased for stronger snapping)
-- **Visual Feedback**: Prominent magenta dashed guide lines (#FF00FF, 2px width, 80% opacity) appear at alignment points for better visibility
+3. **Grid Snapping**: This works correctly and provides good feedback.
 
-All object types (rectangles, circles, text, images, lines, groups) snap to each other correctly, with special handling for circles (which use center-based positioning in Konva).
+**Expected Behavior**:
+- Objects should "stick" or "lock" when their guide lines align with other objects
+- A slight resistance or magnetic effect when objects are near alignment points
+- Visual and interaction feedback during rotation snapping (e.g., subtle haptic feel or visual pulse)
+- Clear indication when rotation reaches snap points (45°, 90°, etc.)
 
-**Part 2: 45-Degree Rotation Snapping** (New Feature)
+**Suggested Improvements**:
+- Add a small "snap zone" where objects resist movement slightly before snapping
+- Provide visual feedback (e.g., brief highlight or pulse) when snap occurs
+- Add subtle animation when objects snap into place
+- For rotation: add visual indicators at snap angles or temporary angle display
 
-Fixed in [CanvasTransformer.tsx:90-99](frontend/src/components/gallery-editor/CanvasTransformer.tsx#L90-L99)
-
-When rotating objects using the transformer:
-- Rotation snaps to 45-degree increments (0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°, 360°)
-- Snap threshold: 5 degrees (only snaps if within 5° of a 45° mark)
-- Visual feedback: Object visually snaps when reaching the threshold
-- Works for all object types including groups
-
-```typescript
-// Snap rotation to 45-degree increments
-let rotation = node.rotation();
-const rotationSnap = 45;
-const snappedRotation = Math.round(rotation / rotationSnap) * rotationSnap;
-
-// Only snap if close to a 45-degree mark (within 5 degrees)
-if (Math.abs(rotation - snappedRotation) < 5) {
-  rotation = snappedRotation;
-  node.rotation(rotation); // Update node rotation for visual feedback
-}
-```
-
-**Benefits**:
-- Easy alignment with cardinal and diagonal directions
-- Precise 90-degree rotations for perfect right angles
-- 45-degree angles for aesthetic diagonal layouts
-- Smooth rotation with automatic snapping near key angles
-
-**Files Modified**:
-- `snapUtils.ts` - Object-to-object snapping (already implemented, verified working)
-- `CanvasTransformer.tsx` - Added 45-degree rotation snapping
+**Files to Investigate**:
+- `snapUtils.ts` - Snapping logic and thresholds
+- `CanvasTransformer.tsx` - Rotation snapping implementation
+- `CanvasStage.tsx` - Drag behavior and snap application
 
 ---
 
@@ -1176,18 +1136,445 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 ## Future Enhancements
 
-Potential features to add:
+### Priority Features
 
-1. **Video Support**: Add `VideoObject` type (currently excluded)
-2. **Layers Panel**: Group objects into named layers
-3. **Export**: Export canvas as PNG/PDF
-4. **Collaboration**: Real-time multi-user editing
-5. **Version History**: Save multiple versions of canvas
-6. **Asset Library**: Reusable shapes and images
-7. **Keyboard Navigation**: Arrow keys to move selected objects
-8. **Alignment Tools**: Align left, center, right, distribute
-9. **Filters**: Image filters (grayscale, blur, etc.)
-10. **Text Editing**: Rich text editor with formatting
+#### 1. Resizable Separator Between Layers and Properties Panels
+
+**Description**: Add a draggable separator between the Layers panel and Properties panel in the right sidebar.
+
+**Implementation Notes**:
+- Similar to the sidebar resize handle but vertical
+- Allow users to adjust the height ratio between panels
+- Maintain minimum heights for both panels
+- Store user preference in local state
+
+**Files to Modify**:
+- `GalleryEditor.tsx` - Add resize logic similar to sidebar resizing
+
+---
+
+#### 2. Expandable Grouped Objects in Layers Panel
+
+**Description**: Users should be able to see and edit individual children within grouped objects directly from the layers panel.
+
+**Features**:
+- Display dropdown/expand icon next to group objects
+- Show nested children in a tree structure
+- Allow selection of individual child objects
+- Enable editing of child properties when selected
+
+**Constraints to Solve**:
+
+**a. Child Resize Updates Group Bounds**
+- When an individual child object is resized, the parent group's bounding box (width/height) should automatically update
+- Need to recalculate group dimensions based on all children positions and sizes
+- Update group's `x`, `y`, `width`, `height` to encompass all children
+
+**b. Child Rotation Updates Group Bounds**
+- When an individual child is rotated, the group's bounding box should expand/contract accordingly
+- Calculate the rotated child's actual space coverage
+- Recalculate group bounds to fit the new rotated shape
+
+**Implementation Notes**:
+- Add `expanded` state to track which groups are open in layers panel
+- Create nested rendering logic for children
+- Add callback to update group bounds when children change
+- Consider performance for groups with many children
+
+**Files to Modify**:
+- `LayerPanel.tsx` - Add tree structure rendering
+- `useCanvasState.ts` - Add method to update individual child and recalculate group
+- `CanvasStage.tsx` - Handle selection of child objects within groups
+
+---
+
+#### 3. Enhanced Gallery Creation UI
+
+**Description**: Improve the my-galleries component with a better UI and more options when creating new galleries.
+
+**Features**:
+
+**a. Gallery Picture Upload**
+- Allow users to upload a cover image when creating a gallery
+- Show image preview in gallery card
+- Support drag-and-drop upload
+
+**b. Custom Canvas Size Configuration**
+- Provide input fields for custom width and height
+- Add preset options for common gallery sizes:
+  - **Square**: 1080x1080 (Instagram)
+  - **Standard**: 1920x1080 (Full HD)
+  - **Vertical**: 1080x1920 (Mobile/Story)
+  - **Wide**: 2560x1440 (2K)
+  - **Ultra-Wide**: 3440x1440 (Ultrawide monitor)
+  - **4K**: 3840x2160
+  - **Custom**: User-defined dimensions
+
+**c. UI Improvements**
+- Modern card-based gallery grid layout
+- Better visual hierarchy
+- Smooth animations and transitions
+- Improved color scheme and typography
+- Loading states and skeletons
+- Empty state illustration when no galleries exist
+
+**Implementation Notes**:
+- Create new `GalleryCreationModal` component
+- Add canvas size presets to configuration file
+- Update gallery creation API to accept picture and dimensions
+- Redesign gallery card component with cover image support
+
+**Files to Create/Modify**:
+- `my-galleries.component.tsx` - Redesign UI
+- `GalleryCreationModal.tsx` - New modal component
+- `gallery.service.ts` - Update create gallery API call
+- `backend/gallery/models.py` - Ensure canvas dimensions are stored
+- `backend/gallery/serializers.py` - Add picture field validation
+
+---
+
+#### 4. Objects Library Modal
+
+**Description**: Replace individual toolbar buttons for shapes with a unified "Objects" button that opens a modal with categorized object types.
+
+**Features**:
+
+**Modal Categories**:
+
+**1. Shapes**
+- **Basic Shapes** (existing):
+  - Rectangle
+  - Circle
+  - Line
+- **Advanced Shapes** (new):
+  - Arrow (single and double-headed)
+  - Triangle
+  - Star
+  - Pentagon, Hexagon, Octagon
+  - Callout/Speech bubble
+  - Cloud text box
+  - Diamond
+  - Heart
+  - Rounded rectangle (adjustable corner radius)
+- **Custom Shape** (placeholder):
+  - Button to create custom shapes (no implementation yet)
+  - Show "Coming soon" message
+  - Future: Allow users to draw custom vector paths
+
+**2. Templates**
+- Move existing template library here
+- Same templates currently available
+- Better categorization by style/theme
+
+**UI Design**:
+- Grid layout with icons/previews for each object type
+- Category tabs or sections
+- Search/filter functionality
+- Hover previews showing what the object looks like
+- Click to add object to canvas center
+
+**Implementation Notes**:
+- Create new `ObjectsLibraryModal.tsx` component
+- Move template selection logic from `TemplateLibrary.tsx`
+- Add SVG icons or preview images for each shape type
+- Create factory functions for each shape type
+- Update toolbar to have single "Objects" button
+
+**Files to Create/Modify**:
+- `ObjectsLibraryModal.tsx` - New modal component
+- `Toolbar.tsx` - Replace individual shape buttons with "Objects" button
+- `GalleryEditor.tsx` - Add modal state and handlers
+- `shapeFactory.ts` - New utility file for creating shape objects
+- `types/canvas.ts` - Add new shape object type interfaces
+
+---
+
+#### 5. Media Library Panel
+
+**Description**: Add a "Media" button in the left sidebar that displays all of the user's uploaded media files, allowing easy reuse of previously uploaded images.
+
+**Features**:
+
+**Media Storage Structure**:
+- All media stored in Cloudinary under: `gallery/editor/{user_id}/`
+- **Images**: `gallery/editor/{user_id}/images/` (already implemented)
+- **Videos**: `gallery/editor/{user_id}/videos/` (future implementation)
+
+**UI Components**:
+
+**a. Media Library Panel**
+- Opens as a modal or side panel when "Media" button is clicked
+- Tabs for different media types:
+  - **Images** (active/implemented)
+  - **Videos** (disabled/coming soon)
+- Grid layout showing thumbnails of all uploaded media
+- Search and filter functionality
+- Sort options (date uploaded, file name, file size)
+- Pagination for large media libraries
+
+**b. Media Management**
+- Click thumbnail to add image to canvas
+- Right-click context menu:
+  - Add to canvas
+  - Copy URL
+  - Delete (with confirmation)
+  - View full size
+- Drag and drop from media library to canvas
+- Show upload date and file size
+- Display loading states for thumbnails
+
+**c. Upload Integration**
+- "Upload New" button within media library
+- Drag and drop zone for bulk uploads
+- Upload progress indicators
+- Automatic refresh after successful upload
+
+**Backend Requirements**:
+
+**New API Endpoints**:
+```python
+GET /api/gallery/media/list/          # List all user's uploaded media
+  Query params:
+  - type: 'image' | 'video'
+  - page: number
+  - limit: number
+  - search: string
+
+DELETE /api/gallery/media/{filename}/  # Delete a media file
+  Response: success/error message
+```
+
+**Media List Response Structure**:
+```json
+{
+  "count": 45,
+  "next": "...",
+  "previous": "...",
+  "results": [
+    {
+      "filename": "abc-def-123.jpg",
+      "url": "https://res.cloudinary.com/.../abc-def-123.jpg",
+      "type": "image",
+      "size": 245678,
+      "uploaded_at": "2024-01-15T10:30:00Z",
+      "thumbnail_url": "https://res.cloudinary.com/.../c_thumb,w_200/.../abc-def-123.jpg"
+    }
+  ]
+}
+```
+
+**Backend Implementation**:
+- Query Cloudinary API to list files in user's folder
+- Use Cloudinary's search API or Admin API
+- Generate thumbnail URLs using Cloudinary transformations
+- Implement delete endpoint that removes from Cloudinary
+- Add pagination support for large media libraries
+
+**Frontend Implementation**:
+
+**Files to Create**:
+- `MediaLibraryPanel.tsx` - Main media library component
+- `MediaGrid.tsx` - Grid display of media thumbnails
+- `MediaItem.tsx` - Individual media item with actions
+- `useMediaLibrary.ts` - Hook for fetching and managing media
+
+**Files to Modify**:
+- `GalleryEditor.tsx` - Add media panel state and toggle button
+- `gallery.service.ts` - Add methods for listing and deleting media
+- `Toolbar.tsx` or left sidebar - Add "Media" button
+
+**User Flow**:
+1. User clicks "Media" button in left sidebar
+2. Media library panel opens showing all uploaded images
+3. User can:
+   - Browse existing images
+   - Search/filter images
+   - Click image to add to canvas
+   - Upload new images
+   - Delete unwanted images
+4. Newly uploaded images automatically appear in library
+5. Images can be reused across multiple galleries
+
+**Benefits**:
+- Reduce redundant uploads (reuse images across galleries)
+- Better media organization
+- Faster workflow for users
+- Reduced storage costs (no duplicates)
+- Easy media management
+
+**Implementation Notes**:
+- Use Cloudinary's Admin API to list resources by prefix
+- Implement caching to reduce API calls
+- Add optimistic UI updates for deletions
+- Consider implementing folders/tags for organization
+- Add bulk selection and deletion
+- Show storage usage statistics
+
+**Files to Create/Modify**:
+- **Frontend**:
+  - `MediaLibraryPanel.tsx` - New component
+  - `MediaGrid.tsx` - New component
+  - `MediaItem.tsx` - New component
+  - `useMediaLibrary.ts` - New hook
+  - `GalleryEditor.tsx` - Add media panel integration
+  - `gallery.service.ts` - Add media list/delete methods
+- **Backend**:
+  - `gallery/views.py` - Add MediaListView and MediaDeleteView
+  - `gallery/urls.py` - Add new media endpoints
+
+---
+
+#### 6. Copy and Paste Functionality
+
+**Description**: Implement copy and paste functionality for objects and grouped objects using keyboard shortcuts (Ctrl+C / Ctrl+V on Windows, Cmd+C / Cmd+V on Mac).
+
+**Features**:
+
+**a. Copy Operation (Ctrl+C / Cmd+C)**
+- Copy currently selected object(s) to clipboard
+- Works for single objects and grouped objects
+- Preserves all object properties (position, size, rotation, styling, etc.)
+- Visual feedback when copy is successful (optional toast notification)
+
+**b. Paste Operation (Ctrl+V / Cmd+V)**
+- Paste copied object(s) to canvas
+- Position pasted object near the original with an offset (e.g., +20px x and y)
+- Automatically select the newly pasted object(s)
+- Generate new unique IDs for pasted objects
+- Preserve relative positions when pasting grouped objects
+
+**c. Multiple Paste Support**
+- Allow pasting the same copied object multiple times
+- Each paste creates a new instance with offset position
+- Subsequent pastes offset from the last pasted position
+
+**Implementation Details**:
+
+**State Management**:
+```typescript
+// In useCanvasState.ts or GalleryEditor.tsx
+const [clipboard, setClipboard] = useState<CanvasObject[]>([]);
+
+const handleCopy = () => {
+  const selectedObjects = objects.filter(obj => selectedIds.includes(obj.id));
+  if (selectedObjects.length > 0) {
+    setClipboard(selectedObjects);
+    // Optional: Show toast notification
+    toast.info(`Copied ${selectedObjects.length} object(s)`);
+  }
+};
+
+const handlePaste = () => {
+  if (clipboard.length === 0) return;
+
+  const offset = 20; // Offset in pixels
+  const pastedObjects = clipboard.map(obj => ({
+    ...obj,
+    id: generateUniqueId(), // Generate new ID
+    x: obj.x + offset,
+    y: obj.y + offset,
+  }));
+
+  // Add pasted objects to canvas
+  pastedObjects.forEach(obj => addObject(obj));
+
+  // Select the newly pasted objects
+  selectObjects(pastedObjects.map(obj => obj.id));
+};
+```
+
+**Keyboard Shortcut Registration**:
+```typescript
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+    if (modifier && e.key === 'c') {
+      e.preventDefault();
+      handleCopy();
+    }
+
+    if (modifier && e.key === 'v') {
+      e.preventDefault();
+      handlePaste();
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [selectedIds, clipboard, objects]);
+```
+
+**Special Considerations**:
+
+**Grouped Objects**:
+- When copying a group, preserve the parent-child relationship
+- Children should maintain their relative positions within the group
+- Generate new IDs for both the group and all children
+
+**Deep Clone**:
+- Ensure deep cloning of objects to avoid reference issues
+- Nested properties (like children in groups) must be properly cloned
+
+**Paste Position Logic**:
+```typescript
+// Smart positioning: paste near original but visible
+const calculatePastePosition = (originalX: number, originalY: number, index: number) => {
+  const baseOffset = 20;
+  const offset = baseOffset * (index + 1); // Increment offset for multiple pastes
+
+  return {
+    x: originalX + offset,
+    y: originalY + offset
+  };
+};
+```
+
+**User Experience**:
+- Clear visual feedback when objects are copied
+- Pasted objects are automatically selected for easy manipulation
+- Toast notifications (optional):
+  - "Copied 1 object" / "Copied 3 objects"
+  - "Pasted 1 object" / "Pasted 3 objects"
+- No copy/paste when nothing is selected (silent fail)
+
+**Edge Cases to Handle**:
+1. **No Selection**: Copy should do nothing if no objects are selected
+2. **Empty Clipboard**: Paste should do nothing if clipboard is empty
+3. **Canvas Bounds**: Ensure pasted objects don't go off-canvas (optional constraint)
+4. **Image Objects**: Preserve image URLs correctly when pasting
+5. **Undo/Redo**: Paste should be undoable using the command pattern
+
+**Files to Modify**:
+- `GalleryEditor.tsx` - Add keyboard event handlers for copy/paste
+- `useCanvasState.ts` - Add clipboard state and copy/paste methods (if using hook)
+- May need utility function for deep cloning objects: `utils/objectClone.ts`
+
+**Keyboard Shortcuts Documentation Update**:
+Add to existing keyboard shortcuts list:
+```typescript
+Ctrl+C / Cmd+C         # Copy selected object(s)
+Ctrl+V / Cmd+V         # Paste copied object(s)
+```
+
+**Future Enhancement**:
+- Implement cut operation (Ctrl+X / Cmd+X) - copy and delete in one action
+- Cross-gallery clipboard (copy from one gallery, paste in another)
+- Clipboard history (remember last N copied objects)
+
+---
+
+### Additional Future Features
+
+7. **Video Support**: Add `VideoObject` type and video upload/playback
+8. **Export**: Export canvas as PNG/PDF
+9. **Collaboration**: Real-time multi-user editing
+10. **Version History**: Save multiple versions of canvas
+11. **Keyboard Navigation**: Arrow keys to move selected objects
+12. **Alignment Tools**: Align left, center, right, distribute
+13. **Filters**: Image filters (grayscale, blur, etc.)
+14. **Rich Text Editing**: Rich text editor with formatting (bold, italic, underline, etc.)
 
 ## Useful Resources
 

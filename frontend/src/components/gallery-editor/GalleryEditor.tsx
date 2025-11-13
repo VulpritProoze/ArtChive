@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Layout, Palette, Layers, Ungroup, Eye } from 'lucide-react';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -30,6 +30,8 @@ export function GalleryEditor() {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+
+  const navigate = useNavigate()
 
   const editorState = useCanvasState({
     galleryId,
@@ -647,10 +649,10 @@ export function GalleryEditor() {
                 onClick={() => {
                   if (editorState.hasUnsavedChanges) {
                     if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
-                      window.location.href = '/gallery/me';
+                      navigate('/gallery/me')
                     }
                   } else {
-                    window.location.href = '/gallery/me';
+                    navigate('/gallery/me')
                   }
                 }}
               >

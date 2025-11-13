@@ -96,8 +96,8 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
           </div>
         </div>
 
-        {/* Size (for objects with width/height) */}
-        {('width' in obj || 'radius' in obj) && (
+        {/* Size (for objects with width/height, but not for groups) */}
+        {('width' in obj || 'radius' in obj) && obj.type !== 'group' && (
           <div>
             <label className="label label-text text-xs font-semibold">Size</label>
             {obj.type === 'circle' ? (
