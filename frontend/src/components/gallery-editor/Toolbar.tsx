@@ -1,4 +1,4 @@
-import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Save, Eye, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
+import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
 import { useUploadImage } from '@/hooks/useUploadImage';
 import { toast } from 'react-toastify';
 
@@ -12,7 +12,6 @@ interface ToolbarProps {
   onAddImage: (url: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onSave: () => void;
   onTogglePreview: () => void;
   onToggleGrid: () => void;
   onToggleSnap: () => void;
@@ -20,17 +19,17 @@ interface ToolbarProps {
   onUngroup: () => void;
   onSetMode: (mode: EditorMode) => void;
   onDeselectAll: () => void;
+  onOpenMenu: () => void;
   canGroup: boolean;
   canUngroup: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  isSaving: boolean;
   isPreviewMode: boolean;
   editorMode: EditorMode;
   gridEnabled: boolean;
   snapEnabled: boolean;
   hasSelection: boolean;
-  lastSaved?: Date | null;
+  hasUnsavedChanges: boolean;
 }
 
 export function Toolbar({
@@ -41,7 +40,6 @@ export function Toolbar({
   onAddImage,
   onUndo,
   onRedo,
-  onSave,
   onTogglePreview,
   onToggleGrid,
   onToggleSnap,
@@ -49,17 +47,17 @@ export function Toolbar({
   onUngroup,
   onSetMode,
   onDeselectAll,
+  onOpenMenu,
   canGroup,
   canUngroup,
   canUndo,
   canRedo,
-  isSaving,
   isPreviewMode,
   editorMode,
   gridEnabled,
   snapEnabled,
   hasSelection,
-  lastSaved,
+  hasUnsavedChanges,
 }: ToolbarProps) {
   const { upload, isUploading, progress } = useUploadImage();
 
@@ -234,35 +232,34 @@ export function Toolbar({
         </button>
       </div>
 
-      {/* Save & Preview */}
-      <div className="flex gap-2 ml-auto">
-        {lastSaved && (
-          <span className="text-xs text-gray-500 self-center">
-            Last saved: {lastSaved.toLocaleTimeString()}
+      {/* Unsaved Changes & Menu */}
+      <div className="flex gap-2 ml-auto items-center">
+        {hasUnsavedChanges && (
+          <span className="text-xs text-warning font-medium">
+            Unsaved changes
           </span>
         )}
         <button
-          onClick={onSave}
-          className="btn btn-sm btn-primary tooltip tooltip-bottom"
-          data-tip="Save (Ctrl+S)"
-          disabled={isSaving || isPreviewMode}
+          onClick={onOpenMenu}
+          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
+          data-tip="Menu"
         >
-          {isSaving ? (
-            <span className="loading loading-spinner loading-xs"></span>
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          <span className="hidden sm:inline ml-1">Save</span>
-        </button>
-        <button
-          onClick={onTogglePreview}
-          className={`btn btn-sm ${isPreviewMode ? 'btn-accent' : 'btn-ghost'} tooltip tooltip-bottom`}
-          data-tip="Toggle Preview Mode"
-        >
-          <Eye className="w-4 h-4" />
-          <span className="hidden sm:inline ml-1">{isPreviewMode ? 'Exit Preview' : 'Preview'}</span>
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
         </button>
       </div>
+
     </div>
   );
 }

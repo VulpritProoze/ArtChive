@@ -64,7 +64,7 @@ export function useCanvasState({
       console.log('[useCanvasState] Objects changed, marking as unsaved. Object count:', state.objects.length);
       setHasUnsavedChanges(true);
     }
-  }, [state.objects, lastSaved]);
+  }, [state.objects]);
 
   // Auto-save functionality
   const save = useCallback(async () => {

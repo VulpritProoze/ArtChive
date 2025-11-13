@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { Plus, Edit, Trash2, Calendar, Eye } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { galleryService, type Gallery } from '@services/gallery.service';
+import { LoadingSpinner } from '../loading-spinner';
 
 const MyGalleries = () => {
   const navigate = useNavigate();
@@ -127,9 +128,7 @@ const MyGalleries = () => {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <span className="loading loading-spinner loading-lg"></span>
-          </div>
+          <LoadingSpinner text={"Loading created galleries..."} />
         ) : galleries.length === 0 ? (
           /* Empty State */
           <div className="text-center py-20">

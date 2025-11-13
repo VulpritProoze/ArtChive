@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Layout, Palette, Layers, Ungroup } from 'lucide-react';
+import { Layout, Palette, Layers, Ungroup, Eye } from 'lucide-react';
+import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@hooks/useCanvasState';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
 import { snapPosition } from '@utils/snapUtils';
+import { LoadingOverlay } from '@components/loading-spinner';
 import { CanvasStage } from './CanvasStage';
 import { Toolbar } from './Toolbar';
 import { LayerPanel } from './LayerPanel';
@@ -24,6 +27,9 @@ export function GalleryEditor() {
   const [isLoading, setIsLoading] = useState(true);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>('move');
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
 
   const editorState = useCanvasState({
     galleryId,
@@ -305,18 +311,56 @@ export function GalleryEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editorState, isPreviewMode, handleGroup, handleUngroup]);
 
+  // Sidebar resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+
+    const newWidth = window.innerWidth - e.clientX;
+    const minWidth = 50; // Minimum before hiding
+    const maxWidth = 600;
+
+    if (newWidth < minWidth) {
+      // Auto-hide panels when too small
+      setSidebarWidth(0);
+      setShowLayers(false);
+      setShowProperties(false);
+    } else if (newWidth <= maxWidth) {
+      setSidebarWidth(newWidth);
+      // Re-enable panels if they were hidden
+      if (sidebarWidth === 0) {
+        setShowLayers(true);
+        setShowProperties(true);
+      }
+    } else {
+      setSidebarWidth(maxWidth);
+    }
+  }, [isResizing, sidebarWidth]);
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  // Add/remove resize event listeners
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
+
   // Selected objects for properties panel
   const selectedObjects = editorState.objects.filter(obj =>
     editorState.selectedIds.includes(obj.id)
   );
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
 
   // Log render state
   console.log('[GalleryEditor] Rendering', {
@@ -325,10 +369,24 @@ export function GalleryEditor() {
     isPreviewMode,
     objectCount: editorState.objects.length,
     selectedCount: editorState.selectedIds.length,
+    isLoading,
   });
 
+  const loadingPhrases = [
+    'Loading your masterpiece of a gallery...',
+    'Preparing your canvas...',
+    'Gathering your artistic elements...',
+    'Assembling your creative vision...',
+    'Fetching your gallery magic...',
+  ];
+  const randomPhrase = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
+
   return (
-    <div className="h-screen flex flex-col bg-base-100">
+    <LoadingOverlay isLoading={isLoading} loadingText={randomPhrase}>
+      <div
+        className="h-screen flex flex-col bg-base-100"
+        style={{ cursor: isResizing ? 'ew-resize' : 'default' }}
+      >
       {/* Toolbar */}
       <Toolbar
         onAddRect={handleAddRect}
@@ -338,10 +396,6 @@ export function GalleryEditor() {
         onAddImage={handleAddImage}
         onUndo={editorState.undo}
         onRedo={editorState.redo}
-        onSave={() => {
-          editorState.save();
-          toast.success('Gallery saved!');
-        }}
         onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
         onToggleGrid={editorState.toggleGrid}
         onToggleSnap={editorState.toggleSnap}
@@ -352,17 +406,17 @@ export function GalleryEditor() {
           editorState.clearSelection();
           setEditorMode('move');
         }}
+        onOpenMenu={() => setShowHamburgerMenu(true)}
         canGroup={canGroup}
         canUngroup={canUngroup}
         canUndo={editorState.canUndo}
         canRedo={editorState.canRedo}
-        isSaving={editorState.isSaving}
         isPreviewMode={isPreviewMode}
         editorMode={editorMode}
         gridEnabled={editorState.gridEnabled}
         snapEnabled={editorState.snapEnabled}
         hasSelection={editorState.selectedIds.length > 0}
-        lastSaved={editorState.lastSaved}
+        hasUnsavedChanges={editorState.hasUnsavedChanges}
       />
 
       {/* Main Content Area */}
@@ -373,7 +427,12 @@ export function GalleryEditor() {
             <button
               onClick={() => {
                 console.log('[GalleryEditor] Toggling layers:', !showLayers);
-                setShowLayers(!showLayers);
+                const newShowLayers = !showLayers;
+                setShowLayers(newShowLayers);
+                // Reset sidebar width if opening and it was collapsed
+                if (newShowLayers && sidebarWidth === 0) {
+                  setSidebarWidth(320);
+                }
               }}
               className={`btn btn-sm ${showLayers ? 'btn-primary' : 'btn-ghost'}`}
               title="Layers"
@@ -383,7 +442,12 @@ export function GalleryEditor() {
             <button
               onClick={() => {
                 console.log('[GalleryEditor] Toggling properties:', !showProperties);
-                setShowProperties(!showProperties);
+                const newShowProperties = !showProperties;
+                setShowProperties(newShowProperties);
+                // Reset sidebar width if opening and it was collapsed
+                if (newShowProperties && sidebarWidth === 0) {
+                  setSidebarWidth(320);
+                }
               }}
               className={`btn btn-sm ${showProperties ? 'btn-primary' : 'btn-ghost'}`}
               title="Properties"
@@ -428,6 +492,16 @@ export function GalleryEditor() {
             {Math.round(editorState.zoom * 100)}%
           </div>
 
+          {/* Preview Button - Top Right */}
+          <button
+            onClick={() => setIsPreviewMode(!isPreviewMode)}
+            className={`absolute top-4 right-4 z-40 btn btn-sm ${isPreviewMode ? 'btn-accent' : 'btn-ghost bg-base-200 border-base-300'} shadow-md`}
+            title="Toggle Preview Mode"
+          >
+            <Eye className="w-4 h-4" />
+            <span className="ml-1">{isPreviewMode ? 'Exit Preview' : 'Preview'}</span>
+          </button>
+
           {/* Preview mode badge */}
           {isPreviewMode && (
             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-accent text-accent-content px-4 py-2 rounded-lg shadow-lg font-semibold">
@@ -437,8 +511,29 @@ export function GalleryEditor() {
         </div>
 
         {/* Right Sidebar - Combined Panels */}
-        {!isPreviewMode && (showLayers || showProperties) && (
-          <div className="shrink-0 border-l border-1 border-base-300 w-80 flex flex-col overflow-hidden">
+        {!isPreviewMode && (showLayers || showProperties) && sidebarWidth > 0 && (
+          <div
+            className="shrink-0 border-l border-1 border-base-300 flex flex-col overflow-hidden relative"
+            style={{ width: `${sidebarWidth}px` }}
+          >
+            {/* Resize Handle */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-2 -ml-1 cursor-ew-resize z-10 group"
+              onMouseDown={handleResizeStart}
+            >
+              {/* Hover area (invisible but wide for easier grabbing) */}
+              <div className="absolute inset-0 w-4 -ml-1" />
+              {/* Visual line */}
+              <div
+                className="absolute left-1 top-0 bottom-0 w-0.5 transition-all"
+                style={{
+                  backgroundColor: isResizing ? 'hsl(var(--p))' : 'transparent',
+                }}
+              />
+              {/* Hover indicator */}
+              <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1 h-12 bg-primary opacity-0 group-hover:opacity-50 transition-opacity rounded-full" />
+            </div>
+
             {/* Layers Panel */}
             {showLayers && (
               <div className="flex-1 flex flex-col border-b border-base-300 overflow-hidden min-h-0">
@@ -474,12 +569,7 @@ export function GalleryEditor() {
         />
       )}
 
-      {/* Unsaved changes indicator */}
-      {editorState.hasUnsavedChanges && !isPreviewMode && (
-        <div className="absolute top-20 right-4 bg-warning text-warning-content px-3 py-1 rounded text-xs">
-          Unsaved changes
-        </div>
-      )}
+      {/* Unsaved changes indicator - removed, shown in toolbar instead */}
 
       {/* Context Menu */}
       {contextMenu && (
@@ -500,6 +590,90 @@ export function GalleryEditor() {
           </button>
         </div>
       )}
+
+      {/* Settings Sidebar Overlay */}
+      {showHamburgerMenu && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowHamburgerMenu(false)}
+        />
+      )}
+
+      {/* Settings Sidebar - Matching MainLayout style */}
+      <div
+        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-60 transform transition-transform duration-300 ease-in-out ${
+          showHamburgerMenu ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300">
+            <h2 className="text-xl font-bold">Menu</h2>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowHamburgerMenu(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Settings Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-2">
+              {/* Save Button */}
+              <button
+                className="flex hover:cursor-pointer items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
+                onClick={async () => {
+                  try {
+                    await editorState.save();
+                    toast.success('Gallery saved!');
+                    setShowHamburgerMenu(false);
+                  } catch (error) {
+                    toast.error('Failed to save gallery');
+                    console.error('[GalleryEditor] Save error:', error);
+                  }
+                }}
+                disabled={editorState.isSaving}
+              >
+                <FontAwesomeIcon icon={faSave} className="text-lg" />
+                <span className="font-medium">{editorState.isSaving ? 'Saving...' : 'Save Gallery'}</span>
+              </button>
+
+              {/* Back to Galleries */}
+              <button
+                className="flex hover:cursor-pointer items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
+                onClick={() => {
+                  if (editorState.hasUnsavedChanges) {
+                    if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+                      window.location.href = '/gallery/me';
+                    }
+                  } else {
+                    window.location.href = '/gallery/me';
+                  }
+                }}
+              >
+                <FontAwesomeIcon icon={faArrowLeft} className="text-lg" />
+                <span className="font-medium">Back to My Galleries</span>
+              </button>
+            </div>
+
+            {/* Info Section */}
+            <div className="mt-6 pt-4 border-t border-base-300">
+              <div className="text-sm opacity-70 px-2">
+                {editorState.hasUnsavedChanges && (
+                  <p className="text-warning font-medium mb-2">• Unsaved changes</p>
+                )}
+                {editorState.lastSaved && (
+                  <p>Last saved: {new Date(editorState.lastSaved).toLocaleTimeString()}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+    </LoadingOverlay>
   );
 }

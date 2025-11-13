@@ -182,13 +182,37 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
         {/* Fill Color (for shapes) */}
         {('fill' in obj) && (
           <div>
-            <label className="label label-text text-xs font-semibold">Fill Color</label>
-            <input
-              type="color"
-              className="w-full h-8 rounded cursor-pointer"
-              value={localValues.fill || '#000000'}
-              onChange={(e) => handleChange('fill', e.target.value)}
-            />
+            <label className="label label-text text-xs font-semibold">Fill</label>
+
+            {/* Transparent Fill Checkbox */}
+            <div className="form-control mb-2">
+              <label className="label cursor-pointer py-1 px-0 justify-start gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={localValues.fill === 'transparent'}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleChange('fill', 'transparent');
+                    } else {
+                      // Restore to a default color when unchecked
+                      handleChange('fill', '#3b82f6');
+                    }
+                  }}
+                />
+                <span className="label-text text-xs">Transparent Fill</span>
+              </label>
+            </div>
+
+            {/* Color Picker - only show if not transparent */}
+            {localValues.fill !== 'transparent' && (
+              <input
+                type="color"
+                className="w-full h-8 rounded cursor-pointer"
+                value={localValues.fill || '#000000'}
+                onChange={(e) => handleChange('fill', e.target.value)}
+              />
+            )}
           </div>
         )}
 

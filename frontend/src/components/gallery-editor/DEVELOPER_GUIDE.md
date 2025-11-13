@@ -584,33 +584,17 @@ Open DevTools → Network tab and verify:
 
 #### 1. Layers and Properties Panel Not Appearing Properly
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: The LayerPanel and PropertiesPanel sidebars do not display correctly. They may be hidden, overlapping, or not rendering at all.
+**Description**: The LayerPanel and PropertiesPanel sidebars were not displaying correctly due to CSS layout issues.
 
-**Potential Causes**:
-- CSS layout issues (z-index, positioning)
-- State management (showLayers/showProperties state not propagating)
-- Component mounting issues
+**Resolution**:
+The panels are now functioning correctly. If issues persist, ensure:
+- State management (showLayers/showProperties) is toggling correctly
+- CSS classes for sidebars have proper `display`, `position`, and `z-index`
+- Tailwind/DaisyUI classes are properly applied
 
-**Investigation Steps**:
-```javascript
-// Check if state is toggling correctly
-console.log('showLayers:', showLayers);
-console.log('showProperties:', showProperties);
-
-// Check if components are rendering
-// Add to LayerPanel.tsx and PropertiesPanel.tsx
-console.log('[LayerPanel] Rendering');
-console.log('[PropertiesPanel] Rendering');
-```
-
-**Suggested Fix**:
-- Verify CSS classes for sidebars have proper `display`, `position`, and `z-index`
-- Check that conditional rendering logic is correct in `GalleryEditor.tsx`
-- Ensure Tailwind/DaisyUI classes are properly applied
-
-**Files to Check**:
+**Files**:
 - `GalleryEditor.tsx` - Main layout structure
 - `LayerPanel.tsx` - Layer panel component
 - `PropertiesPanel.tsx` - Properties panel component
@@ -619,70 +603,33 @@ console.log('[PropertiesPanel] Rendering');
 
 #### 2. Preview Mode Allows Object Movement
 
-**Status**: 🔴 Unresolved
+**Status**: ✅ RESOLVED
 
-**Description**: In preview mode, objects should be non-interactive (not draggable, not selectable). Currently, users can still move objects around when preview mode is enabled.
+**Description**: In preview mode, objects should be non-interactive (not draggable, not selectable). Previously, users could still move objects around when preview mode was enabled.
 
-**Expected Behavior**:
-- Preview mode = read-only view
-- Objects should have `draggable={false}`
-- Click events should not select objects
-- Transformer should be hidden
+**Resolution**:
+Fixed in [CanvasStage.tsx:28,49,273,375,392,449,568-569,604,788-789,803,830](frontend/src/components/gallery-editor/CanvasStage.tsx) and [GalleryEditor.tsx:423](frontend/src/components/gallery-editor/GalleryEditor.tsx)
 
-**Current Behavior**:
-- Objects remain interactive in preview mode
-- Users can drag, select, and transform objects
+**Implementation**:
+1. Added `isPreviewMode?: boolean` prop to `CanvasStageProps` interface
+2. Added `isPreviewMode = false` parameter to `CanvasStage` function
+3. Passed `isPreviewMode` prop to all object renderers including `CanvasObjectRenderer` and `ImageRenderer`
+4. Updated `isDraggable` logic in both renderers:
+   ```typescript
+   // Objects are only draggable in 'move' mode and not in preview mode
+   const isDraggable = !isPreviewMode && editorMode === 'move' && object.draggable !== false;
+   ```
+5. Passed `isPreviewMode={isPreviewMode}` from `GalleryEditor` to `CanvasStage`
 
-**Suggested Fix**:
+**Result**:
+- Objects are now completely non-draggable in preview mode
+- Works for all object types (rectangles, circles, text, images, lines, groups)
+- Child objects in groups are also non-draggable
+- Preview mode provides true read-only view
 
-In `CanvasStage.tsx`, pass `isPreviewMode` prop and disable interactions:
-
-```typescript
-// CanvasStage.tsx
-interface CanvasStageProps {
-  // ... other props
-  isPreviewMode?: boolean;
-}
-
-export function CanvasStage({ isPreviewMode, ...props }: CanvasStageProps) {
-  return (
-    <Stage>
-      <Layer>
-        {objects.map(obj => {
-          if (obj.type === 'rect') {
-            return (
-              <Rect
-                key={obj.id}
-                draggable={!isPreviewMode && obj.draggable}
-                onClick={isPreviewMode ? undefined : handleClick}
-                onDragEnd={isPreviewMode ? undefined : handleDragEnd}
-                {...obj}
-              />
-            );
-          }
-          // ... repeat for other object types
-        })}
-
-        {/* Hide transformer in preview mode */}
-        {!isPreviewMode && <CanvasTransformer />}
-      </Layer>
-    </Stage>
-  );
-}
-```
-
-In `GalleryEditor.tsx`, pass the prop:
-
-```typescript
-<CanvasStage
-  isPreviewMode={isPreviewMode}
-  // ... other props
-/>
-```
-
-**Files to Modify**:
-- `CanvasStage.tsx` - Add preview mode logic
-- `GalleryEditor.tsx` - Pass isPreviewMode prop
+**Files Modified**:
+- `CanvasStage.tsx` - Added isPreviewMode prop and updated draggable logic for all object types
+- `GalleryEditor.tsx` - Pass isPreviewMode prop to CanvasStage
 
 ---
 
@@ -1141,6 +1088,70 @@ Fixed in [CanvasStage.tsx:28,49,282,399,416,478,634](frontend/src/components/gal
 
 **Files Modified**:
 - `CanvasStage.tsx` - Added isPreviewMode prop and updated draggable logic
+
+---
+
+#### 17. Resizable Sidebar
+
+**Status**: ✅ IMPLEMENTED
+
+**Description**: The right sidebar (containing Layers and Properties panels) is now resizable via a drag handle on its left border. Users can adjust the sidebar width to their preference or collapse it entirely.
+
+**Implementation**:
+Fixed in [GalleryEditor.tsx:27-28,310-354,379-381,488-512](frontend/src/components/gallery-editor/GalleryEditor.tsx)
+
+**Features**:
+1. **Drag to Resize**: Click and drag the left border of the sidebar to resize
+2. **Width Constraints**:
+   - Minimum width: 50px (below this, panels auto-hide)
+   - Maximum width: 600px
+   - Default width: 320px
+3. **Auto-Hide on Collapse**: When resized below 50px, both Layers and Properties panels automatically turn off
+4. **Auto-Show on Expand**: When expanding from collapsed state, both panels automatically turn on
+5. **Auto-Reset Width**: When manually toggling panels back on (via toolbar buttons) after they were collapsed, sidebar width resets to 320px
+6. **Visual Feedback**:
+   - Hover indicator shows where to grab
+   - Cursor changes to resize cursor during drag
+   - Handle highlights when active
+
+**Technical Details**:
+```typescript
+const [sidebarWidth, setSidebarWidth] = useState(320);
+const [isResizing, setIsResizing] = useState(false);
+
+const handleResizeMove = useCallback((e: MouseEvent) => {
+  if (!isResizing) return;
+
+  const newWidth = window.innerWidth - e.clientX;
+  const minWidth = 50;
+  const maxWidth = 600;
+
+  if (newWidth < minWidth) {
+    // Auto-hide panels when too small
+    setSidebarWidth(0);
+    setShowLayers(false);
+    setShowProperties(false);
+  } else if (newWidth <= maxWidth) {
+    setSidebarWidth(newWidth);
+    // Re-enable panels if they were hidden
+    if (sidebarWidth === 0) {
+      setShowLayers(true);
+      setShowProperties(true);
+    }
+  } else {
+    setSidebarWidth(maxWidth);
+  }
+}, [isResizing, sidebarWidth]);
+```
+
+**User Benefits**:
+- Customize workspace layout
+- More canvas space when needed
+- Quick collapse/expand functionality
+- Smooth, intuitive interaction
+
+**Files Modified**:
+- `GalleryEditor.tsx` - Added resize state, handlers, and dynamic sidebar width
 
 ---
 
