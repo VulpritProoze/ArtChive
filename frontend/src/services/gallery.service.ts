@@ -9,6 +9,8 @@ export interface Gallery {
   status: string;
   picture: string;
   canvas_json?: CanvasState | null;
+  canvas_width: number;
+  canvas_height: number;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
@@ -19,6 +21,9 @@ export interface CreateGalleryData {
   title: string;
   description?: string;
   status?: string;
+  picture?: File;
+  canvas_width?: number;
+  canvas_height?: number;
 }
 
 export interface UpdateGalleryData {
@@ -26,7 +31,9 @@ export interface UpdateGalleryData {
   description?: string;
   status?: string;
   canvas_json?: CanvasState;
-  picture?: string;
+  picture?: string | File;
+  canvas_width?: number;
+  canvas_height?: number;
 }
 
 export const galleryService = {
@@ -54,8 +61,27 @@ export const galleryService = {
    * Create a new gallery
    */
   async createGallery(data: CreateGalleryData): Promise<Gallery> {
-    const response = await gallery.post('', data);
-    return response.data;
+    // If picture is included, use FormData for multipart upload
+    if (data.picture) {
+      const formData = new FormData();
+      formData.append('title', data.title);
+      if (data.description) formData.append('description', data.description);
+      if (data.status) formData.append('status', data.status);
+      if (data.canvas_width) formData.append('canvas_width', data.canvas_width.toString());
+      if (data.canvas_height) formData.append('canvas_height', data.canvas_height.toString());
+      formData.append('picture', data.picture);
+
+      const response = await gallery.post('', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } else {
+      // Regular JSON request if no picture
+      const response = await gallery.post('', data);
+      return response.data;
+    }
   },
 
   /**
@@ -73,8 +99,28 @@ export const galleryService = {
     galleryId: string,
     data: UpdateGalleryData
   ): Promise<Gallery> {
-    const response = await gallery.patch(`${galleryId}/`, data);
-    return response.data;
+    // If picture is a File, use FormData for multipart upload
+    if (data.picture instanceof File) {
+      const formData = new FormData();
+      if (data.title !== undefined) formData.append('title', data.title);
+      if (data.description !== undefined) formData.append('description', data.description);
+      if (data.status !== undefined) formData.append('status', data.status);
+      if (data.canvas_width !== undefined) formData.append('canvas_width', data.canvas_width.toString());
+      if (data.canvas_height !== undefined) formData.append('canvas_height', data.canvas_height.toString());
+      if (data.canvas_json !== undefined) formData.append('canvas_json', JSON.stringify(data.canvas_json));
+      formData.append('picture', data.picture);
+
+      const response = await gallery.patch(`${galleryId}/`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } else {
+      // Regular JSON request
+      const response = await gallery.patch(`${galleryId}/`, data);
+      return response.data;
+    }
   },
 
   /**

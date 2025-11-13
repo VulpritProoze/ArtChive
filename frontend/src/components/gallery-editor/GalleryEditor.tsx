@@ -7,7 +7,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@hooks/useCanvasState';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
-import { snapPosition } from '@utils/snapUtils';
 import { LoadingOverlay } from '@components/loading-spinner';
 import { CanvasStage } from './CanvasStage';
 import { Toolbar } from './Toolbar';
@@ -69,7 +68,17 @@ export function GalleryEditor() {
 
           console.log('[GalleryEditor] Canvas initialized successfully');
         } else {
-          console.log('[GalleryEditor] No canvas_json found, using default state');
+          // Use canvas dimensions from gallery model if no canvas_json exists
+          console.log('[GalleryEditor] No canvas_json found, initializing with gallery dimensions:', {
+            width: gallery.canvas_width,
+            height: gallery.canvas_height,
+          });
+
+          editorState.initializeState({
+            objects: [],
+            width: gallery.canvas_width || 1920,
+            height: gallery.canvas_height || 1080,
+          });
         }
       } catch (error) {
         console.error('[GalleryEditor] Failed to load gallery:', error);

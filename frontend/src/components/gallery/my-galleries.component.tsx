@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Edit, Trash2, Calendar, Eye } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { galleryService, type Gallery } from '@services/gallery.service';
 import { LoadingSpinner } from '../loading-spinner';
+import { GalleryCreationModal, type GalleryFormData } from './GalleryCreationModal';
+import { GalleryCard } from './GalleryCard';
 
 const MyGalleries = () => {
   const navigate = useNavigate();
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newGallery, setNewGallery] = useState({
-    title: '',
-    description: '',
-    status: 'draft',
-  });
 
   // Load galleries on mount
   useEffect(() => {
@@ -49,30 +46,26 @@ const MyGalleries = () => {
     }
   };
 
-  const handleCreateGallery = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newGallery.title.trim()) {
-      toast.error('Please enter a gallery title');
-      return;
-    }
-
+  const handleCreateGallery = async (formData: GalleryFormData) => {
     try {
       const created = await galleryService.createGallery({
-        title: newGallery.title,
-        description: newGallery.description,
-        status: newGallery.status,
+        title: formData.title,
+        description: formData.description,
+        status: formData.status,
+        picture: formData.picture,
+        canvas_width: formData.canvas_width,
+        canvas_height: formData.canvas_height,
       });
 
       toast.success('Gallery created successfully!');
       setShowCreateModal(false);
-      setNewGallery({ title: '', description: '', status: 'draft' });
 
       // Navigate to the editor for the new gallery
       navigate(`/gallery/${created.gallery_id}/editor`);
     } catch (error) {
       console.error('Failed to create gallery:', error);
       toast.error('Failed to create gallery');
+      throw error; // Re-throw so modal can handle it
     }
   };
 
@@ -89,14 +82,6 @@ const MyGalleries = () => {
       console.error('Failed to delete gallery:', error);
       toast.error('Failed to delete gallery');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   // Log render state
@@ -149,159 +134,24 @@ const MyGalleries = () => {
           </div>
         ) : (
           /* Gallery Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {galleries.map((gallery) => (
-              <div
+              <GalleryCard
                 key={gallery.gallery_id}
-                className="card bg-base-200 shadow-xl hover:shadow-2xl transition-shadow"
-              >
-                {/* Gallery Thumbnail */}
-                <figure className="h-48 bg-base-300">
-                  <img
-                    src={gallery.picture}
-                    alt={gallery.title}
-                    className="w-full h-full object-cover"
-                  />
-                </figure>
-
-                <div className="card-body">
-                  {/* Title */}
-                  <h2 className="card-title">
-                    {gallery.title}
-                    <div className="badge badge-secondary">{gallery.status}</div>
-                  </h2>
-
-                  {/* Description */}
-                  <p className="text-sm text-base-content/70 line-clamp-2">
-                    {gallery.description || 'No description'}
-                  </p>
-
-                  {/* Meta Info */}
-                  <div className="flex items-center gap-2 text-xs text-base-content/60 mt-2">
-                    <Calendar className="w-3 h-3" />
-                    <span>Created {formatDate(gallery.created_at)}</span>
-                  </div>
-
-                  {/* Canvas Info */}
-                  {gallery.canvas_json && (
-                    <div className="text-xs text-base-content/60">
-                      {gallery.canvas_json.objects.length} objects
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="card-actions justify-end mt-4">
-                    <Link
-                      to={`/gallery/${gallery.gallery_id}/editor`}
-                      className="btn btn-sm btn-primary gap-1"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() =>
-                        handleDeleteGallery(gallery.gallery_id, gallery.title)
-                      }
-                      className="btn btn-sm btn-ghost btn-error gap-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
+                gallery={gallery}
+                onUpdate={loadGalleries}
+                onDelete={handleDeleteGallery}
+              />
             ))}
           </div>
         )}
 
         {/* Create Gallery Modal */}
-        {showCreateModal && (
-          <div className="modal modal-open">
-            <div className="modal-box">
-              <h3 className="font-bold text-lg mb-4">Create New Gallery</h3>
-
-              <form onSubmit={handleCreateGallery}>
-                {/* Title */}
-                <div className="form-control mb-4">
-                  <label className="label">
-                    <span className="label-text">Gallery Title *</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Summer Exhibition 2024"
-                    className="input input-bordered w-full"
-                    value={newGallery.title}
-                    onChange={(e) =>
-                      setNewGallery({ ...newGallery, title: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                {/* Description */}
-                <div className="form-control mb-4">
-                  <label className="label">
-                    <span className="label-text">Description</span>
-                  </label>
-                  <textarea
-                    placeholder="Describe your gallery..."
-                    className="textarea textarea-bordered h-24"
-                    value={newGallery.description}
-                    onChange={(e) =>
-                      setNewGallery({
-                        ...newGallery,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Status */}
-                <div className="form-control mb-6">
-                  <label className="label">
-                    <span className="label-text">Status</span>
-                  </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={newGallery.status}
-                    onChange={(e) =>
-                      setNewGallery({ ...newGallery, status: e.target.value })
-                    }
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                {/* Modal Actions */}
-                <div className="modal-action">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setNewGallery({
-                        title: '',
-                        description: '',
-                        status: 'draft',
-                      });
-                    }}
-                    className="btn"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    Create & Edit
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div
-              className="modal-backdrop"
-              onClick={() => setShowCreateModal(false)}
-            />
-          </div>
-        )}
+        <GalleryCreationModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateGallery}
+        />
       </div>
     </MainLayout>
   );

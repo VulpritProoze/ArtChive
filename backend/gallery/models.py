@@ -4,6 +4,7 @@ from django.db import models
 
 from common.utils import choices
 from core.models import User
+from gallery.manager import GalleryManager
 
 
 class Gallery(models.Model):
@@ -11,12 +12,16 @@ class Gallery(models.Model):
     title = models.CharField(max_length=512)
     description = models.CharField(max_length=4096)
     status = models.CharField(default=choices.GALLERY_STATUS.draft, choices=choices.GALLERY_STATUS_CHOICES)
-    picture = models.ImageField(default='static/images/default_600x400.png')
+    picture = models.ImageField(default='static/images/default_600x400.png', upload_to='gallery/pictures/', blank=True)
     canvas_json = models.JSONField(null=True, blank=True)
+    canvas_width = models.IntegerField(default=1920)
+    canvas_height = models.IntegerField(default=1080)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    objects = GalleryManager()
 
     def __str__(self):
         return f"{self.title}, owned by {self.creator.username}"
