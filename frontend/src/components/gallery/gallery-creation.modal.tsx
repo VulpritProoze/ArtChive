@@ -26,7 +26,6 @@ interface GalleryCreationModalProps {
 export interface GalleryFormData {
   title: string;
   description: string;
-  status: string;
   picture?: File;
   canvas_width: number;
   canvas_height: number;
@@ -40,7 +39,6 @@ export function GalleryCreationModal({
   const [formData, setFormData] = useState<GalleryFormData>({
     title: '',
     description: '',
-    status: 'draft',
     canvas_width: 1920,
     canvas_height: 1080,
   });
@@ -135,7 +133,6 @@ export function GalleryCreationModal({
     setFormData({
       title: '',
       description: '',
-      status: 'draft',
       canvas_width: 1920,
       canvas_height: 1080,
     });
@@ -223,7 +220,7 @@ export function GalleryCreationModal({
             </label>
             <textarea
               placeholder="Describe your gallery..."
-              className="textarea textarea-bordered h-20"
+              className="block w-full textarea textarea-bordered h-20"
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
@@ -318,22 +315,10 @@ export function GalleryCreationModal({
             )}
           </div>
 
-          {/* Status */}
-          <div className="form-control mb-6">
-            <label className="label">
-              <span className="label-text font-semibold">Status</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-            >
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
-            </select>
+          {/* Info Note */}
+          <div className="alert alert-info mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span className="text-sm">New galleries are automatically saved as <strong>Draft</strong>. You can change the status later from your gallery settings.</span>
           </div>
 
           {/* Modal Actions */}

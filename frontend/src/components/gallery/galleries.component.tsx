@@ -5,8 +5,8 @@ import { Plus } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { galleryService, type Gallery } from '@services/gallery.service';
 import { LoadingSpinner } from '../loading-spinner';
-import { GalleryCreationModal, type GalleryFormData } from './GalleryCreationModal';
-import { GalleryCard } from './GalleryCard';
+import { GalleryCreationModal, type GalleryFormData } from './gallery-creation.modal';
+import { GalleryCard } from './gallery-card.card';
 
 const MyGalleries = () => {
   const navigate = useNavigate();
@@ -51,7 +51,6 @@ const MyGalleries = () => {
       const created = await galleryService.createGallery({
         title: formData.title,
         description: formData.description,
-        status: formData.status,
         picture: formData.picture,
         canvas_width: formData.canvas_width,
         canvas_height: formData.canvas_height,

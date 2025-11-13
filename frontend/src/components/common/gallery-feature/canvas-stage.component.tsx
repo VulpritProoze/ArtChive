@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Text as KonvaText, Image as KonvaImage, Line, Group } from 'react-konva';
 import type { CanvasObject, ImageObject, SnapGuide } from '@types';
-import { CanvasTransformer } from './CanvasTransformer';
-import { snapPosition } from '@utils/snapUtils';
+import { CanvasTransformer } from './canvas-transformer.component';
+import { snapPosition } from './utils/snap.util';
 import useImage from 'use-image';
 
 type EditorMode = 'pan' | 'move' | 'select';
@@ -280,6 +280,7 @@ export function CanvasStage({
               onContextMenu={onContextMenu}
               editorMode={editorMode}
               isPreviewMode={isPreviewMode}
+              onTextEdit={setEditingTextId}
             />
           ))}
 
@@ -397,6 +398,7 @@ interface CanvasObjectRendererProps {
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
+  onTextEdit?: (textId: string) => void;
 }
 
 function CanvasObjectRenderer({
@@ -414,6 +416,7 @@ function CanvasObjectRenderer({
   onContextMenu,
   editorMode = 'move',
   isPreviewMode = false,
+  onTextEdit,
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -545,7 +548,7 @@ function CanvasObjectRenderer({
           draggable={isDraggable}
           onClick={onSelect}
           onTap={onSelect}
-          onDblClick={() => setEditingTextId(object.id)}
+          onDblClick={() => onTextEdit?.(object.id)}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         />
@@ -634,6 +637,7 @@ function CanvasObjectRenderer({
               onSnapGuidesChange={onSnapGuidesChange}
               isTransforming={isTransforming}
               isPreviewMode={isPreviewMode}
+              onTextEdit={onTextEdit}
             />
           ))}
         </Group>

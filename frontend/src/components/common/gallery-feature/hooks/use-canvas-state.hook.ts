@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { CanvasObject, EditorState, Command } from '@/types/canvas';
-import { useUndoRedo } from './useUndoRedo';
+import type { CanvasObject, EditorState, Command } from '@types';
+import { useUndoRedo } from './use-undo-redo.hook';
 import { galleryService } from '@services/gallery.service';
 
 interface UseCanvasStateProps {
