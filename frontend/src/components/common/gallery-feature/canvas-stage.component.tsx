@@ -596,6 +596,32 @@ function CanvasObjectRenderer({
         />
       );
 
+    case 'triangle':
+    case 'star':
+    case 'diamond':
+      const shapeObj = object as any;
+      return (
+        <Line
+          id={object.id}
+          x={object.x}
+          y={object.y}
+          points={shapeObj.points}
+          fill={shapeObj.fill === 'transparent' ? undefined : shapeObj.fill}
+          stroke={shapeObj.stroke}
+          strokeWidth={shapeObj.strokeWidth}
+          closed={shapeObj.closed}
+          rotation={object.rotation}
+          scaleX={object.scaleX}
+          scaleY={object.scaleY}
+          opacity={object.opacity}
+          draggable={isDraggable}
+          onClick={onSelect}
+          onTap={onSelect}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+        />
+      );
+
     case 'gallery-item':
       return (
         <Group
@@ -738,6 +764,27 @@ function CanvasObjectRenderer({
                     points={(child as any).points}
                     stroke={(child as any).stroke}
                     strokeWidth={(child as any).strokeWidth}
+                    rotation={child.rotation}
+                    scaleX={child.scaleX}
+                    scaleY={child.scaleY}
+                    opacity={child.opacity}
+                    listening={true}
+                  />
+                );
+              case 'triangle':
+              case 'star':
+              case 'diamond':
+                const childShapeObj = child as any;
+                return (
+                  <Line
+                    key={child.id}
+                    x={child.x}
+                    y={child.y}
+                    points={childShapeObj.points}
+                    fill={childShapeObj.fill === 'transparent' ? undefined : childShapeObj.fill}
+                    stroke={childShapeObj.stroke}
+                    strokeWidth={childShapeObj.strokeWidth}
+                    closed={childShapeObj.closed}
                     rotation={child.rotation}
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}

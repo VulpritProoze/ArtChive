@@ -60,6 +60,12 @@ export function LayerPanel({
         return '🖼️';
       case 'line':
         return '—';
+      case 'triangle':
+        return '▲';
+      case 'star':
+        return '★';
+      case 'diamond':
+        return '◆';
       case 'gallery-item':
         return '📦';
       case 'group':

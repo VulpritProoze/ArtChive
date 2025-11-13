@@ -1,14 +1,11 @@
-import { Square, Circle, Type, Image, Minus, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
+import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
 import { useUploadImage } from './hooks/use-upload-image.hook';
 import { toast } from 'react-toastify';
 
 type EditorMode = 'pan' | 'move' | 'select';
 
 interface ToolbarProps {
-  onAddRect: () => void;
-  onAddCircle: () => void;
   onAddText: () => void;
-  onAddLine: () => void;
   onAddImage: (url: string) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -33,10 +30,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  onAddRect,
-  onAddCircle,
   onAddText,
-  onAddLine,
   onAddImage,
   onUndo,
   onRedo,
@@ -117,24 +111,8 @@ export function Toolbar({
         </button>
       </div>
 
-      {/* Add Objects Section */}
+      {/* Add Content Section */}
       <div className="flex gap-2 border-r border-base-300 pr-3">
-        <button
-          onClick={onAddRect}
-          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
-          data-tip="Add Rectangle"
-          disabled={isPreviewMode}
-        >
-          <Square className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onAddCircle}
-          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
-          data-tip="Add Circle"
-          disabled={isPreviewMode}
-        >
-          <Circle className="w-4 h-4" />
-        </button>
         <button
           onClick={onAddText}
           className="btn btn-sm btn-ghost tooltip tooltip-bottom"
@@ -142,14 +120,6 @@ export function Toolbar({
           disabled={isPreviewMode}
         >
           <Type className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onAddLine}
-          className="btn btn-sm btn-ghost tooltip tooltip-bottom"
-          data-tip="Add Line"
-          disabled={isPreviewMode}
-        >
-          <Minus className="w-4 h-4" />
         </button>
         <label
           className={`btn btn-sm btn-ghost tooltip tooltip-bottom ${isUploading || isPreviewMode ? 'btn-disabled' : ''}`}

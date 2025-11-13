@@ -3,7 +3,7 @@ import uuid
 
 import cloudinary.uploader
 from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,7 +18,7 @@ class GalleryListCreateView(APIView):
     POST /api/gallery/ - Create a new gallery
     """
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
         """List all galleries for the current user"""
@@ -59,7 +59,7 @@ class GalleryDetailView(APIView):
     DELETE /api/gallery/<gallery_id>/ - Delete a gallery (uses model's soft delete)
     """
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
         return Gallery.objects.get_active_objects().filter(

@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import GalleryListCreateView, GalleryDetailView, MediaUploadView
+
+from .views import GalleryDetailView, GalleryListCreateView, MediaUploadView
 
 urlpatterns = [
     # Gallery CRUD

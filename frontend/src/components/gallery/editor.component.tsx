@@ -13,6 +13,7 @@ import { Toolbar } from '@components/common/gallery-feature/toolbar.component';
 import { LayerPanel } from '@components/common/gallery-feature/layer-panel.panel';
 import { PropertiesPanel } from '@components/common/gallery-feature/properties-panel.panel';
 import { TemplateLibrary } from '@components/common/gallery-feature/template-library.library';
+import { ObjectsLibraryModal } from '@components/common/gallery-feature/objects-library.modal';
 
 type EditorMode = 'pan' | 'move' | 'select';
 
@@ -20,6 +21,7 @@ export default function GalleryEditor() {
   const { galleryId } = useParams<{ galleryId: string }>();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showObjectsLibrary, setShowObjectsLibrary] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
   const [showProperties, setShowProperties] = useState(true);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
@@ -167,6 +169,11 @@ export default function GalleryEditor() {
       draggable: true,
     };
     editorState.addObject(newImage);
+  }, [editorState]);
+
+  const handleAddShape = useCallback((shape: CanvasObject) => {
+    editorState.addObject(shape);
+    toast.success('Shape added!');
   }, [editorState]);
 
   const handleSelectTemplate = useCallback((template: Template) => {
@@ -400,10 +407,7 @@ export default function GalleryEditor() {
       >
       {/* Toolbar */}
       <Toolbar
-        onAddRect={handleAddRect}
-        onAddCircle={handleAddCircle}
         onAddText={handleAddText}
-        onAddLine={handleAddLine}
         onAddImage={handleAddImage}
         onUndo={editorState.undo}
         onRedo={editorState.redo}
@@ -466,9 +470,9 @@ export default function GalleryEditor() {
               <Palette className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setShowTemplates(true)}
+              onClick={() => setShowObjectsLibrary(true)}
               className="btn btn-sm btn-ghost"
-              title="Templates"
+              title="Objects & Templates"
             >
               <Layout className="w-4 h-4" />
             </button>
@@ -577,6 +581,15 @@ export default function GalleryEditor() {
         <TemplateLibrary
           onSelectTemplate={handleSelectTemplate}
           onClose={() => setShowTemplates(false)}
+        />
+      )}
+
+      {/* Objects Library Modal */}
+      {showObjectsLibrary && (
+        <ObjectsLibraryModal
+          onAddShape={handleAddShape}
+          onSelectTemplate={handleSelectTemplate}
+          onClose={() => setShowObjectsLibrary(false)}
         />
       )}
 

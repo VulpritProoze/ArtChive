@@ -6,6 +6,7 @@ export { CanvasTransformer } from './canvas-transformer.component';
 export { LayerPanel } from './layer-panel.panel';
 export { PropertiesPanel } from './properties-panel.panel';
 export { TemplateLibrary } from './template-library.library';
+export { ObjectsLibraryModal } from './objects-library.modal';
 export { Toolbar } from './toolbar.component';
 
 // Hooks
@@ -16,3 +17,4 @@ export { useUploadImage } from './hooks/use-upload-image.hook';
 // Utils
 export * from './utils/serialize-canvas.util';
 export * from './utils/snap.util';
+export * from './utils/shape-factory.util';

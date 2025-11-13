@@ -2,7 +2,7 @@
 
 // ===== Canvas Object Types =====
 
-export type CanvasObjectType = 'rect' | 'circle' | 'text' | 'image' | 'line' | 'gallery-item' | 'group';
+export type CanvasObjectType = 'rect' | 'circle' | 'text' | 'image' | 'line' | 'gallery-item' | 'group' | 'triangle' | 'star' | 'diamond';
 
 export interface BaseCanvasObject {
   id: string;
@@ -69,6 +69,33 @@ export interface LineObject extends BaseCanvasObject {
   lineJoin?: string;
 }
 
+export interface TriangleObject extends BaseCanvasObject {
+  type: 'triangle';
+  points: number[];
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  closed?: boolean;
+}
+
+export interface StarObject extends BaseCanvasObject {
+  type: 'star';
+  points: number[];
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  closed?: boolean;
+}
+
+export interface DiamondObject extends BaseCanvasObject {
+  type: 'diamond';
+  points: number[];
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  closed?: boolean;
+}
+
 export interface GalleryItemObject extends BaseCanvasObject {
   type: 'gallery-item';
   width: number;
@@ -92,6 +119,9 @@ export type CanvasObject =
   | TextObject
   | ImageObject
   | LineObject
+  | TriangleObject
+  | StarObject
+  | DiamondObject
   | GalleryItemObject
   | GroupObject;
 

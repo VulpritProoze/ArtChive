@@ -1188,7 +1188,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 ---
 
-#### 3. Enhanced Gallery Creation UI
+#### 3. Enhanced Gallery Creation UI ✅ **COMPLETED**
 
 **Description**: Improve the my-galleries component with a better UI and more options when creating new galleries.
 
@@ -1233,7 +1233,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 ---
 
-#### 4. Objects Library Modal
+#### 4. Objects Library Modal ✅ **COMPLETED**
 
 **Description**: Replace individual toolbar buttons for shapes with a unified "Objects" button that opens a modal with categorized object types.
 
