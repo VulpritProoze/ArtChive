@@ -1,12 +1,11 @@
 // comments-renderer.tsx
 import { usePostContext } from "@context/post-context";
-import { useAuth } from "@context/auth-context";
+import usePost from "@hooks/use-post";
 import { getCommentsForPost } from "@utils";
 import { ReplyComponent } from "@components/common";
 import type { CommentPagination, Post } from "@types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComment } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
 
 const CommentsRenderer = ({
   postItem,
@@ -17,55 +16,16 @@ const CommentsRenderer = ({
   isFirstComments?: boolean;
   showLoadMore?: boolean;
 }) => {
-  const { commentPagination, loadingComments, comments, setActivePost, handleCommentSubmit, commentForm, setCommentForm } =
+  const { commentPagination, loadingComments, comments, setActivePost } =
     usePostContext();
-  const { user } = useAuth();
+  const { setupNewComment } = usePost();
   const postId = postItem.post_id;
-  const [commentText, setCommentText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLoading = loadingComments[postId];
   let pagination = commentPagination[postId];
 
   const hasComments: boolean =
     Array.isArray(postItem.comments) && postItem.comments.length > 0;
-
-  const handleSubmitComment = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    
-    if (commentText.trim() && user && !isSubmitting) {
-      const currentText = commentText.trim();
-      setCommentText("");
-      setIsSubmitting(true);
-
-      try {
-        // Create a synthetic form event
-        const formEvent = e || new Event('submit') as any;
-        
-        // Update the comment form in context (same as the modal does)
-        setCommentForm({
-          text: currentText,
-          post_id: postId,
-        });
-
-        // Use the existing handleCommentSubmit from context
-        await handleCommentSubmit(formEvent);
-        
-        // Update the post item optimistically
-        if (postItem.comments) {
-          // Refresh will show the real comment, but let's update count
-          postItem.comment_count = (postItem.comment_count || 0) + 1;
-        }
-        
-      } catch (error) {
-        console.error('Error posting comment:', error);
-        setCommentText(currentText);
-        alert('Failed to post comment. Please try again.');
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
-  };
 
   // Return early if isFirstComments is true and we need to show only the last comment blurred
   if (isFirstComments) {
@@ -75,44 +35,18 @@ const CommentsRenderer = ({
           <h4 className="font-semibold">
             Comments ({isLoading ? "..." : postItem.comment_count || 0})
           </h4>
-        </div>
-
-        {/* Comment Input Field */}
-        <div className="mb-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Write a comment..."
-              className="input input-bordered flex-1"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isSubmitting) {
-                  handleSubmitComment();
-                }
-              }}
-              disabled={isSubmitting}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleSubmitComment}
-              disabled={!commentText.trim() || isSubmitting}
-            >
-              {isSubmitting ? (
-                <span className="loading loading-spinner loading-sm"></span>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
-            </button>
-          </div>
+          {/* <button
+            className="btn btn-sm btn-primary"
+            onClick={() => setupNewComment(postId)}
+          >
+            Add Comment
+          </button> */}
         </div>
 
         <div className="space-y-2 relative">
-          {!isLoading && postItem.comment_count > 0 && (
+          {!isLoading && (
             <span
-              className="text-sm hover:link cursor-pointer"
+              className="text-sm hover:link"
               onClick={() => setActivePost(postItem)}
             >
               View all {postItem.comment_count} comments
@@ -206,38 +140,14 @@ const CommentsRenderer = ({
             : pagination?.commentCount || 0}
           )
         </h4>
-      </div>
-
-      {/* Comment Input Field for full view */}
-      <div className="mb-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Write a comment..."
-            className="input input-bordered flex-1"
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isSubmitting) {
-                handleSubmitComment();
-              }
-            }}
-            disabled={isSubmitting}
-          />
+        {!showLoadMore && (
           <button
-            className="btn btn-primary"
-            onClick={handleSubmitComment}
-            disabled={!commentText.trim() || isSubmitting}
+            className="btn btn-sm btn-primary"
+            onClick={() => setupNewComment(postId)}
           >
-            {isSubmitting ? (
-              <span className="loading loading-spinner loading-sm"></span>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            )}
+            Add Comment
           </button>
-        </div>
+        )}
       </div>
 
       {isLoading && topLevelComments.length === 0 ? (
@@ -250,7 +160,6 @@ const CommentsRenderer = ({
       ) : (
         <>
           <div className="space-y-3">
-            {/* Display existing comments */}
             {topLevelComments.map((comment) => (
               <ReplyComponent
                 key={comment.comment_id}

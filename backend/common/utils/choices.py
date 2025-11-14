@@ -32,6 +32,18 @@ COLLECTIVE_STATUS = (
     ('archive', 'archive'),
 )
 
+GALLERY_STATUS_CHOICES = (
+    ('draft', 'draft'),
+    ('active', 'active'),
+    ('archived', 'archived')
+)
+
+GALLERY_STATUS = SimpleNamespace(
+    draft='draft',
+    active='active',
+    archived='archived'
+)
+
 COLLECTIVE_ROLES_CHOICES = (
     ('member', 'member'),
     ('admin', 'admin')
