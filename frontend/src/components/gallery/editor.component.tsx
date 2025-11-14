@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Layout, Palette, Layers, Ungroup, Eye } from 'lucide-react';
+import { Palette, Layers, Ungroup, Eye, LayoutTemplate } from 'lucide-react';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@components/common/gallery-feature/hooks/use-canvas-state.hook';
@@ -13,7 +13,7 @@ import { Toolbar } from '@components/common/gallery-feature/toolbar.component';
 import { LayerPanel } from '@components/common/gallery-feature/layer-panel.panel';
 import { PropertiesPanel } from '@components/common/gallery-feature/properties-panel.panel';
 import { TemplateLibrary } from '@components/common/gallery-feature/template-library.library';
-import { ObjectsLibraryModal } from '@components/common/gallery-feature/objects-library.modal';
+import { ShapesFloating } from '@components/common/gallery-feature/shapes-floating.component';
 
 type EditorMode = 'pan' | 'move' | 'select';
 
@@ -21,7 +21,7 @@ export default function GalleryEditor() {
   const { galleryId } = useParams<{ galleryId: string }>();
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showObjectsLibrary, setShowObjectsLibrary] = useState(false);
+  const [showShapes, setShowShapes] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
   const [showProperties, setShowProperties] = useState(true);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
@@ -31,6 +31,7 @@ export default function GalleryEditor() {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+  const shapesButtonRef = useRef<HTMLButtonElement>(null);
 
   const navigate = useNavigate()
 
@@ -422,6 +423,9 @@ export default function GalleryEditor() {
           setEditorMode('move');
         }}
         onOpenMenu={() => setShowHamburgerMenu(true)}
+        onToggleShapes={() => setShowShapes(!showShapes)}
+        showShapes={showShapes}
+        shapesButtonRef={shapesButtonRef}
         canGroup={canGroup}
         canUngroup={canUngroup}
         canUndo={editorState.canUndo}
@@ -470,11 +474,11 @@ export default function GalleryEditor() {
               <Palette className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setShowObjectsLibrary(true)}
+              onClick={() => setShowTemplates(true)}
               className="btn btn-sm btn-ghost"
-              title="Objects & Templates"
+              title="Templates Library"
             >
-              <Layout className="w-4 h-4" />
+              <LayoutTemplate className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -584,12 +588,12 @@ export default function GalleryEditor() {
         />
       )}
 
-      {/* Objects Library Modal */}
-      {showObjectsLibrary && (
-        <ObjectsLibraryModal
+      {/* Shapes Floating UI */}
+      {showShapes && (
+        <ShapesFloating
           onAddShape={handleAddShape}
-          onSelectTemplate={handleSelectTemplate}
-          onClose={() => setShowObjectsLibrary(false)}
+          onClose={() => setShowShapes(false)}
+          buttonRef={shapesButtonRef}
         />
       )}
 

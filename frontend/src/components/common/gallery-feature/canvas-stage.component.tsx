@@ -704,21 +704,15 @@ function CanvasObjectRenderer({
             }
           }}
         >
-          {/* Render children - listening enabled so they can capture clicks for individual selection */}
+          {/* Render children - listening enabled for group hitbox, no handlers so group gets selected */}
           {object.children?.map((child) => {
             // Skip rendering if child is hidden
             if (child.visible === false) {
               return null;
             }
 
-            const handleChildClick = (e: any) => {
-              e.cancelBubble = true; // Prevent group from being selected
-              if (onSelectIds) {
-                onSelectIds([child.id]);
-              }
-            };
-
-            // Render children with their own click handlers for individual selection
+            // Render children with listening=true but no click handlers
+            // This makes them part of the group's clickable area
             switch (child.type) {
               case 'rect':
                 return (
@@ -738,8 +732,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               case 'circle':
@@ -758,8 +750,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               case 'text':
@@ -778,8 +768,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               case 'line':
@@ -797,8 +785,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               case 'triangle':
@@ -821,8 +807,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               case 'image':
@@ -843,8 +827,6 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
-                    onClick={handleChildClick}
-                    onTap={handleChildClick}
                   />
                 );
               default:

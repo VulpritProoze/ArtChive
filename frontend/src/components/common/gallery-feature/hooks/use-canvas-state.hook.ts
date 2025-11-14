@@ -170,6 +170,54 @@ export function useCanvasState({
     return null;
   }, []);
 
+  // Helper function to recalculate group bounds based on children
+  const recalculateGroupBounds = useCallback((group: CanvasObject): CanvasObject => {
+    if (group.type !== 'group' || !('children' in group) || !group.children || group.children.length === 0) {
+      return group;
+    }
+
+    const visibleChildren = group.children.filter(child => child.visible !== false);
+    if (visibleChildren.length === 0) {
+      return group;
+    }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    visibleChildren.forEach((child) => {
+      const childMinX = child.x;
+      const childMinY = child.y;
+      let childMaxX = child.x;
+      let childMaxY = child.y;
+
+      if ('width' in child && child.width !== undefined) {
+        childMaxX = child.x + child.width * (child.scaleX || 1);
+      }
+      if ('height' in child && child.height !== undefined) {
+        childMaxY = child.y + child.height * (child.scaleY || 1);
+      }
+      if ('radius' in child && child.radius !== undefined) {
+        const radiusX = child.radius * (child.scaleX || 1);
+        const radiusY = child.radius * (child.scaleY || 1);
+        childMaxX = child.x + radiusX;
+        childMaxY = child.y + radiusY;
+      }
+
+      minX = Math.min(minX, childMinX);
+      minY = Math.min(minY, childMinY);
+      maxX = Math.max(maxX, childMaxX);
+      maxY = Math.max(maxY, childMaxY);
+    });
+
+    const newWidth = maxX - minX;
+    const newHeight = maxY - minY;
+
+    return {
+      ...group,
+      width: newWidth,
+      height: newHeight,
+    };
+  }, []);
+
   // Helper function to update an object (including within groups)
   const updateObjectInTree = useCallback((objects: CanvasObject[], id: string, updates: Partial<CanvasObject>): CanvasObject[] => {
     return objects.map((o) => {
@@ -177,14 +225,16 @@ export function useCanvasState({
         return { ...o, ...updates } as CanvasObject;
       }
       if (o.type === 'group' && 'children' in o && o.children) {
-        return {
+        const updatedGroup = {
           ...o,
           children: updateObjectInTree(o.children, id, updates),
         } as CanvasObject;
+        // Recalculate group bounds after updating a child
+        return recalculateGroupBounds(updatedGroup);
       }
       return o;
     });
-  }, []);
+  }, [recalculateGroupBounds]);
 
   const updateObject = useCallback(
     (id: string, updates: Partial<CanvasObject>) => {
@@ -193,10 +243,20 @@ export function useCanvasState({
 
       const command: Command = {
         execute: () => {
-          setState((prev) => ({
-            ...prev,
-            objects: updateObjectInTree(prev.objects, id, updates),
-          }));
+          setState((prev) => {
+            let newObjects = updateObjectInTree(prev.objects, id, updates);
+            // Also recalculate bounds for the updated object if it's a group
+            newObjects = newObjects.map(obj => {
+              if (obj.id === id && obj.type === 'group') {
+                return recalculateGroupBounds(obj);
+              }
+              return obj;
+            });
+            return {
+              ...prev,
+              objects: newObjects,
+            };
+          });
         },
         undo: () => {
           setState((prev) => ({
@@ -208,7 +268,7 @@ export function useCanvasState({
       };
       undoRedo.execute(command);
     },
-    [state.objects, undoRedo, findObject, updateObjectInTree]
+    [state.objects, undoRedo, findObject, updateObjectInTree, recalculateGroupBounds]
   );
 
   // Helper function to delete an object (including within groups)
@@ -217,14 +277,16 @@ export function useCanvasState({
       .filter((o) => o.id !== id)
       .map((o) => {
         if (o.type === 'group' && 'children' in o && o.children) {
-          return {
+          const updatedGroup = {
             ...o,
             children: deleteObjectFromTree(o.children, id),
           } as CanvasObject;
+          // Recalculate group bounds after deleting a child
+          return recalculateGroupBounds(updatedGroup);
         }
         return o;
       });
-  }, []);
+  }, [recalculateGroupBounds]);
 
   const deleteObject = useCallback(
     (id: string) => {

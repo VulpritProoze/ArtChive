@@ -42,26 +42,44 @@ export function snapPosition(
   const currHeight = objectHeight || getObjectHeight(currentObject!) || 0;
   const currRotation = rotation !== undefined ? rotation : (currentObject?.rotation || 0);
 
+  // Debug logging for groups
+  if (currentObject?.type === 'group') {
+    const bounds = getGroupVisualBounds(currentObject);
+    console.log('[snapUtils] Group snap calculation:', {
+      id: currentObjectId,
+      x,
+      y,
+      calculatedWidth: currWidth,
+      calculatedHeight: currHeight,
+      storedWidth: currentObject.width,
+      storedHeight: currentObject.height,
+      children: currentObject.children?.length,
+      visibleChildren: currentObject.children?.filter(c => c.visible !== false).length,
+      visualBounds: bounds,
+      calculatedCenter: { x: x + currWidth / 2, y: y + currHeight / 2 },
+      actualVisualCenter: bounds ? { x: x + (bounds.minX + bounds.maxX) / 2, y: y + (bounds.minY + bounds.maxY) / 2 } : null,
+    });
+  }
+
   // For circles, position is already at center in Konva
   const isCircle = currentObject?.type === 'circle';
   const isGroup = currentObject?.type === 'group';
 
-  // Calculate visual center considering rotation and group offsets
+  // Calculate visual center considering rotation and group child positions
   // For non-rotated objects or circles, use simple calculation
   let currCenterX: number;
   let currCenterY: number;
 
   if (isCircle || Math.abs(currRotation % 360) < 0.01) {
-    // For groups, we need to account for the offset of visible children
+    // For groups, use actual visual bounds to calculate center
     if (isGroup) {
       const bounds = getGroupVisualBounds(currentObject!);
       if (bounds) {
-        // The visual center is based on the actual bounds of visible children
-        // bounds are in local coordinates, so we add the group's position
+        // The actual visual center based on where children are positioned
         currCenterX = x + (bounds.minX + bounds.maxX) / 2;
         currCenterY = y + (bounds.minY + bounds.maxY) / 2;
       } else {
-        // No visible children, use stored dimensions
+        // Fallback if no visible children
         currCenterX = x + currWidth / 2;
         currCenterY = y + currHeight / 2;
       }
@@ -92,6 +110,19 @@ export function snapPosition(
     }
 
     if (Math.abs(currRotation % 360) < 0.01) {
+      // For groups, reverse the actual visual center calculation
+      if (isGroup) {
+        const bounds = getGroupVisualBounds(currentObject!);
+        if (bounds) {
+          // Calculate what x should be based on desired center
+          const visualCenterOffsetX = (bounds.minX + bounds.maxX) / 2;
+          const visualCenterOffsetY = (bounds.minY + bounds.maxY) / 2;
+          return {
+            x: centerX - visualCenterOffsetX,
+            y: centerY - visualCenterOffsetY,
+          };
+        }
+      }
       // No rotation: simple offset
       return { x: centerX - currWidth / 2, y: centerY - currHeight / 2 };
     }

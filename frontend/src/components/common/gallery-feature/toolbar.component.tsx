@@ -1,4 +1,4 @@
-import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand } from 'lucide-react';
+import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes } from 'lucide-react';
 import { useUploadImage } from './hooks/use-upload-image.hook';
 import { toast } from 'react-toastify';
 
@@ -17,6 +17,9 @@ interface ToolbarProps {
   onSetMode: (mode: EditorMode) => void;
   onDeselectAll: () => void;
   onOpenMenu: () => void;
+  onToggleShapes: () => void;
+  showShapes: boolean;
+  shapesButtonRef: React.RefObject<HTMLButtonElement>;
   canGroup: boolean;
   canUngroup: boolean;
   canUndo: boolean;
@@ -42,6 +45,9 @@ export function Toolbar({
   onSetMode,
   onDeselectAll,
   onOpenMenu,
+  onToggleShapes,
+  showShapes,
+  shapesButtonRef,
   canGroup,
   canUngroup,
   canUndo,
@@ -113,6 +119,15 @@ export function Toolbar({
 
       {/* Add Content Section */}
       <div className="flex gap-2 border-r border-base-300 pr-3">
+        <button
+          ref={shapesButtonRef}
+          onClick={onToggleShapes}
+          className={`btn btn-sm ${showShapes ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+          data-tip="Shapes"
+          disabled={isPreviewMode}
+        >
+          <Shapes className="w-4 h-4" />
+        </button>
         <button
           onClick={onAddText}
           className="btn btn-sm btn-ghost tooltip tooltip-bottom"
