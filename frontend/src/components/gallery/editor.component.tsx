@@ -192,7 +192,7 @@ export default function GalleryEditor() {
 
   // Layer management
   const handleToggleVisibility = useCallback((id: string) => {
-    const obj = editorState.objects.find(o => o.id === id);
+    const obj = editorState.findObject(id);
     if (obj) {
       editorState.updateObject(id, { visible: !(obj.visible ?? true) });
     }
@@ -375,10 +375,10 @@ export default function GalleryEditor() {
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
-  // Selected objects for properties panel
-  const selectedObjects = editorState.objects.filter(obj =>
-    editorState.selectedIds.includes(obj.id)
-  );
+  // Selected objects for properties panel (including children within groups)
+  const selectedObjects = editorState.selectedIds
+    .map(id => editorState.findObject(id))
+    .filter((obj): obj is CanvasObject => obj !== null);
 
   // Log render state
   console.log('[GalleryEditor] Rendering', {

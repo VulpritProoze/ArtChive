@@ -1153,7 +1153,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 ---
 
-#### 2. Expandable Grouped Objects in Layers Panel
+#### 2. Expandable Grouped Objects in Layers Panel ✅ **COMPLETED** (not really, still has issues)
 
 **Description**: Users should be able to see and edit individual children within grouped objects directly from the layers panel.
 

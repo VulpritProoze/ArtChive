@@ -277,6 +277,8 @@ export function CanvasStage({
               canvasHeight={height}
               onSnapGuidesChange={onSnapGuidesChange}
               isTransforming={isTransforming}
+              onSelectIds={onSelect}
+              onUpdateObjectById={onUpdateObject}
               onContextMenu={onContextMenu}
               editorMode={editorMode}
               isPreviewMode={isPreviewMode}
@@ -399,6 +401,8 @@ interface CanvasObjectRendererProps {
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
   onTextEdit?: (textId: string) => void;
+  onSelectIds?: (ids: string[]) => void; // For child object selection
+  onUpdateObjectById?: (id: string, updates: Partial<CanvasObject>) => void; // For child object updates
 }
 
 function CanvasObjectRenderer({
@@ -417,6 +421,8 @@ function CanvasObjectRenderer({
   editorMode = 'move',
   isPreviewMode = false,
   onTextEdit,
+  onSelectIds,
+  onUpdateObjectById,
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -698,14 +704,27 @@ function CanvasObjectRenderer({
             }
           }}
         >
-          {/* Render children - listening enabled so they can capture clicks for the group */}
+          {/* Render children - listening enabled so they can capture clicks for individual selection */}
           {object.children?.map((child) => {
-            // Render children directly without drag handlers
+            // Skip rendering if child is hidden
+            if (child.visible === false) {
+              return null;
+            }
+
+            const handleChildClick = (e: any) => {
+              e.cancelBubble = true; // Prevent group from being selected
+              if (onSelectIds) {
+                onSelectIds([child.id]);
+              }
+            };
+
+            // Render children with their own click handlers for individual selection
             switch (child.type) {
               case 'rect':
                 return (
                   <Rect
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     width={(child as any).width}
@@ -719,12 +738,15 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               case 'circle':
                 return (
                   <Circle
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     radius={(child as any).radius}
@@ -736,12 +758,15 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               case 'text':
                 return (
                   <KonvaText
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     text={(child as any).text}
@@ -753,12 +778,15 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               case 'line':
                 return (
                   <Line
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     points={(child as any).points}
@@ -769,6 +797,8 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               case 'triangle':
@@ -778,6 +808,7 @@ function CanvasObjectRenderer({
                 return (
                   <Line
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     points={childShapeObj.points}
@@ -790,6 +821,8 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               case 'image':
@@ -797,6 +830,7 @@ function CanvasObjectRenderer({
                 return (
                   <Rect
                     key={child.id}
+                    id={child.id}
                     x={child.x}
                     y={child.y}
                     width={(child as any).width}
@@ -809,6 +843,8 @@ function CanvasObjectRenderer({
                     scaleY={child.scaleY}
                     opacity={child.opacity}
                     listening={true}
+                    onClick={handleChildClick}
+                    onTap={handleChildClick}
                   />
                 );
               default:

@@ -44,16 +44,32 @@ export function snapPosition(
 
   // For circles, position is already at center in Konva
   const isCircle = currentObject?.type === 'circle';
+  const isGroup = currentObject?.type === 'group';
 
-  // Calculate visual center considering rotation
+  // Calculate visual center considering rotation and group offsets
   // For non-rotated objects or circles, use simple calculation
   let currCenterX: number;
   let currCenterY: number;
 
   if (isCircle || Math.abs(currRotation % 360) < 0.01) {
-    // Circle or no rotation: simple center calculation
-    currCenterX = isCircle ? x : x + currWidth / 2;
-    currCenterY = isCircle ? y : y + currHeight / 2;
+    // For groups, we need to account for the offset of visible children
+    if (isGroup) {
+      const bounds = getGroupVisualBounds(currentObject!);
+      if (bounds) {
+        // The visual center is based on the actual bounds of visible children
+        // bounds are in local coordinates, so we add the group's position
+        currCenterX = x + (bounds.minX + bounds.maxX) / 2;
+        currCenterY = y + (bounds.minY + bounds.maxY) / 2;
+      } else {
+        // No visible children, use stored dimensions
+        currCenterX = x + currWidth / 2;
+        currCenterY = y + currHeight / 2;
+      }
+    } else {
+      // Circle or no rotation: simple center calculation
+      currCenterX = isCircle ? x : x + currWidth / 2;
+      currCenterY = isCircle ? y : y + currHeight / 2;
+    }
   } else {
     // For rotated objects, calculate actual visual center
     // Konva rotates around the top-left corner (x, y), so we need to find where the center ends up
@@ -282,13 +298,61 @@ export function snapPosition(
   return { x: snappedX, y: snappedY, guides };
 }
 
+// Helper to calculate actual visual bounds for groups
+function getGroupVisualBounds(obj: CanvasObject): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (obj.type !== 'group' || !('children' in obj) || !obj.children || obj.children.length === 0) {
+    return null;
+  }
+
+  const visibleChildren = obj.children.filter(child => child.visible !== false);
+  if (visibleChildren.length === 0) {
+    return null;
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  visibleChildren.forEach(child => {
+    const childMinX = child.x;
+    const childMinY = child.y;
+    let childMaxX = child.x;
+    let childMaxY = child.y;
+
+    if ('width' in child && child.width !== undefined) {
+      childMaxX = child.x + child.width * (child.scaleX || 1);
+    }
+    if ('height' in child && child.height !== undefined) {
+      childMaxY = child.y + child.height * (child.scaleY || 1);
+    }
+    if ('radius' in child && child.radius !== undefined) {
+      const radiusX = child.radius * (child.scaleX || 1);
+      const radiusY = child.radius * (child.scaleY || 1);
+      childMaxX = child.x + radiusX;
+      childMaxY = child.y + radiusY;
+    }
+
+    minX = Math.min(minX, childMinX);
+    minY = Math.min(minY, childMinY);
+    maxX = Math.max(maxX, childMaxX);
+    maxY = Math.max(maxY, childMaxY);
+  });
+
+  return { minX, minY, maxX, maxY };
+}
+
 function getObjectWidth(obj: CanvasObject): number | null {
   switch (obj.type) {
     case 'rect':
     case 'image':
     case 'gallery-item':
-    case 'group':
       return obj.width * (obj.scaleX || 1);
+    case 'group': {
+      // For groups, calculate actual bounds from visible children
+      const bounds = getGroupVisualBounds(obj);
+      if (bounds) {
+        return (bounds.maxX - bounds.minX) * (obj.scaleX || 1);
+      }
+      return obj.width * (obj.scaleX || 1);
+    }
     case 'circle':
       return obj.radius * 2 * (obj.scaleX || 1);
     case 'text':
@@ -303,8 +367,15 @@ function getObjectHeight(obj: CanvasObject): number | null {
     case 'rect':
     case 'image':
     case 'gallery-item':
-    case 'group':
       return obj.height * (obj.scaleY || 1);
+    case 'group': {
+      // For groups, calculate actual bounds from visible children
+      const bounds = getGroupVisualBounds(obj);
+      if (bounds) {
+        return (bounds.maxY - bounds.minY) * (obj.scaleY || 1);
+      }
+      return obj.height * (obj.scaleY || 1);
+    }
     case 'circle':
       return obj.radius * 2 * (obj.scaleY || 1);
     default:
