@@ -121,10 +121,11 @@ export interface Template {
   name: string;
   thumbnail?: string;
   description?: string;
-  data: GalleryItemObject;
+  data: GroupObject; // Templates now use 'group' type instead of 'gallery-item'
 }
 
 export interface SnapGuide {
   type: 'vertical' | 'horizontal';
   position: number;
+  snapType?: 'grid' | 'object' | 'canvas-center'; // Type of snap for visual feedback
 }

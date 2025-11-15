@@ -1113,6 +1113,31 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 **Files Modified**:
 - `GalleryEditor.tsx` - Added resize state, handlers, and dynamic sidebar width
 
+#### 18. Text Object Not Included in Group Center Calculation
+- **Issue**: When changing textbox dimensions in the canvas (both X and Y directions), the changes don't affect the group's center calculation
+- **Impact**: Snap guides show the center at the wrong position when text objects are resized within groups
+- **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
+- **Root Cause**: The `getGroupVisualBounds()` function doesn't properly handle text objects' width/height
+- **Fix Needed**: Add proper text bounds calculation in `getGroupVisualBounds()` - text objects have dynamic width/height based on content
+
+#### 19. Line Object X-Direction Not Included in Group Center Calculation
+- **Issue**: Changing the Y direction of a line gets calculated for the group center, but X direction changes do not
+- **Impact**: Horizontal line movements/changes don't update group center correctly
+- **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
+- **Root Cause**: Line objects use `points` array instead of width/height, and the bounds calculation only considers Y values properly
+- **Fix Needed**: Update `getGroupVisualBounds()` to calculate line bounds from the `points` array correctly for both X and Y
+
+#### 20. Grouped Objects with Lines Disappear
+- **Issue**: When grouping objects that include a line, the other objects disappear from the canvas (but remain visible in layers panel). Only the line remains visible on canvas
+- **Impact**: Major visual bug - users can't see their grouped objects
+- **Location**: Likely in `frontend/src/components/common/gallery-feature/canvas-stage.component.tsx` or group rendering logic
+- **Symptoms**:
+  - Objects disappear from canvas view
+  - Objects still appear in layers panel
+  - Line remains visible
+  - May be a z-index or rendering order issue
+- **Fix Needed**: Investigate group rendering when line objects are children. Check if it's related to line positioning or group bounds calculation causing other children to be rendered off-screen
+
 ---
 
 ## Performance Considerations

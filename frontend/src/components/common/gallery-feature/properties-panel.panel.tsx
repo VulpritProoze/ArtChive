@@ -96,8 +96,8 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
           </div>
         </div>
 
-        {/* Size (for objects with width/height, but not for groups) */}
-        {('width' in obj || 'radius' in obj) && obj.type !== 'group' && (
+        {/* Size (for objects with width/height, but not for groups, text, or lines) */}
+        {('width' in obj || 'radius' in obj) && obj.type !== 'group' && obj.type !== 'text' && obj.type !== 'line' && (
           <div>
             <label className="label label-text text-xs font-semibold">Size</label>
             {obj.type === 'circle' ? (
@@ -278,6 +278,16 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
               </select>
             </div>
             <div>
+              <label className="label label-text text-xs font-semibold">Text Width (for wrapping)</label>
+              <input
+                type="number"
+                className="input input-xs input-bordered w-full"
+                value={Math.round(localValues.width || 200)}
+                onChange={(e) => handleChange('width', parseFloat(e.target.value))}
+                min="1"
+              />
+            </div>
+            <div>
               <label className="label label-text text-xs font-semibold">Alignment</label>
               <select
                 className="select select-xs select-bordered w-full"
@@ -287,6 +297,36 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
                 <option value="left">Left</option>
                 <option value="center">Center</option>
                 <option value="right">Right</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        {/* Line Properties */}
+        {obj.type === 'line' && (
+          <>
+            <div>
+              <label className="label label-text text-xs font-semibold">Line Cap</label>
+              <select
+                className="select select-xs select-bordered w-full"
+                value={localValues.lineCap || 'round'}
+                onChange={(e) => handleChange('lineCap', e.target.value)}
+              >
+                <option value="butt">Butt</option>
+                <option value="round">Round</option>
+                <option value="square">Square</option>
+              </select>
+            </div>
+            <div>
+              <label className="label label-text text-xs font-semibold">Line Join</label>
+              <select
+                className="select select-xs select-bordered w-full"
+                value={localValues.lineJoin || 'round'}
+                onChange={(e) => handleChange('lineJoin', e.target.value)}
+              >
+                <option value="miter">Miter</option>
+                <option value="round">Round</option>
+                <option value="bevel">Bevel</option>
               </select>
             </div>
           </>

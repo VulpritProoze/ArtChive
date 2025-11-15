@@ -1,4 +1,4 @@
-import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes } from 'lucide-react';
+import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save } from 'lucide-react';
 import { useUploadImage } from './hooks/use-upload-image.hook';
 import { toast } from 'react-toastify';
 
@@ -18,6 +18,7 @@ interface ToolbarProps {
   onDeselectAll: () => void;
   onOpenMenu: () => void;
   onToggleShapes: () => void;
+  onSave?: () => void;
   showShapes: boolean;
   shapesButtonRef: React.RefObject<HTMLButtonElement>;
   canGroup: boolean;
@@ -30,6 +31,7 @@ interface ToolbarProps {
   snapEnabled: boolean;
   hasSelection: boolean;
   hasUnsavedChanges: boolean;
+  isSaving?: boolean;
 }
 
 export function Toolbar({
@@ -46,6 +48,7 @@ export function Toolbar({
   onDeselectAll,
   onOpenMenu,
   onToggleShapes,
+  onSave,
   showShapes,
   shapesButtonRef,
   canGroup,
@@ -58,6 +61,7 @@ export function Toolbar({
   snapEnabled,
   hasSelection,
   hasUnsavedChanges,
+  isSaving = false,
 }: ToolbarProps) {
   const { upload, isUploading, progress } = useUploadImage();
 
@@ -217,12 +221,23 @@ export function Toolbar({
         </button>
       </div>
 
-      {/* Unsaved Changes & Menu */}
+      {/* Unsaved Changes, Save Button & Menu */}
       <div className="flex gap-2 ml-auto items-center">
         {hasUnsavedChanges && (
           <span className="text-xs text-warning font-medium">
             Unsaved changes
           </span>
+        )}
+        {hasUnsavedChanges && onSave && (
+          <button
+            onClick={onSave}
+            disabled={isSaving}
+            className="btn btn-sm btn-primary tooltip tooltip-bottom"
+            data-tip={isSaving ? 'Saving...' : 'Save Gallery (Ctrl+S)'}
+          >
+            <Save className="w-4 h-4" />
+            <span className="text-xs">{isSaving ? 'Saving...' : 'Save'}</span>
+          </button>
         )}
         <button
           onClick={onOpenMenu}

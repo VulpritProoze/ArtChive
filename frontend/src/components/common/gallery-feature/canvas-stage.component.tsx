@@ -55,6 +55,7 @@ export function CanvasStage({
   const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [rotationInfo, setRotationInfo] = useState<{ angle: number; x: number; y: number; isSnapped: boolean } | null>(null);
 
   // Handle wheel zoom
   const handleWheel = (e: any) => {
@@ -292,7 +293,13 @@ export function CanvasStage({
             objects={objects}
             onUpdate={onUpdateObject}
             onTransformStart={() => setIsTransforming(true)}
-            onTransformEnd={() => setIsTransforming(false)}
+            onTransformEnd={() => {
+              setIsTransforming(false);
+              setRotationInfo(null); // Clear rotation info when transform ends
+            }}
+            onRotate={(angle, x, y, isSnapped) => {
+              setRotationInfo({ angle, x, y, isSnapped });
+            }}
           />
 
           {/* Selection Box */}
@@ -310,30 +317,48 @@ export function CanvasStage({
             />
           )}
 
-          {/* Snap Guides - More prominent visual feedback */}
-          {snapGuides.map((guide, index) =>
-            guide.type === 'vertical' ? (
+          {/* Snap Guides - Color-coded for snap type */}
+          {snapGuides.map((guide, index) => {
+            // Choose color and style based on snap type
+            const getSnapColor = () => {
+              switch (guide.snapType) {
+                case 'grid':
+                  return '#FF00FF'; // Magenta dashed for grid snaps
+                case 'canvas-center':
+                  return '#00FF00'; // Green solid for canvas center
+                case 'object':
+                  return '#0099FF'; // Blue for object snaps
+                default:
+                  return '#FF00FF'; // Default magenta
+              }
+            };
+
+            const color = getSnapColor();
+            const strokeWidth = guide.snapType === 'canvas-center' ? 3 / zoom : 2 / zoom; // Thicker for canvas center
+            const dash = guide.snapType === 'canvas-center' ? [] : [4 / zoom, 4 / zoom]; // Solid for canvas center, dashed for others
+
+            return guide.type === 'vertical' ? (
               <Line
                 key={`guide-${index}`}
                 points={[guide.position, 0, guide.position, height]}
-                stroke="#FF00FF"
-                strokeWidth={2 / zoom}
-                dash={[4 / zoom, 4 / zoom]}
+                stroke={color}
+                strokeWidth={strokeWidth}
+                dash={dash}
                 listening={false}
-                opacity={0.8}
+                opacity={0.9}
               />
             ) : (
               <Line
                 key={`guide-${index}`}
                 points={[0, guide.position, width, guide.position]}
-                stroke="#FF00FF"
-                strokeWidth={2 / zoom}
-                dash={[4 / zoom, 4 / zoom]}
+                stroke={color}
+                strokeWidth={strokeWidth}
+                dash={dash}
                 listening={false}
-                opacity={0.8}
+                opacity={0.9}
               />
-            )
-          )}
+            );
+          })}
         </Layer>
       </Stage>
 
@@ -347,6 +372,30 @@ export function CanvasStage({
           onSave={handleTextEdit}
           onCancel={() => setEditingTextId(null)}
         />
+      )}
+
+      {/* Rotation Angle Indicator */}
+      {rotationInfo && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${panX + rotationInfo.x * zoom}px`,
+            top: `${panY + rotationInfo.y * zoom - 40}px`,
+            background: rotationInfo.isSnapped ? '#00FF00' : '#333',
+            color: 'white',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            pointerEvents: 'none',
+            zIndex: 1000,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            transition: 'background 0.1s ease',
+          }}
+        >
+          {Math.round(rotationInfo.angle)}°
+          {rotationInfo.isSnapped && ' ✓'}
+        </div>
       )}
     </div>
   );
@@ -441,12 +490,68 @@ function CanvasObjectRenderer({
       const radius = node.radius() * (node.scaleX() || 1);
       objWidth = radius * 2;
       objHeight = radius * 2;
+    } else if (object.type === 'text') {
+      // For text objects, use actual rendered dimensions
+      // textWidth() gives the actual rendered width of the text content
+      // textHeight() gives the actual rendered height
+      // If width property is set (for text wrapping), use that; otherwise use textWidth()
+      const textObj = object as any;
+      const explicitWidth = node.width?.() || textObj.width || 0;
+      const textWidth = node.textWidth?.() || 0;
+      const textHeight = node.textHeight?.() || 0;
+      
+      // Fallback: if textWidth/textHeight are 0 or undefined, estimate from object properties
+      let finalWidth: number;
+      let finalHeight: number;
+      
+      if (textWidth > 0) {
+        // Use explicit width if set and larger than textWidth (for wrapped text)
+        // Otherwise use textWidth (actual text content width)
+        finalWidth = explicitWidth > 0 && explicitWidth >= textWidth ? explicitWidth : textWidth;
+      } else if (explicitWidth > 0) {
+        // Use explicit width if textWidth is not available
+        finalWidth = explicitWidth;
+      } else {
+        // Fallback: estimate from text content and font size
+        const fontSize = textObj.fontSize || 16;
+        const text = textObj.text || '';
+        finalWidth = Math.max(50, text.length * fontSize * 0.6); // Rough estimate
+      }
+      
+      if (textHeight > 0) {
+        finalHeight = textHeight;
+      } else {
+        // Fallback: estimate from font size
+        const fontSize = textObj.fontSize || 16;
+        // Account for multi-line text
+        const text = textObj.text || '';
+        const lineCount = (text.match(/\n/g) || []).length + 1;
+        finalHeight = fontSize * 1.2 * lineCount; // Line height multiplier
+      }
+      
+      // Ensure we always have valid dimensions (never 0)
+      objWidth = Math.max(1, finalWidth * (node.scaleX() || 1));
+      objHeight = Math.max(1, finalHeight * (node.scaleY() || 1));
     } else {
       objWidth = (node.width?.() || 0) * (node.scaleX() || 1);
       objHeight = (node.height?.() || 0) * (node.scaleY() || 1);
     }
 
     const rotation = node.rotation() || 0;
+
+    // Debug logging for text objects
+    if (object.type === 'text') {
+      console.log('[CanvasStage] Text drag dimensions:', {
+        id: object.id,
+        objWidth,
+        objHeight,
+        nodeWidth: node.width?.(),
+        nodeHeight: node.height?.(),
+        textWidth: node.textWidth?.(),
+        textHeight: node.textHeight?.(),
+        storedWidth: (object as any).width,
+      });
+    }
 
     const result = snapPosition(
       node.x(),
@@ -461,6 +566,16 @@ function CanvasObjectRenderer({
       objHeight,
       rotation
     );
+
+    // Debug logging for snap results
+    if (object.type === 'text') {
+      console.log('[CanvasStage] Text snap result:', {
+        id: object.id,
+        guides: result.guides.length,
+        guideTypes: result.guides.map(g => g.type),
+        positions: result.guides.map(g => g.position),
+      });
+    }
 
     // Apply snapped position
     node.position({ x: result.x, y: result.y });
@@ -588,6 +703,7 @@ function CanvasObjectRenderer({
           points={object.points}
           stroke={object.stroke}
           strokeWidth={object.strokeWidth}
+          hitStrokeWidth={Math.max(20, object.strokeWidth || 2)}
           lineCap={object.lineCap as any}
           lineJoin={object.lineJoin as any}
           rotation={object.rotation}
@@ -681,8 +797,6 @@ function CanvasObjectRenderer({
           id={object.id}
           x={object.x}
           y={object.y}
-          width={object.width}
-          height={object.height}
           rotation={object.rotation}
           scaleX={object.scaleX}
           scaleY={object.scaleY}
@@ -763,6 +877,10 @@ function CanvasObjectRenderer({
                     fontSize={(child as any).fontSize}
                     fontFamily={(child as any).fontFamily}
                     fill={(child as any).fill}
+                    fontStyle={(child as any).fontStyle}
+                    textDecoration={(child as any).textDecoration}
+                    align={(child as any).align}
+                    width={(child as any).width}
                     rotation={child.rotation}
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}
@@ -780,6 +898,9 @@ function CanvasObjectRenderer({
                     points={(child as any).points}
                     stroke={(child as any).stroke}
                     strokeWidth={(child as any).strokeWidth}
+                    hitStrokeWidth={Math.max(20, (child as any).strokeWidth || 2)}
+                    lineCap={(child as any).lineCap}
+                    lineJoin={(child as any).lineJoin}
                     rotation={child.rotation}
                     scaleX={child.scaleX}
                     scaleY={child.scaleY}

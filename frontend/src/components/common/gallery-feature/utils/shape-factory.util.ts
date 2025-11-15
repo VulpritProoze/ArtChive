@@ -66,6 +66,8 @@ export const createShape = (shapeType: string, x: number = 100, y: number = 100)
         type: 'line',
         points: [0, 0, 200, 0],
         stroke: '#000000',
+        lineCap: 'round',
+        lineJoin: 'round',
       };
 
     case 'triangle':

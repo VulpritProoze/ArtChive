@@ -13,6 +13,7 @@ interface SnapResult {
 export interface SnapGuide {
   type: 'vertical' | 'horizontal';
   position: number;
+  snapType?: 'grid' | 'object' | 'canvas-center'; // Type of snap for visual feedback
 }
 
 export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
@@ -42,6 +43,11 @@ export function snapPosition(
   const currHeight = objectHeight || getObjectHeight(currentObject!) || 0;
   const currRotation = rotation !== undefined ? rotation : (currentObject?.rotation || 0);
 
+  // Ensure we have valid dimensions (never 0)
+  // This is especially important for text objects where dimensions might not be immediately available
+  const safeWidth = Math.max(1, currWidth);
+  const safeHeight = Math.max(1, currHeight);
+
   // Debug logging for groups
   if (currentObject?.type === 'group') {
     const bounds = getGroupVisualBounds(currentObject);
@@ -64,6 +70,7 @@ export function snapPosition(
   // For circles, position is already at center in Konva
   const isCircle = currentObject?.type === 'circle';
   const isGroup = currentObject?.type === 'group';
+  const isText = currentObject?.type === 'text';
 
   // Calculate visual center considering rotation and group child positions
   // For non-rotated objects or circles, use simple calculation
@@ -80,20 +87,21 @@ export function snapPosition(
         currCenterY = y + (bounds.minY + bounds.maxY) / 2;
       } else {
         // Fallback if no visible children
-        currCenterX = x + currWidth / 2;
-        currCenterY = y + currHeight / 2;
+        currCenterX = x + safeWidth / 2;
+        currCenterY = y + safeHeight / 2;
       }
     } else {
       // Circle or no rotation: simple center calculation
-      currCenterX = isCircle ? x : x + currWidth / 2;
-      currCenterY = isCircle ? y : y + currHeight / 2;
+      // For text objects, use safe dimensions to ensure valid center calculation
+      currCenterX = isCircle ? x : x + safeWidth / 2;
+      currCenterY = isCircle ? y : y + safeHeight / 2;
     }
   } else {
     // For rotated objects, calculate actual visual center
     // Konva rotates around the top-left corner (x, y), so we need to find where the center ends up
     const angleRad = (currRotation * Math.PI) / 180;
-    const halfWidth = currWidth / 2;
-    const halfHeight = currHeight / 2;
+    const halfWidth = safeWidth / 2;
+    const halfHeight = safeHeight / 2;
 
     // Center offset from rotation point (top-left)
     const centerOffsetX = halfWidth * Math.cos(angleRad) - halfHeight * Math.sin(angleRad);
@@ -123,14 +131,14 @@ export function snapPosition(
           };
         }
       }
-      // No rotation: simple offset
-      return { x: centerX - currWidth / 2, y: centerY - currHeight / 2 };
+      // No rotation: simple offset (use safe dimensions)
+      return { x: centerX - safeWidth / 2, y: centerY - safeHeight / 2 };
     }
 
-    // For rotated objects, calculate top-left from desired center
+    // For rotated objects, calculate top-left from desired center (use safe dimensions)
     const angleRad = (currRotation * Math.PI) / 180;
-    const halfWidth = currWidth / 2;
-    const halfHeight = currHeight / 2;
+    const halfWidth = safeWidth / 2;
+    const halfHeight = safeHeight / 2;
 
     // Reverse the center offset calculation
     const centerOffsetX = halfWidth * Math.cos(angleRad) - halfHeight * Math.sin(angleRad);
@@ -153,12 +161,12 @@ export function snapPosition(
     // Snap to canvas center (based on object's center)
     if (Math.abs(currCenterX - canvasCenterX) < SNAP_THRESHOLD) {
       snappedCenterX = canvasCenterX;
-      guides.push({ type: 'vertical', position: canvasCenterX });
+      guides.push({ type: 'vertical', position: canvasCenterX, snapType: 'canvas-center' });
     }
 
     if (Math.abs(currCenterY - canvasCenterY) < SNAP_THRESHOLD) {
       snappedCenterY = canvasCenterY;
-      guides.push({ type: 'horizontal', position: canvasCenterY });
+      guides.push({ type: 'horizontal', position: canvasCenterY, snapType: 'canvas-center' });
     }
 
     // Apply both snaps together if any occurred
@@ -170,62 +178,86 @@ export function snapPosition(
   }
 
   // Grid snapping with visual guides (snap both edges and center)
+  // Note: Grid snapping requires both grid and snap to be enabled
+  // But we also want to ensure guides are generated when snap is enabled
   if (gridEnabled && snapEnabled) {
-    // Try snapping object's center to grid
-    const gridCenterX = snapToGrid(currCenterX);
-    const gridCenterY = snapToGrid(currCenterY);
-
-    // Check if center should snap to grid
+    // Initialize snap variables
     let gridSnappedCenterX = currCenterX;
     let gridSnappedCenterY = currCenterY;
+    
+    // Try snapping object's center to grid (only if center is valid)
+    if (!isNaN(currCenterX) && !isNaN(currCenterY) && isFinite(currCenterX) && isFinite(currCenterY)) {
+      const gridCenterX = snapToGrid(currCenterX);
+      const gridCenterY = snapToGrid(currCenterY);
 
-    if (Math.abs(currCenterX - gridCenterX) < SNAP_THRESHOLD && !guides.some(g => g.type === 'vertical')) {
-      gridSnappedCenterX = gridCenterX;
-      guides.push({ type: 'vertical', position: gridCenterX });
+      if (Math.abs(currCenterX - gridCenterX) < SNAP_THRESHOLD && !guides.some(g => g.type === 'vertical')) {
+        gridSnappedCenterX = gridCenterX;
+        guides.push({ type: 'vertical', position: gridCenterX, snapType: 'grid' });
+      }
+
+      if (Math.abs(currCenterY - gridCenterY) < SNAP_THRESHOLD && !guides.some(g => g.type === 'horizontal')) {
+        gridSnappedCenterY = gridCenterY;
+        guides.push({ type: 'horizontal', position: gridCenterY, snapType: 'grid' });
+      }
+
+      // Apply both grid snaps together if any occurred
+      if (gridSnappedCenterX !== currCenterX || gridSnappedCenterY !== currCenterY) {
+        const newPos = centerToTopLeft(gridSnappedCenterX, gridSnappedCenterY);
+        snappedX = newPos.x;
+        snappedY = newPos.y;
+      }
     }
 
-    if (Math.abs(currCenterY - gridCenterY) < SNAP_THRESHOLD && !guides.some(g => g.type === 'horizontal')) {
-      gridSnappedCenterY = gridCenterY;
-      guides.push({ type: 'horizontal', position: gridCenterY });
-    }
-
-    // Apply both grid snaps together if any occurred
-    if (gridSnappedCenterX !== currCenterX || gridSnappedCenterY !== currCenterY) {
-      const newPos = centerToTopLeft(gridSnappedCenterX, gridSnappedCenterY);
-      snappedX = newPos.x;
-      snappedY = newPos.y;
-    }
-
-    // If center didn't snap, try snapping top-left corner to grid
-    if (!guides.some(g => g.type === 'vertical')) {
+    // If center didn't snap (or center was invalid), try snapping top-left corner to grid
+    // This ensures guides are always generated when near grid points
+    if (!guides.some(g => g.type === 'vertical') && !isNaN(x) && isFinite(x)) {
       const gridX = snapToGrid(x);
       if (Math.abs(x - gridX) < SNAP_THRESHOLD) {
         snappedX = gridX;
-        guides.push({ type: 'vertical', position: gridX });
+        guides.push({ type: 'vertical', position: gridX, snapType: 'grid' });
       }
     }
 
-    if (!guides.some(g => g.type === 'horizontal')) {
+    if (!guides.some(g => g.type === 'horizontal') && !isNaN(y) && isFinite(y)) {
       const gridY = snapToGrid(y);
       if (Math.abs(y - gridY) < SNAP_THRESHOLD) {
         snappedY = gridY;
-        guides.push({ type: 'horizontal', position: gridY });
+        guides.push({ type: 'horizontal', position: gridY, snapType: 'grid' });
       }
     }
 
-    console.log('[snapUtils] Grid snapping:', {
-      original: { x, y },
-      snapped: { x: snappedX, y: snappedY },
-      guides: guides.length,
-    });
+    // Debug logging for text objects
+    if (currentObject?.type === 'text') {
+      console.log('[snapUtils] Text grid snapping:', {
+        original: { x, y },
+        snapped: { x: snappedX, y: snappedY },
+        guides: guides.length,
+        guideDetails: guides,
+        currCenterX,
+        currCenterY,
+        safeWidth,
+        safeHeight,
+        gridEnabled,
+        snapEnabled,
+        centerValid: !isNaN(currCenterX) && !isNaN(currCenterY) && isFinite(currCenterX) && isFinite(currCenterY),
+      });
+    }
   }
 
   // Object-to-object snapping (edges and centers)
   if (snapEnabled) {
     const otherObjects = objects.filter((obj) => obj.id !== currentObjectId);
+    console.log('[snapUtils] Object snapping check:', {
+      snapEnabled,
+      otherObjectsCount: otherObjects.length,
+      currentObjectId,
+      totalObjects: objects.length,
+    });
 
     let closestX: number | null = null;
     let closestY: number | null = null;
+    let guideLineX: number | null = null; // Track the actual guide line position
+    let guideLineY: number | null = null; // Track the actual guide line position
     let minXDist = SNAP_THRESHOLD;
     let minYDist = SNAP_THRESHOLD;
 
@@ -242,50 +274,58 @@ export function snapPosition(
       const objLeft = isObjCircle ? obj.x - objWidth / 2 : obj.x;
       const objTop = isObjCircle ? obj.y - objHeight / 2 : obj.y;
 
-      const currRight = isCircle ? x + currWidth / 2 : x + currWidth;
-      const currBottom = isCircle ? y + currHeight / 2 : y + currHeight;
-      const currLeft = isCircle ? x - currWidth / 2 : x;
-      const currTop = isCircle ? y - currHeight / 2 : y;
+      const currRight = isCircle ? x + safeWidth / 2 : x + safeWidth;
+      const currBottom = isCircle ? y + safeHeight / 2 : y + safeHeight;
+      const currLeft = isCircle ? x - safeWidth / 2 : x;
+      const currTop = isCircle ? y - safeHeight / 2 : y;
 
       // Check horizontal alignment (left edge, center, right edge)
+      // For circles: pos is the X coordinate (center), for rects: pos is the top-left X
       const xDistances = [
-        // Left edges align
-        { pos: isCircle ? objLeft : objLeft, dist: Math.abs(currLeft - objLeft), guidePosX: objLeft },
+        // Left edges align - for circles, add radius to get center position
+        { pos: isCircle ? objLeft + safeWidth / 2 : objLeft, dist: Math.abs(currLeft - objLeft), guidePosX: objLeft },
         // Right edges align
-        { pos: isCircle ? objRight : objRight - currWidth, dist: Math.abs(currRight - objRight), guidePosX: objRight },
+        { pos: isCircle ? objRight - safeWidth / 2 : objRight - safeWidth, dist: Math.abs(currRight - objRight), guidePosX: objRight },
         // Centers align
-        { pos: isCircle ? objCenterX : objCenterX - currWidth / 2, dist: Math.abs(currCenterX - objCenterX), guidePosX: objCenterX },
-        // Current left to obj right
-        { pos: isCircle ? objRight : objRight, dist: Math.abs(currLeft - objRight), guidePosX: objRight },
-        // Current right to obj left
-        { pos: isCircle ? objLeft - currWidth : objLeft - currWidth, dist: Math.abs(currRight - objLeft), guidePosX: objLeft },
+        { pos: isCircle ? objCenterX : objCenterX - safeWidth / 2, dist: Math.abs(currCenterX - objCenterX), guidePosX: objCenterX },
+        // Current left to obj right (spacing alignment) - for circles, add radius
+        { pos: isCircle ? objRight + safeWidth / 2 : objRight, dist: Math.abs(currLeft - objRight), guidePosX: objRight },
+        // Current right to obj left (spacing alignment)
+        { pos: isCircle ? objLeft - safeWidth / 2 : objLeft - safeWidth, dist: Math.abs(currRight - objLeft), guidePosX: objLeft },
       ];
 
       for (const { pos, dist, guidePosX } of xDistances) {
-        if (dist < minXDist) {
+        // Add small deadband to prevent micro-oscillations (especially for circles)
+        // If we're already within 2px of this position, don't re-snap
+        const currentDistFromPos = Math.abs((isCircle ? x : x + safeWidth / 2) - (isCircle ? pos : pos + safeWidth / 2));
+        if (dist < minXDist && currentDistFromPos > 2) {
           minXDist = dist;
           closestX = pos;
+          guideLineX = guidePosX; // Store the guide line position
         }
       }
 
       // Check vertical alignment (top edge, center, bottom edge)
       const yDistances = [
-        // Top edges align
-        { pos: isCircle ? objTop : objTop, dist: Math.abs(currTop - objTop), guidePosY: objTop },
+        // Top edges align - for circles, add radius to get center position
+        { pos: isCircle ? objTop + safeHeight / 2 : objTop, dist: Math.abs(currTop - objTop), guidePosY: objTop },
         // Bottom edges align
-        { pos: isCircle ? objBottom : objBottom - currHeight, dist: Math.abs(currBottom - objBottom), guidePosY: objBottom },
+        { pos: isCircle ? objBottom - safeHeight / 2 : objBottom - safeHeight, dist: Math.abs(currBottom - objBottom), guidePosY: objBottom },
         // Centers align
-        { pos: isCircle ? objCenterY : objCenterY - currHeight / 2, dist: Math.abs(currCenterY - objCenterY), guidePosY: objCenterY },
-        // Current top to obj bottom
-        { pos: isCircle ? objBottom : objBottom, dist: Math.abs(currTop - objBottom), guidePosY: objBottom },
-        // Current bottom to obj top
-        { pos: isCircle ? objTop - currHeight : objTop - currHeight, dist: Math.abs(currBottom - objTop), guidePosY: objTop },
+        { pos: isCircle ? objCenterY : objCenterY - safeHeight / 2, dist: Math.abs(currCenterY - objCenterY), guidePosY: objCenterY },
+        // Current top to obj bottom (spacing alignment) - for circles, add radius
+        { pos: isCircle ? objBottom + safeHeight / 2 : objBottom, dist: Math.abs(currTop - objBottom), guidePosY: objBottom },
+        // Current bottom to obj top (spacing alignment)
+        { pos: isCircle ? objTop - safeHeight / 2 : objTop - safeHeight, dist: Math.abs(currBottom - objTop), guidePosY: objTop },
       ];
 
       for (const { pos, dist, guidePosY } of yDistances) {
-        if (dist < minYDist) {
+        // Add small deadband to prevent micro-oscillations (especially for circles)
+        const currentDistFromPos = Math.abs((isCircle ? y : y + safeHeight / 2) - (isCircle ? pos : pos + safeHeight / 2));
+        if (dist < minYDist && currentDistFromPos > 2) {
           minYDist = dist;
           closestY = pos;
+          guideLineY = guidePosY; // Store the guide line position
         }
       }
     }
@@ -296,26 +336,46 @@ export function snapPosition(
     let hasObjSnapX = false;
     let hasObjSnapY = false;
 
-    if (closestX !== null && !guides.some(g => g.type === 'vertical')) {
+    console.log('[snapUtils] Object snap results:', {
+      closestX,
+      closestY,
+      guideLineX,
+      guideLineY,
+      minXDist,
+      minYDist,
+      threshold: SNAP_THRESHOLD,
+      hasExistingVerticalGuide: guides.some(g => g.type === 'vertical'),
+      hasExistingHorizontalGuide: guides.some(g => g.type === 'horizontal'),
+    });
+
+    // Allow multiple guides of the same type (vertical/horizontal) as long as they're at different positions
+    // This enables grid, canvas-center, AND object snap guides to coexist
+    if (closestX !== null && guideLineX !== null) {
+      console.log('[snapUtils] ✅ Adding VERTICAL object snap guide at position:', guideLineX);
       // Calculate what center position this closestX represents
       if (isCircle) {
         objSnappedCenterX = closestX;
       } else {
-        objSnappedCenterX = closestX + currWidth / 2;
+        objSnappedCenterX = closestX + safeWidth / 2;
       }
-      guides.push({ type: 'vertical', position: objSnappedCenterX });
+      // Use the actual alignment line position for the guide, not the object center
+      guides.push({ type: 'vertical', position: guideLineX, snapType: 'object' });
       hasObjSnapX = true;
+      console.log('[snapUtils] Guides array after adding vertical:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
     }
 
-    if (closestY !== null && !guides.some(g => g.type === 'horizontal')) {
+    if (closestY !== null && guideLineY !== null) {
+      console.log('[snapUtils] ✅ Adding HORIZONTAL object snap guide at position:', guideLineY);
       // Calculate what center position this closestY represents
       if (isCircle) {
         objSnappedCenterY = closestY;
       } else {
-        objSnappedCenterY = closestY + currHeight / 2;
+        objSnappedCenterY = closestY + safeHeight / 2;
       }
-      guides.push({ type: 'horizontal', position: objSnappedCenterY });
+      // Use the actual alignment line position for the guide, not the object center
+      guides.push({ type: 'horizontal', position: guideLineY, snapType: 'object' });
       hasObjSnapY = true;
+      console.log('[snapUtils] Guides array after adding horizontal:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
     }
 
     // Apply both object snaps together if any occurred
@@ -326,6 +386,7 @@ export function snapPosition(
     }
   }
 
+  console.log('[snapUtils] FINAL guides being returned:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
   return { x: snappedX, y: snappedY, guides };
 }
 
@@ -343,20 +404,86 @@ function getGroupVisualBounds(obj: CanvasObject): { minX: number; minY: number; 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
   visibleChildren.forEach(child => {
-    const childMinX = child.x;
-    const childMinY = child.y;
+    let childMinX = child.x;
+    let childMinY = child.y;
     let childMaxX = child.x;
     let childMaxY = child.y;
 
-    if ('width' in child && child.width !== undefined) {
+    // Handle line objects - calculate bounds from points array
+    if (child.type === 'line') {
+      const lineChild = child as any;
+      if (lineChild.points && Array.isArray(lineChild.points) && lineChild.points.length >= 2) {
+        // Points array is [x1, y1, x2, y2, x3, y3, ...] relative to line position
+        let lineMinX = Infinity;
+        let lineMinY = Infinity;
+        let lineMaxX = -Infinity;
+        let lineMaxY = -Infinity;
+
+        // Extract all X coordinates (even indices) and Y coordinates (odd indices)
+        for (let i = 0; i < lineChild.points.length; i += 2) {
+          if (i + 1 < lineChild.points.length) {
+            const px = lineChild.points[i];
+            const py = lineChild.points[i + 1];
+            lineMinX = Math.min(lineMinX, px);
+            lineMinY = Math.min(lineMinY, py);
+            lineMaxX = Math.max(lineMaxX, px);
+            lineMaxY = Math.max(lineMaxY, py);
+          }
+        }
+
+        // Apply scale if present
+        const scaleX = child.scaleX || 1;
+        const scaleY = child.scaleY || 1;
+        
+        // Calculate bounds relative to line position
+        childMinX = child.x + lineMinX * scaleX;
+        childMinY = child.y + lineMinY * scaleY;
+        childMaxX = child.x + lineMaxX * scaleX;
+        childMaxY = child.y + lineMaxY * scaleY;
+      } else {
+        // Fallback: if no valid points, use position as single point
+        childMinX = child.x;
+        childMinY = child.y;
+        childMaxX = child.x;
+        childMaxY = child.y;
+      }
+    }
+    // Handle text objects - use width if available, otherwise estimate
+    else if (child.type === 'text') {
+      const textChild = child as any;
+      const scaleX = child.scaleX || 1;
+      const scaleY = child.scaleY || 1;
+      
+      // Use width if explicitly set
+      if (textChild.width !== undefined && textChild.width > 0) {
+        childMaxX = child.x + textChild.width * scaleX;
+      } else {
+        // Estimate width based on text length and font size (rough approximation)
+        const fontSize = textChild.fontSize || 16;
+        const estimatedWidth = (textChild.text?.length || 10) * fontSize * 0.6; // Rough char width estimate
+        childMaxX = child.x + estimatedWidth * scaleX;
+      }
+      
+      // Estimate height based on font size
+      const fontSize = textChild.fontSize || 16;
+      const estimatedHeight = fontSize * 1.2; // Line height multiplier
+      childMaxY = child.y + estimatedHeight * scaleY;
+    }
+    // Handle objects with width/height
+    else if ('width' in child && child.width !== undefined) {
       childMaxX = child.x + child.width * (child.scaleX || 1);
     }
+    // Handle objects with height
     if ('height' in child && child.height !== undefined) {
       childMaxY = child.y + child.height * (child.scaleY || 1);
     }
-    if ('radius' in child && child.radius !== undefined) {
+    // Handle circles (radius)
+    if ('radius' in child && child.radius !== undefined && child.type !== 'line') {
       const radiusX = child.radius * (child.scaleX || 1);
       const radiusY = child.radius * (child.scaleY || 1);
+      // For circles, we need to account for the full diameter
+      childMinX = child.x - radiusX;
+      childMinY = child.y - radiusY;
       childMaxX = child.x + radiusX;
       childMaxY = child.y + radiusY;
     }
@@ -386,8 +513,21 @@ function getObjectWidth(obj: CanvasObject): number | null {
     }
     case 'circle':
       return obj.radius * 2 * (obj.scaleX || 1);
-    case 'text':
-      return (obj.width || 0) * (obj.scaleX || 1);
+    case 'text': {
+      const textObj = obj as any;
+      const scaleX = obj.scaleX || 1;
+
+      // If width is explicitly set, use it
+      if (textObj.width !== undefined && textObj.width > 0) {
+        return textObj.width * scaleX;
+      }
+
+      // Otherwise, estimate width based on text length and font size
+      const fontSize = textObj.fontSize || 16;
+      const text = textObj.text || '';
+      const estimatedWidth = text.length * fontSize * 0.6; // Rough char width estimate
+      return estimatedWidth * scaleX;
+    }
     default:
       return null;
   }
@@ -409,6 +549,14 @@ function getObjectHeight(obj: CanvasObject): number | null {
     }
     case 'circle':
       return obj.radius * 2 * (obj.scaleY || 1);
+    case 'text': {
+      // For text objects, estimate height based on font size
+      // This is an approximation since we don't have access to the actual rendered height here
+      const textObj = obj as any;
+      const fontSize = textObj.fontSize || 16;
+      const estimatedHeight = fontSize * 1.2; // Line height multiplier
+      return estimatedHeight * (obj.scaleY || 1);
+    }
     default:
       return null;
   }

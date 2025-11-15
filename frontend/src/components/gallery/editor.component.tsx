@@ -139,6 +139,7 @@ export default function GalleryEditor() {
       fontSize: 24,
       fontFamily: 'Arial',
       fill: '#000000',
+      width: 200, // Add width for text wrapping
       draggable: true,
     };
     editorState.addObject(newText);
@@ -153,6 +154,8 @@ export default function GalleryEditor() {
       points: [0, 0, 200, 0],
       stroke: '#000000',
       strokeWidth: 2,
+      lineCap: 'round', // Add lineCap
+      lineJoin: 'round', // Add lineJoin
       draggable: true,
     };
     editorState.addObject(newLine);
@@ -424,6 +427,15 @@ export default function GalleryEditor() {
         }}
         onOpenMenu={() => setShowHamburgerMenu(true)}
         onToggleShapes={() => setShowShapes(!showShapes)}
+        onSave={async () => {
+          try {
+            await editorState.save();
+            toast.success('Gallery saved!');
+          } catch (error) {
+            toast.error('Failed to save gallery');
+            console.error('[GalleryEditor] Save error:', error);
+          }
+        }}
         showShapes={showShapes}
         shapesButtonRef={shapesButtonRef}
         canGroup={canGroup}
@@ -436,6 +448,7 @@ export default function GalleryEditor() {
         snapEnabled={editorState.snapEnabled}
         hasSelection={editorState.selectedIds.length > 0}
         hasUnsavedChanges={editorState.hasUnsavedChanges}
+        isSaving={editorState.isSaving}
       />
 
       {/* Main Content Area */}
