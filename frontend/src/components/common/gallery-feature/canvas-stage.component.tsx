@@ -492,13 +492,13 @@ function CanvasObjectRenderer({
       objHeight = radius * 2;
     } else if (object.type === 'text') {
       // For text objects, use actual rendered dimensions
-      // textWidth() gives the actual rendered width of the text content
-      // textHeight() gives the actual rendered height
-      // If width property is set (for text wrapping), use that; otherwise use textWidth()
+      // textWidth gives the actual rendered width of the text content (property, not method)
+      // textHeight gives the actual rendered height (property, not method)
+      // If width property is set (for text wrapping), use that; otherwise use textWidth
       const textObj = object as any;
       const explicitWidth = node.width?.() || textObj.width || 0;
-      const textWidth = node.textWidth?.() || 0;
-      const textHeight = node.textHeight?.() || 0;
+      const textWidth = (node as any).textWidth || 0;
+      const textHeight = (node as any).textHeight || 0;
       
       // Fallback: if textWidth/textHeight are 0 or undefined, estimate from object properties
       let finalWidth: number;
@@ -545,10 +545,10 @@ function CanvasObjectRenderer({
         id: object.id,
         objWidth,
         objHeight,
-        nodeWidth: node.width?.(),
-        nodeHeight: node.height?.(),
-        textWidth: node.textWidth?.(),
-        textHeight: node.textHeight?.(),
+        nodeWidth: node.width,
+        nodeHeight: node.height,
+        textWidth: (node as any).textWidth,
+        textHeight: (node as any).textHeight,
         storedWidth: (object as any).width,
       });
     }

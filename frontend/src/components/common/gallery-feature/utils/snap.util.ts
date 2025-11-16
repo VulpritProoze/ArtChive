@@ -1,7 +1,8 @@
 import type { CanvasObject } from '@types';
 
 export const GRID_SIZE = 10;
-export const SNAP_THRESHOLD = 15; // Increased from 10 for stronger snapping
+export const SNAP_THRESHOLD = 15; // For object-to-object snapping
+export const GRID_SNAP_THRESHOLD = 25; // Stronger threshold for grid and canvas-center snapping
 export const SNAP_STRENGTH = 20; // Distance needed to break free from snap
 
 interface SnapResult {
@@ -150,7 +151,7 @@ export function snapPosition(
     };
   };
 
-  // Canvas center snapping
+  // Canvas center snapping - snap center, left edge, right edge, top edge, or bottom edge to center lines
   if (snapEnabled) {
     const canvasCenterX = width / 2;
     const canvasCenterY = height / 2;
@@ -158,14 +159,69 @@ export function snapPosition(
     let snappedCenterX = currCenterX;
     let snappedCenterY = currCenterY;
 
-    // Snap to canvas center (based on object's center)
-    if (Math.abs(currCenterX - canvasCenterX) < SNAP_THRESHOLD) {
-      snappedCenterX = canvasCenterX;
+    // Calculate object edges
+    const currLeft = isCircle ? x - safeWidth / 2 : x;
+    const currRight = isCircle ? x + safeWidth / 2 : x + safeWidth;
+    const currTop = isCircle ? y - safeHeight / 2 : y;
+    const currBottom = isCircle ? y + safeHeight / 2 : y + safeHeight;
+
+    // Snap to canvas center vertical line (check center, left edge, right edge)
+    const xCandidates = [
+      { pos: currCenterX, type: 'center' },
+      { pos: currLeft, type: 'left' },
+      { pos: currRight, type: 'right' },
+    ];
+
+    let closestXDist = Infinity;
+    let bestXCandidate = null;
+
+    for (const candidate of xCandidates) {
+      const dist = Math.abs(candidate.pos - canvasCenterX);
+      if (dist < GRID_SNAP_THRESHOLD && dist < closestXDist) {
+        closestXDist = dist;
+        bestXCandidate = candidate;
+      }
+    }
+
+    if (bestXCandidate) {
+      // Calculate where the center should be based on which part is snapping
+      if (bestXCandidate.type === 'center') {
+        snappedCenterX = canvasCenterX;
+      } else if (bestXCandidate.type === 'left') {
+        snappedCenterX = canvasCenterX + safeWidth / 2;
+      } else if (bestXCandidate.type === 'right') {
+        snappedCenterX = canvasCenterX - safeWidth / 2;
+      }
       guides.push({ type: 'vertical', position: canvasCenterX, snapType: 'canvas-center' });
     }
 
-    if (Math.abs(currCenterY - canvasCenterY) < SNAP_THRESHOLD) {
-      snappedCenterY = canvasCenterY;
+    // Snap to canvas center horizontal line (check center, top edge, bottom edge)
+    const yCandidates = [
+      { pos: currCenterY, type: 'center' },
+      { pos: currTop, type: 'top' },
+      { pos: currBottom, type: 'bottom' },
+    ];
+
+    let closestYDist = Infinity;
+    let bestYCandidate = null;
+
+    for (const candidate of yCandidates) {
+      const dist = Math.abs(candidate.pos - canvasCenterY);
+      if (dist < GRID_SNAP_THRESHOLD && dist < closestYDist) {
+        closestYDist = dist;
+        bestYCandidate = candidate;
+      }
+    }
+
+    if (bestYCandidate) {
+      // Calculate where the center should be based on which part is snapping
+      if (bestYCandidate.type === 'center') {
+        snappedCenterY = canvasCenterY;
+      } else if (bestYCandidate.type === 'top') {
+        snappedCenterY = canvasCenterY + safeHeight / 2;
+      } else if (bestYCandidate.type === 'bottom') {
+        snappedCenterY = canvasCenterY - safeHeight / 2;
+      }
       guides.push({ type: 'horizontal', position: canvasCenterY, snapType: 'canvas-center' });
     }
 
@@ -177,25 +233,24 @@ export function snapPosition(
     }
   }
 
-  // Grid snapping with visual guides (snap both edges and center)
+  // Grid snapping with visual guides (snap only center to grid)
   // Note: Grid snapping requires both grid and snap to be enabled
-  // But we also want to ensure guides are generated when snap is enabled
   if (gridEnabled && snapEnabled) {
     // Initialize snap variables
     let gridSnappedCenterX = currCenterX;
     let gridSnappedCenterY = currCenterY;
-    
-    // Try snapping object's center to grid (only if center is valid)
+
+    // Try snapping object's center to grid (only if center is valid) - use stronger threshold
     if (!isNaN(currCenterX) && !isNaN(currCenterY) && isFinite(currCenterX) && isFinite(currCenterY)) {
       const gridCenterX = snapToGrid(currCenterX);
       const gridCenterY = snapToGrid(currCenterY);
 
-      if (Math.abs(currCenterX - gridCenterX) < SNAP_THRESHOLD && !guides.some(g => g.type === 'vertical')) {
+      if (Math.abs(currCenterX - gridCenterX) < GRID_SNAP_THRESHOLD && !guides.some(g => g.type === 'vertical')) {
         gridSnappedCenterX = gridCenterX;
         guides.push({ type: 'vertical', position: gridCenterX, snapType: 'grid' });
       }
 
-      if (Math.abs(currCenterY - gridCenterY) < SNAP_THRESHOLD && !guides.some(g => g.type === 'horizontal')) {
+      if (Math.abs(currCenterY - gridCenterY) < GRID_SNAP_THRESHOLD && !guides.some(g => g.type === 'horizontal')) {
         gridSnappedCenterY = gridCenterY;
         guides.push({ type: 'horizontal', position: gridCenterY, snapType: 'grid' });
       }
@@ -205,24 +260,6 @@ export function snapPosition(
         const newPos = centerToTopLeft(gridSnappedCenterX, gridSnappedCenterY);
         snappedX = newPos.x;
         snappedY = newPos.y;
-      }
-    }
-
-    // If center didn't snap (or center was invalid), try snapping top-left corner to grid
-    // This ensures guides are always generated when near grid points
-    if (!guides.some(g => g.type === 'vertical') && !isNaN(x) && isFinite(x)) {
-      const gridX = snapToGrid(x);
-      if (Math.abs(x - gridX) < SNAP_THRESHOLD) {
-        snappedX = gridX;
-        guides.push({ type: 'vertical', position: gridX, snapType: 'grid' });
-      }
-    }
-
-    if (!guides.some(g => g.type === 'horizontal') && !isNaN(y) && isFinite(y)) {
-      const gridY = snapToGrid(y);
-      if (Math.abs(y - gridY) < SNAP_THRESHOLD) {
-        snappedY = gridY;
-        guides.push({ type: 'horizontal', position: gridY, snapType: 'grid' });
       }
     }
 

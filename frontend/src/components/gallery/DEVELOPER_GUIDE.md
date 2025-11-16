@@ -1114,18 +1114,24 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - `GalleryEditor.tsx` - Added resize state, handlers, and dynamic sidebar width
 
 #### 18. Text Object Not Included in Group Center Calculation
+
+**Status**: ✅ RESOLVED
+
 - **Issue**: When changing textbox dimensions in the canvas (both X and Y directions), the changes don't affect the group's center calculation
 - **Impact**: Snap guides show the center at the wrong position when text objects are resized within groups
 - **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
 - **Root Cause**: The `getGroupVisualBounds()` function doesn't properly handle text objects' width/height
-- **Fix Needed**: Add proper text bounds calculation in `getGroupVisualBounds()` - text objects have dynamic width/height based on content
+- **Fix Applied**: Added proper text bounds calculation in `getGroupVisualBounds()` - text objects now use actual rendered width/height
 
 #### 19. Line Object X-Direction Not Included in Group Center Calculation
+
+**Status**: ✅ RESOLVED
+
 - **Issue**: Changing the Y direction of a line gets calculated for the group center, but X direction changes do not
 - **Impact**: Horizontal line movements/changes don't update group center correctly
 - **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
 - **Root Cause**: Line objects use `points` array instead of width/height, and the bounds calculation only considers Y values properly
-- **Fix Needed**: Update `getGroupVisualBounds()` to calculate line bounds from the `points` array correctly for both X and Y
+- **Fix Applied**: Updated `getGroupVisualBounds()` to calculate line bounds from the `points` array correctly for both X and Y directions
 
 #### 20. Grouped Objects with Lines Disappear
 - **Issue**: When grouping objects that include a line, the other objects disappear from the canvas (but remain visible in layers panel). Only the line remains visible on canvas
@@ -1137,6 +1143,25 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
   - Line remains visible
   - May be a z-index or rendering order issue
 - **Fix Needed**: Investigate group rendering when line objects are children. Check if it's related to line positioning or group bounds calculation causing other children to be rendered off-screen
+
+#### 21. Text Box Snap Guides Not Working - textWidth/textHeight Function Call Error
+
+**Status**: ✅ RESOLVED
+
+- **Issue**: When dragging text objects, snap guides don't appear. Console shows error: `Uncaught TypeError: node.textWidth is not a function at Text2.handleDragMove (canvas-stage.component.tsx:550:39)`
+- **Impact**: Text objects cannot use snap guides for alignment
+- **Location**: `frontend/src/components/common/gallery-feature/canvas-stage.component.tsx:548-551`
+- **Root Cause**: Code calls `node.textWidth?.()` and `node.textHeight?.()` as functions, but in Konva they are properties (getters), not methods
+- **Error Count**: 80+ times during a single drag operation
+- **Fix Applied**:
+  ```typescript
+  // Changed lines 548-551 from function calls to property access:
+  nodeWidth: node.width,
+  nodeHeight: node.height,
+  textWidth: (node as any).textWidth,
+  textHeight: (node as any).textHeight,
+  ```
+- **Result**: Text objects now properly display snap guides during drag operations
 
 ---
 
