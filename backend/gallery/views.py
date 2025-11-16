@@ -3,11 +3,12 @@ import uuid
 
 import cloudinary.uploader
 from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.utils import choices
 from .models import Gallery
 from .serializers import GallerySerializer
 
@@ -18,7 +19,7 @@ class GalleryListCreateView(APIView):
     POST /api/gallery/ - Create a new gallery
     """
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
         """List all galleries for the current user"""
@@ -45,7 +46,7 @@ class GalleryListCreateView(APIView):
         data['status'] = 'draft'
 
         # Now pass to serializer with renamed file and forced draft status
-        serializer = GallerySerializer(data=data)
+        serializer = GallerySerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save(creator=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -59,7 +60,7 @@ class GalleryDetailView(APIView):
     DELETE /api/gallery/<gallery_id>/ - Delete a gallery (uses model's soft delete)
     """
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
         return Gallery.objects.get_active_objects().filter(
@@ -100,7 +101,7 @@ class GalleryDetailView(APIView):
             short_name = f"g_{str(uuid.uuid4())[:8]}{ext}"
             picture_file.name = short_name
 
-        serializer = GallerySerializer(gallery, data=request.data, partial=True)
+        serializer = GallerySerializer(gallery, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -182,3 +183,71 @@ class MediaUploadView(APIView):
                 {'error': f'Failed to upload file: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class GalleryStatusUpdateView(APIView):
+    """
+    PATCH /api/gallery/<gallery_id>/status/ - Update only the status of a gallery
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get_queryset(self):
+        return Gallery.objects.get_active_objects().filter(
+            creator=self.request.user,
+        )
+
+    def get_object(self, gallery_id):
+        """Get gallery object ensuring user owns it"""
+        try:
+            return self.get_queryset().get(gallery_id=gallery_id)
+        except Gallery.DoesNotExist:
+            return None
+
+    def patch(self, request, gallery_id):
+        """Update only the status of a gallery"""
+        gallery = self.get_object(gallery_id)
+        if not gallery:
+            return Response(
+                {'error': 'Gallery not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Only accept status field
+        new_status = request.data.get('status')
+        if not new_status:
+            return Response(
+                {'error': 'status field is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate status value
+        valid_statuses = [choice[0] for choice in choices.GALLERY_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate that only one gallery can be active at a time
+        if new_status == 'active':
+            existing_active = Gallery.objects.get_active_objects().filter(
+                creator=request.user,
+                status='active'
+            ).exclude(gallery_id=gallery_id)
+
+            if existing_active.exists():
+                return Response(
+                    {
+                        'error': 'You can only have one active gallery at a time. '
+                                'Please archive or set another gallery to draft first.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Update status
+        gallery.status = new_status
+        gallery.save()
+
+        serializer = GallerySerializer(gallery)
+        return Response(serializer.data)
