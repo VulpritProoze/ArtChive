@@ -21,6 +21,9 @@ interface UseCanvasStateReturn extends EditorState {
   toggleSnap: () => void;
   groupObjects: (ids: string[]) => void;
   ungroupObject: (groupId: string) => void;
+  copyObjects: () => void;
+  pasteObjects: () => void;
+  attachImageToFrame: (imageId: string, frameId: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -162,7 +165,7 @@ export function useCanvasState({
   const findObject = useCallback((objects: CanvasObject[], id: string): CanvasObject | null => {
     for (const obj of objects) {
       if (obj.id === id) return obj;
-      if (obj.type === 'group' && 'children' in obj && obj.children) {
+      if ((obj.type === 'group' || obj.type === 'frame') && 'children' in obj && obj.children) {
         const found = findObject(obj.children, id);
         if (found) return found;
       }
@@ -218,19 +221,22 @@ export function useCanvasState({
     };
   }, []);
 
-  // Helper function to update an object (including within groups)
+  // Helper function to update an object (including within groups and frames)
   const updateObjectInTree = useCallback((objects: CanvasObject[], id: string, updates: Partial<CanvasObject>): CanvasObject[] => {
     return objects.map((o) => {
       if (o.id === id) {
         return { ...o, ...updates } as CanvasObject;
       }
-      if (o.type === 'group' && 'children' in o && o.children) {
-        const updatedGroup = {
+      if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+        const updatedContainer = {
           ...o,
           children: updateObjectInTree(o.children, id, updates),
         } as CanvasObject;
-        // Recalculate group bounds after updating a child
-        return recalculateGroupBounds(updatedGroup);
+        // Recalculate group bounds after updating a child (frames have fixed dimensions, so skip)
+        if (o.type === 'group') {
+          return recalculateGroupBounds(updatedContainer);
+        }
+        return updatedContainer;
       }
       return o;
     });
@@ -271,18 +277,21 @@ export function useCanvasState({
     [state.objects, undoRedo, findObject, updateObjectInTree, recalculateGroupBounds]
   );
 
-  // Helper function to delete an object (including within groups)
+  // Helper function to delete an object (including within groups and frames)
   const deleteObjectFromTree = useCallback((objects: CanvasObject[], id: string): CanvasObject[] => {
     return objects
       .filter((o) => o.id !== id)
       .map((o) => {
-        if (o.type === 'group' && 'children' in o && o.children) {
-          const updatedGroup = {
+        if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+          const updatedContainer = {
             ...o,
             children: deleteObjectFromTree(o.children, id),
           } as CanvasObject;
-          // Recalculate group bounds after deleting a child
-          return recalculateGroupBounds(updatedGroup);
+          // Recalculate group bounds after deleting a child (frames have fixed dimensions, so skip)
+          if (o.type === 'group') {
+            return recalculateGroupBounds(updatedContainer);
+          }
+          return updatedContainer;
         }
         return o;
       });
@@ -474,6 +483,158 @@ export function useCanvasState({
     [state.objects, undoRedo]
   );
 
+  // Helper function to deep clone an object and generate new IDs
+  const cloneObjectWithNewId = useCallback((obj: CanvasObject): CanvasObject => {
+    const newId = Math.random().toString(36).substring(2, 15);
+    const cloned = { ...obj, id: newId };
+
+    // If it's a group, clone children with new IDs too
+    if (cloned.type === 'group' && cloned.children) {
+      cloned.children = cloned.children.map(child => cloneObjectWithNewId(child));
+    }
+
+    return cloned;
+  }, []);
+
+  const copyObjects = useCallback(() => {
+    const selectedObjects = state.objects.filter((o) => state.selectedIds.includes(o.id));
+    if (selectedObjects.length > 0) {
+      setState((prev) => ({
+        ...prev,
+        clipboard: selectedObjects,
+      }));
+      console.log('[useCanvasState] Copied', selectedObjects.length, 'object(s)');
+    }
+  }, [state.objects, state.selectedIds]);
+
+  const pasteObjects = useCallback(() => {
+    if (state.clipboard.length === 0) {
+      console.log('[useCanvasState] Clipboard is empty, nothing to paste');
+      return;
+    }
+
+    const offset = 20; // Offset in pixels
+    const pastedObjects = state.clipboard.map(obj => {
+      const cloned = cloneObjectWithNewId(obj);
+      return {
+        ...cloned,
+        x: cloned.x + offset,
+        y: cloned.y + offset,
+      };
+    });
+
+    const pastedIds = pastedObjects.map(o => o.id);
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => ({
+          ...prev,
+          objects: [...prev.objects, ...pastedObjects],
+          selectedIds: pastedIds,
+        }));
+      },
+      undo: () => {
+        setState((prev) => ({
+          ...prev,
+          objects: prev.objects.filter((o) => !pastedIds.includes(o.id)),
+          selectedIds: state.selectedIds,
+        }));
+      },
+      description: `Paste ${pastedObjects.length} object(s)`,
+    };
+    undoRedo.execute(command);
+    console.log('[useCanvasState] Pasted', pastedObjects.length, 'object(s)');
+  }, [state.clipboard, state.selectedIds, undoRedo, cloneObjectWithNewId]);
+
+  const attachImageToFrame = useCallback((imageId: string, frameId: string) => {
+    const image = findObject(state.objects, imageId);
+    const frame = findObject(state.objects, frameId);
+
+    if (!image || image.type !== 'image' || !frame || frame.type !== 'frame') {
+      console.warn('[useCanvasState] Invalid image or frame for attachment');
+      return;
+    }
+
+    // Store old frame state for undo
+    const oldFrameChildren = frame.children || [];
+    const oldImage = { ...image };
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          // Calculate image dimensions and position relative to frame
+          // Always use fit mode: maintain aspect ratio, fit inside frame
+          const imgAspect = image.width / image.height;
+          const frameAspect = frame.width / frame.height;
+
+          let newWidth = frame.width;
+          let newHeight = frame.height;
+          let relativeX = 0;
+          let relativeY = 0;
+
+          // Maintain aspect ratio, fit inside frame
+          if (imgAspect > frameAspect) {
+            // Image is wider
+            newWidth = frame.width;
+            newHeight = frame.width / imgAspect;
+            relativeY = (frame.height - newHeight) / 2;
+          } else {
+            // Image is taller
+            newHeight = frame.height;
+            newWidth = frame.height * imgAspect;
+            relativeX = (frame.width - newWidth) / 2;
+          }
+
+          // Create image child with relative position
+          const imageChild: ImageObject = {
+            ...image,
+            x: relativeX,
+            y: relativeY,
+            width: newWidth,
+            height: newHeight,
+          };
+
+          // Update objects: remove image from main array, add to frame children
+          const updatedObjects = prev.objects
+            .filter(obj => obj.id !== imageId) // Remove image from main objects
+            .map(obj => {
+              if (obj.id === frameId && obj.type === 'frame') {
+                // Add image as child (replace existing children - frames can only have one image)
+                return {
+                  ...obj,
+                  children: [imageChild],
+                };
+              }
+              return obj;
+            });
+
+          return {
+            ...prev,
+            objects: updatedObjects,
+          };
+        });
+      },
+      undo: () => {
+        setState((prev) => ({
+          ...prev,
+          objects: prev.objects.map(obj => {
+            if (obj.id === frameId && obj.type === 'frame') {
+              // Restore old children
+              return {
+                ...obj,
+                children: oldFrameChildren,
+              };
+            }
+            return obj;
+          }).concat(oldImage), // Restore image to main objects array
+        }));
+      },
+      description: 'Attach image to frame',
+    };
+    undoRedo.execute(command);
+    console.log('[useCanvasState] Attached image', imageId, 'to frame', frameId);
+  }, [state.objects, undoRedo, findObject]);
+
   const initializeState = useCallback((canvasData: { objects: CanvasObject[]; width?: number; height?: number; background?: string }) => {
     console.log('[useCanvasState] initializeState called with:', {
       objectCount: canvasData.objects.length,
@@ -508,6 +669,9 @@ export function useCanvasState({
     toggleSnap,
     groupObjects,
     ungroupObject,
+    copyObjects,
+    pasteObjects,
+    attachImageToFrame,
     undo: undoRedo.undo,
     redo: undoRedo.redo,
     canUndo: undoRedo.canUndo,

@@ -21,6 +21,23 @@ export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number 
   return Math.round(value / gridSize) * gridSize;
 }
 
+// Helper function to find parent frame of an object
+function findParentFrame(id: string, objectsList: CanvasObject[]): { frame: CanvasObject; child: CanvasObject } | null {
+  for (const obj of objectsList) {
+    if (obj.type === 'frame' && 'children' in obj && obj.children) {
+      const child = obj.children.find(child => child.id === id);
+      if (child) {
+        return { frame: obj, child };
+      }
+    }
+    if (obj.type === 'group' && 'children' in obj && obj.children) {
+      const found = findParentFrame(id, obj.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function snapPosition(
   x: number,
   y: number,
@@ -43,6 +60,10 @@ export function snapPosition(
   const currWidth = objectWidth || getObjectWidth(currentObject!) || 0;
   const currHeight = objectHeight || getObjectHeight(currentObject!) || 0;
   const currRotation = rotation !== undefined ? rotation : (currentObject?.rotation || 0);
+  
+  // Check if this is a frame child
+  const parentFrameInfo = findParentFrame(currentObjectId, objects);
+  const isFrameChild = parentFrameInfo !== null;
 
   // Ensure we have valid dimensions (never 0)
   // This is especially important for text objects where dimensions might not be immediately available
@@ -278,6 +299,84 @@ export function snapPosition(
         snapEnabled,
         centerValid: !isNaN(currCenterX) && !isNaN(currCenterY) && isFinite(currCenterX) && isFinite(currCenterY),
       });
+    }
+  }
+
+  // Frame edge snapping (for frame children) - after center calculation
+  if (snapEnabled && isFrameChild && parentFrameInfo && 'width' in parentFrameInfo.frame && 'height' in parentFrameInfo.frame) {
+    const frameWidth = parentFrameInfo.frame.width;
+    const frameHeight = parentFrameInfo.frame.height;
+    
+    // Frame edges in relative coordinates: left=0, right=frameWidth, top=0, bottom=frameHeight
+    const frameLeft = 0;
+    const frameRight = frameWidth;
+    const frameTop = 0;
+    const frameBottom = frameHeight;
+    const frameCenterX = frameWidth / 2;
+    const frameCenterY = frameHeight / 2;
+    
+    // Calculate current object edges (in relative coordinates)
+    const currRight = isCircle ? x + safeWidth / 2 : x + safeWidth;
+    const currBottom = isCircle ? y + safeHeight / 2 : y + safeHeight;
+    const currLeft = isCircle ? x - safeWidth / 2 : x;
+    const currTop = isCircle ? y - safeHeight / 2 : y;
+    
+    // Snap to frame edges
+    let frameSnappedX = snappedX;
+    let frameSnappedY = snappedY;
+    let frameSnapX = false;
+    let frameSnapY = false;
+    
+    // Horizontal snapping to frame edges
+    const xFrameDistances = [
+      { pos: frameLeft, dist: Math.abs(currLeft - frameLeft), guidePos: frameLeft },
+      { pos: frameRight - safeWidth, dist: Math.abs(currRight - frameRight), guidePos: frameRight },
+      { pos: frameCenterX - safeWidth / 2, dist: Math.abs(currCenterX - frameCenterX), guidePos: frameCenterX },
+    ];
+    
+    let minFrameXDist = SNAP_THRESHOLD;
+    let bestFrameX: { pos: number; guidePos: number } | null = null;
+    
+    for (const { pos, dist, guidePos } of xFrameDistances) {
+      if (dist < minFrameXDist) {
+        minFrameXDist = dist;
+        bestFrameX = { pos, guidePos };
+      }
+    }
+    
+    if (bestFrameX) {
+      frameSnappedX = bestFrameX.pos;
+      frameSnapX = true;
+      guides.push({ type: 'vertical', position: bestFrameX.guidePos, snapType: 'object' });
+    }
+    
+    // Vertical snapping to frame edges
+    const yFrameDistances = [
+      { pos: frameTop, dist: Math.abs(currTop - frameTop), guidePos: frameTop },
+      { pos: frameBottom - safeHeight, dist: Math.abs(currBottom - frameBottom), guidePos: frameBottom },
+      { pos: frameCenterY - safeHeight / 2, dist: Math.abs(currCenterY - frameCenterY), guidePos: frameCenterY },
+    ];
+    
+    let minFrameYDist = SNAP_THRESHOLD;
+    let bestFrameY: { pos: number; guidePos: number } | null = null;
+    
+    for (const { pos, dist, guidePos } of yFrameDistances) {
+      if (dist < minFrameYDist) {
+        minFrameYDist = dist;
+        bestFrameY = { pos, guidePos };
+      }
+    }
+    
+    if (bestFrameY) {
+      frameSnappedY = bestFrameY.pos;
+      frameSnapY = true;
+      guides.push({ type: 'horizontal', position: bestFrameY.guidePos, snapType: 'object' });
+    }
+    
+    // Apply frame snaps
+    if (frameSnapX || frameSnapY) {
+      snappedX = frameSnappedX;
+      snappedY = frameSnappedY;
     }
   }
 
@@ -539,6 +638,8 @@ function getObjectWidth(obj: CanvasObject): number | null {
     case 'rect':
     case 'image':
     case 'gallery-item':
+    case 'frame':
+      // For frames, always use stored dimensions (not children dimensions)
       return obj.width * (obj.scaleX || 1);
     case 'group': {
       // For groups, calculate actual bounds from visible children
@@ -575,6 +676,8 @@ function getObjectHeight(obj: CanvasObject): number | null {
     case 'rect':
     case 'image':
     case 'gallery-item':
+    case 'frame':
+      // For frames, always use stored dimensions (not children dimensions)
       return obj.height * (obj.scaleY || 1);
     case 'group': {
       // For groups, calculate actual bounds from visible children

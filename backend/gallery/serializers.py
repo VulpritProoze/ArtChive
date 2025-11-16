@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Gallery
 
 
@@ -48,5 +49,30 @@ class GallerySerializer(serializers.ModelSerializer):
             # Basic validation - ensure it has objects array
             if 'objects' in value and not isinstance(value.get('objects'), list):
                 raise serializers.ValidationError("canvas_json.objects must be an array")
+
+        return value
+
+    def validate_status(self, value):
+        """Validate that only one gallery can be active at a time per user"""
+        if value == 'active':
+            # Get the user from the context (passed from view)
+            user = self.context.get('request').user if self.context.get('request') else None
+
+            if user:
+                # Check if there's already an active gallery for this user
+                existing_active = Gallery.objects.get_active_objects().filter(
+                    creator=user,
+                    status='active'
+                )
+
+                # If updating an existing gallery, exclude it from the check
+                if self.instance:
+                    existing_active = existing_active.exclude(gallery_id=self.instance.gallery_id)
+
+                if existing_active.exists():
+                    raise serializers.ValidationError(
+                        "You can only have one active gallery at a time. "
+                        "Please archive or set another gallery to draft first."
+                    )
 
         return value

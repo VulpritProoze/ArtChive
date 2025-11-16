@@ -14,14 +14,31 @@ interface CanvasTransformerProps {
 export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformStart, onTransformEnd, onRotate }: CanvasTransformerProps) {
   const transformerRef = useRef<any>(null);
 
-  // Helper function to find an object by ID, including children in groups
+  // Helper function to find an object by ID, including children in groups and frames
   const findObjectById = (id: string, objectsList: CanvasObject[]): CanvasObject | null => {
     for (const obj of objectsList) {
       if (obj.id === id) {
         return obj;
       }
-      if (obj.type === 'group' && 'children' in obj && obj.children) {
+      if ((obj.type === 'group' || obj.type === 'frame') && 'children' in obj && obj.children) {
         const found = findObjectById(id, obj.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Helper function to find parent frame of an object
+  const findParentFrame = (id: string, objectsList: CanvasObject[]): { frame: CanvasObject; child: CanvasObject } | null => {
+    for (const obj of objectsList) {
+      if (obj.type === 'frame' && 'children' in obj && obj.children) {
+        const child = obj.children.find(child => child.id === id);
+        if (child) {
+          return { frame: obj, child };
+        }
+      }
+      if (obj.type === 'group' && 'children' in obj && obj.children) {
+        const found = findParentFrame(id, obj.children);
         if (found) return found;
       }
     }
@@ -36,19 +53,36 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
 
     if (!stage) return;
 
-    const selectedNodes = selectedIds
+    // Check if any selected ID is a frame child - if so, prioritize frame children over frames
+    const frameChildIds = new Set<string>();
+    const frameIds = new Set<string>();
+    
+    selectedIds.forEach(id => {
+      const parentFrameInfo = findParentFrame(id, objects);
+      if (parentFrameInfo) {
+        frameChildIds.add(id);
+        frameIds.add(parentFrameInfo.frame.id);
+      }
+    });
+
+    // If we have frame children selected, exclude parent frames from transformer (prioritize children)
+    const idsToAttach = frameChildIds.size > 0 
+      ? selectedIds.filter(id => !frameIds.has(id) || frameChildIds.has(id))
+      : selectedIds;
+
+    const selectedNodes = idsToAttach
       .map((id) => stage.findOne(`#${id}`))
       .filter(Boolean);
 
     transformer.nodes(selectedNodes);
 
     // Check if any selected object is a group or line (including nested objects)
-    const hasGroupSelected = selectedIds.some(id => {
+    const hasGroupSelected = idsToAttach.some(id => {
       const obj = findObjectById(id, objects);
       return obj?.type === 'group';
     });
 
-    const hasLineSelected = selectedIds.some(id => {
+    const hasLineSelected = idsToAttach.some(id => {
       const obj = findObjectById(id, objects);
       return obj?.type === 'line';
     });
@@ -69,9 +103,12 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
     transformer.getLayer()?.batchDraw();
   }, [selectedIds, objects]);
 
-  const handleTransform = () => {
+  const handleTransform = (e?: any) => {
     console.log('[CanvasTransformer] Transform started');
-    // During transform, ensure lines maintain scaleY = 1 and report rotation
+    // Check if shift key is pressed for aspect ratio lock
+    const isShiftPressed = e?.evt?.shiftKey || false;
+    
+    // During transform, ensure lines maintain scaleY = 1, apply shift+resize aspect ratio lock, and report rotation
     if (transformerRef.current) {
       const transformer = transformerRef.current;
       const nodes = transformer.nodes();
@@ -79,9 +116,37 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         const id = node.id();
         if (id) {
           const obj = findObjectById(id, objects);
+          
           if (obj?.type === 'line') {
             // Force scaleY to 1 during transform to prevent vertical resizing
             node.scaleY(1);
+          }
+          
+          // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
+          if (isShiftPressed && obj && 'width' in obj && 'height' in obj && obj.type !== 'line') {
+            const originalAspect = obj.width / obj.height;
+            const currentWidth = node.width() * (node.scaleX() || 1);
+            const currentHeight = node.height() * (node.scaleY() || 1);
+            const currentAspect = currentWidth / currentHeight;
+            
+            // If aspect ratio changed, adjust to maintain it
+            if (Math.abs(currentAspect - originalAspect) > 0.01) {
+              // Determine which dimension to constrain based on which changed more
+              const scaleXChange = Math.abs((node.scaleX() || 1) - 1);
+              const scaleYChange = Math.abs((node.scaleY() || 1) - 1);
+              
+              if (scaleXChange > scaleYChange) {
+                // Width changed more - adjust height
+                const newHeight = currentWidth / originalAspect;
+                const newScaleY = newHeight / (obj.height || 1);
+                node.scaleY(newScaleY);
+              } else {
+                // Height changed more - adjust width
+                const newWidth = currentHeight * originalAspect;
+                const newScaleX = newWidth / (obj.width || 1);
+                node.scaleX(newScaleX);
+              }
+            }
           }
 
           // Report rotation if callback exists
@@ -102,13 +167,16 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
     }
   };
 
-  const handleTransformEndInternal = () => {
+  const handleTransformEndInternal = (e?: any) => {
     console.log('[CanvasTransformer] Transform ended');
     const transformer = transformerRef.current;
     if (!transformer) {
       console.log('[CanvasTransformer] No transformer ref');
       return;
     }
+
+    // Check if shift key was pressed for aspect ratio lock
+    const isShiftPressed = e?.evt?.shiftKey || false;
 
     // Get all nodes attached to the transformer
     const nodes = transformer.nodes();
@@ -133,7 +201,7 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
 
-      // Get the current object (including nested children in groups)
+      // Get the current object (including nested children in groups and frames)
       const currentObject = findObjectById(id, objects);
 
       // Snap rotation to 45-degree increments
@@ -153,8 +221,22 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         rotation: rotation,
       };
 
+      // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
+      if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject && currentObject.type !== 'line') {
+        const originalAspect = currentObject.width / currentObject.height;
+        const currentWidth = currentObject.width * scaleX;
+        const currentHeight = currentObject.height * scaleY;
+        const currentAspect = currentWidth / currentHeight;
+        
+        // Maintain aspect ratio using average scale
+        const avgScale = (scaleX + scaleY) / 2;
+        updates.width = Math.max(5, currentObject.width * avgScale);
+        updates.height = Math.max(5, currentObject.height * avgScale);
+        updates.scaleX = 1;
+        updates.scaleY = 1;
+      }
       // For lines, only allow width resizing (horizontal scaling)
-      if (currentObject && currentObject.type === 'line') {
+      else if (currentObject && currentObject.type === 'line') {
         // For lines, we modify the points array to change width
         // Only apply horizontal scaling, ignore vertical scaling
         if (scaleX !== 1 && currentObject.type === 'line' && 'points' in currentObject) {

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Text as KonvaText, Image as KonvaImage, Line, Group } from 'react-konva';
-import type { CanvasObject, ImageObject, SnapGuide } from '@types';
+import type { CanvasObject, ImageObject, FrameObject, SnapGuide } from '@types';
 import { CanvasTransformer } from './canvas-transformer.component';
 import { snapPosition } from './utils/snap.util';
 import useImage from 'use-image';
@@ -24,6 +24,8 @@ interface CanvasStageProps {
   snapGuides?: SnapGuide[];
   onSnapGuidesChange?: (guides: SnapGuide[]) => void;
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
+  onCanvasContextMenu?: (e: React.MouseEvent) => void;
+  onAttachImageToFrame?: (imageId: string, frameId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
 }
@@ -45,6 +47,8 @@ export function CanvasStage({
   snapGuides = [],
   onSnapGuidesChange,
   onContextMenu,
+  onCanvasContextMenu,
+  onAttachImageToFrame,
   editorMode = 'move',
   isPreviewMode = false,
 }: CanvasStageProps) {
@@ -56,6 +60,9 @@ export function CanvasStage({
   const [isSelecting, setIsSelecting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [rotationInfo, setRotationInfo] = useState<{ angle: number; x: number; y: number; isSnapped: boolean } | null>(null);
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
+  const [hoveredFrameId, setHoveredFrameId] = useState<string | null>(null);
+  const [previewImageId, setPreviewImageId] = useState<string | null>(null); // For preview when dragging over frame
 
   // Handle wheel zoom
   const handleWheel = (e: any) => {
@@ -85,6 +92,30 @@ export function CanvasStage({
     onPan(newPos.x, newPos.y);
   };
 
+  // Handle right-click context menu
+  const handleStageContextMenu = (e: any) => {
+    e.evt.preventDefault();
+    const targetId = e.target.id();
+    const clickedOnObject = targetId && objects.some(obj => obj.id === targetId);
+
+    // Check if clicked on a child of a Group
+    const isChildOfGroup = e.target.getParent()?.getClassName() === 'Group' &&
+                           e.target.getParent()?.id() &&
+                           objects.some(obj => obj.id === e.target.getParent()?.id());
+
+    const clickedOnEmpty = !clickedOnObject && !isChildOfGroup;
+
+    if (clickedOnEmpty && onCanvasContextMenu) {
+      // Right-click on empty canvas
+      const syntheticEvent = {
+        preventDefault: () => e.evt.preventDefault(),
+        clientX: e.evt.clientX,
+        clientY: e.evt.clientY,
+      } as React.MouseEvent;
+      onCanvasContextMenu(syntheticEvent);
+    }
+  };
+
   // Handle panning and selection
   const handleMouseDown = (e: any) => {
     const targetClass = e.target.getClassName();
@@ -103,6 +134,9 @@ export function CanvasStage({
     const isChildOfGroup = e.target.getParent()?.getClassName() === 'Group' &&
                            e.target.getParent()?.id() &&
                            objects.some(obj => obj.id === e.target.getParent()?.id());
+    
+    // Frame children are not selectable on canvas - only via layers panel
+    // So we don't need to check for frame children here
 
     const clickedOnEmpty = !clickedOnObject && !isChildOfGroup &&
                           (e.target === e.target.getStage() ||
@@ -248,6 +282,7 @@ export function CanvasStage({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onContextMenu={handleStageContextMenu}
         draggable={false}
       >
         <Layer>
@@ -270,7 +305,15 @@ export function CanvasStage({
               object={obj}
               allObjects={objects}
               isSelected={selectedIds.includes(obj.id)}
+              selectedIds={selectedIds}
               onSelect={() => onSelect([obj.id])}
+              draggedImageId={draggedImageId}
+              setDraggedImageId={setDraggedImageId}
+              hoveredFrameId={hoveredFrameId}
+              setHoveredFrameId={setHoveredFrameId}
+              previewImageId={previewImageId}
+              setPreviewImageId={setPreviewImageId}
+              onAttachImageToFrame={onAttachImageToFrame}
               onUpdate={(updates) => onUpdateObject(obj.id, updates)}
               gridEnabled={gridEnabled}
               snapEnabled={snapEnabled}
@@ -438,6 +481,7 @@ interface CanvasObjectRendererProps {
   object: CanvasObject;
   allObjects: CanvasObject[];
   isSelected: boolean;
+  selectedIds?: string[]; // All selected IDs (for checking frame children)
   onSelect: () => void;
   onUpdate: (updates: Partial<CanvasObject>) => void;
   gridEnabled?: boolean;
@@ -452,12 +496,20 @@ interface CanvasObjectRendererProps {
   onTextEdit?: (textId: string) => void;
   onSelectIds?: (ids: string[]) => void; // For child object selection
   onUpdateObjectById?: (id: string, updates: Partial<CanvasObject>) => void; // For child object updates
+  draggedImageId?: string | null;
+  setDraggedImageId?: (id: string | null) => void;
+  hoveredFrameId?: string | null;
+  setHoveredFrameId?: (id: string | null) => void;
+  previewImageId?: string | null;
+  setPreviewImageId?: (id: string | null) => void;
+  onAttachImageToFrame?: (imageId: string, frameId: string) => void;
 }
 
 function CanvasObjectRenderer({
   object,
   allObjects,
   isSelected,
+  selectedIds = [],
   onSelect,
   onUpdate,
   gridEnabled = false,
@@ -472,6 +524,13 @@ function CanvasObjectRenderer({
   onTextEdit,
   onSelectIds,
   onUpdateObjectById,
+  draggedImageId,
+  setDraggedImageId,
+  hoveredFrameId,
+  setHoveredFrameId,
+  previewImageId,
+  setPreviewImageId,
+  onAttachImageToFrame,
 }: CanvasObjectRendererProps) {
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
@@ -483,10 +542,15 @@ function CanvasObjectRenderer({
 
     // Get object dimensions and rotation for snapping calculations
     // Handle circles differently (they use radius instead of width/height)
+    // For frames, always use stored dimensions (not node dimensions which may include children)
     let objWidth: number;
     let objHeight: number;
 
-    if (object.type === 'circle') {
+    if (object.type === 'frame') {
+      // For frames, use stored dimensions to ensure snap guides are centered on frame, not image
+      objWidth = object.width * (object.scaleX || 1);
+      objHeight = object.height * (object.scaleY || 1);
+    } else if (object.type === 'circle') {
       const radius = node.radius() * (node.scaleX() || 1);
       objWidth = radius * 2;
       objHeight = radius * 2;
@@ -596,6 +660,56 @@ function CanvasObjectRenderer({
       x: e.target.x(),
       y: e.target.y(),
     });
+
+    // Check if this is an image being dropped on a frame
+    if (object.type === 'image' && draggedImageId === object.id && hoveredFrameId && onAttachImageToFrame) {
+      onAttachImageToFrame(object.id, hoveredFrameId);
+      setDraggedImageId(null);
+      setHoveredFrameId(null);
+    }
+  };
+
+  const handleImageDragStart = (e: any) => {
+    if (object.type === 'image') {
+      setDraggedImageId(object.id);
+    }
+  };
+
+  const handleImageDragMove = (e: any, allObjects: CanvasObject[]) => {
+    // First handle normal drag move for snapping
+    handleDragMove(e);
+
+    // Then check for frame overlap
+    if (object.type === 'image' && draggedImageId === object.id) {
+      const imageNode = e.target;
+      const imageBox = imageNode.getClientRect();
+
+      // Find if image overlaps with any frame
+      let foundFrame: string | null = null;
+      for (const obj of allObjects) {
+        if (obj.type === 'frame') {
+          // Calculate frame bounds
+          const frameX = obj.x;
+          const frameY = obj.y;
+          const frameWidth = obj.width;
+          const frameHeight = obj.height;
+
+          // Simple AABB collision detection
+          const overlap =
+            imageBox.x < frameX + frameWidth &&
+            imageBox.x + imageBox.width > frameX &&
+            imageBox.y < frameY + frameHeight &&
+            imageBox.y + imageBox.height > frameY;
+
+          if (overlap) {
+            foundFrame = obj.id;
+            break;
+          }
+        }
+      }
+
+      setHoveredFrameId(foundFrame);
+    }
   };
 
   // Objects are only draggable in 'move' mode and not in preview mode
@@ -676,6 +790,14 @@ function CanvasObjectRenderer({
       );
 
     case 'image':
+      // Skip rendering if image is attached to a frame (it will be rendered inside the frame)
+      const isAttachedToFrame = allObjects.some(
+        obj => obj.type === 'frame' && (obj as FrameObject).children && (obj as FrameObject).children.some(child => child.id === object.id)
+      );
+      if (isAttachedToFrame) {
+        return null;
+      }
+      
       return (
         <ImageRenderer
           object={object}
@@ -691,6 +813,13 @@ function CanvasObjectRenderer({
           isTransforming={isTransforming}
           editorMode={editorMode}
           isPreviewMode={isPreviewMode}
+          draggedImageId={draggedImageId}
+          setDraggedImageId={setDraggedImageId}
+          setHoveredFrameId={setHoveredFrameId}
+          hoveredFrameId={hoveredFrameId}
+          previewImageId={previewImageId}
+          setPreviewImageId={setPreviewImageId}
+          onAttachImageToFrame={onAttachImageToFrame}
         />
       );
 
@@ -957,9 +1086,197 @@ function CanvasObjectRenderer({
         </Group>
       );
 
+    case 'frame':
+      const isHovered = hoveredFrameId === object.id;
+      const frameObj = object as FrameObject;
+      // Get the image child (frames can only have one image child)
+      const attachedImage = frameObj.children && frameObj.children.length > 0 && frameObj.children[0].type === 'image'
+        ? frameObj.children[0] as ImageObject
+        : undefined;
+      
+      // Find preview image if dragging over this frame
+      const previewImage = (isHovered && previewImageId && (!attachedImage || previewImageId !== attachedImage.id))
+        ? allObjects.find(obj => obj.id === previewImageId && obj.type === 'image') as ImageObject | undefined
+        : undefined;
+      
+      // Check if frame child is selected (need to check selectedIds from parent scope)
+      // We'll need to pass selectedIds down or check it in FrameImageRenderer
+      
+      return (
+        <Group
+          id={object.id}
+          x={object.x}
+          y={object.y}
+          rotation={object.rotation}
+          scaleX={object.scaleX}
+          scaleY={object.scaleY}
+          opacity={object.opacity}
+          draggable={isDraggable}
+          onClick={onSelect}
+          onTap={onSelect}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+        >
+          {/* Frame rectangle with dashed border */}
+          <Rect
+            width={object.width}
+            height={object.height}
+            fill={isHovered ? 'rgba(79, 70, 229, 0.2)' : (object.fill || 'rgba(200, 200, 255, 0.1)')}
+            stroke={isHovered ? '#6366F1' : (object.stroke || '#4F46E5')}
+            strokeWidth={isHovered ? 3 : (object.strokeWidth || 2)}
+            dash={object.dashEnabled !== false ? [10, 5] : undefined}
+            cornerRadius={4}
+          />
+
+          {/* Render preview image when dragging over frame (semi-transparent) */}
+          {previewImage && !attachedImage && (
+            <FrameImagePreviewRenderer
+              imageObject={previewImage}
+              frameObject={frameObj}
+            />
+          )}
+
+          {/* Render attached image child inside frame */}
+          {attachedImage && (
+            <FrameImageRenderer
+              imageObject={attachedImage}
+              frameObject={frameObj}
+              isSelected={selectedIds.includes(attachedImage.id)}
+              onSelect={onSelect}
+              onSelectIds={onSelectIds}
+              allObjects={allObjects}
+              selectedIds={selectedIds}
+            />
+          )}
+
+          {/* Placeholder text when no image and no preview */}
+          {!attachedImage && !previewImage && (
+            <KonvaText
+              x={0}
+              y={object.height / 2 - 10}
+              width={object.width}
+              text={object.placeholder || 'Drop image here'}
+              fontSize={14}
+              fontFamily="Arial"
+              fill={isHovered ? '#4F46E5' : '#666'}
+              fontStyle={isHovered ? 'bold' : 'normal'}
+              align="center"
+              listening={false}
+            />
+          )}
+        </Group>
+      );
+
     default:
       return null;
   }
+}
+
+// Frame Image Renderer - renders image inside frame group
+function FrameImageRenderer({
+  imageObject,
+  frameObject,
+  isSelected,
+  onSelect,
+  onSelectIds,
+  allObjects,
+  selectedIds = [],
+}: {
+  imageObject: ImageObject;
+  frameObject: FrameObject;
+  isSelected?: boolean;
+  onSelect?: () => void;
+  onSelectIds?: (ids: string[]) => void;
+  allObjects?: CanvasObject[];
+  selectedIds?: string[];
+}) {
+  const [image] = useImage(imageObject.src, 'anonymous');
+
+  if (!image) {
+    return null;
+  }
+
+  // Frame children are not selectable on canvas - only via layers panel
+  // Check if frame is selected to determine if we should clip the image
+  const isFrameSelected = selectedIds.includes(frameObject.id);
+  const isImageSelected = selectedIds.includes(imageObject.id);
+
+  // Only clip when frame is selected OR when image is not selected
+  // When image is selected but frame is not, show full image (including out-of-bounds areas)
+  const shouldClip = isFrameSelected || !isImageSelected;
+
+  return (
+    <Group
+      clipFunc={shouldClip ? (ctx) => {
+        // Clip to frame bounds
+        ctx.rect(0, 0, frameObject.width, frameObject.height);
+      } : undefined}
+    >
+      {/* Main image */}
+      <KonvaImage
+        id={imageObject.id}
+        x={imageObject.x}
+        y={imageObject.y}
+        image={image}
+        width={imageObject.width}
+        height={imageObject.height}
+        rotation={imageObject.rotation || 0}
+        scaleX={imageObject.scaleX || 1}
+        scaleY={imageObject.scaleY || 1}
+        opacity={imageObject.opacity !== undefined ? imageObject.opacity : 1}
+        listening={false}
+      />
+    </Group>
+  );
+}
+
+// Frame Image Preview Renderer - renders preview of image inside frame while dragging (semi-transparent)
+function FrameImagePreviewRenderer({
+  imageObject,
+  frameObject,
+}: {
+  imageObject: ImageObject;
+  frameObject: FrameObject;
+}) {
+  const [image] = useImage(imageObject.src, 'anonymous');
+
+  if (!image) {
+    return null;
+  }
+
+  // Calculate preview dimensions (always use fit mode: maintain aspect ratio, fit inside frame)
+  const imgAspect = imageObject.width / imageObject.height;
+  const frameAspect = frameObject.width / frameObject.height;
+
+  let previewWidth = frameObject.width;
+  let previewHeight = frameObject.height;
+  let previewX = 0;
+  let previewY = 0;
+
+  // Maintain aspect ratio, fit inside frame
+  if (imgAspect > frameAspect) {
+    // Image is wider
+    previewWidth = frameObject.width;
+    previewHeight = frameObject.width / imgAspect;
+    previewY = (frameObject.height - previewHeight) / 2;
+  } else {
+    // Image is taller
+    previewHeight = frameObject.height;
+    previewWidth = frameObject.height * imgAspect;
+    previewX = (frameObject.width - previewWidth) / 2;
+  }
+
+  return (
+    <KonvaImage
+      x={previewX}
+      y={previewY}
+      image={image}
+      width={previewWidth}
+      height={previewHeight}
+      opacity={0.5} // Semi-transparent preview
+      listening={false}
+    />
+  );
 }
 
 // Image Renderer with loading
@@ -977,41 +1294,154 @@ function ImageRenderer({
   isTransforming = false,
   editorMode = 'move',
   isPreviewMode = false,
-}: CanvasObjectRendererProps) {
+  draggedImageId,
+  setDraggedImageId,
+  setHoveredFrameId,
+  hoveredFrameId,
+  previewImageId,
+  setPreviewImageId,
+  onAttachImageToFrame,
+}: CanvasObjectRendererProps & {
+  draggedImageId?: string | null;
+  setDraggedImageId?: (id: string | null) => void;
+  setHoveredFrameId?: (id: string | null) => void;
+  hoveredFrameId?: string | null;
+  previewImageId?: string | null;
+  setPreviewImageId?: (id: string | null) => void;
+  onAttachImageToFrame?: (imageId: string, frameId: string) => void;
+}) {
   const imageObj = object as ImageObject;
   const [image] = useImage(imageObj.src, 'anonymous');
 
+  const handleDragStart = (e: any) => {
+    if (setDraggedImageId) {
+      setDraggedImageId(object.id);
+    }
+  };
+
+  // Helper function to check frame overlap (needs access to allObjects from parent scope)
+  const checkFrameOverlapForImage = (imageNode: any) => {
+    if (!setHoveredFrameId || !setPreviewImageId || draggedImageId !== object.id) return;
+    
+    // Use canvas coordinates (not screen coordinates)
+    const imageX = imageNode.x();
+    const imageY = imageNode.y();
+    const imageWidth = imageNode.width() * (imageNode.scaleX() || 1);
+    const imageHeight = imageNode.height() * (imageNode.scaleY() || 1);
+
+    let foundFrame: string | null = null;
+    for (const obj of allObjects) {
+      if (obj.type === 'frame') {
+        const frameX = obj.x;
+        const frameY = obj.y;
+        const frameWidth = obj.width;
+        const frameHeight = obj.height;
+
+        // AABB collision detection using canvas coordinates
+        const overlap =
+          imageX < frameX + frameWidth &&
+          imageX + imageWidth > frameX &&
+          imageY < frameY + frameHeight &&
+          imageY + imageHeight > frameY;
+
+        if (overlap) {
+          foundFrame = obj.id;
+          // Set preview image ID when hovering over frame
+          if (draggedImageId) {
+            setPreviewImageId(draggedImageId);
+          }
+          break;
+        }
+      }
+    }
+
+    setHoveredFrameId(foundFrame);
+    // Clear preview if not hovering over any frame
+    if (!foundFrame) {
+      setPreviewImageId(null);
+    }
+  };
+
   const handleDragMove = (e: any) => {
     // Skip snapping if object is being transformed (rotated/resized)
-    if (isTransforming) return;
-
-    if (!gridEnabled && !snapEnabled) return;
+    if (isTransforming) {
+      // Still check for frame overlap even when transforming
+      checkFrameOverlapForImage(e.target);
+      return;
+    }
 
     const node = e.target;
 
-    // Get object dimensions and rotation for snapping calculations
-    const objWidth = node.width() * (node.scaleX() || 1);
-    const objHeight = node.height() * (node.scaleY() || 1);
-    const rotation = node.rotation() || 0;
+    // Handle snapping if enabled
+    if (gridEnabled || snapEnabled) {
+      // Get object dimensions and rotation for snapping calculations
+      const objWidth = node.width() * (node.scaleX() || 1);
+      const objHeight = node.height() * (node.scaleY() || 1);
+      const rotation = node.rotation() || 0;
 
-    const result = snapPosition(
-      node.x(),
-      node.y(),
-      gridEnabled,
-      snapEnabled,
-      allObjects,
-      object.id,
-      canvasWidth,
-      canvasHeight,
-      objWidth,
-      objHeight,
-      rotation
-    );
+      const result = snapPosition(
+        node.x(),
+        node.y(),
+        gridEnabled,
+        snapEnabled,
+        allObjects,
+        object.id,
+        canvasWidth,
+        canvasHeight,
+        objWidth,
+        objHeight,
+        rotation
+      );
 
-    node.position({ x: result.x, y: result.y });
+      node.position({ x: result.x, y: result.y });
 
-    if (onSnapGuidesChange) {
-      onSnapGuidesChange(result.guides);
+      if (onSnapGuidesChange) {
+        onSnapGuidesChange(result.guides);
+      }
+    }
+
+    // Always check for frame overlap when dragging an image (regardless of grid/snap settings)
+    checkFrameOverlapForImage(node);
+  };
+
+  // Helper function to check frame overlap using canvas coordinates
+  const checkFrameOverlap = (imageNode: any, allObjects: CanvasObject[], setHoveredFrameId: (id: string | null) => void, setPreviewImageId: (id: string | null) => void, draggedImageId: string | null) => {
+    // Use canvas coordinates (not screen coordinates)
+    const imageX = imageNode.x();
+    const imageY = imageNode.y();
+    const imageWidth = imageNode.width() * (imageNode.scaleX() || 1);
+    const imageHeight = imageNode.height() * (imageNode.scaleY() || 1);
+
+    let foundFrame: string | null = null;
+    for (const obj of allObjects) {
+      if (obj.type === 'frame') {
+        const frameX = obj.x;
+        const frameY = obj.y;
+        const frameWidth = obj.width;
+        const frameHeight = obj.height;
+
+        // AABB collision detection using canvas coordinates
+        const overlap =
+          imageX < frameX + frameWidth &&
+          imageX + imageWidth > frameX &&
+          imageY < frameY + frameHeight &&
+          imageY + imageHeight > frameY;
+
+        if (overlap) {
+          foundFrame = obj.id;
+          // Set preview image ID when hovering over frame
+          if (draggedImageId) {
+            setPreviewImageId(draggedImageId);
+          }
+          break;
+        }
+      }
+    }
+
+    setHoveredFrameId(foundFrame);
+    // Clear preview if not hovering over any frame
+    if (!foundFrame) {
+      setPreviewImageId(null);
     }
   };
 
@@ -1020,10 +1450,28 @@ function ImageRenderer({
       onSnapGuidesChange([]);
     }
 
-    onUpdate({
-      x: e.target.x(),
-      y: e.target.y(),
-    });
+    // Check if image was dropped on a frame
+    if (draggedImageId === object.id && hoveredFrameId && onAttachImageToFrame) {
+      // Attach image to frame
+      onAttachImageToFrame(object.id, hoveredFrameId);
+    } else {
+      // Normal drag end - update position
+      onUpdate({
+        x: e.target.x(),
+        y: e.target.y(),
+      });
+    }
+
+    // Reset drag state
+    if (setDraggedImageId) {
+      setDraggedImageId(null);
+    }
+    if (setHoveredFrameId) {
+      setHoveredFrameId(null);
+    }
+    if (setPreviewImageId) {
+      setPreviewImageId(null);
+    }
   };
 
   // Objects are only draggable in 'move' mode and not in preview mode
@@ -1060,6 +1508,7 @@ function ImageRenderer({
       draggable={isDraggable}
       onClick={onSelect}
       onTap={onSelect}
+      onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     />

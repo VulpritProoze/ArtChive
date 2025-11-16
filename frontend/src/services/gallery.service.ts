@@ -170,4 +170,15 @@ export const galleryService = {
 
     return response.data;
   },
+
+  /**
+   * Update only the status of a gallery
+   */
+  async updateGalleryStatus(
+    galleryId: string,
+    status: 'draft' | 'active' | 'archived'
+  ): Promise<Gallery> {
+    const response = await gallery.patch(`${galleryId}/status/`, { status });
+    return response.data;
+  },
 };

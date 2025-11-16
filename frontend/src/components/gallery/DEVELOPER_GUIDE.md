@@ -751,6 +751,37 @@ All snapping types generate visual guide lines that render in [CanvasStage.tsx:1
 
 ---
 
+#### 5. Shifting Object Position in Properties Panel Within Group Causes Deletion
+
+**Status**: ⚠️ CRITICAL - NEEDS FIX
+
+**Description**: When an object is part of a group and its position (X or Y coordinates) is changed via the properties panel, the object disappears from the canvas and gets deleted.
+
+**Impact**: Major data loss bug - users lose objects when trying to position them precisely using the properties panel.
+
+**Steps to Reproduce**:
+1. Create a group with multiple objects
+2. Select an individual object within the group (using layers panel)
+3. Change the X or Y position value in the properties panel
+4. Object disappears from canvas and is deleted
+
+**Expected Behavior**:
+- Object should move to the new position within the group
+- Object should remain visible and part of the group
+- Group bounds should update if necessary
+
+**Suspected Root Cause**:
+- Position updates for child objects within groups may not correctly handle relative vs absolute coordinates
+- Group bounds recalculation may be removing objects outside bounds
+- Update logic may be deleting instead of updating the object
+
+**Files to Investigate**:
+- `use-canvas-state.hook.ts` - `updateObject` method for group children
+- `properties-panel.panel.tsx` - Position update handlers
+- Group bounds recalculation logic
+
+---
+
 ### 🟡 Minor Issues
 
 #### 5. Rotation Performance Issues
@@ -991,17 +1022,17 @@ Previously attempted fix in CanvasStage.tsx with `editingTextId` state and TextE
 
 #### 15. Object-to-Object Snapping and Rotation Snapping
 
-**Status**: ❌ UNRESOLVED
+**Status**: ⚠️ PARTIALLY RESOLVED
 
 **Description**: Object-to-object snapping and rotation snapping are not working as expected. There's no tactile "feeling" that objects have snapped into place.
 
 **Issues**:
 
-1. **Object-to-Object Snapping**: When an object's snap guide line aligns with another object's snap guide line, they should "lock" for a few pixels indicating they're aligned. Currently, this locking behavior is missing.
+1. **Object-to-Object Snapping**: (✅ RESOLVED) When an object's snap guide line aligns with another object's snap guide line, they should "lock" for a few pixels indicating they're aligned. Currently, this locking behavior is missing.
 
-2. **Rotation Snapping**: When rotating objects, there's no feedback or "feeling" that the rotation has snapped to specific increments. The rotation feels continuous without any snapping points.
+2. **Rotation Snapping**: (❌ UNRESOLVED)  When rotating objects, there's no feedback or "feeling" that the rotation has snapped to specific increments. The rotation feels continuous without any snapping points.
 
-3. **Grid Snapping**: This works correctly and provides good feedback.
+3. **Grid Snapping**: (✅ RESOLVED) This works correctly and provides good feedback.
 
 **Expected Behavior**:
 - Objects should "stick" or "lock" when their guide lines align with other objects
@@ -1162,6 +1193,73 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
   textHeight: (node as any).textHeight,
   ```
 - **Result**: Text objects now properly display snap guides during drag operations
+
+#### 22. Resizing Text Box in Canvas Changes Font Size
+
+**Status**: ⚠️ NEEDS FIX
+
+**Description**: When a text box is resized using the transformer handles on the canvas, the font size of the text changes proportionally instead of maintaining the same font size and only changing the text box dimensions.
+
+**Impact**: Users cannot create wider/taller text boxes without inadvertently making the text larger or smaller.
+
+**Expected Behavior**:
+- Resizing text box should only change the width/height of the bounding box
+- Font size should remain constant
+- Text should wrap/reflow within the new dimensions
+- Only changing the `fontSize` property in properties panel should change text size
+
+**Current Behavior**:
+- Dragging transformer handles scales the entire text object including font size
+- Text becomes larger when box is expanded
+- Text becomes smaller when box is shrunk
+
+**Suspected Root Cause**:
+- Transformer applies scale transforms (scaleX/scaleY) to text objects
+- Scale is being applied to fontSize instead of just the box dimensions
+- Need to separate box dimensions from text rendering
+
+**Possible Solutions**:
+1. Disable scaling for text objects on transformer
+2. Convert scale changes to width/height changes and reset scale to 1
+3. Use `width` property on Konva Text to control wrapping instead of scaling
+
+**Files to Investigate**:
+- `canvas-transformer.component.tsx` - Transformer bounds update logic for text
+- `canvas-stage.component.tsx` - Text object rendering
+- Text object type definition
+
+---
+
+#### 23. Text Box Editable in Preview Mode
+
+**Status**: ⚠️ NEEDS FIX
+
+**Description**: When in preview mode, text boxes can still be edited by double-clicking them. Preview mode should be read-only, preventing any editing interactions including text editing.
+
+**Impact**: Users can accidentally modify text content when viewing the canvas in preview mode, which defeats the purpose of a read-only preview.
+
+**Expected Behavior**:
+- Double-clicking a text box in preview mode should not open the text editor
+- Text boxes should be completely non-interactive in preview mode
+- Preview mode should provide a true read-only view of the canvas
+
+**Current Behavior**:
+- Double-clicking a text box in preview mode opens the text editor
+- Users can modify text content even when preview mode is enabled
+
+**Suspected Root Cause**:
+- Text editing double-click handler does not check for `isPreviewMode` flag
+- Text editor component may not be aware of preview mode state
+
+**Possible Solutions**:
+1. Add `isPreviewMode` check in the double-click handler for text objects
+2. Disable text editing when `isPreviewMode` is true
+3. Prevent text editor overlay from appearing in preview mode
+
+**Files to Investigate**:
+- `canvas-stage.component.tsx` - Text object double-click handler and text editing logic
+- Text editor overlay component (if separate)
+- Preview mode state management
 
 ---
 
@@ -1474,9 +1572,9 @@ DELETE /api/gallery/media/{filename}/  # Delete a media file
 
 ---
 
-#### 6. Copy and Paste Functionality
+#### 6. Copy and Paste Functionality ✅ **COMPLETED**
 
-**Description**: Implement copy and paste functionality for objects and grouped objects using keyboard shortcuts (Ctrl+C / Ctrl+V on Windows, Cmd+C / Cmd+V on Mac).
+**Description**: Implement copy and paste functionality for objects and grouped objects using keyboard shortcuts (Ctrl+C / Ctrl+V on Windows, Cmd+C / Cmd+V on Mac) and right-click context menus.
 
 **Features**:
 
@@ -1608,8 +1706,36 @@ Ctrl+C / Cmd+C         # Copy selected object(s)
 Ctrl+V / Cmd+V         # Paste copied object(s)
 ```
 
+**Implemented Features**:
+
+**Keyboard Shortcuts**:
+- `Ctrl+C / Cmd+C` - Copy selected object(s)
+- `Ctrl+V / Cmd+V` - Paste copied object(s)
+- `Ctrl+D / Cmd+D` - Duplicate (copy + paste in one action)
+
+**Right-Click Context Menus**:
+- Right-click on any canvas object → Shows "Copy" option
+- Right-click on empty canvas → Shows "Paste" option (when clipboard has items)
+- Context menu also shows "Ungroup" for group objects
+
+**Features**:
+- Deep cloning of objects with new unique IDs
+- Preserves all object properties (position, size, rotation, styling, etc.)
+- Works with grouped objects (clones entire group structure)
+- Pasted objects offset by 20px from original
+- Automatically selects pasted objects
+- Toast notifications for user feedback
+- Undo/Redo support for paste operations
+
+**Files Modified**:
+- `use-canvas-state.hook.ts` - Added `copyObjects()` and `pasteObjects()` methods with deep cloning
+- `editor.component.tsx` - Added keyboard shortcuts and context menu handlers
+- `canvas-stage.component.tsx` - Added `onCanvasContextMenu` prop and handler
+
 **Future Enhancement**:
-- Implement cut operation (Ctrl+X / Cmd+X) - copy and delete in one action
+- Copy/Paste in layers panel (right-click objects in layers panel to copy/paste)
+- Copy to same group when pasting from layers panel context menu
+- Cut operation (Ctrl+X / Cmd+X) - copy and delete in one action
 - Cross-gallery clipboard (copy from one gallery, paste in another)
 - Clipboard history (remember last N copied objects)
 
@@ -1617,14 +1743,89 @@ Ctrl+V / Cmd+V         # Paste copied object(s)
 
 ### Additional Future Features
 
-7. **Video Support**: Add `VideoObject` type and video upload/playback
-8. **Export**: Export canvas as PNG/PDF
-9. **Collaboration**: Real-time multi-user editing
-10. **Version History**: Save multiple versions of canvas
-11. **Keyboard Navigation**: Arrow keys to move selected objects
-12. **Alignment Tools**: Align left, center, right, distribute
-13. **Filters**: Image filters (grayscale, blur, etc.)
-14. **Rich Text Editing**: Rich text editor with formatting (bold, italic, underline, etc.)
+7. **Image Frame Object** ✅ **COMPLETED**
+
+**Description**: A special "Image Frame" object type that acts as a container for images, allowing users to manage image placement with automatic resizing.
+
+**Implemented Features**:
+
+**Frame Object**:
+- Rectangle with dashed border (customizable)
+- Distinctive visual appearance (light purple fill by default)
+- Placeholder text ("Drop image here") when empty
+- Configurable dimensions via properties panel
+
+**Frame Properties** (Properties Panel):
+- **Fill Mode**: Choose how images fit in the frame
+  - `fit` - Maintains aspect ratio, fits inside frame
+  - `fill` - Crops image to fill entire frame
+- **Placeholder Text**: Customizable empty state message
+- **Dashed Border**: Toggle dashed/solid border
+- **Standard Properties**: Position, size, rotation, opacity, stroke color/width
+- Visual indicator when image is attached to frame
+
+**Image-Frame Association**:
+- `attachImageToFrame(imageId, frameId)` method in canvas state
+- Frame stores reference to attached image via `imageId` property
+- Automatic image resizing based on fill mode:
+  - **Fit mode**: Image scaled to fit inside frame, maintains aspect ratio, centered
+  - **Fill mode**: Image scaled to fill frame completely, may crop edges
+- Undo/Redo support for frame attachments
+
+**Files Created/Modified**:
+- `types/canvas.ts` - Added `FrameObject` interface with properties
+- `canvas-stage.component.tsx` - Added frame rendering with Group, Rect, and placeholder Text
+- `shape-factory.util.ts` - Added frame to shape definitions and factory
+- `use-canvas-state.hook.ts` - Added `attachImageToFrame()` method with fit/fill logic
+- `properties-panel.panel.tsx` - Added frame-specific properties section
+
+**How to Use**:
+1. Click "Shapes" button in toolbar
+2. Select "Image Frame" (🖼 icon)
+3. Frame appears on canvas with dashed border
+4. Upload an image using the upload image functionality
+5. Drag the image over the frame (frame will highlight when hovered)
+6. Drop the image on the frame to attach it
+7. Image automatically resizes to fit frame while respecting aspect ratio
+8. Adjust fill mode and placeholder in properties panel
+
+**Drag-and-Drop Implementation** ✅:
+- **Visual Feedback**: Frame highlights when image is dragged over it (darker fill, thicker border, bold placeholder text)
+- **Collision Detection**: AABB (Axis-Aligned Bounding Box) overlap detection between dragged image and frames
+- **Automatic Attachment**: Image attaches to frame on drop, resizing based on frame's fill mode
+- **Image Rendering**: Attached images are rendered inside the frame group and hidden from main canvas
+- **Aspect Ratio Preservation**: Images maintain their aspect ratio when using 'fit' mode
+- **State Management**: Tracks `draggedImageId` and `hoveredFrameId` for drag state
+
+**Files Modified for Drag-and-Drop**:
+- `canvas-stage.component.tsx`:
+  - Added `draggedImageId` and `hoveredFrameId` state
+  - Added `onAttachImageToFrame` prop
+  - Updated `ImageRenderer` with drag handlers and collision detection
+  - Added `FrameImageRenderer` component to render attached images inside frame
+  - Updated frame rendering to show visual highlight on hover
+  - Skip rendering images attached to frames in main canvas
+
+**Future Enhancements** (Not Yet Implemented):
+- Context menu: Right-click frame → "Attach Image"
+- Replace frame contents by dropping different image
+- Detach image from frame
+- Frame-to-frame image transfer
+
+**Use Cases**:
+- Gallery templates with pre-defined image slots
+- Consistent image sizing across multiple frames
+- Magazine/poster-style layouts
+- Profile picture frames
+
+8. **Video Support**: Add `VideoObject` type and video upload/playback
+9. **Export**: Export canvas as PNG/PDF
+10. **Collaboration**: Real-time multi-user editing
+11. **Version History**: Save multiple versions of canvas
+12. **Keyboard Navigation**: Arrow keys to move selected objects
+13. **Alignment Tools**: Align left, center, right, distribute
+14. **Filters**: Image filters (grayscale, blur, etc.)
+15. **Rich Text Editing**: Rich text editor with formatting (bold, italic, underline, etc.)
 
 ## Useful Resources
 

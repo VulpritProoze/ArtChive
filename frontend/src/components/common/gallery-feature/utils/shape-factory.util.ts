@@ -18,6 +18,7 @@ export const SHAPE_DEFINITIONS: ShapeDefinition[] = [
   { id: 'rectangle', name: 'Rectangle', category: 'basic', icon: '▭', description: 'Simple rectangle shape' },
   { id: 'circle', name: 'Circle', category: 'basic', icon: '●', description: 'Simple circle shape' },
   { id: 'line', name: 'Line', category: 'basic', icon: '─', description: 'Straight line' },
+  { id: 'frame', name: 'Image Frame', category: 'basic', icon: '🖼', description: 'Frame for dropping images' },
 
   // Advanced Shapes
   { id: 'triangle', name: 'Triangle', category: 'advanced', icon: '▲', description: 'Triangle shape' },
@@ -111,6 +112,23 @@ export const createShape = (shapeType: string, x: number = 100, y: number = 100)
         fill: '#3b82f6',
         closed: true,
       } as unknown as CanvasObject;
+
+    case 'frame':
+      return {
+        id: generateId(),
+        type: 'frame',
+        x,
+        y,
+        width: 300,
+        height: 200,
+        draggable: true,
+        stroke: '#4F46E5',
+        strokeWidth: 2,
+        fill: 'rgba(200, 200, 255, 0.1)',
+        dashEnabled: true,
+        placeholder: 'Drop image here',
+        children: [], // Initialize with empty children array
+      } as CanvasObject;
 
     default:
       return null;

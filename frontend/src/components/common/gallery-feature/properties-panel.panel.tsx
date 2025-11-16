@@ -196,7 +196,11 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
                       handleChange('fill', 'transparent');
                     } else {
                       // Restore to a default color when unchecked
-                      handleChange('fill', '#3b82f6');
+                      if (obj.type === 'frame') {
+                        handleChange('fill', 'rgba(200, 200, 255, 0.1)');
+                      } else {
+                        handleChange('fill', '#3b82f6');
+                      }
                     }
                   }}
                 />
@@ -204,15 +208,69 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
               </label>
             </div>
 
-            {/* Color Picker - only show if not transparent */}
-            {localValues.fill !== 'transparent' && (
-              <input
-                type="color"
-                className="w-full h-8 rounded cursor-pointer"
-                value={localValues.fill || '#000000'}
-                onChange={(e) => handleChange('fill', e.target.value)}
-              />
-            )}
+            {/* Color Picker - convert rgba to hex for frames, show color picker for all */}
+            {localValues.fill !== 'transparent' && localValues.fill && (() => {
+              // Helper functions to convert rgba to hex and hex to rgba
+              const rgbaToHex = (rgba: string): string => {
+                const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (match) {
+                  const r = parseInt(match[1]).toString(16).padStart(2, '0');
+                  const g = parseInt(match[2]).toString(16).padStart(2, '0');
+                  const b = parseInt(match[3]).toString(16).padStart(2, '0');
+                  return `#${r}${g}${b}`;
+                }
+                return '#000000';
+              };
+
+              const hexToRgba = (hex: string, alpha: number = 0.1): string => {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+              };
+
+              // Get current fill value
+              const currentFill = localValues.fill || '';
+              
+              // Determine if it's a frame (which uses rgba) or regular shape (which uses hex)
+              const isFrame = obj.type === 'frame';
+              
+              // Convert rgba to hex for display if it's a frame
+              let displayValue = currentFill;
+              if (isFrame && currentFill.startsWith('rgba')) {
+                displayValue = rgbaToHex(currentFill);
+              } else if (!currentFill.startsWith('#') && !currentFill.startsWith('rgba')) {
+                // Invalid format, default to black
+                displayValue = '#000000';
+              }
+
+              // Extract alpha from rgba if it's a frame
+              const getAlpha = (rgba: string): number => {
+                const match = rgba.match(/rgba?\([\d\s,]+,\s*([\d.]+)\)/);
+                return match ? parseFloat(match[1]) : 0.1;
+              };
+
+              const currentAlpha = isFrame && currentFill.startsWith('rgba') 
+                ? getAlpha(currentFill) 
+                : 0.1;
+
+              return (
+                <input
+                  type="color"
+                  className="w-full h-8 rounded cursor-pointer"
+                  value={displayValue}
+                  onChange={(e) => {
+                    if (isFrame) {
+                      // For frames, convert hex to rgba with preserved alpha
+                      handleChange('fill', hexToRgba(e.target.value, currentAlpha));
+                    } else {
+                      // For regular shapes, use hex directly
+                      handleChange('fill', e.target.value);
+                    }
+                  }}
+                />
+              );
+            })()}
           </div>
         )}
 
@@ -332,18 +390,36 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
           </>
         )}
 
-        {/* Image Properties */}
-        {obj.type === 'image' && (
-          <div>
-            <label className="label label-text text-xs font-semibold">Image URL</label>
-            <input
-              type="text"
-              className="input input-xs input-bordered w-full"
-              value={localValues.src || ''}
-              onChange={(e) => handleChange('src', e.target.value)}
-              readOnly
-            />
-          </div>
+
+        {/* Frame Properties */}
+        {obj.type === 'frame' && (
+          <>
+            <div>
+              <label className="label label-text text-xs font-semibold">Placeholder Text</label>
+              <input
+                type="text"
+                className="input input-xs input-bordered w-full"
+                value={localValues.placeholder || 'Drop image here'}
+                onChange={(e) => handleChange('placeholder', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label label-text text-xs font-semibold">Dashed Border</label>
+              <input
+                type="checkbox"
+                className="checkbox checkbox-xs"
+                checked={localValues.dashEnabled !== false}
+                onChange={(e) => handleChange('dashEnabled', e.target.checked)}
+              />
+            </div>
+            {obj.children && obj.children.length > 0 && (
+              <div className="p-2 bg-info/10 rounded">
+                <p className="text-xs text-info">
+                  ✓ Image attached to frame
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

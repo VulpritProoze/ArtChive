@@ -139,7 +139,6 @@ export default function GalleryEditor() {
       fontSize: 24,
       fontFamily: 'Arial',
       fill: '#000000',
-      width: 200, // Add width for text wrapping
       draggable: true,
     };
     editorState.addObject(newText);
@@ -154,25 +153,57 @@ export default function GalleryEditor() {
       points: [0, 0, 200, 0],
       stroke: '#000000',
       strokeWidth: 2,
-      lineCap: 'round', // Add lineCap
-      lineJoin: 'round', // Add lineJoin
       draggable: true,
     };
     editorState.addObject(newLine);
   }, [editorState]);
 
   const handleAddImage = useCallback((url: string) => {
-    const newImage: ImageObject = {
-      id: generateId(),
-      type: 'image',
-      x: 100,
-      y: 100,
-      src: url,
-      width: 300,
-      height: 200,
-      draggable: true,
+    // Load the image to get its natural dimensions and maintain aspect ratio
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      // Get natural dimensions
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
+      
+      // Calculate dimensions maintaining aspect ratio
+      // Use a max dimension to prevent images from being too large
+      const maxDimension = 500;
+      let width = naturalWidth;
+      let height = naturalHeight;
+      
+      // Scale down if image is larger than max dimension
+      if (naturalWidth > maxDimension || naturalHeight > maxDimension) {
+        const aspectRatio = naturalWidth / naturalHeight;
+        if (naturalWidth > naturalHeight) {
+          width = maxDimension;
+          height = maxDimension / aspectRatio;
+        } else {
+          height = maxDimension;
+          width = maxDimension * aspectRatio;
+        }
+      }
+      
+      const newImage: ImageObject = {
+        id: generateId(),
+        type: 'image',
+        x: 100,
+        y: 100,
+        src: url,
+        width: Math.round(width),
+        height: Math.round(height),
+        draggable: true,
+      };
+      editorState.addObject(newImage);
     };
-    editorState.addObject(newImage);
+    
+    img.onerror = () => {
+      toast.error('Failed to load image');
+    };
+    
+    img.src = url;
   }, [editorState]);
 
   const handleAddShape = useCallback((shape: CanvasObject) => {

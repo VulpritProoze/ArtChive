@@ -86,6 +86,8 @@ export function LayerPanel({
         return '📦';
       case 'group':
         return '📁';
+      case 'frame':
+        return '🖼️';
       default:
         return '•';
     }
@@ -99,13 +101,15 @@ export function LayerPanel({
     return `${obj.type.charAt(0).toUpperCase() + obj.type.slice(1)} ${obj.id.slice(0, 4)}`;
   };
 
-  // Helper function to render a layer item (can be recursive for groups)
+  // Helper function to render a layer item (can be recursive for groups and frames)
   const renderLayerItem = (obj: CanvasObject, index: number, depth: number = 0) => {
     const isSelected = selectedIds.includes(obj.id);
     const isVisible = obj.visible !== false;
     const isGroup = obj.type === 'group';
-    const isExpanded = isGroup && expandedGroups.has(obj.id);
-    const hasChildren = isGroup && 'children' in obj && obj.children && obj.children.length > 0;
+    const isFrame = obj.type === 'frame';
+    const isContainer = isGroup || isFrame; // Both groups and frames can have children
+    const isExpanded = isContainer && expandedGroups.has(obj.id);
+    const hasChildren = isContainer && 'children' in obj && obj.children && obj.children.length > 0;
 
     return (
       <div key={obj.id}>
@@ -117,8 +121,8 @@ export function LayerPanel({
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           onClick={(e) => handleLayerClick(e, obj.id)}
         >
-          {/* Expand/Collapse icon for groups */}
-          {isGroup && hasChildren ? (
+          {/* Expand/Collapse icon for groups and frames */}
+          {isContainer && hasChildren ? (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -133,7 +137,7 @@ export function LayerPanel({
               )}
             </button>
           ) : (
-            <span className="w-4" /> // Spacer for non-groups
+            <span className="w-4" /> // Spacer for non-containers
           )}
 
           {/* Object Icon */}
@@ -195,8 +199,8 @@ export function LayerPanel({
           </button>
         </div>
 
-        {/* Render children if group is expanded */}
-        {isGroup && isExpanded && hasChildren && (
+        {/* Render children if container (group or frame) is expanded */}
+        {isContainer && isExpanded && hasChildren && (
           <div className="bg-base-300/30">
             {'children' in obj && obj.children.map((child: CanvasObject, childIndex: number) =>
               renderLayerItem(child, childIndex, depth + 1)
