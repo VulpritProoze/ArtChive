@@ -12,6 +12,7 @@ import { PostLoadingIndicator } from "@components/common";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout";
 import { formatArtistTypesToString } from '@utils';
+import { SkeletonPostCard } from "@components/common/skeleton";
 
 const Timeline: React.FC = () => {
   const { user } = useAuth(); // This now has your actual user data!
@@ -212,12 +213,10 @@ const Timeline: React.FC = () => {
         {activeTab === "timeline" && (
           <>
             {loading && posts.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="loading loading-spinner loading-lg text-primary"></div>
-                <p className="mt-4 text-base-content/70 font-medium">
-                  Loading posts...
-                </p>
-              </div>
+              <SkeletonPostCard
+                count={3}
+                containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
+              />
             )}
 
             <div className="flex flex-col gap-6 max-w-3xl mx-auto">

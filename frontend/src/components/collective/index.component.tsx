@@ -3,7 +3,7 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { useCollectiveContext } from "@context/collective-context";
-import { LoadingSpinner } from "@components/loading-spinner";
+import { SkeletonCollectiveCard } from "@components/common/skeleton";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -52,7 +52,10 @@ export default function Index() {
         {/* Collectives Grid */}
         <div>
           {loading ? (
-            <LoadingSpinner text="Loading collectives..." />
+            <SkeletonCollectiveCard
+              count={6}
+              containerClassName="grid grid-cols-1 gap-4"
+            />
           ) : collectives.length === 0 ? (
             <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
               <div className="text-6xl mb-4">🎨</div>
@@ -95,7 +98,7 @@ export default function Index() {
                               {collective.title}
                             </h2>
                             <div className="flex items-center gap-3 text-sm text-base-content/70">
-                              <span>{collective.member_count || 'N/A'} members</span>
+                              <span>{collective.member_count || 0} members</span>
                               <span className="flex items-center gap-1" title="Brush Drips Count">
                                 <span className="w-3 h-3 rounded-full bg-primary"></span>
                                 {collective.brush_drips_count || 0}

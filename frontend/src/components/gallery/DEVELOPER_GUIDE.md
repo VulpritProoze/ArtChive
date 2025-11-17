@@ -782,6 +782,37 @@ All snapping types generate visual guide lines that render in [CanvasStage.tsx:1
 
 ---
 
+#### 6. Editing Textarea in Properties Panel for Template Text Objects Causes Disappearance
+
+**Status**: ⚠️ CRITICAL - NEEDS FIX
+
+**Description**: When editing the textarea (in properties panel) of a textbox object within template objects (specifically "Classic Frame" and "Info Card" templates), the textbox disappears from the canvas.
+
+**Impact**: Major data loss bug - users lose text objects when trying to edit text content in templates via the properties panel.
+
+**Steps to Reproduce**:
+1. Insert a template (Classic Frame or Info Card) that contains text objects
+2. Select a text object within the template (using layers panel)
+3. Edit the text content in the properties panel textarea
+4. Text object disappears from canvas
+
+**Expected Behavior**:
+- Text object should update with new content
+- Text object should remain visible on canvas
+- Template structure should remain intact
+
+**Suspected Root Cause**:
+- Text update logic for objects within templates/groups may be incorrectly handling the update
+- Template object structure may be getting corrupted during text updates
+- Update handler may be deleting instead of updating the text object
+
+**Files to Investigate**:
+- `properties-panel.panel.tsx` - Textarea update handlers for text objects
+- `use-canvas-state.hook.ts` - `updateObject` method for template/group children
+- Template object update logic
+
+---
+
 ### 🟡 Minor Issues
 
 #### 5. Rotation Performance Issues
@@ -1260,6 +1291,57 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - `canvas-stage.component.tsx` - Text object double-click handler and text editing logic
 - Text editor overlay component (if separate)
 - Preview mode state management
+
+---
+
+#### 24. Hotkeys Not Disabled When Editing Textarea
+
+**Status**: ⚠️ MINOR - NEEDS FIX
+
+**Description**: When editing text in a textarea (both in properties panel and on canvas), keyboard shortcuts are still active. For example, typing "M" in a textbox triggers the move tool instead of inserting the letter "M".
+
+**Impact**: Users cannot type certain letters or characters that conflict with keyboard shortcuts when editing text.
+
+**Steps to Reproduce**:
+1. Select a text object
+2. Start editing text in properties panel textarea or on canvas
+3. Type "M" (or any other keyboard shortcut key)
+4. Tool switches instead of inserting the character
+
+**Expected Behavior**:
+- Keyboard shortcuts should be disabled when focus is on a text input/textarea
+- All characters should be typeable in text fields
+- Shortcuts should only work when not editing text
+
+**Suggested Fix**:
+- Detect when a text input/textarea has focus
+- Disable global keyboard shortcut handlers when text editing is active
+- Re-enable shortcuts when text editing loses focus
+
+**Files to Investigate**:
+- `GalleryEditor.tsx` - Keyboard shortcut handlers
+- `properties-panel.panel.tsx` - Textarea focus/blur handlers
+- `CanvasStage.tsx` - Text editing handlers
+
+---
+
+#### 25. Template Image Frames Should Use Implemented Frame Object
+
+**Status**: ⚠️ MINOR - NEEDS FIX
+
+**Description**: Template image frames (in templates like "Classic Frame" and "Info Card") should use the Frame object type that has been implemented in the shapes system, rather than using a different implementation.
+
+**Impact**: Inconsistency in how frames are handled across the application. Templates may not benefit from frame-specific features like placeholder text, proper image cropping, etc.
+
+**Expected Behavior**:
+- All template image frames should use the `FrameObject` type
+- Templates should leverage frame-specific features (placeholder, image constraints, etc.)
+- Consistent behavior between manually created frames and template frames
+
+**Files to Investigate**:
+- `template-library.library.tsx` - Template definitions
+- Template data structure and object types
+- Frame object implementation in shapes
 
 ---
 

@@ -5,11 +5,12 @@ import cloudinary.uploader
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
+from core.models import User
 
 from .models import Gallery
 from .serializers import GallerySerializer
@@ -119,6 +120,53 @@ class GalleryDetailView(APIView):
             )
         gallery.delete()  # Uses model's soft delete
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GalleryActiveView(APIView):
+    """
+    GET /api/gallery/user/<user_id>/active/ - Get the active gallery for a user
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+
+    def get(self, _request, user_id):  # noqa: ARG002
+        """Get the active gallery for the specified user"""
+        try:
+            user = User.objects.get(pk=user_id)
+        except ObjectDoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get all active galleries for this user
+        active_galleries = Gallery.objects.get_active_objects().filter(
+            creator=user,
+            status='active'
+        )
+
+        # Validate: Check if user has multiple active galleries
+        active_count = active_galleries.count()
+        if active_count >= 2:
+            return Response(
+                {
+                    'error': 'Multiple active galleries detected. Please contact ArtChive staff for assistance.',
+                    'code': 'MULTIPLE_ACTIVE_GALLERIES'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # If no active gallery, return 404
+        if active_count == 0:
+            return Response(
+                {'error': 'No active gallery found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Exactly one active gallery - return it
+        gallery = active_galleries.first()
+        serializer = GallerySerializer(gallery)
+        return Response(serializer.data)
 
 
 class MediaUploadView(APIView):

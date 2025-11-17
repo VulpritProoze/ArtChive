@@ -181,4 +181,12 @@ export const galleryService = {
     const response = await gallery.patch(`${galleryId}/status/`, { status });
     return response.data;
   },
+
+  /**
+   * Get active gallery by user ID
+   */
+  async getActiveGalleryByUserId(userId: number): Promise<Gallery> {
+    const response = await gallery.get(`user/${userId}/active/`);
+    return response.data;
+  },
 };
