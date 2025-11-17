@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { galleryService, type Gallery } from '@services/gallery.service';
-import { LoadingSpinner } from '../loading-spinner';
 import { GalleryCreationModal, type GalleryFormData } from './gallery-creation.modal';
 import { GalleryCard } from './gallery-card.card';
+import { PublishGalleryModal } from './publish-gallery.modal';
+import { SkeletonCard } from '../common/skeleton';
 
 const MyGalleries = () => {
   const navigate = useNavigate();
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   // Load galleries on mount
   useEffect(() => {
@@ -83,6 +85,22 @@ const MyGalleries = () => {
     }
   };
 
+  // Check if user has active galleries
+  const hasActiveGallery = galleries.some((g) => g.status === 'active');
+
+  const handlePublish = async (galleryId: string) => {
+    try {
+      await galleryService.updateGalleryStatus(galleryId, 'active');
+      toast.success('Gallery published successfully!');
+      setShowPublishModal(false);
+      loadGalleries(); // Refresh list
+    } catch (error) {
+      console.error('Failed to publish gallery:', error);
+      toast.error('Failed to publish gallery');
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
   // Log render state
   console.log('[GalleryIndex] Rendering with state:', {
     isLoading,
@@ -101,18 +119,36 @@ const MyGalleries = () => {
               Create and manage your virtual art galleries
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Create Gallery
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowPublishModal(true)}
+              className="btn btn-secondary gap-2"
+              disabled={hasActiveGallery}
+              title={
+                hasActiveGallery
+                  ? 'You already have an active gallery. Archive it first to publish another.'
+                  : 'Publish a gallery'
+              }
+            >
+              <Upload className="w-5 h-5" />
+              Publish
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn btn-primary gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Create Gallery
+            </button>
+          </div>
         </div>
 
         {/* Loading State */}
         {isLoading ? (
-          <LoadingSpinner text={"Loading created galleries..."} />
+          <SkeletonCard
+            count={8}
+            containerClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          />
         ) : galleries.length === 0 ? (
           /* Empty State */
           <div className="text-center py-20">
@@ -150,6 +186,14 @@ const MyGalleries = () => {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateGallery}
+        />
+
+        {/* Publish Gallery Modal */}
+        <PublishGalleryModal
+          isOpen={showPublishModal}
+          onClose={() => setShowPublishModal(false)}
+          galleries={galleries}
+          onPublish={handlePublish}
         />
       </div>
     </MainLayout>

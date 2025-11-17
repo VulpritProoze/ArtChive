@@ -44,10 +44,20 @@ Implement a complete gallery publishing system that allows users to publish thei
 - Features:
   - List all galleries (from `galleries` prop)
   - Show gallery title, description, status
-  - Disable galleries that are already `status === 'active'`
-  - Show visual indicator (badge/icon) for active galleries
-  - "Publish" button for each non-active gallery
+  - **If there is an active gallery:**
+    - Disable ALL galleries (cannot select any)
+    - Show visual indicator (badge/icon) for the active gallery
+    - Disable the "Publish" button in the modal
+    - Show message: "You already have an active gallery. Archive it first to publish another."
+  - **If there is NO active gallery:**
+    - Allow selecting one gallery (radio button or clickable card)
+    - Enable "Publish" button when a gallery is selected
+    - Disable "Publish" button when no gallery is selected
+  - Single "Publish" button at the bottom of the modal (not per gallery)
   - Cancel button to close modal
+- State:
+  - `selectedGalleryId: string | null` - Track which gallery is selected
+  - `hasActiveGallery: boolean` - Check if any gallery has status 'active'
 - Props:
   ```typescript
   interface PublishGalleryModalProps {
@@ -197,7 +207,11 @@ Implement a complete gallery publishing system that allows users to publish thei
 - [ ] Publish button appears in galleries list
 - [ ] Publish button is disabled when user has active gallery
 - [ ] Publish modal shows all galleries
-- [ ] Active galleries are disabled in modal
+- [ ] When active gallery exists: all galleries are disabled/unselectable in modal
+- [ ] When active gallery exists: visual indicator shows which gallery is active
+- [ ] When active gallery exists: Publish button in modal is disabled
+- [ ] When no active gallery: user can select one gallery
+- [ ] When no active gallery: Publish button is enabled only when gallery is selected
 - [ ] Publishing a gallery sets status to 'active'
 - [ ] Publishing fails if another gallery is active (backend validation)
 - [ ] Published gallery view loads correctly at `/gallery/:user-id`
