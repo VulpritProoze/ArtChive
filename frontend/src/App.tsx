@@ -15,6 +15,7 @@ import {
   Home,
   GalleryIndex,
   GalleryEditor,
+  PublishedGalleryView,
   Profile,
   Timeline,
   BrushDripsPage,
@@ -135,6 +136,7 @@ function App() {
 
                     <Route path="/gallery" element={<GalleryIndex />} />
                     <Route path="/gallery/me" element={<MyGalleries />} />
+                    <Route path="/gallery/:userId" element={<PublishedGalleryView />} />
                     <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
 
                     {/* Individual Post Route */}

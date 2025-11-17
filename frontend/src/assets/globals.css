@@ -86,6 +86,10 @@ html {
   @apply shadow-none;
 }
 
+@utility badge {
+  @apply text-xs px-2 py-0.5 rounded-full;
+}
+
 @utility card-body {
   @apply bg-base-100 rounded-md border border-base-300 shadow-sm;
 }
