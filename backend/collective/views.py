@@ -83,7 +83,7 @@ class CollectiveCreateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Step 2: Create collective + channels in atomic transaction
+        # Step 2: Create collective + channels + membership in atomic transaction
         try:
             with transaction.atomic():
                 # Use serializer.save() — handles picture field correctly
@@ -98,13 +98,18 @@ class CollectiveCreateView(APIView):
                         description=channel_config["description"]
                     )
 
+                # Automatically join the creator as an admin member
+                CollectiveMember.objects.create(
+                    collective_id=collective,
+                    member=request.user,
+                    collective_role='admin'
+                )
+
                 output_serializer = CollectiveCreateSerializer(
                     collective,
                     context={'request': request}
                 )
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-
-        # Will have to add one more feature: On collective create, the creator will automatically become admin
 
         except Exception:
             return Response(

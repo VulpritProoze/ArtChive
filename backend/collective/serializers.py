@@ -1,12 +1,12 @@
 import uuid
 
 from django.core.validators import FileExtensionValidator
-from django.db.models import OuterRef, Subquery, Sum
+from django.db.models import Sum
 from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
 
-from common.utils.choices import FACEBOOK_RULES
+from common.utils.choices import CHANNEL_TYPE_CHOICES, CHANNEL_TYPES, FACEBOOK_RULES
 from common.utils.constants import (
     ALLOWED_EXTENSIONS_FOR_IMAGES,
     MAX_FILE_SIZE_FOR_IMAGES,
@@ -31,9 +31,21 @@ class ChannelSerializer(ModelSerializer):
 
 
 class CollectiveChannelSerializer(ModelSerializer):
+    channel_type = serializers.SerializerMethodField()
+
     class Meta:
         model = Channel
-        fields = ["channel_id", "description", "title"]
+        fields = ["channel_id", "description", "channel_type", "title"]
+
+    def get_channel_type(self, obj):
+        """Convert snake_case channel_type to display format."""
+        # Use CHANNEL_TYPES namespace to get display value
+        channel_type_mapping = {
+            'post_channel': CHANNEL_TYPES.post_channel,
+            'media_channel': CHANNEL_TYPES.media_channel,
+            'event_channel': CHANNEL_TYPES.event_channel,
+        }
+        return channel_type_mapping.get(obj.channel_type, obj.channel_type)
 
 
 class CollectiveMemberSerializer(ModelSerializer):
@@ -154,7 +166,7 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
             img.verify()  # Verify it's a real image
             value.seek(0)  # Reset file pointer for Django to save it
         except Exception:
-            raise serializers.ValidationError("Invalid or corrupted image file.")
+            raise serializers.ValidationError("Invalid or corrupted image file.") from None
 
         return value
 
@@ -180,10 +192,14 @@ class ChannelCreateSerializer(ModelSerializer):
         max_length=4096, required=False, allow_blank=True
     )
     collective = serializers.UUIDField(write_only=True)
+    channel_type = serializers.ChoiceField(
+        choices=CHANNEL_TYPE_CHOICES,
+        default=CHANNEL_TYPES.post_channel,
+    )
 
     class Meta:
         model = Channel
-        fields = ["title", "description", "collective"]
+        fields = ["title", "description", "collective", "channel_type"]
 
     def validate_title(self, value):
         """

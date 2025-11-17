@@ -1,10 +1,11 @@
-import { createContext, useState, useContext } from 'react'
-import type { CollectivePostContextType, Collective, Channel, ChannelCreateForm } from '@types'
+import { createContext, useState, useContext, useEffect } from 'react'
+import type { CollectivePostContextType, Collective, Channel, ChannelCreateForm, ChannelCreateRequest } from '@types'
 import { collective } from '@lib/api'
 import { usePostContext } from './post-context'
 import { toast } from 'react-toastify'
 import { channelCreateErrors, defaultErrors } from '@errors'
 import { handleApiError } from '@utils'
+import { convertChannelTypeToSnakeCase } from '@utils/convert-channel-type'
 
 export const CollectivePostContext = createContext<CollectivePostContextType | undefined>(undefined)
 
@@ -13,13 +14,17 @@ export const CollectivePostProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
     const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
-    const [createChannelForm, setCreateChannelForm] = useState<ChannelCreateForm>({ title: '', description: '', collective: '' });
+    const [createChannelForm, setCreateChannelForm] = useState<ChannelCreateForm>({ title: '', description: '', collective: '', channel_type: undefined });
     const [creatingChannel, setCreatingChannel] = useState(false);
     const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
     const [updatingChannel, setUpdatingChannel] = useState(false);
     const [deletingChannel, setDeletingChannel] = useState(false);
 
     const { fetchPosts, setPostForm } = usePostContext()
+
+    // useEffect(() => {
+    //   console.log('collectiveData', collectiveData);
+    // }, [collectiveData]);
 
     const fetchCollectiveData = async (collectiveId: string) => {
       if (!collectiveId) return;
@@ -53,15 +58,24 @@ export const CollectivePostProvider = ({ children }) => {
       setCreatingChannel(true);
     
       try {
-        createChannelForm.collective = collectiveData.collective_id
-        await collective.post(`${collectiveData.collective_id}/channel/create/`, createChannelForm)
+        // Convert form data to API request format (snake_case for channel_type)
+        const requestData: ChannelCreateRequest = {
+          title: createChannelForm.title,
+          description: createChannelForm.description,
+          collective: collectiveData.collective_id,
+          channel_type: createChannelForm.channel_type 
+            ? convertChannelTypeToSnakeCase(createChannelForm.channel_type)
+            : 'post_channel', // Default to post_channel if not provided
+        };
+        
+        await collective.post(`${collectiveData.collective_id}/channel/create/`, requestData)
 
         // Refetch collective data to include the new channel
         await fetchCollectiveData(collectiveData.collective_id);
     
         // Close modal and reset form
         setShowCreateChannelModal(false);
-        setCreateChannelForm({ title: '', description: '', collective: '' });
+        setCreateChannelForm({ title: '', description: '', collective: '', channel_type: undefined });
     
         toast.success('Channel created successfully!')
       } catch (error) {

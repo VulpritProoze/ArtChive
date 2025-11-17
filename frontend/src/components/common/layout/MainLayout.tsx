@@ -234,7 +234,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       {/* Settings Sidebar Overlay */}
       {isSettingsOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm"
           onClick={() => setIsSettingsOpen(false)}
         />
       )}

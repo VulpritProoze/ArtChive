@@ -1,6 +1,11 @@
+import { useEffect } from "react";
 import { useCollectivePostContext } from "@context/collective-post-context";
 
-export default function ChannelCreateModal() {
+interface ChannelCreateModalProps {
+  channel_type?: 'Post Channel' | 'Media Channel' | 'Event Channel';
+}
+
+export default function ChannelCreateModal({ channel_type }: ChannelCreateModalProps) {
   const {
     setShowCreateChannelModal,
     handleCreateChannel,
@@ -8,6 +13,13 @@ export default function ChannelCreateModal() {
     setCreateChannelForm,
     creatingChannel,
   } = useCollectivePostContext();
+
+  // Set channel_type when modal opens or channel_type prop changes
+  useEffect(() => {
+    if (channel_type) {
+      setCreateChannelForm(prev => ({ ...prev, channel_type }));
+    }
+  }, [channel_type, setCreateChannelForm]);
 
   return (
     <>
@@ -58,7 +70,7 @@ export default function ChannelCreateModal() {
                 className="btn"
                 onClick={() => {
                   setShowCreateChannelModal(false);
-                  setCreateChannelForm({ title: "", description: "", collective: "" });
+                  setCreateChannelForm({ title: "", description: "", collective: "", channel_type: undefined });
                 }}
               >
                 Cancel
