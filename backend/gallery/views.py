@@ -2,6 +2,7 @@ import os
 import uuid
 
 import cloudinary.uploader
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
+
 from .models import Gallery
 from .serializers import GallerySerializer
 
@@ -71,10 +73,10 @@ class GalleryDetailView(APIView):
         """Get gallery object ensuring user owns it"""
         try:
             return self.get_queryset().get(gallery_id=gallery_id)
-        except Gallery.DoesNotExist:
+        except ObjectDoesNotExist:
             return None
 
-    def get(self, request, gallery_id):
+    def get(self, _request, gallery_id):  # noqa: ARG002
         """Retrieve a single gallery"""
         gallery = self.get_object(gallery_id)
         if not gallery:
@@ -107,7 +109,7 @@ class GalleryDetailView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, gallery_id):
+    def delete(self, _request, gallery_id):  # noqa: ARG002
         """Soft delete a gallery"""
         gallery = self.get_object(gallery_id)
         if not gallery:
@@ -201,7 +203,7 @@ class GalleryStatusUpdateView(APIView):
         """Get gallery object ensuring user owns it"""
         try:
             return self.get_queryset().get(gallery_id=gallery_id)
-        except Gallery.DoesNotExist:
+        except ObjectDoesNotExist:
             return None
 
     def patch(self, request, gallery_id):
