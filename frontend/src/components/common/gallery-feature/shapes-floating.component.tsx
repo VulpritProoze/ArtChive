@@ -6,7 +6,7 @@ import { SHAPE_DEFINITIONS, createShape } from './utils/shape-factory.util';
 interface ShapesFloatingProps {
   onAddShape: (shape: CanvasObject) => void;
   onClose: () => void;
-  buttonRef: React.RefObject<HTMLButtonElement>;
+  buttonRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 export function ShapesFloating({

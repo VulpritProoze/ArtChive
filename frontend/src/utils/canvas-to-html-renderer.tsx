@@ -1,5 +1,6 @@
 import React from 'react';
 import type { CanvasObject, BaseCanvasObject, TextObject, ImageObject, RectObject, CircleObject, LineObject, GroupObject, FrameObject, GalleryItemObject } from '@types';
+import type { TriangleObject, StarObject, DiamondObject } from '../../types/gallery.type';
 
 /**
  * Calculate scale to fit viewport while maintaining aspect ratio
@@ -96,21 +97,33 @@ export function renderCanvasObjectToHTML(
         fill: textObj.fill,
         align: textObj.align,
       });
+      
+      // Only use width as a soft constraint (maxWidth) for wrapping, not a hard constraint
+      // This allows text to grow naturally but wrap if width is specified
+      const textStyles: React.CSSProperties = {
+        ...baseStyles,
+        fontSize: textObj.fontSize ? `${textObj.fontSize * scale}px` : undefined,
+        fontFamily: textObj.fontFamily,
+        color: textObj.fill,
+        fontStyle: textObj.fontStyle,
+        textDecoration: textObj.textDecoration,
+        textAlign: textObj.align as React.CSSProperties['textAlign'],
+        whiteSpace: textObj.width ? 'pre-wrap' : 'pre', // Only wrap if width is set
+        wordWrap: 'break-word',
+        overflowWrap: 'break-word',
+        overflow: 'visible',
+        lineHeight: '1.2',
+      };
+
+      // Only set maxWidth if width is specified (for wrapping), but don't constrain with fixed width
+      if (textObj.width) {
+        textStyles.maxWidth = `${textObj.width * scale}px`;
+      }
+
       return (
         <div
           key={object.id}
-          style={{
-            ...baseStyles,
-            fontSize: textObj.fontSize ? `${textObj.fontSize * scale}px` : undefined,
-            fontFamily: textObj.fontFamily,
-            color: textObj.fill,
-            fontStyle: textObj.fontStyle,
-            textDecoration: textObj.textDecoration,
-            textAlign: textObj.align as React.CSSProperties['textAlign'],
-            width: textObj.width ? `${textObj.width * scale}px` : undefined,
-            whiteSpace: 'pre-wrap',
-            wordWrap: 'break-word',
-          }}
+          style={textStyles}
         >
           {textObj.text}
         </div>
@@ -183,11 +196,19 @@ export function renderCanvasObjectToHTML(
 
     case 'circle': {
       const circleObj = object as CircleObject;
-      const diameter = circleObj.radius * 2 * scale;
+      const scaledRadius = circleObj.radius * scale;
+      const diameter = scaledRadius * 2;
+      // Adjust positioning: circle center is at (x, y), but div's top-left is positioned
+      // So we need to offset by radius to center the circle
+      const adjustedLeft = (object.x - circleObj.radius) * scale;
+      const adjustedTop = (object.y - circleObj.radius) * scale;
+      
       console.log(`  ↳ CIRCLE Details:`, {
         originalRadius: circleObj.radius,
-        scaledRadius: circleObj.radius * scale,
+        scaledRadius: scaledRadius,
         scaledDiameter: diameter,
+        originalCenter: { x: object.x, y: object.y },
+        adjustedPosition: { left: adjustedLeft, top: adjustedTop },
         fill: circleObj.fill,
         stroke: circleObj.stroke,
         strokeWidth: circleObj.strokeWidth,
@@ -196,7 +217,9 @@ export function renderCanvasObjectToHTML(
         <div
           key={object.id}
           style={{
-            ...baseStyles,
+            position: 'absolute',
+            left: `${adjustedLeft}px`,
+            top: `${adjustedTop}px`,
             width: `${diameter}px`,
             height: `${diameter}px`,
             borderRadius: '50%',
@@ -205,6 +228,7 @@ export function renderCanvasObjectToHTML(
               ? `${(circleObj.strokeWidth || 1) * scale}px solid ${circleObj.stroke}`
               : undefined,
             transformOrigin: 'center center',
+            ...applyTransformStyles(object),
           }}
         />
       );
@@ -216,40 +240,73 @@ export function renderCanvasObjectToHTML(
         console.log(`  ↳ LINE Skipped: Not enough points`);
         return <></>;
       }
-      const [x1, y1, x2, y2] = lineObj.points;
-      const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) * scale;
-      const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+      
+      // Points are relative to line position (x, y)
+      // Convert to absolute coordinates
+      const absolutePoints: number[] = [];
+      for (let i = 0; i < lineObj.points.length; i += 2) {
+        absolutePoints.push((lineObj.x + lineObj.points[i]) * scale);
+        absolutePoints.push((lineObj.y + lineObj.points[i + 1]) * scale);
+      }
+
+      // Calculate bounding box for SVG
+      const xCoords = absolutePoints.filter((_, i) => i % 2 === 0);
+      const yCoords = absolutePoints.filter((_, i) => i % 2 === 1);
+      const minX = Math.min(...xCoords);
+      const maxX = Math.max(...xCoords);
+      const minY = Math.min(...yCoords);
+      const maxY = Math.max(...yCoords);
+      const svgWidth = Math.max(1, maxX - minX);
+      const svgHeight = Math.max(1, maxY - minY);
+
+      // Convert absolute points to SVG path (relative to bounding box)
+      let pathData = '';
+      for (let i = 0; i < absolutePoints.length; i += 2) {
+        const x = absolutePoints[i] - minX;
+        const y = absolutePoints[i + 1] - minY;
+        if (i === 0) {
+          pathData = `M ${x} ${y}`;
+        } else {
+          pathData += ` L ${x} ${y}`;
+        }
+      }
+
+      const strokeWidth = (lineObj.strokeWidth || 1) * scale;
+      const strokeColor = lineObj.stroke || '#000000';
 
       console.log(`  ↳ LINE Details:`, {
-        originalPoints: { x1, y1, x2, y2 },
-        scaledPoints: { x1: x1 * scale, y1: y1 * scale, x2: x2 * scale, y2: y2 * scale },
-        originalLength: Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)),
-        scaledLength: length,
-        angle: angle,
-        stroke: lineObj.stroke,
-        strokeWidth: lineObj.strokeWidth,
+        originalPosition: { x: lineObj.x, y: lineObj.y },
+        relativePoints: lineObj.points,
+        absolutePoints: absolutePoints,
+        bounds: { minX, minY, width: svgWidth, height: svgHeight },
+        stroke: strokeColor,
+        strokeWidth: strokeWidth,
       });
 
-      // Combine rotation with existing transforms
-      const existingTransform = baseStyles.transform || '';
-      const combinedTransform = existingTransform
-        ? `${existingTransform} rotate(${angle}deg)`
-        : `rotate(${angle}deg)`;
-
       return (
-        <div
+        <svg
           key={object.id}
           style={{
-            ...baseStyles,
-            left: `${x1 * scale}px`,
-            top: `${y1 * scale}px`,
-            width: `${length}px`,
-            height: `${(lineObj.strokeWidth || 1) * scale}px`,
-            backgroundColor: lineObj.stroke || '#000000',
-            transform: combinedTransform,
-            transformOrigin: 'left center',
+            position: 'absolute',
+            left: `${minX}px`,
+            top: `${minY}px`,
+            width: `${svgWidth}px`,
+            height: `${svgHeight}px`,
+            pointerEvents: 'none',
+            overflow: 'visible',
+            ...applyTransformStyles(object),
           }}
-        />
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        >
+          <path
+            d={pathData}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={strokeWidth / scale}
+            strokeLinecap={lineObj.lineCap || 'round'}
+            strokeLinejoin={lineObj.lineJoin || 'round'}
+          />
+        </svg>
       );
     }
 
@@ -326,6 +383,84 @@ export function renderCanvasObjectToHTML(
             </div>
           )}
         </div>
+      );
+    }
+
+    case 'triangle':
+    case 'diamond':
+    case 'star': {
+      const shapeObj = object as TriangleObject | DiamondObject | StarObject;
+      if (!shapeObj.points || shapeObj.points.length < 4) {
+        console.log(`  ↳ ${object.type.toUpperCase()} Skipped: Not enough points`);
+        return <></>;
+      }
+
+      // Points are relative to object position (x, y)
+      // Calculate bounding box of points for SVG dimensions
+      const xCoords = shapeObj.points.filter((_, i) => i % 2 === 0);
+      const yCoords = shapeObj.points.filter((_, i) => i % 2 === 1);
+      const minX = Math.min(...xCoords);
+      const maxX = Math.max(...xCoords);
+      const minY = Math.min(...yCoords);
+      const maxY = Math.max(...yCoords);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      // Convert points array to SVG path string (relative to bounding box)
+      // Adjust points to be relative to (minX, minY) for viewBox
+      let pathData = '';
+      for (let i = 0; i < shapeObj.points.length; i += 2) {
+        const x = shapeObj.points[i] - minX;
+        const y = shapeObj.points[i + 1] - minY;
+        if (i === 0) {
+          pathData = `M ${x} ${y}`;
+        } else {
+          pathData += ` L ${x} ${y}`;
+        }
+      }
+
+      // Close the path if it's a closed shape
+      const finalPath = shapeObj.closed ? `${pathData} Z` : pathData;
+
+      const strokeWidth = (shapeObj.strokeWidth || 1) * scale;
+      const strokeColor = shapeObj.stroke || '#000000';
+      const fillColor = shapeObj.fill || 'transparent';
+
+      console.log(`  ↳ ${object.type.toUpperCase()} Details:`, {
+        originalPosition: { x: shapeObj.x, y: shapeObj.y },
+        pointsCount: shapeObj.points.length / 2,
+        bounds: { minX, minY, width, height },
+        scaledBounds: { width: width * scale, height: height * scale },
+        scaledStrokeWidth: strokeWidth,
+        fill: fillColor,
+        stroke: strokeColor,
+        closed: shapeObj.closed,
+      });
+
+      return (
+        <svg
+          key={object.id}
+          style={{
+            position: 'absolute',
+            left: `${(shapeObj.x + minX) * scale}px`,
+            top: `${(shapeObj.y + minY) * scale}px`,
+            width: `${width * scale}px`,
+            height: `${height * scale}px`,
+            pointerEvents: 'none',
+            overflow: 'visible',
+            ...applyTransformStyles(object),
+          }}
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <path
+            d={finalPath}
+            fill={fillColor === 'transparent' ? 'none' : fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth / scale}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       );
     }
 
