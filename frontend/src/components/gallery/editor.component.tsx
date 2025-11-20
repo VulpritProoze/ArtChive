@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@components/common/gallery-feature/hooks/use-canvas-state.hook';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
+import type { CanvasObject as GalleryCanvasObject } from '../../types/gallery.type';
 import { LoadingOverlay } from '@components/loading-spinner';
 import { CanvasStage } from '@components/common/gallery-feature/canvas-stage.component';
 import { Toolbar } from '@components/common/gallery-feature/toolbar.component';
@@ -206,8 +207,10 @@ export default function GalleryEditor() {
     img.src = url;
   }, [editorState]);
 
-  const handleAddShape = useCallback((shape: CanvasObject) => {
-    editorState.addObject(shape);
+  const handleAddShape = useCallback((shape: GalleryCanvasObject) => {
+    // Convert gallery.type CanvasObject to canvas.type CanvasObject
+    // The types are mostly compatible, but we need to ensure compatibility
+    editorState.addObject(shape as CanvasObject);
     toast.success('Shape added!');
   }, [editorState]);
 

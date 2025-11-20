@@ -4,7 +4,7 @@ import { galleryService, type Gallery } from '@services/gallery.service';
 import { GalleryLayout } from '@components/common/layout';
 import { LoadingSpinner } from '@components/loading-spinner';
 import handleApiError from '@utils/handle-api-error';
-import { renderCanvasObjectToHTML, calculateScale } from '@utils/canvas-to-html-renderer';
+import { renderCanvasObjectToHTML } from '@utils/canvas-to-html-renderer';
 
 export default function PublishedGalleryView() {
   const { userId } = useParams<{ userId: string }>();
@@ -12,7 +12,7 @@ export default function PublishedGalleryView() {
   const [gallery, setGallery] = useState<Gallery | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string[] | null>(null);
-  const [scale, setScale] = useState(1);
+  const [containerHeight, setContainerHeight] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,28 +53,21 @@ export default function PublishedGalleryView() {
     fetchGallery();
   }, [userId]);
 
-  // Calculate responsive scale to fit viewport
+  // Calculate container height based on aspect ratio and 100vw width
   useEffect(() => {
-    if (!gallery || !containerRef.current) return;
+    if (!gallery) return;
 
-    const updateScale = () => {
-      const headerHeight = 48; // GalleryLayout header height
+    const updateContainerHeight = () => {
       const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight - headerHeight;
-      
-      const calculatedScale = calculateScale(
-        gallery.canvas_width,
-        gallery.canvas_height,
-        viewportWidth,
-        viewportHeight
-      );
-      
-      setScale(calculatedScale);
+      const canvasAspectRatio = gallery.canvas_height / gallery.canvas_width;
+      const calculatedHeight = viewportWidth * canvasAspectRatio;
+
+      setContainerHeight(calculatedHeight);
     };
 
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    updateContainerHeight();
+    window.addEventListener('resize', updateContainerHeight);
+    return () => window.removeEventListener('resize', updateContainerHeight);
   }, [gallery]);
 
   if (isLoading) {
@@ -133,29 +126,40 @@ export default function PublishedGalleryView() {
     return zIndexA - zIndexB;
   });
 
-  const scaledWidth = gallery.canvas_width * scale;
-  const scaledHeight = gallery.canvas_height * scale;
+  // Calculate scale: viewport width / canvas width
+  const scale = window.innerWidth / gallery.canvas_width;
+
+  // Debug logging
+  console.log('=== PUBLISHED GALLERY DEBUG ===');
+  console.log('Canvas Dimensions:', {
+    original: { width: gallery.canvas_width, height: gallery.canvas_height },
+    aspectRatio: gallery.canvas_height / gallery.canvas_width,
+  });
+  console.log('Viewport & Container:', {
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    containerHeight: containerHeight,
+    scale: scale,
+  });
+  console.log('Canvas Background:', gallery.canvas_json?.background || '#ffffff');
+  console.log('Total Objects:', sortedObjects.length);
+  console.log('Objects to render:', sortedObjects.map(obj => ({ type: obj.type, id: obj.id, x: obj.x, y: obj.y })));
+  console.log('=== START RENDERING ===');
 
   return (
     <GalleryLayout>
-      <div 
+      <div
         ref={containerRef}
-        className="flex justify-center items-center min-h-screen w-full overflow-auto"
-        style={{ 
-          minHeight: 'calc(100vh - 48px)',
+        style={{
+          position: 'relative',
+          width: '100vw',
+          height: `${containerHeight}px`,
+          minHeight: `${containerHeight}px`,
           backgroundColor: gallery.canvas_json?.background || '#ffffff',
+          overflow: 'visible',
         }}
       >
-        <div
-          style={{
-            position: 'relative',
-            width: `${scaledWidth}px`,
-            height: `${scaledHeight}px`,
-            backgroundColor: gallery.canvas_json?.background || '#ffffff',
-          }}
-        >
-          {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
-        </div>
+        {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
       </div>
     </GalleryLayout>
   );
