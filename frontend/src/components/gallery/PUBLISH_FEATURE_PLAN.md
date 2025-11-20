@@ -96,15 +96,214 @@ Implement a complete gallery publishing system that allows users to publish thei
 
 - Render `PublishGalleryModal` component
 
-### 4. Published Gallery View Component ⚠️ FIX IN PROGRESS
+### 4. Published Gallery View Component ✅ IMPLEMENTED
 
 **File**: `frontend/src/components/gallery/published-gallery.view.tsx` (NEW)
 
-**Current Status**: 🔴 **CRITICAL BUG - Object Misalignment**
-
-**Issue**: Objects inside groups are misaligned because children are positioned absolutely relative to the container instead of relative to their parent group. See "Known Issues" section below for detailed debugging analysis.
+**Current Status**: ✅ **IMPLEMENTED** - HTML conversion approach with all rendering issues fixed
 
 **Route**: `/gallery/:user-id`
+
+---
+
+#### 4.0 Alternative Approach: Repurposed Canvas (NEW PLAN)
+
+**Status**: 📋 **PROPOSED ALTERNATIVE**
+
+**Description**: Instead of converting canvas objects to HTML/CSS, reuse the existing canvas component (`CanvasStage`) but with constraints and readonly mode for the published gallery view.
+
+**Key Concept**: Use the same canvas rendering engine but disable all editing/interaction features and add constraints for panning.
+
+**File**: `frontend/src/components/gallery/published-gallery.view.tsx`
+
+**Implementation Strategy**:
+
+1. **Reuse CanvasStage Component**:
+   - Import and use the existing `CanvasStage` component from the editor
+   - Pass canvas data (`canvas_json`) directly to the component
+   - No conversion needed - canvas renders objects natively
+
+2. **Stage Dimensions Constraint**:
+   - Set stage dimensions to match canvas content area exactly
+   - Stage width: `gallery.canvas_width`
+   - Stage height: `gallery.canvas_height`
+   - This prevents users from panning beyond the canvas boundaries
+
+3. **Readonly Mode**:
+   - Disable all editing features:
+     - ❌ Object selection (no selection handles, no selection box)
+     - ❌ Object moving/dragging
+     - ❌ Object resizing
+     - ❌ Object rotation
+     - ❌ Object deletion
+     - ❌ Properties panel editing
+     - ❌ Tool selection (all tools disabled)
+     - ❌ Keyboard shortcuts for editing
+   - ✅ Allow only canvas panning (drag to move viewport)
+
+4. **Panning Constraints**:
+   - Constrain panning to canvas boundaries
+   - Users can only pan within the canvas content area
+   - Prevent panning beyond:
+     - Left: `x >= 0`
+     - Top: `y >= 0`
+     - Right: `x <= canvas_width - viewport_width`
+     - Bottom: `y <= canvas_height - viewport_height`
+   - If canvas is smaller than viewport, disable panning entirely
+
+5. **Viewport Handling**:
+   - Container wrapper with `overflow: hidden`
+   - Viewport size matches available screen space
+   - Canvas stage renders at full canvas dimensions
+   - Panning moves the viewport over the canvas
+
+**Component Structure**:
+
+```typescript
+export default function PublishedGalleryView() {
+  const { userId } = useParams<{ userId: string }>();
+  const [gallery, setGallery] = useState<Gallery | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string[] | null>(null);
+
+  // ... fetch gallery logic ...
+
+  if (isLoading || error || !gallery) {
+    // ... loading/error states ...
+  }
+
+  return (
+    <GalleryLayout>
+      <div
+        style={{
+          width: '100vw',
+          height: '100vh',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        <CanvasStage
+          canvasJson={gallery.canvas_json}
+          canvasWidth={gallery.canvas_width}
+          canvasHeight={gallery.canvas_height}
+          readonly={true}
+          enablePanning={true}
+          constrainPanning={true}
+          disableSelection={true}
+          disableTools={true}
+        />
+      </div>
+    </GalleryLayout>
+  );
+}
+```
+
+**CanvasStage Props to Add**:
+
+```typescript
+interface CanvasStageProps {
+  // ... existing props ...
+  
+  // Readonly mode props
+  readonly?: boolean;              // Enable readonly mode
+  enablePanning?: boolean;         // Allow canvas panning
+  constrainPanning?: boolean;      // Constrain panning to canvas bounds
+  disableSelection?: boolean;      // Disable object selection
+  disableTools?: boolean;          // Disable all tools
+}
+```
+
+**CanvasStage Modifications Needed**:
+
+1. **Readonly Mode Check**:
+   ```typescript
+   // In CanvasStage component
+   if (readonly) {
+     // Disable all event handlers for object manipulation
+     // Only allow panning events
+   }
+   ```
+
+2. **Panning Constraints**:
+   ```typescript
+   const handlePan = (deltaX: number, deltaY: number) => {
+     if (!constrainPanning) {
+       // Normal panning
+       return;
+     }
+     
+     const newX = Math.max(0, Math.min(
+       canvasWidth - viewportWidth,
+       currentX + deltaX
+     ));
+     const newY = Math.max(0, Math.min(
+       canvasHeight - viewportHeight,
+       currentY + deltaY
+     ));
+     
+     setViewportPosition({ x: newX, y: newY });
+   };
+   ```
+
+3. **Disable Selection**:
+   ```typescript
+   if (disableSelection) {
+     // Remove selection event handlers
+     // Hide selection handles
+     // Clear selection on mount
+   }
+   ```
+
+4. **Disable Tools**:
+   ```typescript
+   if (disableTools) {
+     // Hide tool panel
+     // Disable keyboard shortcuts
+     // Set tool to 'pan' or 'none'
+   }
+   ```
+
+**Benefits of This Approach**:
+
+✅ **No Conversion Needed**: Reuses existing canvas rendering - no HTML conversion bugs
+✅ **Perfect Alignment**: Objects render exactly as in editor (same rendering engine)
+✅ **Maintains All Features**: Supports all object types, transforms, groups, etc.
+✅ **Simpler Implementation**: No need for complex HTML/CSS conversion logic
+✅ **Better Performance**: Native canvas rendering is more performant than HTML
+✅ **Consistent Behavior**: Published view matches editor view exactly
+
+**Drawbacks**:
+
+⚠️ **Canvas Component Dependency**: Requires modifying `CanvasStage` to support readonly mode
+⚠️ **Panning Implementation**: Need to implement constrained panning if not already present
+⚠️ **Viewport Management**: Need to handle viewport positioning and constraints
+
+**Implementation Steps**:
+
+1. Add readonly mode props to `CanvasStage` component
+2. Implement panning constraints in `CanvasStage`
+3. Disable all editing features when `readonly={true}`
+4. Update `PublishedGalleryView` to use `CanvasStage` with readonly props
+5. Test panning constraints with various canvas/viewport sizes
+6. Ensure no editing interactions are possible in readonly mode
+
+**Testing Checklist**:
+
+- [ ] Canvas renders at exact canvas dimensions
+- [ ] Objects render at correct positions (1:1 with editor)
+- [ ] Panning works within canvas boundaries
+- [ ] Panning is constrained to canvas bounds
+- [ ] Objects cannot be selected
+- [ ] Objects cannot be moved
+- [ ] Objects cannot be resized
+- [ ] Tools panel is hidden/disabled
+- [ ] Keyboard shortcuts are disabled
+- [ ] Properties panel is hidden/disabled
+- [ ] No editing interactions are possible
+- [ ] Viewport correctly shows canvas content
+- [ ] Panning disabled when canvas fits in viewport
+
+---
 
 **Features**:
   - ✅ Fetch active gallery using new backend endpoint
@@ -137,65 +336,176 @@ Implement a complete gallery publishing system that allows users to publish thei
     ```
 - Use `MainLayout` with header auto-hide feature (see below)
 
-#### 4.1 Component Structure - NEW APPROACH
+#### 4.1 Component Structure - Current Implementation (HTML Conversion)
 
-**Current Issue**: Objects are misaligned because:
-1. Using responsive scale that changes container size
-2. Scale is applied to all positions and dimensions in renderer
-3. Container is centered with flex, causing viewport-dependent positioning
+**Current Approach**: 100vw with Responsive Scaling
 
-**New Approach - 100vw with Fixed Aspect Ratio**:
+**Current Implementation**:
 
 ```typescript
-// Calculate height based on canvas aspect ratio and 100vw width
-const canvasAspectRatio = gallery.canvas_height / gallery.canvas_width;
-const containerWidth = window.innerWidth; // 100vw in pixels
-const containerHeight = containerWidth * canvasAspectRatio;
+export default function PublishedGalleryView() {
+  // ... state and fetch logic ...
+  
+  // Calculate scale: viewport width / canvas width
+  const scale = window.innerWidth / gallery.canvas_width;
+  
+  // Calculate container height based on aspect ratio and 100vw width
+  const containerHeight = useMemo(() => {
+    if (!gallery) return 0;
+    const canvasAspectRatio = gallery.canvas_height / gallery.canvas_width;
+    return viewportWidth * canvasAspectRatio;
+  }, [gallery, viewportWidth]);
 
-// Calculate scale factor: viewport width / canvas width
-// This scale maintains 1:1 object positioning relative to canvas
-const scale = containerWidth / gallery.canvas_width;
-
-// Container styles
-<div
-  style={{
-    position: 'relative',
-    width: '100vw',
-    height: `${containerHeight}px`,
-    backgroundColor: gallery.canvas_json?.background || '#ffffff',
-    overflow: 'hidden', // Prevent scroll within container
-  }}
->
-  {/* Render objects with scale factor */}
-  {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
-</div>
+  return (
+    <GalleryLayout>
+      <div
+        style={{
+          position: 'relative',
+          width: '100vw',
+          height: `${containerHeight}px`,
+          minHeight: `${containerHeight}px`,
+          backgroundColor: gallery.canvas_json?.background || '#ffffff',
+          overflow: 'visible',
+        }}
+      >
+        {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
+      </div>
+    </GalleryLayout>
+  );
+}
 ```
 
-**Key Changes**:
+**Key Features**:
 1. **Container width**: Always `100vw` (full viewport width)
 2. **Container height**: Calculated dynamically based on canvas aspect ratio
    - Formula: `containerHeight = (100vw) × (canvas_height / canvas_width)`
 3. **Scale factor**: `viewport_width / canvas_width`
-   - This ensures objects position correctly relative to the scaled canvas
-4. **Object positioning**: All x, y, width, height, fontSize, etc. multiplied by scale
-5. **No centering with flex**: Container takes full viewport width, objects position absolutely within it
-6. **Responsive updates**: Add window resize listener to recalculate containerHeight when viewport changes
+   - Objects scale proportionally to fit viewport width
+4. **Objects**: Render with scale applied to all positions and dimensions
 
-**Benefits**:
-- Canvas always fills 100% of viewport width
-- Aspect ratio is perfectly maintained
-- Objects align correctly because scale is consistent
-- No horizontal scroll (always 100vw)
-- Vertical scroll allowed if canvas is taller than viewport
+**Proposed Alternative - Wrapper with Fixed Dimensions**:
 
-**Implementation Steps**:
-1. Remove `scale` state and responsive scale calculation
-2. Calculate `containerHeight` based on aspect ratio: `(window.innerWidth) * (canvas_height / canvas_width)`
-3. Calculate `scale` as `window.innerWidth / canvas_width`
-4. Set container width to `100vw` and height to `containerHeight`
-5. Pass `scale` to renderer (keep existing renderer logic - it already scales correctly!)
-6. Add resize listener to update `containerHeight` when viewport width changes
-7. Remove centering/flex layout from outer container
+```typescript
+return (
+  <GalleryLayout>
+    {/* Outer wrapper with fixed canvas dimensions and overflow */}
+    <div
+      style={{
+        width: `${gallery.canvas_width}px`,
+        height: `${gallery.canvas_height}px`,
+        overflowX: 'auto',
+        overflowY: 'auto',
+        margin: '0 auto', // Center the wrapper
+      }}
+    >
+      {/* Inner container with canvas dimensions - objects render at 1:1 scale */}
+      <div
+        style={{
+          position: 'relative',
+          width: `${gallery.canvas_width}px`,
+          height: `${gallery.canvas_height}px`,
+          backgroundColor: gallery.canvas_json?.background || '#ffffff',
+        }}
+      >
+        {sortedObjects.map((object) => renderCanvasObjectToHTML(object, 1))}
+      </div>
+    </div>
+  </GalleryLayout>
+);
+```
+
+**Benefits of Fixed Dimensions Approach**:
+- Canvas renders at exact pixel dimensions (e.g., 1080x1080px)
+- If larger than viewport, scrollbars appear automatically
+- Objects render at 1:1 scale, matching editor exactly
+- No viewport calculations or responsive scaling
+- Simpler implementation - no scale calculations needed
+
+---
+
+#### 4.1.1 Known Rendering Issues (HTML Conversion Approach)
+
+**Status**: ⚠️ **ACTIVE BUGS** - Multiple object rendering issues identified
+
+**Issues Found**:
+
+1. **✅ Rectangles, Images, Text**: Render correctly and are properly aligned
+
+2. **🔴 Circles - Misalignment**:
+   - **Problem**: Circles are misaligned, consistently offset by a few pixels to the **bottom-right**
+   - **Root Cause**: Circle positioning uses `left` and `top` based on center point, but CSS `border-radius: 50%` creates the circle from the top-left corner of the bounding box
+   - **Expected**: Circle center should be at `(x, y)` from canvas
+   - **Actual**: Circle center is offset because the div's top-left corner is positioned at `(x, y)` instead of the center
+   - **Fix Required**: Adjust circle positioning to account for radius offset:
+     ```typescript
+     // Current (incorrect):
+     left: `${absoluteX * scale}px`,
+     top: `${absoluteY * scale}px`,
+     
+     // Should be:
+     left: `${(absoluteX - circleObj.radius) * scale}px`,
+     top: `${(absoluteY - circleObj.radius) * scale}px`,
+     ```
+   - **Impact**: All circles appear shifted down and to the right
+
+3. **🔴 Triangle, Diamond, Star - Not Rendered**:
+   - **Problem**: These shape types are not rendered at all
+   - **Root Cause**: The `renderCanvasObjectToHTML` function's switch statement doesn't have cases for `'triangle'`, `'diamond'`, or `'star'`
+   - **Current Code**: Only handles: `text`, `image`, `rect`, `circle`, `line`, `group`, `gallery-item`, `frame`
+   - **Fix Required**: Add cases for these shape types:
+     ```typescript
+     case 'triangle':
+     case 'diamond':
+     case 'star': {
+       // Render using SVG or CSS clip-path
+       // Or use a library that supports these shapes
+     }
+     ```
+   - **Impact**: These shapes are completely missing from published view
+
+4. **🔴 Line - Miscolored**:
+   - **Problem**: Lines render with incorrect color
+   - **Root Cause**: Line rendering uses `backgroundColor` instead of `border` or proper stroke color
+   - **Current Code**:
+     ```typescript
+     backgroundColor: lineObj.stroke || '#000000',
+     ```
+   - **Issue**: `backgroundColor` doesn't work well for rotated lines. Should use `border` or SVG
+   - **Fix Required**: Use `border-left` or `border-top` with proper color, or render as SVG line
+   - **Impact**: Lines appear in wrong color or not visible
+
+5. **🔴 Text - Width Cut Off**:
+   - **Problem**: Text width gets cut off for no apparent reason
+   - **Root Cause**: Text container has `width` constraint that may be too small, or `whiteSpace: 'pre-wrap'` combined with `wordWrap: 'break-word'` causes issues
+   - **Current Code**:
+     ```typescript
+     width: textObj.width ? `${textObj.width * scale}px` : undefined,
+     whiteSpace: 'pre-wrap',
+     wordWrap: 'break-word',
+     ```
+   - **Possible Issues**:
+     - If `textObj.width` is set, it may be too narrow
+     - `whiteSpace: 'pre-wrap'` preserves whitespace but may cause overflow
+     - Missing `overflow: 'visible'` or `overflowWrap: 'break-word'`
+   - **Fix Required**: 
+     - Remove width constraint if text should auto-size
+     - Or ensure width is large enough
+     - Add `overflowWrap: 'break-word'` and `overflow: 'visible'`
+   - **Impact**: Text content is clipped or cut off
+
+**Files Affected**:
+- `frontend/src/utils/canvas-to-html-renderer.tsx` - All rendering logic
+
+**Priority**: 🔴 **HIGH** - Multiple object types not rendering correctly
+
+**Testing Checklist**:
+- [ ] Circles render at correct position (center at x, y)
+- [ ] Triangles render correctly
+- [ ] Diamonds render correctly
+- [ ] Stars render correctly
+- [ ] Lines render with correct color
+- [ ] Text width is not cut off
+- [ ] All shapes maintain 1:1 pixel accuracy with editor
 
 #### 4.2 Renderer Utility Updates
 
@@ -554,4 +864,35 @@ Viewport & Container: {
 - Gallery unpublish/archive from published view
 - Share functionality for published galleries
 - Analytics for published galleries
+
+---
+
+## Important Note: Adding New Canvas Shapes
+
+**⚠️ MAINTENANCE REQUIREMENT**: If new shape types are added to the canvas editor (e.g., new shape tools, custom shapes, etc.), the HTML renderer component (`frontend/src/utils/canvas-to-html-renderer.tsx`) **MUST** be updated to include rendering logic for these new shapes.
+
+**Current Supported Shapes**:
+- ✅ Text (`text`)
+- ✅ Image (`image`)
+- ✅ Rectangle (`rect`)
+- ✅ Circle (`circle`)
+- ✅ Line (`line`)
+- ✅ Triangle (`triangle`)
+- ✅ Diamond (`diamond`)
+- ✅ Star (`star`)
+- ✅ Group (`group`)
+- ✅ Gallery Item (`gallery-item`)
+- ✅ Frame (`frame`)
+
+**When Adding New Shapes**:
+1. Add a new `case` statement in the `renderCanvasObjectToHTML` function's switch statement
+2. Implement HTML/CSS rendering logic for the new shape type
+3. Ensure proper positioning, scaling, and transform handling
+4. Test that the new shape renders correctly in the published gallery view
+5. Update this documentation to include the new shape in the "Current Supported Shapes" list
+
+**Failure to update the renderer will result in**:
+- New shapes not appearing in published galleries
+- Potential runtime errors or console warnings
+- Inconsistent behavior between editor and published view
 
