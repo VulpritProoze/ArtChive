@@ -63,6 +63,7 @@ export function renderCanvasObjectToHTML(
 ): React.ReactElement {
   // Skip invisible objects
   if (object.visible === false) {
+    console.log(`[RENDER] Skipping invisible object: ${object.type} (${object.id})`);
     return <></>;
   }
 
@@ -73,9 +74,28 @@ export function renderCanvasObjectToHTML(
     ...applyTransformStyles(object),
   };
 
+  // Log base positioning info for all objects
+  console.log(`[RENDER] ${object.type.toUpperCase()} - ID: ${object.id}`, {
+    originalPosition: { x: object.x, y: object.y },
+    scaledPosition: { left: object.x * scale, top: object.y * scale },
+    scale: scale,
+    rotation: object.rotation,
+    opacity: object.opacity ?? 1,
+    zIndex: object.zIndex ?? 0,
+    visible: object.visible ?? true,
+  });
+
   switch (object.type) {
     case 'text': {
       const textObj = object as TextObject;
+      console.log(`  ↳ TEXT Details:`, {
+        text: textObj.text,
+        originalSize: { fontSize: textObj.fontSize, width: textObj.width },
+        scaledSize: { fontSize: textObj.fontSize ? textObj.fontSize * scale : undefined, width: textObj.width ? textObj.width * scale : undefined },
+        fontFamily: textObj.fontFamily,
+        fill: textObj.fill,
+        align: textObj.align,
+      });
       return (
         <div
           key={object.id}
@@ -106,13 +126,23 @@ export function renderCanvasObjectToHTML(
       };
 
       // Handle image cropping
-      if (imageObj.cropX !== undefined && imageObj.cropY !== undefined && 
+      if (imageObj.cropX !== undefined && imageObj.cropY !== undefined &&
           imageObj.cropWidth !== undefined && imageObj.cropHeight !== undefined) {
         imageStyles.objectFit = 'none';
         imageStyles.objectPosition = `${-imageObj.cropX * scale}px ${-imageObj.cropY * scale}px`;
         imageStyles.width = `${imageObj.cropWidth * scale}px`;
         imageStyles.height = `${imageObj.cropHeight * scale}px`;
       }
+
+      console.log(`  ↳ IMAGE Details:`, {
+        src: imageObj.src,
+        originalSize: { width: imageObj.width, height: imageObj.height },
+        scaledSize: { width: imageObj.width * scale, height: imageObj.height * scale },
+        crop: imageObj.cropX !== undefined ? {
+          original: { x: imageObj.cropX, y: imageObj.cropY, width: imageObj.cropWidth, height: imageObj.cropHeight },
+          scaled: { x: imageObj.cropX * scale, y: imageObj.cropY * scale, width: imageObj.cropWidth! * scale, height: imageObj.cropHeight! * scale }
+        } : 'none',
+      });
 
       return (
         <img
@@ -126,6 +156,14 @@ export function renderCanvasObjectToHTML(
 
     case 'rect': {
       const rectObj = object as RectObject;
+      console.log(`  ↳ RECT Details:`, {
+        originalSize: { width: rectObj.width, height: rectObj.height },
+        scaledSize: { width: rectObj.width * scale, height: rectObj.height * scale },
+        fill: rectObj.fill,
+        stroke: rectObj.stroke,
+        strokeWidth: rectObj.strokeWidth,
+        cornerRadius: rectObj.cornerRadius,
+      });
       return (
         <div
           key={object.id}
@@ -146,6 +184,14 @@ export function renderCanvasObjectToHTML(
     case 'circle': {
       const circleObj = object as CircleObject;
       const diameter = circleObj.radius * 2 * scale;
+      console.log(`  ↳ CIRCLE Details:`, {
+        originalRadius: circleObj.radius,
+        scaledRadius: circleObj.radius * scale,
+        scaledDiameter: diameter,
+        fill: circleObj.fill,
+        stroke: circleObj.stroke,
+        strokeWidth: circleObj.strokeWidth,
+      });
       return (
         <div
           key={object.id}
@@ -167,18 +213,29 @@ export function renderCanvasObjectToHTML(
     case 'line': {
       const lineObj = object as LineObject;
       if (lineObj.points.length < 4) {
+        console.log(`  ↳ LINE Skipped: Not enough points`);
         return <></>;
       }
       const [x1, y1, x2, y2] = lineObj.points;
       const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) * scale;
       const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
-      
+
+      console.log(`  ↳ LINE Details:`, {
+        originalPoints: { x1, y1, x2, y2 },
+        scaledPoints: { x1: x1 * scale, y1: y1 * scale, x2: x2 * scale, y2: y2 * scale },
+        originalLength: Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)),
+        scaledLength: length,
+        angle: angle,
+        stroke: lineObj.stroke,
+        strokeWidth: lineObj.strokeWidth,
+      });
+
       // Combine rotation with existing transforms
       const existingTransform = baseStyles.transform || '';
-      const combinedTransform = existingTransform 
+      const combinedTransform = existingTransform
         ? `${existingTransform} rotate(${angle}deg)`
         : `rotate(${angle}deg)`;
-      
+
       return (
         <div
           key={object.id}
@@ -199,12 +256,20 @@ export function renderCanvasObjectToHTML(
     case 'group':
     case 'gallery-item': {
       const groupObj = object as GroupObject | GalleryItemObject;
+      console.log(`  ↳ GROUP/GALLERY-ITEM Details:`, {
+        originalSize: { width: groupObj.width, height: groupObj.height },
+        scaledSize: { width: groupObj.width * scale, height: groupObj.height * scale },
+        childrenCount: groupObj.children?.length || 0,
+        background: (groupObj as GalleryItemObject).background,
+        borderColor: (groupObj as GalleryItemObject).borderColor,
+        borderWidth: (groupObj as GalleryItemObject).borderWidth,
+      });
+      console.log(`  ↳ GROUP Children (${groupObj.children?.length || 0}):`);
       return (
         <div
           key={object.id}
           style={{
             ...baseStyles,
-            position: 'relative',
             width: `${groupObj.width * scale}px`,
             height: `${groupObj.height * scale}px`,
             backgroundColor: (groupObj as GalleryItemObject).background,
@@ -221,12 +286,22 @@ export function renderCanvasObjectToHTML(
     case 'frame': {
       const frameObj = object as FrameObject;
       const borderStyle = frameObj.dashEnabled ? 'dashed' : 'solid';
+      console.log(`  ↳ FRAME Details:`, {
+        originalSize: { width: frameObj.width, height: frameObj.height },
+        scaledSize: { width: frameObj.width * scale, height: frameObj.height * scale },
+        childrenCount: frameObj.children?.length || 0,
+        stroke: frameObj.stroke,
+        strokeWidth: frameObj.strokeWidth,
+        fill: frameObj.fill,
+        dashEnabled: frameObj.dashEnabled,
+        placeholder: frameObj.placeholder,
+      });
+      console.log(`  ↳ FRAME Children (${frameObj.children?.length || 0}):`);
       return (
         <div
           key={object.id}
           style={{
             ...baseStyles,
-            position: 'relative',
             width: `${frameObj.width * scale}px`,
             height: `${frameObj.height * scale}px`,
             border: frameObj.stroke
