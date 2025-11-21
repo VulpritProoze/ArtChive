@@ -61,16 +61,17 @@ class CollectiveDetailsView(ListAPIView):
         return context
 
 class CollectiveCreateView(APIView):
-    '''
+    """
     Create a new Collective along with default channels.
 
     Example usage (multipart/form-data):
-    - title: "Digital Artists United"
-    - description: "A collaborative space..."
-    - rules: ["Rule 1", "Rule 2"]  (send as multiple rules[]=Rule1&rules[]=Rule2 or JSON array)
-    - artist_types: ["digital arts", "illustration"]
+    - title: 'Digital Artists United'
+    - description: 'A collaborative space...'
+    - rules: ['Rule 1', 'Rule 2']  (send as multiple rules[]=Rule1&rules[]=Rule2 or JSON array)
+    - artist_types: ['digital arts', 'illustration']
     - picture: <uploaded image file>
-    '''
+    """
+
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]  # Required for file uploads
 

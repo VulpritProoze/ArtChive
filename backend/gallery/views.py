@@ -125,6 +125,7 @@ class GalleryDetailView(APIView):
 class GalleryActiveView(APIView):
     """
     GET /api/gallery/user/<user_id>/active/ - Get the active gallery for a user
+    (Will need to add proper permissions check later)
     """
     permission_classes = [AllowAny]
     parser_classes = [JSONParser]
@@ -166,6 +167,24 @@ class GalleryActiveView(APIView):
         # Exactly one active gallery - return it
         gallery = active_galleries.first()
         serializer = GallerySerializer(gallery)
+        return Response(serializer.data)
+
+
+class GalleryUserListView(APIView):
+    """
+    GET /api/gallery/user/ - Get all galleries owned by the current authenticated user
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get(self, request):
+        """Get all galleries owned by the current authenticated user"""
+        # Get all active (non-deleted) galleries for the current user
+        galleries = Gallery.objects.get_active_objects().filter(
+            creator=request.user
+        ).order_by('-created_at')
+
+        serializer = GallerySerializer(galleries, many=True)
         return Response(serializer.data)
 
 

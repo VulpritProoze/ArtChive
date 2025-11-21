@@ -41,3 +41,17 @@ class GalleryAward(models.Model):
 class AwardType(models.Model):
     award = models.CharField(max_length=100)
     brush_drip_value = models.IntegerField()
+
+
+class ActiveGallery(Gallery):
+    class Meta:
+        proxy = True
+        verbose_name = 'Gallery'
+        verbose_name_plural = 'Galleries'
+
+
+class InactiveGallery(Gallery):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Gallery'
+        verbose_name_plural = 'Inactive Galleries'
