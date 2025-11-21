@@ -34,7 +34,7 @@ const MyGalleries = () => {
       setIsLoading(true);
       console.log('[GalleryIndex] Calling galleryService.listGalleries()');
 
-      const data = await galleryService.listGalleries();
+      const data = await galleryService.userListGalleries();
 
       console.log('[GalleryIndex] Received galleries:', {
         count: data.length,

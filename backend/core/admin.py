@@ -1,3 +1,4 @@
+from decouple import config
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
@@ -8,6 +9,9 @@ from core.models import (
     InactiveUser,
     User,
 )
+
+# Set the "View site" URL to the React app URL
+admin.site.site_url = config('REACT_API_URL', default='/')
 
 
 # Admin for ACTIVE users (default User admin)
@@ -42,6 +46,29 @@ class InactiveUserAdmin(BaseUserAdmin):
         return False
 
 
+# Admin for Artist - read-only, no adding
+class ArtistAdmin(admin.ModelAdmin):
+    list_display = ('user_id', 'get_artist_types')
+    search_fields = ('user_id__username', 'user_id__email')
+    readonly_fields = ('user_id', 'artist_types')
+    list_per_page = 50
+
+    def has_add_permission(self, request):  # noqa: ARG002
+        return False
+
+    def has_change_permission(self, request, obj=None):  # noqa: ARG002
+        return False
+
+    def has_delete_permission(self, request, obj=None):  # noqa: ARG002
+        return False
+
+    def get_artist_types(self, obj):
+        """Display artist types as a comma-separated string"""
+        return ", ".join(obj.artist_types or [])
+
+    get_artist_types.short_description = "Artist Types"
+
+
 # Admin for BrushDripWallet - read-only, no adding
 class BrushDripWalletAdmin(admin.ModelAdmin):
     list_display = ('user', 'balance', 'updated_at')
@@ -64,7 +91,7 @@ class BrushDripTransactionAdmin(admin.ModelAdmin):
     list_display = ('drip_id', 'amount', 'transacted_by', 'transacted_to', 'transaction_object_type', 'transacted_at')
     list_filter = ('transaction_object_type', 'transacted_at')
     search_fields = ('transacted_by__username', 'transacted_to__username', 'transaction_object_id')
-    readonly_fields = ('drip_id', 'transacted_at', 'transacted_by')
+    readonly_fields = ('drip_id', 'transaction_object_type', 'transaction_object_id', 'transacted_at', 'transacted_by')
     list_per_page = 50
     date_hierarchy = 'transacted_at'
 
@@ -72,19 +99,18 @@ class BrushDripTransactionAdmin(admin.ModelAdmin):
         ('Transaction Information', {
             'fields': ('drip_id', 'amount', 'transacted_to')
         }),
-        ('Transaction Details', {
-            'fields': ('transaction_object_type', 'transaction_object_id')
-        }),
         ('Metadata', {
-            'fields': ('transacted_by', 'transacted_at'),
-            'description': 'Transacted by is automatically set to the logged-in admin.'
+            'fields': ('transaction_object_type', 'transaction_object_id', 'transacted_by', 'transacted_at'),
+            'description': 'Transacted by is automatically set to the logged-in admin. Transaction object type and ID are automatically set to admin_override and 0000 respectively.'
         }),
     )
 
     def save_model(self, request, obj, form, change):
-        """Automatically set transacted_by to the logged-in admin and update wallet"""
+        """Automatically set transacted_by, transaction_object_type, and transaction_object_id, and update wallet"""
         if not change:  # Only on creation
             obj.transacted_by = request.user
+            obj.transaction_object_type = 'admin_override'
+            obj.transaction_object_id = '0000'
 
             # Update the wallet balance of transacted_to user
             if obj.transacted_to and obj.amount:
@@ -114,7 +140,7 @@ class BrushDripTransactionAdmin(admin.ModelAdmin):
         return False
 
 
-admin.site.register(Artist)
+admin.site.register(Artist, ArtistAdmin)
 admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
 admin.site.register(BrushDripTransaction, BrushDripTransactionAdmin)
 admin.site.register(User, ActiveUserAdmin)
