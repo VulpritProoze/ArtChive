@@ -3,8 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHandsClapping, faTimes } from "@fortawesome/free-solid-svg-icons";
 import type { PostPraise } from "@types";
 import { post } from "@lib/api";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 
 interface PraiseListModalProps {
@@ -34,7 +34,8 @@ export default function PraiseListModal({
       setPraises(response.data.results || response.data || []);
     } catch (error) {
       console.error("Fetch praises error:", error);
-      toast.error(handleApiError(error, defaultErrors));
+      const message = handleApiError(error, defaultErrors, true, true);
+      toast.error('Failed to load praises', formatErrorForToast(message));
     } finally {
       setLoading(false);
     }

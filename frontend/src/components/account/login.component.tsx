@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import type { SubmitHandler } from 'react-hook-form'
 import { loginErrors } from "@errors";
 import { handleApiError } from "@utils";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
 
 export default function Login() {
   const { login } = useAuth();
@@ -34,10 +34,11 @@ export default function Login() {
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     try {
       await login(data.email, data.password);
+      toast.success('Welcome back!', 'Successfully logged in to your account');
       navigate("/home");
     } catch (error) {
-      const errMessage = handleApiError(error, loginErrors) 
-      toast.error(errMessage)
+      const errMessage = handleApiError(error, loginErrors);
+      toast.error('Login failed', errMessage);
     }
   };
 

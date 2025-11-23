@@ -1,6 +1,6 @@
 import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save } from 'lucide-react';
 import { useUploadImage } from './hooks/use-upload-image.hook';
-import { toast } from 'react-toastify';
+import { toast } from '@utils/toast.util';
 
 type EditorMode = 'pan' | 'move' | 'select';
 
@@ -73,10 +73,10 @@ export function Toolbar({
       const url = await upload(file);
       if (url) {
         onAddImage(url);
-        toast.success('Image uploaded successfully!');
+        toast.success('Image uploaded', 'Your image has been uploaded successfully');
       }
     } catch (error) {
-      toast.error('Failed to upload image');
+      toast.error('Failed to upload image', 'An error occurred while uploading your image');
     }
 
     // Reset input

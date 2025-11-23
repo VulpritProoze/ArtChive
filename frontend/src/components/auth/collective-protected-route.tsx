@@ -1,6 +1,6 @@
 import { Outlet, Navigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
-import { toast } from 'react-toastify'
+import { toast } from '@utils/toast.util'
 import { useAuth } from '@context/auth-context'
 
 export default function CollectiveProtectedRoute() {
@@ -13,9 +13,9 @@ export default function CollectiveProtectedRoute() {
     }
     
     if (!collectiveId) {
-      toast.error("Collective ID is missing in URL");
+      toast.error("Access denied", "Collective ID is missing in URL");
     } else if (!isMember) {
-      toast.info("You need to join this collective to access this page");
+      toast.info("Access required", "You need to join this collective to access this page");
     }
 
     return <Navigate to='/collective' replace />

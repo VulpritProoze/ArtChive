@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBell, faCheck, faCheckDouble, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { useNotifications } from '@context/notification-context';
 import type { Notification } from '@types';
 
@@ -100,8 +99,9 @@ export default function NotificationDropdown() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+        title="Notifications"
       >
-        <FontAwesomeIcon icon={faBell} className="text-lg" />
+        <Bell className="w-5 h-5 flex-shrink-0" />
 
         {/* Unread Badge */}
         {unreadCount > 0 && (
@@ -124,7 +124,7 @@ export default function NotificationDropdown() {
                 onClick={handleMarkAllAsRead}
                 className="text-sm text-primary hover:text-primary-focus flex items-center gap-1"
               >
-                <FontAwesomeIcon icon={faCheckDouble} className="text-xs" />
+                <CheckCheck className="w-4 h-4 flex-shrink-0" />
                 Mark all as read
               </button>
             )}
@@ -134,7 +134,7 @@ export default function NotificationDropdown() {
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
               <div className="py-12 text-center text-base-content/60">
-                <FontAwesomeIcon icon={faBell} className="text-4xl mb-3 opacity-30" />
+                <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>No notifications yet</p>
               </div>
             ) : (
@@ -188,18 +188,18 @@ export default function NotificationDropdown() {
                                 e.stopPropagation();
                                 markAsRead(notification.notification_id);
                               }}
-                              className="text-primary hover:text-primary-focus text-xs"
+                              className="text-primary hover:text-primary-focus"
                               title="Mark as read"
                             >
-                              <FontAwesomeIcon icon={faCheck} />
+                              <Check className="w-4 h-4 flex-shrink-0" />
                             </button>
                           )}
                           <button
                             onClick={(e) => handleDeleteNotification(e, notification.notification_id)}
-                            className="text-base-content/40 hover:text-error text-xs"
+                            className="text-base-content/40 hover:text-error"
                             title="Delete"
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <Trash2 className="w-4 h-4 flex-shrink-0" />
                           </button>
                         </div>
                       </div>

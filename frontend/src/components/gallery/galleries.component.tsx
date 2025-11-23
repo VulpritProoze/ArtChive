@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '@utils/toast.util';
 import { Plus, Upload, Eye, MoreVertical, Sparkles, ArrowLeft } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { useAuth } from '@context/auth-context';
@@ -45,7 +45,7 @@ const MyGalleries = () => {
       console.log('[GalleryIndex] Galleries state updated');
     } catch (error) {
       console.error('[GalleryIndex] Failed to load galleries:', error);
-      toast.error('Failed to load galleries');
+      toast.error('Failed to load galleries', 'An error occurred while loading your galleries');
     } finally {
       console.log('[GalleryIndex] Setting isLoading to false');
       setIsLoading(false);
@@ -62,14 +62,14 @@ const MyGalleries = () => {
         canvas_height: formData.canvas_height,
       });
 
-      toast.success('Gallery created successfully!');
+      toast.success('Gallery created', 'Your new gallery has been created successfully');
       setShowCreateModal(false);
 
       // Navigate to the editor for the new gallery
       navigate(`/gallery/${created.gallery_id}/editor`);
     } catch (error) {
       console.error('Failed to create gallery:', error);
-      toast.error('Failed to create gallery');
+      toast.error('Failed to create gallery', 'An error occurred while creating your gallery');
       throw error; // Re-throw so modal can handle it
     }
   };
@@ -81,11 +81,11 @@ const MyGalleries = () => {
 
     try {
       await galleryService.deleteGallery(galleryId);
-      toast.success('Gallery deleted successfully');
+      toast.success('Gallery deleted', 'Your gallery has been deleted successfully');
       loadGalleries(); // Reload the list
     } catch (error) {
       console.error('Failed to delete gallery:', error);
-      toast.error('Failed to delete gallery');
+      toast.error('Failed to delete gallery', 'An error occurred while deleting your gallery');
     }
   };
 
@@ -116,19 +116,19 @@ const MyGalleries = () => {
     if (user?.id) {
       navigate(`/gallery/${user.id}`);
     } else {
-      toast.error('Unable to view gallery. Please try again.');
+      toast.error('Unable to view gallery', 'Please try again');
     }
   };
 
   const handlePublish = async (galleryId: string) => {
     try {
       await galleryService.updateGalleryStatus(galleryId, 'active');
-      toast.success('Gallery published successfully!');
+      toast.success('Gallery published', 'Your gallery has been published successfully');
       setShowPublishModal(false);
       loadGalleries(); // Refresh list
     } catch (error) {
       console.error('Failed to publish gallery:', error);
-      toast.error('Failed to publish gallery');
+      toast.error('Failed to publish gallery', 'An error occurred while publishing your gallery');
       throw error; // Re-throw so modal can handle it
     }
   };

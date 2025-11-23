@@ -31,7 +31,7 @@ import { AuthProvider } from "@context/auth-context";
 import { CollectiveProvider } from "@context/collective-context";
 import { NotificationProvider } from "@context/notification-context";
 import useToggleTheme from "@hooks/use-theme";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer } from "@components/common/toast";
 
 const Index = lazy(() =>
   import("@components/index/index.component").then((module) => {
@@ -50,19 +50,7 @@ function ThemedToastContainer() {
     setToastTheme(isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
-  return (
-    <ToastContainer
-      position="top-right"
-      autoClose={20000}
-      hideProgressBar={false}
-      newestOnTop={false}
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      pauseOnHover
-      theme={toastTheme}
-    />
-  );
+  return <ToastContainer theme={toastTheme} />;
 }
 
 function App() {

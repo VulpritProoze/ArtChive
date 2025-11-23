@@ -6,8 +6,8 @@ import { PostCard } from "@components/common/posts-feature";
 import { PostProvider } from "@context/post-context";
 import { MainLayout } from "@components/common/layout/MainLayout";
 import { LoadingSpinner } from "../loading-spinner";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 
 interface PostCardPostItem extends Post {
   novel_post: any[];
@@ -35,14 +35,14 @@ export default function PostDetail() {
         setPost(response.data);
       } catch (err: any) {
         console.error("Error fetching post:", err);
-        const message = handleApiError(err, {});
-        setError(message);
+        const message = handleApiError(err, {}, true, true);
+        setError(Array.isArray(message) ? message[0] : message);
 
         // If post not found (404), redirect to 404 page
         if (err.response?.status === 404) {
           navigate("/404", { replace: true });
         } else {
-          toast.error(message);
+          toast.error('Failed to load post', formatErrorForToast(message));
         }
       } finally {
         setLoading(false);

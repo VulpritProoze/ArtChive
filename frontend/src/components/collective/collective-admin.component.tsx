@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { collective } from "@lib/api";
 import { MainLayout } from "@components/common/layout";
 import { LoadingSpinner } from "../loading-spinner";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faUserMinus,
@@ -81,7 +81,8 @@ export default function CollectiveAdmin() {
       setCollectiveTitle(collectiveResponse.data.title);
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast.error(handleApiError(error, {}));
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to load data', formatErrorForToast(message));
     } finally {
       setLoading(false);
     }
@@ -100,11 +101,12 @@ export default function CollectiveAdmin() {
       await collective.delete(`/${collectiveId}/members/kick/`, {
         data: { member_id: memberId },
       });
-      toast.success(`${username} has been removed from the collective.`);
+      toast.success('Member removed', `${username} has been removed from the collective.`);
       fetchData(); // Refresh data
     } catch (error) {
       console.error("Error kicking member:", error);
-      toast.error(handleApiError(error, {}));
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to remove member', formatErrorForToast(message));
     }
   };
 
@@ -118,12 +120,14 @@ export default function CollectiveAdmin() {
         action,
       });
       toast.success(
+        'Request processed',
         `Admin request from ${username} has been ${action}d successfully.`
       );
       fetchData(); // Refresh data
     } catch (error) {
       console.error("Error processing admin request:", error);
-      toast.error(handleApiError(error, {}));
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to process request', formatErrorForToast(message));
     }
   };
 

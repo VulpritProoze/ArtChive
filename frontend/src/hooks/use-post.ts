@@ -42,7 +42,8 @@ const usePost = () => {
   // Setup edit forms
   const setupEditPost = (postItem: Post) => {
     setSelectedPost(postItem);
-    setPostForm({
+
+    const baseForm = {
       description: postItem.description,
       post_type: postItem.post_type,
       image_url: null,
@@ -51,8 +52,14 @@ const usePost = () => {
         chapter: np.chapter.toString(),
         content: np.content,
       })) || [{ chapter: "", content: "" }],
-      ...(postItem.channel_id && { channel_id: postItem.channel_id }), // Assign channel_id if exists
-    });
+    };
+
+    // Add channel_id if it exists
+    const formWithChannel = postItem.channel_id
+      ? { ...baseForm, channel_id: postItem.channel_id }
+      : baseForm;
+
+    setPostForm(formWithChannel);
     setEditing(true);
     setShowPostForm(true);
   };

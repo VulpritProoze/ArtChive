@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast } from '@utils/toast.util';
 import { Palette, Layers, Ungroup, Eye, LayoutTemplate } from 'lucide-react';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -85,7 +85,7 @@ export default function GalleryEditor() {
         }
       } catch (error) {
         console.error('[GalleryEditor] Failed to load gallery:', error);
-        toast.error('Failed to load gallery');
+        toast.error('Failed to load gallery', 'An error occurred while loading your gallery');
       } finally {
         setIsLoading(false);
       }
@@ -200,7 +200,7 @@ export default function GalleryEditor() {
     };
     
     img.onerror = () => {
-      toast.error('Failed to load image');
+      toast.error('Failed to load image', 'The image could not be loaded');
     };
     
     img.src = url;
@@ -208,7 +208,7 @@ export default function GalleryEditor() {
 
   const handleAddShape = useCallback((shape: CanvasObject) => {
     editorState.addObject(shape);
-    toast.success('Shape added!');
+    toast.success('Shape added', 'Your shape has been added to the canvas');
   }, [editorState]);
 
   const handleSelectTemplate = useCallback((template: Template) => {
@@ -222,7 +222,7 @@ export default function GalleryEditor() {
       })),
     };
     editorState.addObject(clonedTemplate);
-    toast.success('Template added!');
+    toast.success('Template added', 'Your template has been added to the canvas');
   }, [editorState]);
 
   // Layer management
@@ -242,16 +242,16 @@ export default function GalleryEditor() {
 
     // This is a simplified version - you'd need to implement array reordering in useCanvasState
     console.log('Reorder:', id, direction);
-    toast.info('Reordering coming soon!');
+    toast.info('Coming soon', 'Reordering feature will be available soon');
   }, [editorState]);
 
   // Group/Ungroup handlers
   const handleGroup = useCallback(() => {
     if (editorState.selectedIds.length >= 2) {
       editorState.groupObjects(editorState.selectedIds);
-      toast.success('Objects grouped!');
+      toast.success('Objects grouped', 'Selected objects have been grouped together');
     } else {
-      toast.warning('Select at least 2 objects to group');
+      toast.warning('Selection required', 'Select at least 2 objects to group');
     }
   }, [editorState]);
 
@@ -260,12 +260,12 @@ export default function GalleryEditor() {
       const selectedObj = editorState.objects.find(o => o.id === editorState.selectedIds[0]);
       if (selectedObj && selectedObj.type === 'group') {
         editorState.ungroupObject(editorState.selectedIds[0]);
-        toast.success('Group ungrouped!');
+        toast.success('Group ungrouped', 'The group has been ungrouped successfully');
       } else {
-        toast.warning('Selected object is not a group');
+        toast.warning('Invalid selection', 'Selected object is not a group');
       }
     } else {
-      toast.warning('Select a single group to ungroup');
+      toast.warning('Selection required', 'Select a single group to ungroup');
     }
   }, [editorState]);
 
@@ -311,7 +311,7 @@ export default function GalleryEditor() {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         editorState.save();
-        toast.success('Gallery saved!');
+        toast.success('Gallery saved', 'Your changes have been saved');
       }
 
       // Group
@@ -461,9 +461,9 @@ export default function GalleryEditor() {
         onSave={async () => {
           try {
             await editorState.save();
-            toast.success('Gallery saved!');
+            toast.success('Gallery saved', 'Your changes have been saved');
           } catch (error) {
-            toast.error('Failed to save gallery');
+            toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
             console.error('[GalleryEditor] Save error:', error);
           }
         }}
@@ -653,7 +653,7 @@ export default function GalleryEditor() {
             className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
             onClick={() => {
               editorState.ungroupObject(contextMenu.objectId);
-              toast.success('Group ungrouped!');
+              toast.success('Group ungrouped', 'The group has been ungrouped successfully');
               setContextMenu(null);
             }}
           >
@@ -700,10 +700,10 @@ export default function GalleryEditor() {
                 onClick={async () => {
                   try {
                     await editorState.save();
-                    toast.success('Gallery saved!');
+                    toast.success('Gallery saved', 'Your changes have been saved');
                     setShowHamburgerMenu(false);
                   } catch (error) {
-                    toast.error('Failed to save gallery');
+                    toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
                     console.error('[GalleryEditor] Save error:', error);
                   }
                 }}

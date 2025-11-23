@@ -2,8 +2,10 @@ import { createContext, useState, useContext } from "react";
 import api, { collective } from '@lib/api'
 import type { AuthContextType, User, CollectiveMember } from "@types";
 import { isAxiosError } from "axios";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
 import formatFieldName from '@utils/format-fieldname'
+import handleApiError from '@utils/handle-api-error';
+import formatErrorForToast from '@utils/format-error-for-toast';
 
 type CollectiveMemberType = CollectiveMember[] | null
 
@@ -122,7 +124,7 @@ export const AuthProvider = ({ children }) => {
 
       await login(email, password)
 
-      toast.success('Registration successful! Redirecting...')
+      toast.success('Registration successful', 'Redirecting to your account')
       return true
     } catch (error) {
       let errorMessage = 'Registration failed. Please try again';
@@ -131,21 +133,19 @@ export const AuthProvider = ({ children }) => {
         // Handle specific error cases
         if (error.response?.status === 400) {
           const errorData = error.response.data;
-      
+
           if (typeof errorData === 'object' && errorData !== null) {
             // Loop through each field and show a separate toast
             Object.entries(errorData).forEach(([field, messages]) => {
-              const fieldName = formatFieldName(field); // Optional: make field names user-friendly
+              const fieldName = formatFieldName(field);
               const messageList = Array.isArray(messages) ? messages : [messages];
-              
-              messageList.forEach(msg => {
-                toast.error(`${fieldName}: ${msg}`);
-              });
+
+              toast.error('Registration error', messageList.map(msg => `${fieldName}: ${msg}`));
             });
           } else {
-            toast.error("Please check your registration details.");
+            toast.error('Registration error', 'Please check your registration details');
           }
-      
+
           return false; // Exit early after showing toasts
         }
         else if (error.response?.status === 401) {
@@ -164,8 +164,8 @@ export const AuthProvider = ({ children }) => {
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
-      toast.error(errorMessage);
+
+      toast.error('Registration failed', errorMessage);
       console.error("Registration failed: ", error);
       return false
     }

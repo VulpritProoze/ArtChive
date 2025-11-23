@@ -19,8 +19,8 @@ import type {
   CommentPagination
 } from "@types";
 import { post, collective } from "@lib/api";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { fetchPostsErrors, defaultErrors, brushDripTransactionErrors } from "@errors";
 
 type fetchCommentsForPostType = (
@@ -143,7 +143,7 @@ export const PostProvider = ({ children }) => {
       setCritiquePagination(prev => ({ ...prev, [postId]: paginationData }));
     } catch (error) {
       console.error("Critique fetch error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Failed to load critiques', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingCritiques(prev => ({ ...prev, [postId]: false }));
     }
@@ -162,7 +162,7 @@ export const PostProvider = ({ children }) => {
         await post.post("/critique/create/", critiqueForm);
       }
 
-      toast.success(`Critique ${editingCritique ? "updated" : "created"} successfully`);
+      toast.success(`Critique ${editingCritique ? "updated" : "created"}`, 'Your critique has been saved successfully');
       setShowCritiqueForm(false);
       setEditingCritique(false);
       setSelectedCritique(null);
@@ -174,7 +174,7 @@ export const PostProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Critique submission error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Failed to save critique', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -185,14 +185,14 @@ export const PostProvider = ({ children }) => {
       await post.delete(`/critique/${critiqueId}/delete/`, {
         data: { confirm: true }
       });
-      toast.success("Critique deleted successfully");
+      toast.success("Critique deleted", "The critique has been removed successfully");
 
       // Refresh critiques for the specific post
       const currentPage = critiquePagination[postId]?.currentPage || 1;
       await fetchCritiquesForPost(postId, currentPage, false);
     } catch (error) {
       console.error("Critique deletion error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Failed to delete critique', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -205,7 +205,7 @@ export const PostProvider = ({ children }) => {
 
     try {
       await post.post("/critique/reply/create/", replyForm);
-      toast.success("Reply created successfully");
+      toast.success("Reply posted", "Your reply has been added successfully");
 
       // Clear reply form
       setCritiqueReplyForms(prev => ({
@@ -217,7 +217,7 @@ export const PostProvider = ({ children }) => {
       await fetchRepliesForCritique(critiqueId);
     } catch (error) {
       console.error("Critique reply submission error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -244,7 +244,7 @@ export const PostProvider = ({ children }) => {
       });
     } catch (error) {
       console.error("Fetch critique replies error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingCritiqueReplies(prev => ({ ...prev, [critiqueId]: false }));
     }
@@ -320,10 +320,10 @@ export const PostProvider = ({ children }) => {
       // Refresh praise status
       await fetchPraiseStatus(postId);
 
-      toast.success("Post praised successfully!");
+      toast.success("Post praised!", "You've praised this post. 1 Brush Drip deducted");
     } catch (error) {
       console.error("Praise post error: ", error);
-      toast.error(handleApiError(error, brushDripTransactionErrors, true));
+      toast.error('Failed to praise post', formatErrorForToast(handleApiError(error, brushDripTransactionErrors, true)));
     } finally {
       setLoadingPraise((prev) => ({ ...prev, [postId]: false }));
     }
@@ -357,12 +357,12 @@ export const PostProvider = ({ children }) => {
       // Refresh trophy status
       await fetchTrophyStatus(postId);
 
-      toast.success(`Trophy awarded successfully!`);
+      toast.success("Trophy awarded!", "Your trophy has been awarded to this post");
       setShowTrophyModal(false);
       setSelectedPostForTrophy(null);
     } catch (error) {
       console.error("Award trophy error: ", error);
-      toast.error(handleApiError(error, brushDripTransactionErrors));
+      toast.error('Failed to award trophy', formatErrorForToast(handleApiError(error, brushDripTransactionErrors)));
     } finally {
       setLoadingTrophy((prev) => ({ ...prev, [postId]: false }));
     }
@@ -426,7 +426,7 @@ export const PostProvider = ({ children }) => {
 
     try {
       await post.post("/comment/reply/create/", replyForm);
-      toast.success("Reply created successfully");
+      toast.success("Reply posted", "Your reply has been added successfully");
 
       // Clear reply form
       setReplyForms((prev) => ({
@@ -439,7 +439,7 @@ export const PostProvider = ({ children }) => {
       
     } catch (error) {
       console.error("Reply submission error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -471,7 +471,7 @@ export const PostProvider = ({ children }) => {
       });
     } catch (error) {
       console.error("Fetch replies error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingReplies((prev) => ({ ...prev, [commentId]: false }));
     }
@@ -567,10 +567,10 @@ export const PostProvider = ({ children }) => {
           : prev
       );
 
-      toast.success("Post hearted!");
+      toast.success("Post hearted!", "You've added this post to your favorites");
     } catch (error) {
       console.error("Heart post error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingHearts((prev) => ({ ...prev, [postId]: false }));
     }
@@ -606,10 +606,10 @@ export const PostProvider = ({ children }) => {
           : prev
       );
 
-      toast.success("Post unhearted!");
+      toast.success("Post unhearted", "Removed from your favorites");
     } catch (error) {
       console.error("Unheart post error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingHearts((prev) => ({ ...prev, [postId]: false }));
     }
@@ -628,7 +628,7 @@ export const PostProvider = ({ children }) => {
         await post.post("/comment/create/", commentForm);
       }
 
-      toast.success(`Comment ${editing ? "updated" : "created"} successfully`);
+      toast.success(`Comment ${editing ? "updated" : "created"}`, 'Your comment has been saved successfully');
       setShowCommentForm(false);
       setEditing(false);
       setSelectedComment(null);
@@ -641,7 +641,7 @@ export const PostProvider = ({ children }) => {
       setCommentForm({ text: "", post_id: "" });
     } catch (error) {
       console.error("Comment submission error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -653,14 +653,14 @@ export const PostProvider = ({ children }) => {
       await post.delete(`/comment/delete/${commentId}/`, {
         data: { confirm: true },
       });
-      toast.success("Comment deleted successfully");
+      toast.success("Comment deleted", "The comment has been removed");
 
       // Refresh comments for the specific post (current page)
       const currentPage = commentPagination[postId]?.currentPage || 1;
       await fetchCommentsForPost(postId, currentPage, false);
     } catch (error) {
       console.error("Comment deletion error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 
@@ -695,7 +695,7 @@ export const PostProvider = ({ children }) => {
       setCommentPagination((prev) => ({ ...prev, [postId]: paginationData }));
     } catch (error) {
       console.error("Comment fetch error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     } finally {
       setLoadingComments((prev) => ({ ...prev, [postId]: false }));
     }
@@ -765,7 +765,7 @@ export const PostProvider = ({ children }) => {
         }));
       } catch (error) {
         const message = handleApiError(error, fetchPostsErrors);
-        toast.error(message);
+        toast.error('Failed to load posts', formatErrorForToast(message));
         console.error("Posts fetch error", error);
       } finally {
         setLoading(false);
@@ -809,7 +809,7 @@ export const PostProvider = ({ children }) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      toast.success(`Post ${editing ? "updated" : "created"} successfully`);
+      toast.success(`Post ${editing ? "updated" : "created"}`, 'Your post has been saved successfully');
       setShowPostForm(false);
       setEditing(false);
       setSelectedPost(null);
@@ -824,7 +824,8 @@ export const PostProvider = ({ children }) => {
       refreshPosts(channel_id, user_id);
     } catch (error) {
       console.error("Post submission error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      const message = handleApiError(error, undefined, true, true)
+      toast.error('Operation failed', formatErrorForToast(message));
     } finally {
       setSubmittingPost(false);
     }
@@ -835,13 +836,13 @@ export const PostProvider = ({ children }) => {
 
     try {
       await post.delete(`/delete/${postId}/`, { data: { confirm: true } });
-      toast.success("Post deleted successfully");
+      toast.success("Post deleted", "The post has been removed successfully");
 
       // Refresh posts with context (channel or user)
       refreshPosts(channel_id, user_id);
     } catch (error) {
       console.error("Post deletion error: ", error);
-      toast.error(handleApiError(error, defaultErrors));
+      toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
     }
   };
 

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { core } from "@lib/api";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 import type { BrushDripWallet, BrushDripTransactionStats } from "@types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -36,7 +36,8 @@ export default function Index() {
             setWallet(response.data);
         } catch (error) {
             console.error("Wallet fetch error:", error);
-            toast.error(handleApiError(error, defaultErrors));
+            const message = handleApiError(error, defaultErrors, true, true);
+            toast.error('Failed to load wallet', formatErrorForToast(message));
         } finally {
             setLoading(false);
         }

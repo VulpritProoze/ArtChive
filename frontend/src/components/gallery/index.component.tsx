@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Info, ArrowRight, Images } from "lucide-react";
+import { Info, ArrowRight, Images } from "lucide-react";
 import { MainLayout } from "../common/layout";
 
 interface GalleryCard {
@@ -59,209 +57,20 @@ const otherGalleries: GalleryCard[] = Array.from({ length: 6 }, (_, i) => ({
 
 const GalleryIndex = () => {
   const navigate = useNavigate();
-  const [fellowsIndex, setFellowsIndex] = useState(0);
-  const [bestIndex, setBestIndex] = useState(0);
-  const fellowsScrollRef = useRef<HTMLDivElement>(null);
-  const bestScrollRef = useRef<HTMLDivElement>(null);
-  const isScrollingProgrammatically = useRef(false);
-  const pendingScrollPosition = useRef<{ ref: React.RefObject<HTMLDivElement | null>; position: number } | null>(null);
 
-  const scrollCarousel = (
-    ref: React.RefObject<HTMLDivElement | null>,
-    direction: 'left' | 'right',
-    setIndex: React.Dispatch<React.SetStateAction<number>>,
-    itemCount: number,
-    currentIndex: number
-  ) => {
-    if (!ref.current) return;
-    
-    // Get actual padding from computed styles - px-12 = 48px on mobile, lg:px-16 = 64px on large screens
-    const computedPadding = window.getComputedStyle(ref.current).paddingLeft;
-    const padding = parseInt(computedPadding) || 48; // Fallback to 48px if parsing fails
-    
-    // Calculate new index
-    let newIndex: number;
-    if (direction === 'left') {
-      newIndex = Math.max(0, currentIndex - 1);
-    } else {
-      newIndex = Math.min(itemCount - 1, currentIndex + 1);
-    }
-    
-    // Get the target child element
-    const targetChild = ref.current.children[newIndex] as HTMLElement;
-    if (!targetChild) {
-      console.error('[Carousel] Target child not found', { newIndex, childrenCount: ref.current.children.length });
-      return;
-    }
-    
-    // Set flag immediately to prevent scroll event handler from interfering
-    isScrollingProgrammatically.current = true;
-    
-    // Calculate target scroll position before re-render
-    const targetScrollPosition = targetChild.offsetLeft - padding;
-    const scrollPos = Math.max(0, targetScrollPosition);
-    
-    // Store the scroll position to apply after re-render
-    pendingScrollPosition.current = { ref, position: scrollPos };
-    
-    // Immediately set scroll position BEFORE state update to prevent flash
-    if (ref.current) {
-      ref.current.scrollLeft = scrollPos;
-      // Also disable snap temporarily to prevent interference
-      ref.current.style.scrollSnapType = 'none';
-    }
-    
-    // Use flushSync to force synchronous update and prevent flash
-    flushSync(() => {
-      setIndex(newIndex);
-    });
-    
-    // Immediately restore scroll position after sync update
-    if (ref.current) {
-      ref.current.scrollLeft = scrollPos;
-    }
-    
-    // Wait for React to finish re-rendering, then smooth scroll
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!ref.current) {
-          isScrollingProgrammatically.current = false;
-          pendingScrollPosition.current = null;
-          return;
-        }
-        
-        // Get the target child again after re-render
-        const updatedTargetChild = ref.current.children[newIndex] as HTMLElement;
-        if (!updatedTargetChild) {
-          isScrollingProgrammatically.current = false;
-          pendingScrollPosition.current = null;
-          return;
-        }
-        
-        // Recalculate scroll position after re-render (in case layout changed)
-        const recalculatedScrollPosition = updatedTargetChild.offsetLeft - padding;
-        const finalScrollPos = Math.max(0, recalculatedScrollPosition);
-        
-        // Ensure scroll position is maintained
-        ref.current.scrollLeft = finalScrollPos;
-        
-        // Temporarily disable snap to prevent interference
-        const originalSnapType = ref.current.style.scrollSnapType;
-        ref.current.style.scrollSnapType = 'none';
-        
-        // Smooth scroll to final position
-        ref.current.scrollTo({ 
-          left: finalScrollPos, 
-          behavior: 'smooth' 
-        });
-        
-        // Clear pending scroll position
-        pendingScrollPosition.current = null;
-        
-        // Re-enable snap and clear flag after scroll completes
-        setTimeout(() => {
-          if (ref.current) {
-            ref.current.style.scrollSnapType = originalSnapType || 'x mandatory';
-          }
-          // Clear flag after scroll completes
-          setTimeout(() => {
-            isScrollingProgrammatically.current = false;
-          }, 200);
-        }, 600);
-      });
-    });
-  };
-
-  // Restore scroll position after re-render to prevent flash
-  // This runs synchronously after render but before paint
-  useLayoutEffect(() => {
-    if (pendingScrollPosition.current && pendingScrollPosition.current.ref.current) {
-      const { ref: scrollRef, position } = pendingScrollPosition.current;
-      if (scrollRef.current) {
-        // Force immediate scroll to prevent flash - this happens before browser paint
-        scrollRef.current.scrollLeft = position;
-      }
-    }
-  }, [fellowsIndex, bestIndex]); // Run whenever index changes
-
-  // Update index based on scroll position with throttling
-  useEffect(() => {
-    let fellowsTimeout: NodeJS.Timeout;
-    let bestTimeout: NodeJS.Timeout;
-
-    const handleFellowsScroll = () => {
-      // Ignore scroll events during programmatic scrolling
-      if (isScrollingProgrammatically.current) return;
-      
-      if (!fellowsScrollRef.current) return;
-      clearTimeout(fellowsTimeout);
-      fellowsTimeout = setTimeout(() => {
-        if (!fellowsScrollRef.current || isScrollingProgrammatically.current) return;
-        const cardWidth = 224; // w-56 = 224px for fellows
-        const gap = 24;
-        const computedPadding = window.getComputedStyle(fellowsScrollRef.current).paddingLeft;
-        const padding = parseInt(computedPadding) || 48;
-        const scrollLeft = fellowsScrollRef.current.scrollLeft;
-        // Account for padding when calculating index
-        const adjustedScrollLeft = Math.max(0, scrollLeft - padding);
-        const newIndex = Math.round(adjustedScrollLeft / (cardWidth + gap));
-        const clampedIndex = Math.max(0, Math.min(9, newIndex)); // 10 galleries (0-9)
-        
-        setFellowsIndex(clampedIndex);
-      }, 100);
-    };
-
-    const handleBestScroll = () => {
-      // Ignore scroll events during programmatic scrolling
-      if (isScrollingProgrammatically.current) return;
-      
-      if (!bestScrollRef.current) return;
-      clearTimeout(bestTimeout);
-      bestTimeout = setTimeout(() => {
-        if (!bestScrollRef.current || isScrollingProgrammatically.current) return;
-        const cardWidth = 320;
-        const gap = 24;
-        const computedPadding = window.getComputedStyle(bestScrollRef.current).paddingLeft;
-        const padding = parseInt(computedPadding) || 48;
-        const scrollLeft = bestScrollRef.current.scrollLeft;
-        const adjustedScrollLeft = Math.max(0, scrollLeft - padding);
-        const newIndex = Math.round(adjustedScrollLeft / (cardWidth + gap));
-        setBestIndex(newIndex);
-      }, 100);
-    };
-
-    const fellowsRef = fellowsScrollRef.current;
-    const bestRef = bestScrollRef.current;
-
-    if (fellowsRef) {
-      fellowsRef.addEventListener('scroll', handleFellowsScroll, { passive: true });
-    }
-    if (bestRef) {
-      bestRef.addEventListener('scroll', handleBestScroll, { passive: true });
-    }
-
-    return () => {
-      clearTimeout(fellowsTimeout);
-      clearTimeout(bestTimeout);
-      if (fellowsRef) {
-        fellowsRef.removeEventListener('scroll', handleFellowsScroll);
-      }
-      if (bestRef) {
-        bestRef.removeEventListener('scroll', handleBestScroll);
-      }
-    };
-  }, []);
-
-  const GalleryCarouselCard = ({ gallery, showAvatar = false }: { gallery: GalleryCard; showAvatar?: boolean }) => {
-    const cardWidth = showAvatar ? 'w-56' : 'w-80'; // Slimmer for fellows (w-56 = 224px)
-    const cardHeight = showAvatar ? 'h-48' : 'h-64'; // Smaller height for fellows
+  const HorizontalScrollCard = ({ gallery, showAvatar = false }: { gallery: GalleryCard; showAvatar?: boolean }) => {
+    const cardWidth = showAvatar ? 'w-56' : 'w-80';
+    const cardHeight = showAvatar ? 'h-48' : 'h-64';
     const imageSrc = gallery.imageUrl || '/landing-page/artworks/artwork1.avif';
-    
+
     return (
-      <div className={`flex-shrink-0 ${cardWidth} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-[1.02]`}>
+      <Link
+        to={`/gallery/${gallery.id}`}
+        className={`flex-shrink-0 ${cardWidth} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-[1.02]`}
+      >
         <div className={`relative ${cardHeight} bg-base-300 overflow-hidden`}>
-          <img 
-            src={imageSrc} 
+          <img
+            src={imageSrc}
             alt={gallery.title}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -309,21 +118,21 @@ const GalleryIndex = () => {
             </div>
           )}
         </div>
-      </div>
+      </Link>
     );
   };
 
   const GalleryGridCard = ({ gallery }: { gallery: GalleryCard }) => {
     const imageSrc = gallery.imageUrl || '/landing-page/artworks/artwork1.avif';
-    
+
     return (
       <Link
         to={`/gallery/${gallery.id}`}
         className="card bg-base-100 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all group cursor-pointer"
       >
         <div className="relative h-64 bg-base-300 overflow-hidden">
-          <img 
-            src={imageSrc} 
+          <img
+            src={imageSrc}
             alt={gallery.title}
             className="w-full h-full object-cover"
             loading="lazy"
@@ -363,19 +172,15 @@ const GalleryIndex = () => {
     );
   };
 
-  const CarouselSection = ({
+  const HorizontalScrollSection = ({
     title,
     galleries,
-    scrollRef,
-    currentIndex,
-    setCurrentIndex,
+    showAvatar = false,
     showDropdowns = false,
   }: {
     title: string;
     galleries: GalleryCard[];
-    scrollRef: React.RefObject<HTMLDivElement | null>;
-    currentIndex: number;
-    setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+    showAvatar?: boolean;
     showDropdowns?: boolean;
   }) => (
     <section className="mb-12">
@@ -401,121 +206,23 @@ const GalleryIndex = () => {
         </div>
       </div>
 
-      {/* Carousel Container */}
+      {/* Horizontal Scroll Container */}
       <div className="relative">
-        {/* Left Arrow */}
-        <button
-          onClick={() => {
-            if (title === "Fellows You Follow") {
-              console.log('[Fellows Left Button]', {
-                currentIndex,
-                galleriesLength: galleries.length,
-                willNavigateTo: Math.max(0, currentIndex - 1),
-                isDisabled: currentIndex === 0
-              });
-            }
-            scrollCarousel(scrollRef, 'left', setCurrentIndex, galleries.length, currentIndex);
-          }}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 btn btn-circle btn-sm bg-base-100/90 backdrop-blur-sm shadow-lg border border-base-300 hover:bg-base-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-110 active:scale-95"
-          aria-label="Previous"
-          disabled={currentIndex === 0}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-
-        {/* Scrollable Cards */}
         <div
-          ref={scrollRef}
-          className="flex gap-6 overflow-x-auto scrollbar-hide px-12 lg:px-16 scroll-smooth"
-          style={{ 
-            scrollbarWidth: 'none', 
-            msOverflowStyle: 'none',
-            scrollBehavior: 'smooth',
-            scrollSnapType: 'x mandatory'
+          className="flex gap-6 overflow-x-auto pb-4 px-4 lg:px-6 scroll-smooth"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(155, 155, 155, 0.5) transparent',
           }}
         >
           {galleries.map((gallery) => (
-            <div 
-              key={gallery.id} 
-              className="snap-start transition-transform duration-300 ease-in-out"
-              style={{
-                scrollSnapAlign: 'start',
-                scrollSnapStop: 'always'
-              }}
-            >
-              <GalleryCarouselCard
-                gallery={gallery}
-                showAvatar={title === "Fellows You Follow"}
-              />
-            </div>
+            <HorizontalScrollCard
+              key={gallery.id}
+              gallery={gallery}
+              showAvatar={showAvatar}
+            />
           ))}
         </div>
-
-        {/* Right Arrow */}
-        <button
-          onClick={() => {
-            if (title === "Fellows You Follow") {
-              console.log('[Fellows Right Button]', {
-                currentIndex,
-                galleriesLength: galleries.length,
-                maxIndex: galleries.length - 1,
-                willNavigateTo: Math.min(galleries.length - 1, currentIndex + 1),
-                isDisabled: currentIndex >= galleries.length - 1
-              });
-            }
-            scrollCarousel(scrollRef, 'right', setCurrentIndex, galleries.length, currentIndex);
-          }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 btn btn-circle btn-sm bg-base-100/90 backdrop-blur-sm shadow-lg border border-base-300 hover:bg-base-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 hover:scale-110 active:scale-95"
-          aria-label="Next"
-          disabled={currentIndex >= galleries.length - 1}
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Pagination Dots */}
-        {title === "Fellows You Follow" && (
-          <div className="flex justify-center gap-2 mt-4">
-            {Array.from({ length: galleries.length }, (_, i) => {
-              // Each dot represents a single card
-              const isActive = currentIndex === i;
-              
-              return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (scrollRef.current) {
-                      const cardWidth = 224; // w-56 = 224px for fellows
-                      const gap = 24;
-                      const padding = 48; // px-12 = 48px
-                      const scrollPosition = padding + (i * (cardWidth + gap));
-                      
-                      console.log('[Fellows Dot Click]', {
-                        dotIndex: i,
-                        cardWidth,
-                        gap,
-                        padding,
-                        scrollPosition,
-                        currentScrollLeft: scrollRef.current.scrollLeft
-                      });
-                      
-                      scrollRef.current.scrollTo({ 
-                        left: scrollPosition, 
-                        behavior: 'smooth' 
-                      });
-                      setCurrentIndex(() => i);
-                    }
-                  }}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    isActive
-                      ? 'bg-primary w-8'
-                      : 'bg-base-300 hover:bg-base-400 w-2'
-                  }`}
-                  aria-label={`Go to card ${i + 1}`}
-                />
-              );
-            })}
-          </div>
-        )}
       </div>
     </section>
   );
@@ -536,21 +243,16 @@ const GalleryIndex = () => {
         </div>
 
         {/* Fellows You Follow Section */}
-        <CarouselSection
+        <HorizontalScrollSection
           title="Fellows You Follow"
           galleries={fellowsGalleries}
-          scrollRef={fellowsScrollRef}
-          currentIndex={fellowsIndex}
-          setCurrentIndex={setFellowsIndex}
+          showAvatar={true}
         />
 
         {/* Best Galleries Recently Section */}
-        <CarouselSection
+        <HorizontalScrollSection
           title="Best Galleries Recently"
           galleries={bestGalleries}
-          scrollRef={bestScrollRef}
-          currentIndex={bestIndex}
-          setCurrentIndex={setBestIndex}
           showDropdowns={true}
         />
 
@@ -571,12 +273,19 @@ const GalleryIndex = () => {
       </div>
 
       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
+        /* Webkit browsers (Chrome, Safari, newer Edge) */
+        div::-webkit-scrollbar {
+          height: 8px;
         }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        div::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        div::-webkit-scrollbar-thumb {
+          background: rgba(155, 155, 155, 0.5);
+          border-radius: 4px;
+        }
+        div::-webkit-scrollbar-thumb:hover {
+          background: rgba(155, 155, 155, 0.7);
         }
       `}</style>
     </MainLayout>

@@ -1,8 +1,8 @@
 import { collective } from "@lib/api";
 import { useAuth } from "@context/auth-context";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
 import { defaultErrors } from "@errors";
-import { handleApiError } from "@utils";
+import { handleApiError, formatErrorForToast } from "@utils";
 
 const useCollective = () => {
     const { fetchCollectiveMemberDetails } = useAuth()
@@ -17,12 +17,10 @@ const useCollective = () => {
           withCredentials: true,
         });
         await fetchCollectiveMemberDetails();
-        toast.success("Successfully left collective");
+        toast.success("Collective left", "You have successfully left the collective");
       } catch (err) {
-        toast.error("Failed to execute this action");
-        // I need to make a reusable error alert component
-        // that can make custom messages for every
-        // http status codes
+        const message = handleApiError(err, defaultErrors, true, true);
+        toast.error("Failed to leave collective", formatErrorForToast(message));
       }
     }
   };
@@ -39,12 +37,10 @@ const useCollective = () => {
           { withCredentials: true }
         );
         await fetchCollectiveMemberDetails();
-        toast.success("Successfully submitted admin request.");
+        toast.success("Admin request submitted", "Your request to become an admin has been submitted");
       } catch (err) {
-        toast.error(handleApiError(err, defaultErrors, true));
-        // I need to make a reusable error alert component
-        // that can make custom messages for every
-        // http status codes
+        const message = handleApiError(err, defaultErrors, true, true);
+        toast.error("Failed to submit admin request", formatErrorForToast(message));
       }
     }
   };

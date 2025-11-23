@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useCollectiveContext } from "@context/collective-context";
@@ -63,10 +64,11 @@ export default function CreateCollectiveForm() {
   const onSubmit = async (data: CreateCollectiveFormData) => {
     try {
       const collectiveId = await createCollective(data);
-      toast.success("Collective created successfully!");
+      toast.success("Collective created", "Collective created successfully!");
       navigate(`/collective/${collectiveId}`);
     } catch (error: any) {
-      toast.error(error.message);
+      const message = handleApiError(error, {}, true, true);
+      toast.error("Failed to create collective", formatErrorForToast(message));
     }
   };
 

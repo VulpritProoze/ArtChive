@@ -3,8 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faTimes } from "@fortawesome/free-solid-svg-icons";
 import type { PostTrophy } from "@types";
 import { post } from "@lib/api";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 
 interface TrophyListModalProps {
@@ -34,7 +34,8 @@ export default function TrophyListModal({
       setTrophies(response.data.results || response.data || []);
     } catch (error) {
       console.error("Fetch trophies error:", error);
-      toast.error(handleApiError(error, defaultErrors));
+      const message = handleApiError(error, defaultErrors, true, true);
+      toast.error('Failed to load trophies', formatErrorForToast(message));
     } finally {
       setLoading(false);
     }

@@ -44,19 +44,35 @@ const handleApiError = (
         }
       }
       
-      // Handle field-specific errors (e.g., { "field_name": ["error1", "error2"] })
-      Object.keys(responseData).forEach((key) => {
-        if (key !== 'non_field_errors' && key !== 'error') {
-          const fieldErrors = responseData[key];
-          if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((err: string) => {
-              collectedErrors.push(`${key}: ${err}`);
-            });
-          } else if (typeof fieldErrors === 'string') {
-            collectedErrors.push(`${key}: ${fieldErrors}`);
+      // Recursive function to extract nested errors
+      const extractNestedErrors = (obj: any, prefix: string = ''): void => {
+        Object.keys(obj).forEach((key) => {
+          if (key === 'non_field_errors' || key === 'error') {
+            return; // Skip these as they're handled separately
           }
-        }
-      });
+
+          const value = obj[key];
+          const fieldPath = prefix ? `${prefix}.${key}` : key;
+
+          if (Array.isArray(value)) {
+            // Direct array of error messages
+            value.forEach((err: string) => {
+              if (typeof err === 'string') {
+                collectedErrors.push(`${fieldPath}: ${err}`);
+              }
+            });
+          } else if (typeof value === 'string') {
+            // Direct string error
+            collectedErrors.push(`${fieldPath}: ${value}`);
+          } else if (typeof value === 'object' && value !== null) {
+            // Nested object - recurse
+            extractNestedErrors(value, fieldPath);
+          }
+        });
+      };
+
+      // Handle field-specific errors (including nested ones)
+      extractNestedErrors(responseData);
       
       // Set messages based on returnAllMessagesAsArray flag
       if (collectedErrors.length > 0) {

@@ -2,9 +2,9 @@ import { createContext, useState, useContext, useEffect } from 'react'
 import type { CollectivePostContextType, Collective, Channel, ChannelCreateForm, ChannelCreateRequest } from '@types'
 import { collective } from '@lib/api'
 import { usePostContext } from './post-context'
-import { toast } from 'react-toastify'
+import { toast } from '@utils/toast.util'
 import { channelCreateErrors, defaultErrors } from '@errors'
-import { handleApiError } from '@utils'
+import { handleApiError, formatErrorForToast } from '@utils'
 import { convertChannelTypeToSnakeCase } from '@utils/convert-channel-type'
 
 export const CollectivePostContext = createContext<CollectivePostContextType | undefined>(undefined)
@@ -45,8 +45,8 @@ export const CollectivePostProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('Collective data fetching error:', err)
-        const message = handleApiError(err, defaultErrors)
-        toast.error(message);
+        const message = handleApiError(err, defaultErrors, true, true)
+        toast.error('Failed to fetch collective data', formatErrorForToast(message));
       } finally {
         setLoading(false);
       }
@@ -76,12 +76,12 @@ export const CollectivePostProvider = ({ children }) => {
         // Close modal and reset form
         setShowCreateChannelModal(false);
         setCreateChannelForm({ title: '', description: '', collective: '', channel_type: undefined });
-    
-        toast.success('Channel created successfully!')
+
+        toast.success('Channel created', 'Your new channel has been created successfully')
       } catch (error) {
         console.error('Channel creation error:', error);
-        const message = handleApiError(error, channelCreateErrors)
-        toast.error(message)
+        const message = handleApiError(error, channelCreateErrors, true, true)
+        toast.error('Failed to create channel', formatErrorForToast(message))
       } finally {
         setCreatingChannel(false);
       }
@@ -101,11 +101,11 @@ export const CollectivePostProvider = ({ children }) => {
         // Refetch to reflect changes
         await fetchCollectiveData(collectiveData.collective_id);
         setEditingChannel(null);
-        toast.success('Channel updated successfully!');
+        toast.success('Channel updated', 'Your channel has been updated successfully');
       } catch (error) {
         console.error('Channel update error:', error);
-        const message = handleApiError(error, defaultErrors);
-        toast.error(message);
+        const message = handleApiError(error, defaultErrors, true, true);
+        toast.error('Failed to update channel', formatErrorForToast(message));
       } finally {
         setUpdatingChannel(false);
       }
@@ -123,11 +123,11 @@ export const CollectivePostProvider = ({ children }) => {
     
         // Refetch collective data
         await fetchCollectiveData(collectiveData.collective_id);
-        toast.success('Channel deleted successfully!');
+        toast.success('Channel deleted', 'Your channel has been deleted successfully');
       } catch (error) {
         console.error('Channel delete error:', error);
-        const message = handleApiError(error, defaultErrors);
-        toast.error(message);
+        const message = handleApiError(error, defaultErrors, true, true);
+        toast.error('Failed to delete channel', formatErrorForToast(message));
       } finally {
         setDeletingChannel(false);
       }

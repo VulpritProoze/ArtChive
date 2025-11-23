@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Trash2, Calendar, Save, X, Upload, Eye, Edit } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from '@utils/toast.util';
 import { galleryService, type Gallery } from '@services/gallery.service';
-import handleApiError from '@utils/handle-api-error';
+import { handleApiError, formatErrorForToast } from '@utils';
 
 interface GalleryCardProps {
   gallery: Gallery;
@@ -39,12 +39,12 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        toast.error('Please select an image file');
+        toast.error('Invalid file type', 'Please select an image file');
         return;
       }
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be less than 5MB');
+        toast.error('File too large', 'Image size must be less than 5MB');
         return;
       }
       setNewPicture(file);
@@ -59,7 +59,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
 
   const handleSave = async () => {
     if (!editedTitle.trim()) {
-      toast.error('Title is required');
+      toast.error('Validation error', 'Title is required');
       return;
     }
 
@@ -75,14 +75,15 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
       }
 
       await galleryService.updateGallery(gallery.gallery_id, updateData);
-      toast.success('Gallery updated successfully');
+      toast.success('Gallery updated', 'Gallery updated successfully');
       setIsEditing(false);
       setNewPicture(null);
       setPreviewUrl(null);
       onUpdate();
     } catch (error) {
       console.error('Failed to update gallery:', error);
-      toast.error('Failed to update gallery');
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to update gallery', formatErrorForToast(message));
     } finally {
       setIsSaving(false);
     }
@@ -105,15 +106,12 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     try {
       setIsChangingStatus(true);
       await galleryService.updateGalleryStatus(gallery.gallery_id, newStatus);
-      toast.success(`Gallery status changed to ${newStatus}`);
+      toast.success('Status updated', `Gallery status changed to ${newStatus}`);
       setShowStatusDropdown(false);
       onUpdate();
     } catch (error) {
-      const errorMessages = handleApiError(error, {}, true, true);
-      const messagesArray = Array.isArray(errorMessages) ? errorMessages : [errorMessages];
-      messagesArray.forEach((message) => {
-        toast.error(message);
-      });
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to update status', formatErrorForToast(message));
     } finally {
       setIsChangingStatus(false);
     }

@@ -1,8 +1,8 @@
 import { createContext, useContext, useState } from "react";
 import type { CollectiveContextType, Collective, CollectiveApi } from "@types";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
 import { collective } from "@lib/api";
-import { handleApiError } from "@utils";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 import { type CreateCollectiveFormData } from "@lib/validations";
 
@@ -47,8 +47,8 @@ export const CollectiveProvider = ({ children }) => {
       
       return response.data.collective_id;
     } catch (err) {
-      const message = handleApiError(err, defaultErrors)
-      toast.error(message);
+      const message = handleApiError(err, defaultErrors, true, true)
+      toast.error('Failed to create collective', formatErrorForToast(message));
       console.error("Error creating collective: ", err);
     } finally {
       setLoading(false);
@@ -70,9 +70,9 @@ export const CollectiveProvider = ({ children }) => {
 
       setCollectives(filteredCollectives);
     } catch (err) {
-      const message = handleApiError(err, defaultErrors)
-      toast.error(message);
-      console.error("Error joining collective: ", err);
+      const message = handleApiError(err, defaultErrors, true, true)
+      toast.error('Failed to fetch collectives', formatErrorForToast(message));
+      console.error("Error fetching collectives: ", err);
     } finally {
       setLoading(false)
     }
@@ -91,10 +91,10 @@ export const CollectiveProvider = ({ children }) => {
           { collective_id: collectiveId },
           { withCredentials: true }
         );
-        toast.success("Successfully joined this collective!");
+        toast.success("Collective joined", "You have successfully joined this collective");
       } catch (err) {
-        const message = handleApiError(err, defaultErrors)
-        toast.error(message);
+        const message = handleApiError(err, defaultErrors, true, true)
+        toast.error('Failed to join collective', formatErrorForToast(message));
         console.error("Error joining collective: ", err);
       } finally {
         setLoading(false);
