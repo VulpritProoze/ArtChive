@@ -13,24 +13,16 @@ from common.utils import choices
 from core.models import User
 
 from .models import Gallery
-from .serializers import GallerySerializer
+from .pagination import GalleryPagination
+from .serializers import GalleryListSerializer, GallerySerializer
 
 
 class GalleryListCreateView(APIView):
     """
-    GET  /api/gallery/ - List all galleries for current user
     POST /api/gallery/ - Create a new gallery
     """
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-
-    def get(self, request):
-        """List all galleries for the current user"""
-        galleries = Gallery.objects.get_active_objects().filter(
-            creator=request.user,
-        ).order_by('-created_at')
-        serializer = GallerySerializer(galleries, many=True)
-        return Response(serializer.data)
 
     def post(self, request):
         """Create a new gallery with automatic picture filename shortening"""
@@ -118,6 +110,11 @@ class GalleryDetailView(APIView):
                 {'error': 'Gallery not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+        if gallery.status == 'active':
+            return Response(
+                {'error': 'You cannot delete an active gallery'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         gallery.delete()  # Uses model's soft delete
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -168,6 +165,47 @@ class GalleryActiveView(APIView):
         gallery = active_galleries.first()
         serializer = GallerySerializer(gallery)
         return Response(serializer.data)
+
+
+class GalleryListView(APIView):
+    """
+    GET /api/gallery/list/ - Get all galleries (paginated, public)
+
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of galleries per page (default: 10, max: 50)
+
+    Returns paginated response with:
+    - count: Total number of galleries
+    - next: URL to next page (null if no next page)
+    - previous: URL to previous page (null if no previous page)
+    - results: Array of gallery objects
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get all active galleries (paginated)"""
+        # Get all active (non-deleted) galleries with optimized queries
+        # Using select_related for OneToOne relationships (user_wallet and artist)
+        galleries = Gallery.objects.get_active_objects().select_related(
+            'creator',
+            'creator__user_wallet',
+            'creator__artist'
+        ).filter(
+            status='active'
+        ).order_by('-created_at')
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_galleries = paginator.paginate_queryset(galleries, request)
+
+        # Serialize paginated results with creator details
+        serializer = GalleryListSerializer(paginated_galleries, many=True)
+
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
 
 
 class GalleryUserListView(APIView):

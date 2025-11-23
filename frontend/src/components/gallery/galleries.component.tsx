@@ -9,6 +9,7 @@ import { GalleryCreationModal, type GalleryFormData } from './gallery-creation.m
 import { GalleryCard } from './gallery-card.card';
 import { PublishGalleryModal } from './publish-gallery.modal';
 import { SkeletonCard } from '../common/skeleton';
+import { formatErrorForToast, handleApiError } from '@/utils';
 
 const MyGalleries = () => {
   const navigate = useNavigate();
@@ -85,7 +86,8 @@ const MyGalleries = () => {
       loadGalleries(); // Reload the list
     } catch (error) {
       console.error('Failed to delete gallery:', error);
-      toast.error('Failed to delete gallery', 'An error occurred while deleting your gallery');
+      const message = handleApiError(error, undefined, true, true)
+      toast.error('Failed to delete gallery', formatErrorForToast(message));
     }
   };
 

@@ -22,6 +22,8 @@
 
   --color-primary: #6a5acd;
   --color-primary-content: white;
+  --color-secondary: #f97316;
+  --color-secondary-content: white;
 
   /* Custom base-400 color */
   --color-base-100: oklch(100% 0 0);
@@ -35,6 +37,8 @@
   name: "dark";
 
   --color-primary: #443893;
+  --color-secondary: #c2410c;
+  --color-secondary-content: white;
 
   --color-base-100: oklch(25% 0 0);
   --color-base-200: oklch(22% 0 0);

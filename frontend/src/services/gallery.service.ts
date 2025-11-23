@@ -1,5 +1,6 @@
 import { gallery } from '@lib/api';
 import type { CanvasState } from '@types';
+import type { PaginatedGalleryListResponse } from '@types';
 import type { AxiosProgressEvent } from 'axios';
 
 export interface Gallery {
@@ -34,6 +35,13 @@ export interface UpdateGalleryData {
   picture?: string | File;
   canvas_width?: number;
   canvas_height?: number;
+}
+
+export interface PaginatedGalleryResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Gallery[];
 }
 
 export const galleryService = {
@@ -153,21 +161,15 @@ export const galleryService = {
   },
 
   /**
-   * List all galleries
+   * List all galleries (paginated, public)
    */
-  async listGalleries(): Promise<Gallery[]> {
-    console.log('[galleryService] listGalleries called');
-    console.log('[galleryService] Making GET request to: ""');
-
-    const response = await gallery.get('');
-
-    console.log('[galleryService] listGalleries response:', {
-      status: response.status,
-      dataType: Array.isArray(response.data) ? 'array' : typeof response.data,
-      count: Array.isArray(response.data) ? response.data.length : 'N/A',
-      data: response.data,
+  async listGalleries(
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('list/', {
+      params: { page, page_size: pageSize },
     });
-
     return response.data;
   },
 

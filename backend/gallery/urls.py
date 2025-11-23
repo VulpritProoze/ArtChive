@@ -4,6 +4,7 @@ from .views import (
     GalleryActiveView,
     GalleryDetailView,
     GalleryListCreateView,
+    GalleryListView,
     GalleryStatusUpdateView,
     GalleryUserListView,
     MediaUploadView,
@@ -12,6 +13,7 @@ from .views import (
 urlpatterns = [
     # Gallery CRUD
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
+    path('list/', GalleryListView.as_view(), name='gallery-list'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
     path('<uuid:gallery_id>/status/', GalleryStatusUpdateView.as_view(), name='gallery-status-update'),
     path('user/<int:user_id>/active/', GalleryActiveView.as_view(), name='gallery-active-by-user'),
