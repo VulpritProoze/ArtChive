@@ -20,7 +20,7 @@ interface ToolbarProps {
   onToggleShapes: () => void;
   onSave?: () => void;
   showShapes: boolean;
-  shapesButtonRef: React.RefObject<HTMLButtonElement>;
+  shapesButtonRef: React.RefObject<HTMLButtonElement | null>;
   canGroup: boolean;
   canUngroup: boolean;
   canUndo: boolean;

@@ -153,7 +153,7 @@ export const galleryService = {
   },
 
   /**
-   * List all galleries for the current user
+   * List all galleries
    */
   async listGalleries(): Promise<Gallery[]> {
     console.log('[galleryService] listGalleries called');
@@ -168,6 +168,14 @@ export const galleryService = {
       data: response.data,
     });
 
+    return response.data;
+  },
+
+  /**
+   * List all galleries for current user
+   */
+  async userListGalleries(): Promise<Gallery[]> {
+    const response = await gallery.get(`user/`);
     return response.data;
   },
 
