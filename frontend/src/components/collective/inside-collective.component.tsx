@@ -23,7 +23,7 @@ import {
   SkeletonCollectiveInfo,
   SkeletonHeroImage,
 } from "@components/common/skeleton";
-import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog } from "@fortawesome/free-solid-svg-icons";
+import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
@@ -60,14 +60,33 @@ const CollectiveHome = () => {
   const [showMediaDropdown, setShowMediaDropdown] = useState(false);
   const [showJoinedDropdown, setShowJoinedDropdown] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [heroImageError, setHeroImageError] = useState(false);
   const [currentChannelType, setCurrentChannelType] = useState<'Post Channel' | 'Media Channel' | 'Event Channel'>('Post Channel');
   const joinedButtonRef = useRef<HTMLDivElement>(null);
+  const rightSidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchCollectiveData(collectiveId);
     setHeroImageError(false); // Reset error state when collective changes
   }, [collectiveId]);
+
+  // Handle click outside for joined dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (joinedButtonRef.current && !joinedButtonRef.current.contains(event.target as Node)) {
+        setShowJoinedDropdown(false);
+      }
+    };
+
+    if (showJoinedDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showJoinedDropdown]);
 
   useEffect(() => {
     let isFetching = false;
@@ -139,16 +158,28 @@ const CollectiveHome = () => {
       {showCommentForm && <CommentFormModal channel_id={selectedChannel?.channel_id} />}
 
       <MainLayout showSidebar={false} showRightSidebar={false}>
-        {/* Mobile Menu Button - Sticky below header */}
-        <div className="sticky top-16 z-40 lg:hidden bg-base-100/80 backdrop-blur-sm border-b border-base-300 -mx-4 lg:-mx-8 px-4 lg:px-8">
-          <button
-            className="btn btn-ghost btn-sm gap-2 my-2"
-            onClick={() => setShowMobileSidebar(true)}
-            aria-label="Open sidebar menu"
-          >
-            <FontAwesomeIcon icon={faBars} className="text-lg" />
-            <span className="font-semibold">Menu</span>
-          </button>
+        {/* Mobile Menu Bar - Sticky below header */}
+        <div className="sticky top-16 z-40 lg:hidden bg-base-100/80 backdrop-blur-sm border-b border-base-300 -mx-4 px-4">
+          <div className="flex items-center justify-between gap-2 my-2">
+            <button
+              className="btn btn-ghost btn-sm gap-2"
+              onClick={() => setShowMobileSidebar(true)}
+              aria-label="Open sidebar menu"
+            >
+              <FontAwesomeIcon icon={faBars} className="text-lg" />
+              <span className="font-semibold">Menu</span>
+            </button>
+            {collectiveData && (
+              <button
+                className="btn btn-ghost btn-sm gap-2"
+                onClick={() => setShowRightSidebar(true)}
+                aria-label="Open right sidebar"
+              >
+                <FontAwesomeIcon icon={faInfoCircle} className="text-lg" />
+                <span className="font-semibold">Info</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Sidebar Backdrop */}
@@ -156,6 +187,14 @@ const CollectiveHome = () => {
           <div
             className="fixed inset-0 bg-black/50 z-50 lg:hidden"
             onClick={() => setShowMobileSidebar(false)}
+          />
+        )}
+
+        {/* Mobile Right Sidebar Backdrop */}
+        {showRightSidebar && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 lg:hidden"
+            onClick={() => setShowRightSidebar(false)}
           />
         )}
 
@@ -620,10 +659,11 @@ const CollectiveHome = () => {
                     <div
                       className="relative"
                       ref={joinedButtonRef}
-                      onMouseEnter={() => setShowJoinedDropdown(true)}
-                      onMouseLeave={() => setShowJoinedDropdown(false)}
                     >
-                      <button className="btn btn-success">
+                      <button 
+                        className="btn btn-success"
+                        onClick={() => setShowJoinedDropdown(!showJoinedDropdown)}
+                      >
                         <FontAwesomeIcon icon={faCheck} className="mr-2" />
                         Joined
                       </button>
@@ -748,87 +788,204 @@ const CollectiveHome = () => {
 
           {/* RIGHT SIDEBAR */}
           {collectiveData && (
-            <aside className="w-80 flex-shrink-0 hidden xl:block">
-              <div className="sticky top-20 space-y-6">
-                {/* About Section */}
-                <div className="bg-base-200/50 rounded-xl p-4">
-                  <h3 className="text-lg font-bold mb-3">About</h3>
-                  <p className="text-sm text-base-content/80">
-                    {collectiveData.description}
-                  </p>
-                </div>
+            <>
+              {/* Desktop Right Sidebar */}
+              <aside className="w-80 flex-shrink-0 hidden xl:block">
+                <div className="sticky top-20 space-y-6">
+                  {/* About Section */}
+                  <div className="bg-base-200/50 rounded-xl p-4">
+                    <h3 className="text-lg font-bold mb-3">About</h3>
+                    <p className="text-sm text-base-content/80">
+                      {collectiveData.description}
+                    </p>
+                  </div>
 
-                {/* Rules Section */}
-                <div className="bg-base-200/50 rounded-xl p-4">
-                  <h3 className="text-lg font-bold mb-3">Rules</h3>
-                  <ol className="space-y-2 text-sm">
-                    {collectiveData.rules.map((rule, index) => (
-                      <li key={index} className="text-base-content/80">
-                        {index + 1}. {rule}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+                  {/* Rules Section */}
+                  <div className="bg-base-200/50 rounded-xl p-4">
+                    <h3 className="text-lg font-bold mb-3">Rules</h3>
+                    <ol className="space-y-2 text-sm">
+                      {collectiveData.rules.map((rule, index) => (
+                        <li key={index} className="text-base-content/80">
+                          {index + 1}. {rule}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
 
-                {/* Details Section */}
-                <div className="bg-base-200/50 rounded-xl p-4">
-                  <h3 className="text-lg font-bold mb-3">Details</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-base-content/80">
-                      <span>🔒</span>
-                      <span>Private Group</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-base-content/80">
-                      <span>👁️</span>
-                      <span>Visible to Members Only</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-base-content/80">
-                      <span>📅</span>
-                      <span>Created: {new Date(collectiveData.created_at).toLocaleDateString()}</span>
+                  {/* Details Section */}
+                  <div className="bg-base-200/50 rounded-xl p-4">
+                    <h3 className="text-lg font-bold mb-3">Details</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-base-content/80">
+                        <span>🔒</span>
+                        <span>Private Group</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-base-content/80">
+                        <span>👁️</span>
+                        <span>Visible to Members Only</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-base-content/80">
+                        <span>📅</span>
+                        <span>Created: {new Date(collectiveData.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Admin Actions */}
-                {isAdminOfACollective(collectiveData.collective_id) && (
-                <div className="bg-base-200/50 rounded-xl p-4">
-                  <h3 className="text-lg font-bold mb-3">Admin Actions</h3>
-                  <div className="space-y-2">
-                    {selectedChannel && (
-                      <>
-                        <button
-                          className="btn btn-sm btn-info w-full"
-                          onClick={() => setEditingChannel(selectedChannel)}
-                        >
-                          Update Channel
-                        </button>
-                        <button
-                          className="btn btn-sm btn-error w-full"
-                          onClick={() => {
-                            if (window.confirm(`Delete channel "${selectedChannel.title}"?`)) {
-                              handleDeleteChannel(selectedChannel.channel_id);
-                            }
-                          }}
-                        >
-                          Delete Channel
-                        </button>
-                      </>
+                  {/* Admin Actions */}
+                  {isAdminOfACollective(collectiveData.collective_id) && (
+                    <div className="bg-base-200/50 rounded-xl p-4">
+                      <h3 className="text-lg font-bold mb-3">Admin Actions</h3>
+                      <div className="space-y-2">
+                        {selectedChannel && (
+                          <>
+                            <button
+                              className="btn btn-sm btn-info w-full justify-start gap-2"
+                              onClick={() => setEditingChannel(selectedChannel)}
+                            >
+                              <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
+                              Update Channel
+                            </button>
+                            <button
+                              className="btn btn-sm btn-error w-full justify-start gap-2"
+                              onClick={() => {
+                                if (window.confirm(`Delete channel "${selectedChannel.title}"?`)) {
+                                  handleDeleteChannel(selectedChannel.channel_id);
+                                }
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
+                              Delete Channel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leave Collective */}
+                  {isMemberOfACollective(collectiveData.collective_id) && (
+                    <button
+                      className="btn btn-error w-full gap-2"
+                      onClick={() => handleLeaveCollective(collectiveData.collective_id)}
+                    >
+                      <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
+                      Leave Collective
+                    </button>
+                  )}
+                </div>
+              </aside>
+
+              {/* Mobile Right Sidebar - Slide-in drawer */}
+              <aside
+                ref={rightSidebarRef}
+                className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+                  showRightSidebar ? 'translate-x-0' : 'translate-x-full'
+                }`}
+              >
+                <div className="p-4">
+                  {/* Close button */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold">{collectiveData ? collectiveData.title : "Collective Info" }</h2>
+                    <button
+                      className="btn btn-ghost btn-sm btn-circle"
+                      onClick={() => setShowRightSidebar(false)}
+                    >
+                      <FontAwesomeIcon icon={faTimes} className="text-xl" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* About Section */}
+                    <div className="bg-base-100 rounded-xl p-4">
+                      <h3 className="text-lg font-bold mb-3">About</h3>
+                      <p className="text-sm text-base-content/80">
+                        {collectiveData.description}
+                      </p>
+                    </div>
+
+                    {/* Rules Section */}
+                    <div className="bg-base-100 rounded-xl p-4">
+                      <h3 className="text-lg font-bold mb-3">Rules</h3>
+                      <ol className="space-y-2 text-sm">
+                        {collectiveData.rules.map((rule, index) => (
+                          <li key={index} className="text-base-content/80">
+                            {index + 1}. {rule}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    {/* Details Section */}
+                    <div className="bg-base-100 rounded-xl p-4">
+                      <h3 className="text-lg font-bold mb-3">Details</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-base-content/80">
+                          <span>🔒</span>
+                          <span>Private Group</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-base-content/80">
+                          <span>👁️</span>
+                          <span>Visible to Members Only</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-base-content/80">
+                          <span>📅</span>
+                          <span>Created: {new Date(collectiveData.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Admin Actions */}
+                    {isAdminOfACollective(collectiveData.collective_id) && (
+                      <div className="bg-base-100 rounded-xl p-4">
+                        <h3 className="text-lg font-bold mb-3">Admin Actions</h3>
+                        <div className="space-y-2">
+                          {selectedChannel && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-info w-full justify-start gap-2"
+                                onClick={() => {
+                                  setEditingChannel(selectedChannel);
+                                  setShowRightSidebar(false);
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
+                                Update Channel
+                              </button>
+                              <button
+                                className="btn btn-sm btn-error w-full justify-start gap-2"
+                                onClick={() => {
+                                  if (window.confirm(`Delete channel "${selectedChannel.title}"?`)) {
+                                    handleDeleteChannel(selectedChannel.channel_id);
+                                    setShowRightSidebar(false);
+                                  }
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
+                                Delete Channel
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Leave Collective */}
+                    {isMemberOfACollective(collectiveData.collective_id) && (
+                      <button
+                        className="btn btn-error w-full gap-2"
+                        onClick={() => {
+                          handleLeaveCollective(collectiveData.collective_id);
+                          setShowRightSidebar(false);
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
+                        Leave Collective
+                      </button>
                     )}
                   </div>
                 </div>
-              )}
-
-                {/* Leave Collective */}
-                {isMemberOfACollective(collectiveData.collective_id) && (
-                  <button
-                    className="btn btn-error w-full"
-                    onClick={() => handleLeaveCollective(collectiveData.collective_id)}
-                  >
-                    Leave Collective
-                  </button>
-                )}
-              </div>
-            </aside>
+              </aside>
+            </>
           )}
         </div>
       </MainLayout>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collective } from "@lib/api";
 import { MainLayout } from "@components/common/layout";
@@ -12,7 +12,12 @@ import {
   faCheck,
   faTimes,
   faEnvelope,
+  faEllipsisVertical,
+  faArrowUp,
+  faArrowDown,
 } from "@fortawesome/free-solid-svg-icons";
+import { collectiveService } from "@services/collective.service";
+import CollectiveEditModal from "@components/common/collective-feature/modal/collective-edit.modal";
 
 interface Member {
   id: number;
@@ -57,6 +62,9 @@ export default function CollectiveAdmin() {
   const [loading, setLoading] = useState(true);
   const [collectiveTitle, setCollectiveTitle] = useState("");
   const [activeTab, setActiveTab] = useState<"members" | "requests">("members");
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const dropdownRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -102,6 +110,7 @@ export default function CollectiveAdmin() {
         data: { member_id: memberId },
       });
       toast.success('Member removed', `${username} has been removed from the collective.`);
+      setOpenDropdownId(null);
       fetchData(); // Refresh data
     } catch (error) {
       console.error("Error kicking member:", error);
@@ -109,6 +118,66 @@ export default function CollectiveAdmin() {
       toast.error('Failed to remove member', formatErrorForToast(message));
     }
   };
+
+  const handlePromoteToAdmin = async (memberId: number, username: string) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to promote ${username} to admin?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await collectiveService.changeMemberRole(collectiveId!, memberId);
+      toast.success('Member promoted', `${username} has been promoted to admin.`);
+      setOpenDropdownId(null);
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Error promoting member:", error);
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to promote member', formatErrorForToast(message));
+    }
+  };
+
+  const handleDemoteMember = async (memberId: number, username: string) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to demote ${username} to member?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await collectiveService.demoteMember(collectiveId!, memberId);
+      toast.success('Admin demoted', `${username} has been demoted to member.`);
+      setOpenDropdownId(null);
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Error demoting member:", error);
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to demote member', formatErrorForToast(message));
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        openDropdownId !== null &&
+        dropdownRefs.current[openDropdownId] &&
+        !dropdownRefs.current[openDropdownId]?.contains(event.target as Node)
+      ) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openDropdownId]);
 
   const handleAdminRequest = async (
     requestId: string,
@@ -141,6 +210,15 @@ export default function CollectiveAdmin() {
 
   return (
     <MainLayout>
+      {/* Edit Collective Modal */}
+      {showEditModal && (
+        <CollectiveEditModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          collectiveId={collectiveId!}
+        />
+      )}
+
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -150,8 +228,19 @@ export default function CollectiveAdmin() {
           >
             ← Back to Collective
           </button>
-          <h1 className="text-3xl font-bold mb-2">Admin Management</h1>
-          <p className="text-base-content/70">{collectiveTitle}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Admin Management</h1>
+              <p className="text-base-content/70">{collectiveTitle}</p>
+            </div>
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="btn btn-primary"
+            >
+              <FontAwesomeIcon icon={faUserShield} className="mr-2" />
+              Edit Collective
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -240,16 +329,62 @@ export default function CollectiveAdmin() {
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <button
-                        className="btn btn-error btn-sm"
-                        onClick={() =>
-                          handleKickMember(member.member_id, member.username)
-                        }
-                      >
-                        <FontAwesomeIcon icon={faUserMinus} className="mr-2" />
-                        Remove
-                      </button>
+                      {/* Actions Dropdown */}
+                      <div className="relative" ref={(el) => { dropdownRefs.current[member.id] = el; }}>
+                        
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() =>
+                            setOpenDropdownId(openDropdownId === member.id ? null : member.id)
+                          }
+                        >
+                          <FontAwesomeIcon icon={faEllipsisVertical} />
+                        </button>
+
+                        {openDropdownId === member.id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-10 border border-base-300">
+                            <ul className="menu p-2">
+                              {member.collective_role !== "admin" && (
+                                <li>
+                                  <a
+                                    onClick={() =>
+                                      handlePromoteToAdmin(member.member_id, member.username)
+                                    }
+                                    className="text-success"
+                                  >
+                                    <FontAwesomeIcon icon={faArrowUp} className="mr-2" />
+                                    Promote to Admin
+                                  </a>
+                                </li>
+                              )}
+                              {member.collective_role === "admin" && (
+                                <li>
+                                  <a
+                                    onClick={() =>
+                                      handleDemoteMember(member.member_id, member.username)
+                                    }
+                                    className="text-warning"
+                                  >
+                                    <FontAwesomeIcon icon={faArrowDown} className="mr-2" />
+                                    Demote to Member
+                                  </a>
+                                </li>
+                              )}
+                              <li>
+                                <a
+                                  onClick={() =>
+                                    handleKickMember(member.member_id, member.username)
+                                  }
+                                  className="text-error"
+                                >
+                                  <FontAwesomeIcon icon={faUserMinus} className="mr-2" />
+                                  Remove Member
+                                </a>
+                              </li>
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

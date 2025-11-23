@@ -92,9 +92,8 @@ class GalleryDetailView(APIView):
         # Handle picture file renaming if a new picture is uploaded
         picture_file = request.FILES.get('picture')
         if picture_file:
-            ext = os.path.splitext(picture_file.name)[1].lower()
-            short_name = f"g_{str(uuid.uuid4())[:8]}{ext}"
-            picture_file.name = short_name
+            from common.utils.file_utils import rename_image_file
+            rename_image_file(picture_file, prefix="g")
 
         serializer = GallerySerializer(gallery, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():

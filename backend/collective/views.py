@@ -4,17 +4,17 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import (
     CreateAPIView,
-    DestroyAPIView,
     ListAPIView,
     RetrieveAPIView,
     UpdateAPIView,
 )
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
+from common.utils.file_utils import rename_image_file
 from core.permissions import IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
@@ -26,13 +26,16 @@ from .serializers import (
     AdminRequestCreateSerializer,
     AdminRequestSerializer,
     BecomeCollectiveAdminSerializer,
+    ChangeMemberToAdminSerializer,
     ChannelCreateSerializer,
+    ChannelDeleteSerializer,
     ChannelSerializer,
     ChannelUpdateSerializer,
     CollectiveCreateSerializer,
     CollectiveDetailsSerializer,
     CollectiveMemberDetailSerializer,
     CollectiveMemberSerializer,
+    CollectiveUpdateSerializer,
     DemoteAdminSerializer,
     InsideCollectivePostsViewSerializer,
     InsideCollectiveViewSerializer,
@@ -76,7 +79,12 @@ class CollectiveCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]  # Required for file uploads
 
     def post(self, request, *args, **kwargs):
-        # Step 1: Deserialize and validate input
+        # Step 1: Rename picture file if provided
+        picture_file = request.FILES.get('picture')
+        if picture_file:
+            rename_image_file(picture_file, prefix="c")
+
+        # Step 2: Deserialize and validate input
         serializer = CollectiveCreateSerializer(
             data=request.data,
             context={'request': request}  # Optional: helps with absolute URLs in representation
@@ -84,7 +92,7 @@ class CollectiveCreateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Step 2: Create collective + channels + membership in atomic transaction
+        # Step 3: Create collective + channels + membership in atomic transaction
         try:
             with transaction.atomic():
                 # Use serializer.save() — handles picture field correctly
@@ -118,6 +126,35 @@ class CollectiveCreateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+class CollectiveUpdateView(UpdateAPIView):
+    """
+    Update collective details (admin only).
+    PATCH /api/collective/<collective_id>/update/
+    Fields that can be updated: description, rules, artist_types, picture
+    """
+    queryset = Collective.objects.all()
+    serializer_class = CollectiveUpdateSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Support both multipart and JSON
+    lookup_field = 'collective_id'
+
+    def get_object(self):
+        """Get the collective and verify admin permission."""
+        collective_id = self.kwargs['collective_id']
+        collective = get_object_or_404(Collective, collective_id=collective_id)
+        return collective
+
+    def update(self, request, *args, **kwargs):
+        """Override update to rename picture file before processing."""
+        # Rename picture file if provided
+        picture_file = request.FILES.get('picture')
+        if picture_file:
+            rename_image_file(picture_file, prefix="c")
+
+        return super().update(request, *args, **kwargs)
+
+
 class ChannelListView(ListAPIView):
     queryset = Channel.objects.all()
     serializer_class = ChannelSerializer
@@ -129,43 +166,74 @@ class ChannelCreateView(CreateAPIView):
     lookup_field = 'collective_id'
     permission_classes = [IsAuthenticated, IsCollectiveAdmin]
 
-class ChannelUpdateView(UpdateAPIView):
+class ChannelUpdateView(APIView):
     """
     Update a channel's title or description.
     Only admins of the channel's collective can update it.
+    Default channels (General, Audio, Video, General Event) cannot be updated.
+    PATCH /api/collective/<collective_id>/channel/update/
+    Body: { "channel_id": "<uuid>", "title": "...", "description": "..." }
     """
-    queryset = Channel.objects.all()
-    serializer_class = ChannelUpdateSerializer
     permission_classes = [IsAuthenticated, IsCollectiveAdmin]
-    lookup_field = 'collective_id'
 
-    # Modify object fetch after serialization
-    def get_object(self):
-        collective_id = self.kwargs['collective_id']
-        channel_id = self.request.data.get('channel_id')
-        return get_object_or_404(Channel,
+    def patch(self, request, collective_id):
+        channel_id = request.data.get('channel_id')
+
+        if not channel_id:
+            return Response(
+                {"detail": "channel_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        channel = get_object_or_404(
+            Channel,
             channel_id=channel_id,
             collective__collective_id=collective_id
         )
 
+        # Use serializer for validation (includes default channel check)
+        serializer = ChannelUpdateSerializer(channel, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-class ChannelDeleteView(DestroyAPIView):
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ChannelDeleteView(APIView):
     """
     Delete a channel.
     Only admins of the channel's collective can delete it.
+    Default channels (General, Audio, Video, General Event) cannot be deleted.
+    DELETE /api/collective/<collective_id>/channel/delete/
+    Body: { "channel_id": "<uuid>" }
     """
-    queryset = Channel.objects.all()
     permission_classes = [IsAuthenticated, IsCollectiveAdmin]
-    lookup_field = 'collective_id'
 
-    # Modify object fetch after serialization
-    def get_object(self):
-        collective_id = self.kwargs['collective_id']
-        channel_id = self.request.data.get('channel_id')
-        return get_object_or_404(Channel,
+    def delete(self, request, collective_id):
+        channel_id = request.data.get('channel_id')
+
+        if not channel_id:
+            return Response(
+                {"detail": "channel_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create queryset to fetch the channel
+        queryset = Channel.objects.filter(
             channel_id=channel_id,
             collective__collective_id=collective_id
         )
+
+        # Get the channel from queryset
+        channel = get_object_or_404(queryset)
+
+        # Pass the channel instance to serializer for validation
+        # The serializer will use the channel's title from the database for validation
+        serializer = ChannelDeleteSerializer(channel, data={'channel_id': channel_id})
+        serializer.is_valid(raise_exception=True)
+        channel.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class InsideCollectiveView(RetrieveAPIView):
     serializer_class = InsideCollectiveViewSerializer
@@ -373,6 +441,44 @@ class DemoteAdminView(APIView):
             'message': f'{demoted_member.member.username} has been demoted to member.',
             'member_id': demoted_member.member.id,
             'role': demoted_member.collective_role
+        }, status=status.HTTP_200_OK)
+
+class ChangeMemberRoleView(APIView):
+    """
+    Change a member's collective role to admin (admin only).
+    PATCH /api/collective/<collective_id>/members/<member_id>/role/
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def patch(self, request, collective_id, member_id):
+        """Change a member's role to admin"""
+        # Create queryset with only the two members we need
+        members_queryset = CollectiveMember.objects.filter(
+            collective_id=collective_id,
+            member_id__in=[request.user.id, member_id]
+        ).select_related('member')
+
+        # Use serializer with queryset in context - serializer will check member existence
+        serializer = ChangeMemberToAdminSerializer(
+            data={'member_id': member_id},
+            context={'request': request, 'queryset': members_queryset}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        # Get target member from serializer and update role
+        target_member = serializer._target_member
+        target_member.collective_role = 'admin'
+        target_member.save(update_fields=['collective_role'])
+
+        # Invalidate cache
+        cache_key = get_collective_memberships_cache_key(target_member.member.id)
+        cache.delete(cache_key)
+
+        return Response({
+            'message': f'{target_member.member.username} has been promoted to admin.',
+            'member_id': target_member.member.id,
+            'username': target_member.member.username,
+            'role': target_member.collective_role
         }, status=status.HTTP_200_OK)
 
 # ============================================================================

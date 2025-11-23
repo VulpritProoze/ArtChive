@@ -11,6 +11,7 @@ from common.utils.constants import (
     ALLOWED_EXTENSIONS_FOR_IMAGES,
     MAX_FILE_SIZE_FOR_IMAGES,
 )
+from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from core.models import BrushDripWallet
 from post.models import Post
 from post.serializers import PostViewSerializer
@@ -185,6 +186,72 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         data["collective_id"] = instance.collective_id  # Include UUID
         return data
 
+class CollectiveUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating collective details (admin only)."""
+
+    description = serializers.CharField(
+        max_length=4096, required=False, allow_blank=False, trim_whitespace=True
+    )
+    rules = serializers.ListField(
+        child=serializers.CharField(max_length=100), required=False, allow_empty=True
+    )
+    artist_types = serializers.ListField(
+        child=serializers.CharField(max_length=50), required=False, allow_empty=True
+    )
+    picture = serializers.ImageField(
+        required=False,
+        validators=[
+            FileExtensionValidator(allowed_extensions=ALLOWED_EXTENSIONS_FOR_IMAGES)
+        ],
+    )
+
+    class Meta:
+        model = Collective
+        fields = ["description", "rules", "artist_types", "picture"]
+
+    def validate_description(self, value):
+        """Ensure description is not just whitespace."""
+        if value and not value.strip():
+            raise serializers.ValidationError("Description cannot be empty.")
+        return value.strip() if value else value
+
+    def validate_artist_types(self, value):
+        """Optional: Validate known types or just sanitize."""
+        if value is None:
+            return value
+        return (
+            [item.strip() for item in value if item and item.strip()] if value else []
+        )
+
+    def validate_picture(self, value):
+        if not value:
+            return value
+
+        # 1. File size validation
+        if value.size > MAX_FILE_SIZE_FOR_IMAGES:
+            raise serializers.ValidationError(
+                f"Image file too large. Maximum size is {MAX_FILE_SIZE_FOR_IMAGES // (1024 * 1024)} MB."
+            )
+
+        # 2. Content validation with PIL (security: prevent fake images)
+        try:
+            img = Image.open(value)
+            img.verify()  # Verify it's a real image
+            value.seek(0)  # Reset file pointer for Django to save it
+        except Exception:
+            raise serializers.ValidationError("Invalid or corrupted image file.") from None
+
+        return value
+
+    def update(self, instance, validated_data):
+        """Override update to preserve existing picture if not provided."""
+        # If picture is not in validated_data, preserve the existing value
+        # This happens when no new file is uploaded
+        if 'picture' not in validated_data:
+            validated_data['picture'] = instance.picture
+
+        return super().update(instance, validated_data)
+
 
 class ChannelCreateSerializer(ModelSerializer):
     title = serializers.CharField(max_length=512, trim_whitespace=True)
@@ -231,14 +298,41 @@ class ChannelUpdateSerializer(ChannelCreateSerializer):
         model = Channel
         fields = ["title", "description", "channel_id"]
 
+    def validate(self, attrs):
+        """Validate that default channels cannot be updated."""
+        # Get the default channel titles
+        default_titles = {channel["title"] for channel in DEFAULT_COLLECTIVE_CHANNELS}
+
+        # Check if this channel's title is in the default titles
+        instance = self.instance
+        if instance and instance.title in default_titles:
+            raise serializers.ValidationError(
+                f"Cannot update default channel '{instance.title}'. Default channels are protected."
+            )
+
+        return attrs
+
 
 class ChannelDeleteSerializer(ModelSerializer):
     class Meta:
         model = Channel
-        fields = "__all__"
+        fields = ["channel_id"]  # Only channel_id needed from request
 
-    def validate():
-        pass
+    def validate(self, attrs):
+        """Validate that default channels cannot be deleted."""
+        # Get the default channel titles from DEFAULT_COLLECTIVE_CHANNELS config
+        # DEFAULT_COLLECTIVE_CHANNELS is a list of dictionaries, each with a "title" key
+        default_titles = {channel_config["title"] for channel_config in DEFAULT_COLLECTIVE_CHANNELS}
+
+        # Check if this channel's title is in the default titles
+        # Use the instance's title (fetched from database) for validation
+        instance = self.instance
+        if instance and instance.title in default_titles:
+            raise serializers.ValidationError(
+                f"Cannot delete default channel '{instance.title}'. Default channels are protected."
+            )
+
+        return attrs
 
 
 class CollectiveMemberDetailSerializer(ModelSerializer):
@@ -415,7 +509,7 @@ class KickMemberSerializer(Serializer):
                 member_id=member_id, collective_id=collective_id
             )
         except CollectiveMember.DoesNotExist:
-            raise serializers.ValidationError("Member not found in this collective.")
+            raise serializers.ValidationError("Member not found in this collective.")  # noqa: B904
 
         # Prevent kicking any admin - they must be demoted first
         if self._member_to_kick.collective_role == "admin":
@@ -477,6 +571,40 @@ class PromoteMemberSerializer(Serializer):
         return self._member_to_promote
 
 
+class ChangeMemberToAdminSerializer(serializers.Serializer):
+    """Serializer for changing a member's role to admin."""
+
+    member_id = serializers.IntegerField()
+
+    def validate(self, attrs):
+        """Validate that current user is admin and target member exists."""
+        user = self.context["request"].user
+        member_id = attrs["member_id"]
+
+        # Get queryset from view context
+        members_queryset = self.context.get('queryset')
+        if not members_queryset:
+            raise serializers.ValidationError("Queryset not provided in context.")
+
+        # Check if current user is an admin
+        try:
+            admin_member = members_queryset.get(member_id=user.id)
+            if admin_member.collective_role != "admin":
+                raise serializers.ValidationError("Only admins can change member roles.")
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError(  # noqa: B904
+                "You are not a member of this collective."
+            )
+
+        # Check if target member exists in queryset
+        try:
+            self._target_member = members_queryset.get(member_id=member_id)
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError("Member not found in this collective.")  # noqa: B904
+
+        return attrs
+
+
 class DemoteAdminSerializer(Serializer):
     """Serializer for demoting an admin to member."""
 
@@ -505,8 +633,14 @@ class DemoteAdminSerializer(Serializer):
                     "Only admins can demote other admins."
                 )
         except CollectiveMember.DoesNotExist:
-            raise serializers.ValidationError(
+            raise serializers.ValidationError(  # noqa: B904
                 "You are not a member of this collective."
+            )
+
+        # Prevent demoting yourself
+        if user.id == member_id:
+            raise serializers.ValidationError(
+                "You cannot demote yourself. Ask another admin to demote you."
             )
 
         # Check if target member exists in collective
@@ -515,7 +649,7 @@ class DemoteAdminSerializer(Serializer):
                 member_id=member_id, collective_id=collective_id
             )
         except CollectiveMember.DoesNotExist:
-            raise serializers.ValidationError("Member not found in this collective.")
+            raise serializers.ValidationError("Member not found in this collective.")  # noqa: B904
 
         # Check if they are actually an admin
         if self._member_to_demote.collective_role != "admin":
