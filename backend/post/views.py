@@ -1,12 +1,8 @@
 from collections import deque
 
-from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Value
-from django.db.models.fields import BooleanField
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import (
@@ -31,7 +27,6 @@ from notification.utils import (
     create_trophy_notification,
 )
 
-from .cache_utils import get_post_list_cache_key, get_post_list_count_cache_key
 from .models import (
     Comment,
     Critique,
@@ -139,12 +134,18 @@ class PostListView(generics.ListAPIView):
         '''
         user = self.request.user
 
-        # Optimize comment prefetch - prefetch ALL active comments with their authors
-        # The serializer will limit to first 2 in get_comments()
+        # Prefetch top-level comments with reply counts; serializer will slice to the first 2
         comments_prefetch = Prefetch(
             'post_comment',
             queryset=Comment.objects.get_active_objects()
+                .filter(replies_to__isnull=True, critique_id__isnull=True)
                 .select_related('author', 'author__artist')
+                .annotate(
+                    reply_count=Count(
+                        'comment_reply',
+                        filter=Q(comment_reply__is_deleted=False)
+                    )
+                )
                 .order_by('-created_at')
         )
 
@@ -765,13 +766,13 @@ class PostPraiseCountView(APIView):
 
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
-        praise_count = PostPraise.objects.filter(post_id=post).count()
+        aggregate_result = PostPraise.objects.filter(post_id=post).aggregate(
+            total_count=Count('id'),
+            user_count=Count('id', filter=Q(author=request.user)),
+        )
 
-        # Check if current user has praised this post
-        is_praised_by_user = PostPraise.objects.filter(
-            post_id=post,
-            author=request.user
-        ).exists()
+        praise_count = aggregate_result['total_count'] or 0
+        is_praised_by_user = bool(aggregate_result['user_count'])
 
         return Response({
             'post_id': str(post_id),
@@ -936,24 +937,21 @@ class PostTrophyCountView(APIView):
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
 
-        # Count trophies by type
+        trophies_qs = PostTrophy.objects.filter(post_id=post)
+        counts_by_type = {
+            row['post_trophy_type__trophy']: row['count']
+            for row in trophies_qs.values('post_trophy_type__trophy').annotate(count=Count('id'))
+        }
+
         trophy_counts = {}
         total_count = 0
-
         for trophy_type in TrophyType.objects.all():
-            count = PostTrophy.objects.filter(
-                post_id=post,
-                post_trophy_type=trophy_type
-            ).count()
+            count = counts_by_type.get(trophy_type.trophy, 0)
             trophy_counts[trophy_type.trophy] = count
             total_count += count
 
-        # Check which trophies current user has awarded to this post
         user_awarded_trophies = list(
-            PostTrophy.objects.filter(
-                post_id=post,
-                author=request.user
-            ).values_list('post_trophy_type__trophy', flat=True)
+            trophies_qs.filter(author=request.user).values_list('post_trophy_type__trophy', flat=True)
         )
 
         return Response({

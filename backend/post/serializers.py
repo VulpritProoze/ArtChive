@@ -1,12 +1,12 @@
 from django.core.validators import FileExtensionValidator
-from django.db import transaction as db_transaction
+from django.db.models import Count, Q
 from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
 from common.utils import choices
 from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
-from core.models import Artist, BrushDripTransaction, BrushDripWallet
+from core.models import Artist, BrushDripWallet
 
 from .models import (
     Comment,
@@ -417,11 +417,31 @@ class PostListViewSerializer(PostViewSerializer):
 
     def get_comments(self, obj):
         """Get first 2 comments for this post"""
-        # Use the prefetched data (from post_comment Prefetch in view)
-        # Access it via .all() to use the prefetch cache, then slice in Python
-        all_comments = obj.post_comment.all()  # This uses prefetch cache
-        # Get first 2 from the already-sorted and already-loaded list
-        comments = list(all_comments)[:2]
+        comments = None
+
+        # Use prefetched comments when available to avoid extra queries
+        prefetched_cache = getattr(obj, '_prefetched_objects_cache', {})
+        prefetched_comments = prefetched_cache.get('post_comment')
+        if prefetched_comments is not None:
+            comments = list(prefetched_comments)[:2]
+
+        if comments is None:
+            comments = list(
+                Comment.objects.get_active_objects()
+                .filter(
+                    post_id=obj.pk,
+                    replies_to__isnull=True,
+                    critique_id__isnull=True,
+                )
+                .select_related('author', 'author__artist')
+                .annotate(
+                    reply_count=Count(
+                        'comment_reply',
+                        filter=Q(comment_reply__is_deleted=False),
+                    )
+                )
+                .order_by('-created_at')[:2]
+            )
         return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -476,6 +496,8 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
 
     def get_reply_count(self, obj):
         '''Get reply counts'''
+        if hasattr(obj, 'reply_count'):
+            return obj.reply_count
         return obj.comment_reply.get_active_objects().count()
 
 class CommentCreateSerializer(ModelSerializer):
