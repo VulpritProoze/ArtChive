@@ -1,7 +1,6 @@
 import uuid
 
 from django.core.validators import FileExtensionValidator
-from django.db.models import Sum
 from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
@@ -12,7 +11,6 @@ from common.utils.constants import (
     MAX_FILE_SIZE_FOR_IMAGES,
 )
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
-from core.models import BrushDripWallet
 from post.models import Post
 from post.serializers import PostViewSerializer
 
@@ -56,11 +54,8 @@ class CollectiveMemberSerializer(ModelSerializer):
 
 
 class CollectiveDetailsSerializer(ModelSerializer):
-    # nested serializer
-    channels = CollectiveChannelSerializer(
-        source="collective_channel", many=True, read_only=True
-    )
-    user_membership = serializers.SerializerMethodField()
+    # Use SerializerMethodField for channels to add posts_count
+    channels = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     brush_drips_count = serializers.SerializerMethodField()
 
@@ -68,40 +63,44 @@ class CollectiveDetailsSerializer(ModelSerializer):
         model = Collective
         fields = "__all__"
 
-    def get_user_membership(self, obj):
-        """Get the current user's membership info for this collective."""
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            try:
-                membership = CollectiveMember.objects.get(
-                    collective_id=obj, member=request.user
-                )
-                return {
-                    "is_member": True,
-                    "role": membership.collective_role,
-                    "joined_at": membership.created_at,
-                }
-            except CollectiveMember.DoesNotExist:
-                return {"is_member": False, "role": None, "joined_at": None}
-        return None
+    def get_channels(self, obj):
+        """Get channels with posts_count from prefetched data."""
+        # Use prefetched collective_channel with annotated posts_count
+        channels = obj.collective_channel.all()
+
+        return [
+            {
+                "channel_id": channel.channel_id,
+                "title": channel.title,
+                "description": channel.description,
+                "channel_type": self._get_channel_type_display(channel.channel_type),
+                "posts_count": getattr(channel, 'posts_count', 0),
+            }
+            for channel in channels
+        ]
+
+    def _get_channel_type_display(self, channel_type):
+        """Convert snake_case channel_type to display format."""
+        channel_type_mapping = {
+            'post_channel': CHANNEL_TYPES.post_channel,
+            'media_channel': CHANNEL_TYPES.media_channel,
+            'event_channel': CHANNEL_TYPES.event_channel,
+        }
+        return channel_type_mapping.get(channel_type, channel_type)
 
     def get_member_count(self, obj):
-        """Get total member count for this collective."""
-        return CollectiveMember.objects.filter(collective_id=obj).count()
+        """Get total member count using prefetched data."""
+        # Use prefetched collective_member to avoid extra query
+        return len(obj.collective_member.all())
 
     def get_brush_drips_count(self, obj):
-        """Get total brush drips amount of all members in this collective"""
-        # Only members of the current collective (use obj if obj is a Collective)
-        # If obj is a Collective instance:
-        member_user_ids = CollectiveMember.objects.filter(
-            collective_id=obj.pk  # assuming obj is the Collective
-        ).values_list('member_id', flat=True)
-
-        total = BrushDripWallet.objects.filter(
-            user_id__in=member_user_ids
-        ).aggregate(
-            total_amount=Sum('balance')
-        )['total_amount'] or 0
+        """Get total brush drips amount using prefetched data."""
+        # Use prefetched collective_member__member__user_wallet to avoid extra queries
+        total = 0
+        for membership in obj.collective_member.all():
+            # Access prefetched user_wallet (OneToOneField, not a QuerySet)
+            if hasattr(membership.member, 'user_wallet'):
+                total += membership.member.user_wallet.balance
 
         return total
 
@@ -146,10 +145,8 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_artist_types(self, value):
-        """Optional: Validate known types or just sanitize."""
-        return (
-            [item.strip() for item in value if item and item.strip()] if value else []
-        )
+        """Validate and sanitize artist types."""
+        return [item.strip() for item in value if item and item.strip()] if value else []
 
     def validate_picture(self, value):
         if not value:
@@ -365,9 +362,7 @@ class CollectiveMemberDetailSerializer(ModelSerializer):
 
 
 class InsideCollectiveViewSerializer(ModelSerializer):
-    channels = CollectiveChannelSerializer(
-        source="collective_channel", many=True, read_only=True
-    )
+    channels = serializers.SerializerMethodField()
     members = CollectiveMemberDetailSerializer(
         source="collective_member", many=True, read_only=True
     )
@@ -377,9 +372,35 @@ class InsideCollectiveViewSerializer(ModelSerializer):
         model = Collective
         fields = "__all__"
 
+    def get_channels(self, obj):
+        """Get channels with posts_count from prefetched data."""
+        # Use prefetched collective_channel with annotated posts_count
+        channels = obj.collective_channel.all()
+
+        return [
+            {
+                "channel_id": channel.channel_id,
+                "title": channel.title,
+                "description": channel.description,
+                "channel_type": self._get_channel_type_display(channel.channel_type),
+                "posts_count": getattr(channel, 'posts_count', 0),
+            }
+            for channel in channels
+        ]
+
+    def _get_channel_type_display(self, channel_type):
+        """Convert snake_case channel_type to display format."""
+        channel_type_mapping = {
+            'post_channel': CHANNEL_TYPES.post_channel,
+            'media_channel': CHANNEL_TYPES.media_channel,
+            'event_channel': CHANNEL_TYPES.event_channel,
+        }
+        return channel_type_mapping.get(channel_type, channel_type)
+
     def get_member_count(self, obj):
-        """Get total member count for this collective."""
-        return CollectiveMember.objects.filter(collective_id=obj).count()
+        """Get total member count using prefetched data."""
+        # Use prefetched collective_member to avoid extra query
+        return len(obj.collective_member.all())
 
 
 class InsideCollectivePostsViewSerializer(PostViewSerializer):

@@ -24,7 +24,9 @@ import {
   Moon,
   TrendingUp,
   Radio,
-  X
+  X,
+  Menu,
+  PanelRightOpen
 } from "lucide-react";
 
 interface MainLayoutProps {
@@ -42,6 +44,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const location = useLocation();
   const navigate = useNavigate()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileLeftSidebarOpen, setIsMobileLeftSidebarOpen] = useState(false);
+  const [isMobileRightSidebarOpen, setIsMobileRightSidebarOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
 
   const isActive = (path: string) => location.pathname === path;
@@ -110,20 +114,34 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <header className="sticky top-0 z-50 bg-base-100/95 backdrop-blur-xl border-b border-base-300 shadow-sm">
         <div className="container max-w-7xl mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link
-              to="/home"
-              className="flex items-center gap-2 group transition-transform hover:scale-105"
-            >
-              <img
-                src="/logo/ArtChive_logo.png"
-                alt="ArtChive Logo"
-                className="w-10 h-10 object-contain"
-              />
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                ArtChive
-              </span>
-            </Link>
+            {/* Left Section with Menu Button */}
+            <div className="flex items-center gap-3">
+              {/* Left Sidebar Toggle - Shows on small screens (below md) when left sidebar is hidden */}
+              {showSidebar && (
+                <button
+                  className="md:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+                  onClick={() => setIsMobileLeftSidebarOpen(true)}
+                  title="Open menu"
+                >
+                  <Menu className="w-5 h-5 flex-shrink-0" />
+                </button>
+              )}
+
+              {/* Logo */}
+              <Link
+                to="/home"
+                className="flex items-center gap-2 group transition-transform hover:scale-105"
+              >
+                <img
+                  src="/logo/ArtChive_logo.png"
+                  alt="ArtChive Logo"
+                  className="w-10 h-10 object-contain"
+                />
+                <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  ArtChive
+                </span>
+              </Link>
+            </div>
 
             {/* Search Bar - Desktop */}
             <div className="hidden md:flex flex-1 max-w-xl mx-8">
@@ -172,6 +190,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
+                {/* Right Sidebar Toggle - Shows on medium screens (below lg) when right sidebar is hidden */}
+                {showRightSidebar && (
+                  <button
+                    className="lg:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+                    onClick={() => setIsMobileRightSidebarOpen(true)}
+                    title="Open sidebar"
+                  >
+                    <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
+                  </button>
+                )}
+
                 <button
                   className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 relative"
                   title="Messages (coming soon)"
@@ -286,12 +315,169 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </div>
 
+      {/* Mobile Left Sidebar Overlay */}
+      {isMobileLeftSidebarOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileLeftSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Left Sidebar Drawer */}
+      <div
+        className={`fixed top-0 left-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out md:hidden ${
+          isMobileLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300">
+            <div className="flex items-center gap-2">
+              <Menu className="w-5 h-5 flex-shrink-0" />
+              <h2 className="text-xl font-bold">Menu</h2>
+            </div>
+            <button
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={() => setIsMobileLeftSidebarOpen(false)}
+            >
+              <X className="w-5 h-5 flex-shrink-0" />
+            </button>
+          </div>
+
+          {/* Navigation Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <nav className="flex flex-col gap-1">
+              {navItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMobileLeftSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                      isActive(item.path)
+                        ? "bg-primary text-primary-content shadow-lg scale-[1.02]"
+                        : "hover:bg-base-300 text-base-content hover:scale-[1.01]"
+                    }`}
+                  >
+                    <IconComponent className={`w-5 h-5 flex-shrink-0 ${!isActive(item.path) && 'group-hover:scale-110 transition-transform'}`} />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Right Sidebar Overlay */}
+      {isMobileRightSidebarOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileRightSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Right Sidebar Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out lg:hidden ${
+          isMobileRightSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-base-300">
+            <div className="flex items-center gap-2">
+              <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
+              <h2 className="text-xl font-bold">Discover</h2>
+            </div>
+            <button
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={() => setIsMobileRightSidebarOpen(false)}
+            >
+              <X className="w-5 h-5 flex-shrink-0" />
+            </button>
+          </div>
+
+          {/* Right Sidebar Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex flex-col gap-6">
+              {/* Popular This Week */}
+              <div className="bg-base-200/30 rounded-xl p-4 hover:shadow-lg transition-all border border-base-300/50 hover:border-primary/30">
+                <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 flex-shrink-0 text-primary" />
+                  Popular This Week
+                </h3>
+                <div className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow">
+                  <div className="w-full h-48 skeleton"></div>
+                </div>
+              </div>
+
+              {/* Advertisement */}
+              <div className="bg-gradient-to-br from-base-200/50 to-base-300/50 rounded-xl p-6 text-center border-2 border-dashed border-base-content/20">
+                <p className="text-base-content/50 font-medium text-sm">
+                  Advertisement Space
+                </p>
+              </div>
+
+              {/* Active Fellows */}
+              <div className="bg-base-200/30 rounded-xl p-4 border border-base-300/50">
+                <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+                  <Radio className="w-5 h-5 flex-shrink-0 text-success" />
+                  Active Fellows
+                </h3>
+                <ul className="flex flex-col gap-3">
+                  <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
+                    <div className="avatar">
+                      <div className="w-10 h-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
+                        <img
+                          src="https://randomuser.me/api/portraits/women/1.jpg"
+                          alt="Lisa Wong"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-base-content truncate">
+                        Lisa Wong
+                      </p>
+                      <p className="text-xs text-base-content/60 truncate">
+                        Digital Artist
+                      </p>
+                    </div>
+                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                  </li>
+                  <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
+                    <div className="avatar">
+                      <div className="w-10 h-10 rounded-full ring ring-secondary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
+                        <img
+                          src="https://randomuser.me/api/portraits/men/2.jpg"
+                          alt="Michael Brown"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-base-content truncate">
+                        Michael Brown
+                      </p>
+                      <p className="text-xs text-base-content/60 truncate">
+                        3D Sculptor
+                      </p>
+                    </div>
+                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content Area */}
       <div className="container max-w-7xl mx-auto px-4 lg:px-8 py-6">
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
-          {/* LEFT SIDEBAR - Columns 1-2 */}
+        <div className="flex flex-col md:grid md:grid-cols-12 gap-6">
+          {/* LEFT SIDEBAR - Columns 1-2 (shows on md and above) */}
           {showSidebar && (
-            <aside className="lg:col-start-1 lg:col-end-3 hidden lg:flex flex-col gap-4">
+            <aside className="md:col-start-1 md:col-end-3 hidden md:flex flex-col gap-4 relative">
               <nav className="flex flex-col gap-1 bg-base-200/30 rounded-xl p-3 border border-base-300/50">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
@@ -311,41 +497,31 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   );
                 })}
               </nav>
+              {/* Vertical line on the right edge of left sidebar */}
+              <div className="absolute top-0 right-0 bottom-0 w-px bg-base-300"></div>
             </aside>
           )}
 
-          {/* Vertical Divider Between Sidebar and Content - Column 3 */}
-          {showSidebar && (
-            <div className="hidden lg:flex lg:col-start-3 lg:col-end-4 items-stretch justify-center">
-              <div className="w-px bg-base-300"></div>
-            </div>
-          )}
-
-          {/* MAIN CONTENT - Columns 4-10 or adjusted based on sidebars */}
+          {/* MAIN CONTENT - Responsive columns based on visible sidebars */}
           <main
             className={
               showSidebar && showRightSidebar
-                ? "lg:col-start-4 lg:col-end-10"
+                ? "md:col-start-3 md:col-end-13 lg:col-end-11"
                 : showSidebar
-                ? "lg:col-start-4 lg:col-end-13"
+                ? "md:col-start-3 md:col-end-13"
                 : showRightSidebar
-                ? "lg:col-start-1 lg:col-end-10"
-                : "lg:col-span-12"
+                ? "md:col-start-1 md:col-end-13 lg:col-end-11"
+                : "md:col-span-12"
             }
           >
             {children}
           </main>
 
-          {/* Vertical Divider Between Content and Right Sidebar - Column 10 */}
+          {/* RIGHT SIDEBAR - Columns 11-13 (shows only on lg and above) */}
           {showRightSidebar && (
-            <div className="hidden lg:flex lg:col-start-10 lg:col-end-11 items-stretch justify-center">
-              <div className="w-px bg-base-300"></div>
-            </div>
-          )}
-
-          {/* RIGHT SIDEBAR - Columns 11-12 */}
-          {showRightSidebar && (
-            <aside className="lg:col-start-11 lg:col-end-13 hidden lg:flex flex-col gap-6">
+            <aside className="lg:col-start-11 lg:col-end-13 hidden lg:flex flex-col gap-6 relative">
+              {/* Vertical line on the left edge of right sidebar */}
+              <div className="absolute top-0 left-0 bottom-0 w-px bg-base-300"></div>
                 {/* Popular This Week */}
                 <div className="bg-base-200/30 rounded-xl p-4 hover:shadow-lg transition-all border border-base-300/50 hover:border-primary/30">
                   <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">

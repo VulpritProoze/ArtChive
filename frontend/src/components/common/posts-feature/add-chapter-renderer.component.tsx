@@ -9,6 +9,8 @@ type AddChapterRendererType = {
 const AddChapterRenderer: React.FC<AddChapterRendererType> = ({ postForm, setPostForm }) => {
     const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
     const [validationErrors, setValidationErrors] = useState<{[key: number]: {chapter?: string, content?: string}}>({});
+    const [localContent, setLocalContent] = useState('');
+    const [localChapterNumber, setLocalChapterNumber] = useState('');
 
     // Reset to first chapter when chapters change significantly
     useEffect(() => {
@@ -16,6 +18,18 @@ const AddChapterRenderer: React.FC<AddChapterRendererType> = ({ postForm, setPos
         setCurrentChapterIndex(postForm.chapters.length - 1);
       }
     }, [postForm.chapters.length, currentChapterIndex]);
+
+    // Sync local state when current chapter changes
+    useEffect(() => {
+      const currentChapter = postForm.chapters[currentChapterIndex];
+      if (currentChapter) {
+        setLocalContent(currentChapter.content || '');
+        setLocalChapterNumber(currentChapter.chapter || '');
+      } else {
+        setLocalContent('');
+        setLocalChapterNumber('');
+      }
+    }, [currentChapterIndex, postForm.chapters]);
 
     const validateChapter = (index: number): boolean => {
         const chapter = postForm.chapters[index];
@@ -223,8 +237,9 @@ const AddChapterRenderer: React.FC<AddChapterRendererType> = ({ postForm, setPos
                       className={`block w-full input input-bordered bg-base-100 focus:ring-2 transition-all ${
                         currentErrors.chapter ? 'input-error focus:ring-error' : 'focus:ring-primary'
                       }`}
-                      value={currentChapter.chapter}
-                      onChange={(e) => handleChapterChange(currentChapterIndex, 'chapter', e.target.value)}
+                      value={localChapterNumber}
+                      onChange={(e) => setLocalChapterNumber(e.target.value)}
+                      onBlur={() => handleChapterChange(currentChapterIndex, 'chapter', localChapterNumber)}
                       min="1"
                       placeholder="Enter chapter number..."
                     />
@@ -250,15 +265,16 @@ const AddChapterRenderer: React.FC<AddChapterRendererType> = ({ postForm, setPos
                         Chapter Content
                       </span>
                       <span className="label-text-alt text-base-content/60">
-                        {currentChapter.content?.length || 0} characters
+                        {localContent?.length || 0} characters
                       </span>
                     </label>
                     <textarea
                       className={`textarea w-full textarea-bordered bg-base-100 min-h-[300px] focus:ring-2 transition-all leading-relaxed ${
                         currentErrors.content ? 'textarea-error focus:ring-error' : 'focus:ring-primary'
                       }`}
-                      value={currentChapter.content}
-                      onChange={(e) => handleChapterChange(currentChapterIndex, 'content', e.target.value)}
+                      value={localContent}
+                      onChange={(e) => setLocalContent(e.target.value)}
+                      onBlur={() => handleChapterChange(currentChapterIndex, 'content', localContent)}
                       placeholder="Write your chapter content here..."
                     />
                     {currentErrors.content && (

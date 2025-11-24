@@ -39,6 +39,7 @@ export interface Channel {
   channel_type: 'Post Channel' | 'Media Channel' | 'Event Channel';
   description: string;
   title: string;
+  posts_count: number;
 }
 
 export interface ChannelCreateForm {

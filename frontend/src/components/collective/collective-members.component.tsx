@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collective } from "@lib/api";
-import { MainLayout } from "@components/common/layout";
+import { CollectiveLayout } from "@components/common/layout";
 import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
@@ -48,9 +48,9 @@ export default function CollectiveMembers() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <CollectiveLayout>
         <LoadingSpinner text="Loading members..." />
-      </MainLayout>
+      </CollectiveLayout>
     );
   }
 
@@ -58,7 +58,7 @@ export default function CollectiveMembers() {
   const regularMembers = members.filter((m) => m.collective_role === "member");
 
   return (
-    <MainLayout>
+    <CollectiveLayout>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
@@ -117,7 +117,7 @@ export default function CollectiveMembers() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }
 

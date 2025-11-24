@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Count, Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import (
@@ -52,16 +53,15 @@ class CollectiveDetailsView(ListAPIView):
 
     def get_queryset(self):
         return Collective.objects.prefetch_related(
-            'collective_channel',
+            Prefetch(
+                'collective_channel',
+                queryset=Channel.objects.annotate(
+                    posts_count=Count('post', distinct=True)
+                )
+            ),
             'collective_member',
             'collective_member__member__user_wallet',
         ).all()
-
-    def get_serializer_context(self):
-        """Pass request to serializer for user membership info."""
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
 
 class CollectiveCreateView(APIView):
     """
@@ -99,6 +99,7 @@ class CollectiveCreateView(APIView):
                 collective = serializer.save()
 
                 # Create default channels
+                # Should use bulk_create
                 for channel_config in DEFAULT_COLLECTIVE_CHANNELS:
                     Channel.objects.create(
                         collective=collective,
@@ -242,6 +243,12 @@ class InsideCollectiveView(RetrieveAPIView):
 
     def get_queryset(self):
         return Collective.objects.prefetch_related(
+            Prefetch(
+                'collective_channel',
+                queryset=Channel.objects.annotate(
+                    posts_count=Count('post', distinct=True)
+                )
+            ),
             'collective_member',
             'collective_member__member'
         ).all()

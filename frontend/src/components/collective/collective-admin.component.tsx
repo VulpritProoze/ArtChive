@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collective } from "@lib/api";
-import { MainLayout } from "@components/common/layout";
+import { CollectiveLayout } from "@components/common/layout";
 import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
@@ -202,14 +202,14 @@ export default function CollectiveAdmin() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <CollectiveLayout>
         <LoadingSpinner text="Loading admin panel..." />
-      </MainLayout>
+      </CollectiveLayout>
     );
   }
 
   return (
-    <MainLayout>
+    <CollectiveLayout>
       {/* Edit Collective Modal */}
       {showEditModal && (
         <CollectiveEditModal
@@ -514,6 +514,6 @@ export default function CollectiveAdmin() {
           </div>
         )}
       </div>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }

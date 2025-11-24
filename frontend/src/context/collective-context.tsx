@@ -21,15 +21,18 @@ export const CollectiveProvider = ({ children }) => {
       const submitData = new FormData();
       submitData.append('title', formData.title.trim());
       submitData.append('description', formData.description.trim());
-      
-      if (formData.rules) {
-        formData.rules
-        .filter(rule => rule.trim())
-        .forEach(rule => submitData.append('rules[]', rule.trim()));
+
+      // Send rules as array - append each item separately
+      if (formData.rules && formData.rules.length > 0) {
+        const filteredRules = formData.rules.filter(rule => rule.trim());
+        filteredRules.forEach(rule => submitData.append('rules', rule));
       }
 
-      formData.artist_types.forEach(type => submitData.append('artist_types[]', type));
-      
+      // Send artist_types as array - append each item separately
+      if (formData.artist_types && formData.artist_types.length > 0) {
+        formData.artist_types.forEach(type => submitData.append('artist_types', type));
+      }
+
       // Add picture if exists
       if (formData.picture) {
         submitData.append('picture', formData.picture);
@@ -44,12 +47,11 @@ export const CollectiveProvider = ({ children }) => {
 
       // Refresh collectives list after creation
       await fetchCollectives();
-      
+
       return response.data.collective_id;
     } catch (err) {
-      const message = handleApiError(err, defaultErrors, true, true)
-      toast.error('Failed to create collective', formatErrorForToast(message));
       console.error("Error creating collective: ", err);
+      throw err; // Re-throw to let the form handle the error
     } finally {
       setLoading(false);
     }

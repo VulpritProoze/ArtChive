@@ -14,7 +14,7 @@ import {
   ChannelEditModal,
 } from "@components/common/collective-feature/modal";
 import type { Channel } from "@types";
-import { MainLayout } from "@components/common/layout";
+import { CollectiveLayout } from "@components/common/layout";
 import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
@@ -23,7 +23,7 @@ import {
   SkeletonCollectiveInfo,
   SkeletonHeroImage,
 } from "@components/common/skeleton";
-import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog, faInfoCircle, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
@@ -157,7 +157,7 @@ const CollectiveHome = () => {
       {showPostForm && <PostFormModal channel_id={selectedChannel?.channel_id} />}
       {showCommentForm && <CommentFormModal channel_id={selectedChannel?.channel_id} />}
 
-      <MainLayout showSidebar={false} showRightSidebar={false}>
+      <CollectiveLayout showSidebar={false} showRightSidebar={false}>
         {/* Mobile Menu Bar - Sticky below header */}
         <div className="sticky top-16 z-40 lg:hidden bg-base-100/80 backdrop-blur-sm border-b border-base-300 -mx-4 px-4">
           <div className="flex items-center justify-between gap-2 my-2">
@@ -204,6 +204,15 @@ const CollectiveHome = () => {
           <aside className="w-60 flex-shrink-0 hidden lg:block">
             {collectiveData ? (
               <div className="bg-base-200/50 rounded-xl p-3 sticky top-20">
+                {/* Back to Collectives Button */}
+                <button
+                  onClick={() => navigate('/collective')}
+                  className="w-full flex items-center gap-2 px-3 py-2 mb-2 text-sm hover:bg-base-300 rounded transition-colors"
+                >
+                  <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4" />
+                  <span>Back to Collectives</span>
+                </button>
+
                 {/* Collective Name Dropdown */}
                 <button className="w-full flex items-center justify-between p-3 hover:bg-base-300 rounded-lg mb-2 font-bold text-lg">
                   <span>{collectiveData.title}</span>
@@ -263,7 +272,7 @@ const CollectiveHome = () => {
                                 {channel.title}
                               </span>
                               {selectedChannel?.channel_id === channel.channel_id && (
-                                <span className="badge badge-sm">88</span>
+                                <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
                               )}
                             </button>
                           ))
@@ -316,7 +325,7 @@ const CollectiveHome = () => {
                                 {channel.title}
                               </span>
                               {selectedChannel?.channel_id === channel.channel_id && (
-                                <span className="badge badge-sm">88</span>
+                                <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
                               )}
                             </button>
                           ))
@@ -360,7 +369,7 @@ const CollectiveHome = () => {
                                 {channel.title}
                               </span>
                               {selectedChannel?.channel_id === channel.channel_id && (
-                                <span className="badge badge-sm">88</span>
+                                <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
                               )}
                             </button>
                           ))
@@ -397,6 +406,18 @@ const CollectiveHome = () => {
                       <FontAwesomeIcon icon={faTimes} className="text-xl" />
                     </button>
                   </div>
+
+                  {/* Back to Collectives Button */}
+                  <button
+                    onClick={() => {
+                      navigate('/collective');
+                      setShowMobileSidebar(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 mb-4 text-sm hover:bg-base-300 rounded transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4" />
+                    <span>Back to Collectives</span>
+                  </button>
 
                   {/* Navigation Links */}
                   <div className="mb-4 space-y-1">
@@ -458,7 +479,7 @@ const CollectiveHome = () => {
                                   {channel.title}
                                 </span>
                                 {selectedChannel?.channel_id === channel.channel_id && (
-                                  <span className="badge badge-sm">88</span>
+                                  <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
                                 )}
                               </button>
                             ))
@@ -517,7 +538,7 @@ const CollectiveHome = () => {
                                   {channel.title}
                                 </span>
                                 {selectedChannel?.channel_id === channel.channel_id && (
-                                  <span className="badge badge-sm">88</span>
+                                  <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
                                 )}
                               </button>
                             ))
@@ -988,7 +1009,7 @@ const CollectiveHome = () => {
             </>
           )}
         </div>
-      </MainLayout>
+      </CollectiveLayout>
     </>
   );
 };
