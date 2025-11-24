@@ -4,6 +4,7 @@ from .views import (
     CommentCreateView,
     CommentDeleteView,
     CommentDetailView,
+    CommentDetailWithContextView,
     CommentListView,
     CommentReplyCreateView,
     CommentReplyUpdateView,
@@ -11,10 +12,12 @@ from .views import (
     CritiqueCreateView,
     CritiqueDeleteView,
     CritiqueDetailView,
+    CritiqueDetailWithContextView,
     CritiqueListView,
     CritiqueReplyCreateView,
     CritiqueReplyDetailView,
     CritiqueReplyListView,
+    CritiqueReplyUpdateView,
     CritiqueUpdateView,
     OwnPostsListView,
     PostCommentsReplyDetailView,
@@ -44,9 +47,8 @@ from .views import (
 
 '''
 Some notes:
-1. To update critique reply, use comment-reply-update route.
-2. To delete comment reply & critique reply, use comment-delete route.
-3. PostPraise and PostTrophy cannot be updated or deleted - they're permanent once created.
+1. To delete comment reply & critique reply, use comment-delete route.
+2. PostPraise and PostTrophy cannot be updated or deleted - they're permanent once created.
 '''
 urlpatterns = [
     path('', PostListView.as_view(), name='post-list'),
@@ -61,16 +63,19 @@ urlpatterns = [
     path('<uuid:post_id>/critiques/', CritiqueListView.as_view(), name='critique-list'),
     path('critique/create/', CritiqueCreateView.as_view(), name='critique-create'),
     path('critique/<uuid:critique_id>/', CritiqueDetailView.as_view(), name='critique-detail'),
+    path('critique/<uuid:critique_id>/with-context/', CritiqueDetailWithContextView.as_view(), name='critique-detail-context'),
     path('critique/<uuid:critique_id>/update/', CritiqueUpdateView.as_view(), name='critique-update'),
     path('critique/<uuid:critique_id>/delete/', CritiqueDeleteView.as_view(), name='critique-delete'),
     path('critiques/me/', UserCritiquesListView.as_view(), name='user-critiques'),  # unused yet
     path('critique/<uuid:critique_id>/replies/', CritiqueReplyListView.as_view(), name='critique-reply-list'),
     path('critique/reply/create/', CritiqueReplyCreateView.as_view(), name='critique-reply-create'),
     path('critique/reply/<uuid:comment_id>/', CritiqueReplyDetailView.as_view(), name='critique-reply-detail'),
+    path('critique/reply/<uuid:comment_id>/update/', CritiqueReplyUpdateView.as_view(), name='critique-reply-update'),
     path('create/', PostCreateView.as_view(), name='post-create'),
     path('update/<uuid:post_id>/', PostUpdateView.as_view(), name='post-update'),
     path('delete/<uuid:post_id>/', PostDeleteView.as_view(), name='post-delete'),
     path('comment/<uuid:comment_id>/', CommentDetailView.as_view(), name='comment-detail'),
+    path('comment/<uuid:comment_id>/with-context/', CommentDetailWithContextView.as_view(), name='comment-detail-context'),
     path('comment/create/', CommentCreateView.as_view(), name='comment-create'),
     path('comment/update/<uuid:comment_id>/', CommentUpdateView.as_view(), name='comment-update'),
     path('comment/delete/<uuid:comment_id>/', CommentDeleteView.as_view(), name='comment-delete'),

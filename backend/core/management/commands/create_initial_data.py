@@ -2,6 +2,8 @@ from decouple import config
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
+from core.models import Artist
+
 User = get_user_model()
 
 class Command(BaseCommand):
@@ -24,11 +26,18 @@ class Command(BaseCommand):
             )
             return
 
-        User.objects.create_superuser(
+        user = User.objects.create_superuser(
             username=username,
             email=email,
             password=password
         )
+
+        # Create Artist profile for admin
+        Artist.objects.get_or_create(
+            user_id=user,
+            defaults={'artist_types': []}  # Empty artist types for admin
+        )
+
         self.stdout.write(
-            self.style.SUCCESS(f'Superuser "{username}" created.')
+            self.style.SUCCESS(f'Superuser "{username}" created with Artist profile.')
         )

@@ -65,9 +65,23 @@ export default function NotificationDropdown() {
 
     switch (type) {
       case 'Post Comment':
-        // Link to the post with the comment
+        // Link to the post with the comment hash
+        // objectId format: "postId:commentId" or just "commentId"
+        if (objectId.includes(':')) {
+          const [postId, commentId] = objectId.split(':');
+          // Check if it's a reply (nested comment)
+          const isReply = notification.message.includes('replied to your comment');
+          return `/post/${postId}#${isReply ? 'reply' : 'comment'}-${commentId}`;
+        }
         return `/post/${objectId}`;
       case 'Post Critique':
+        // objectId format: "postId:critiqueId" or just "critiqueId"
+        if (objectId.includes(':')) {
+          const [postId, critiqueId] = objectId.split(':');
+          // Check if it's a critique reply
+          const isCritiqueReply = notification.message.includes('replied to your critique');
+          return `/post/${postId}#${isCritiqueReply ? 'critique-reply' : 'critique'}-${critiqueId}`;
+        }
         return `/post/${objectId}`;
       case 'Post Praise':
         return `/post/${objectId}`;

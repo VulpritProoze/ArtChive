@@ -109,7 +109,7 @@ export default function Index() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-cyan-500 text-sm font-medium">130 online</span>
+                            <span className="text-cyan-500 text-sm font-medium">? online</span>
                             <div className="text-xs text-base-content/50 mt-1">
                               Active {new Date(collective.created_at).toLocaleDateString()}
                             </div>

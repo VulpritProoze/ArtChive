@@ -4,11 +4,13 @@ import {
   NovelRenderer,
   HeartButton,
   CommentsRenderer,
+  CommentsRendererFull,
   CritiqueSection,
 } from "@components/common/posts-feature";
 import { 
   PraiseListModal,
   TrophyListModal,
+  HeartListModal,
 } from "@components/common/posts-feature/modal"
 import { usePostContext } from "@context/post-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -26,7 +28,15 @@ interface PostCardPostItem extends Post {
   novel_post: NovelPost[];
 }
 
-export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
+export default function PostCard({ 
+  postItem, 
+  highlightedItemId,
+  isDetailView = false,
+}: { 
+  postItem: PostCardPostItem;
+  highlightedItemId?: string | null;
+  isDetailView?: boolean;
+}) {
   const {
     heartPost,
     unheartPost,
@@ -54,6 +64,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
   const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
     "comments"
   );
+  const [showHeartListModal, setShowHeartListModal] = useState(false);
 
   // Fetch praise and trophy status on mount
   useEffect(() => {
@@ -135,6 +146,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                   setActiveSection("comments")
                 }}
                 disabled={loadingComments[postItem.post_id]}
+                title="View comments"
               >
                 <FontAwesomeIcon
                   icon={faCommentDots}
@@ -152,6 +164,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
                   fetchCritiquesForPost(postItem.post_id, 1, false)
                 }}
                 disabled={loadingCritiques[postItem.post_id]}
+                title="View critiques"
               >
                 <FontAwesomeIcon
                   icon={faStar}
@@ -204,7 +217,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
               </button>
 
               {/* Share (no implementation yet) */}
-              <button className="btn btn-ghost btn-sm btn-circle">
+              <button className="btn btn-ghost btn-sm btn-circle" title="Share post">
                 <FontAwesomeIcon
                   icon={faPaperPlane}
                   className="text-xl hover:scale-110 transition-transform"
@@ -213,7 +226,7 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
             </div>
 
               {/* Bookmark (no implementation yet) */}
-            <button className="btn btn-ghost btn-sm btn-circle">
+            <button className="btn btn-ghost btn-sm btn-circle" title="Bookmark post">
               <FontAwesomeIcon
                 icon={faBookmark}
                 className="text-xl hover:scale-110 transition-transform"
@@ -223,9 +236,12 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
 
           {/* Likes Count */}
           <div className="mb-2 flex flex-row gap-3 items-center flex-wrap">
-            <p className="text-sm font-semibold text-base-content">
+            <button
+              onClick={() => setShowHeartListModal(true)}
+              className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
+            >
               {postItem.hearts_count || 0} likes
-            </p>
+            </button>
 
             {/* Praise Count - Clickable */}
             {currentPraiseStatus && currentPraiseStatus.count > 0 && (
@@ -285,16 +301,24 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
           {/* Conditional Rendering based on active section */}
           {activeSection === "comments" ? (
             <>
-              {/* Comments Preview - Show blurred first comment */}
-              <CommentsRenderer
-                postItem={postItem}
-                isFirstComments={true}
-              />
+              {/* Comments - Full view for detail page, preview for feed */}
+              {isDetailView ? (
+                <CommentsRendererFull
+                  postItem={postItem}
+                  highlightedItemId={highlightedItemId}
+                />
+              ) : (
+                <CommentsRenderer
+                  postItem={postItem}
+                  isFirstComments={true}
+                  highlightedItemId={highlightedItemId}
+                />
+              )}
             </>
           ) : (
             <>
               {/* Critique Section */}
-              <CritiqueSection postId={postItem.post_id} />
+              <CritiqueSection postId={postItem.post_id} highlightedItemId={highlightedItemId} />
             </>
           )}
         </div>
@@ -314,6 +338,15 @@ export default function PostCard({ postItem }: { postItem: PostCardPostItem }) {
         <TrophyListModal
           isOpen={showTrophyListModal}
           onClose={closeTrophyListModal}
+          postId={postItem.post_id}
+        />
+      )}
+
+      {/* Heart List Modal */}
+      {showHeartListModal && (
+        <HeartListModal
+          isOpen={showHeartListModal}
+          onClose={() => setShowHeartListModal(false)}
           postId={postItem.post_id}
         />
       )}

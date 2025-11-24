@@ -1,12 +1,12 @@
 from django.core.validators import FileExtensionValidator
-from django.db import transaction as db_transaction
+from django.db.models import Count, Q
 from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
 from common.utils import choices
 from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
-from core.models import Artist, BrushDripTransaction, BrushDripWallet
+from core.models import Artist, BrushDripWallet
 
 from .models import (
     Comment,
@@ -276,12 +276,22 @@ class PostUpdateSerializer(ModelSerializer):
                 )
 
         elif current_post_type == 'image':
+            # Do not allow updating image_url for image posts
+            if 'image_url' in data:
+                raise serializers.ValidationError(
+                    'Image cannot be updated for image posts'
+                )
             if any(field in data for field in ['video_url', 'chapters']):
                 raise serializers.ValidationError(
                     'Image posts cannot have video or chapter fields'
                 )
 
         elif current_post_type == 'video':
+            # Do not allow updating video_url for video posts
+            if 'video_url' in data:
+                raise serializers.ValidationError(
+                    'Video cannot be updated for video posts'
+                )
             if any(field in data for field in ['image_url', 'chapters']):
                 raise serializers.ValidationError(
                     'Video posts cannot have image or chapter fields'
@@ -399,8 +409,8 @@ class PostViewSerializer(serializers.ModelSerializer):
         # Use annotated field if available (from PostListView optimization)
         if hasattr(obj, 'total_comment_count'):
             return obj.total_comment_count
-        # Fallback for other views that don't annotate
-        return obj.post_comment.get_active_objects().count()
+        # Fallback for other views that don't annotate (exclude critique replies)
+        return obj.post_comment.get_active_objects().filter(is_critique_reply=False).count()
 
 
 class PostDetailViewSerializer(PostViewSerializer):
@@ -417,11 +427,31 @@ class PostListViewSerializer(PostViewSerializer):
 
     def get_comments(self, obj):
         """Get first 2 comments for this post"""
-        # Use the prefetched data (from post_comment Prefetch in view)
-        # Access it via .all() to use the prefetch cache, then slice in Python
-        all_comments = obj.post_comment.all()  # This uses prefetch cache
-        # Get first 2 from the already-sorted and already-loaded list
-        comments = list(all_comments)[:2]
+        comments = None
+
+        # Use prefetched comments when available to avoid extra queries
+        prefetched_cache = getattr(obj, '_prefetched_objects_cache', {})
+        prefetched_comments = prefetched_cache.get('post_comment')
+        if prefetched_comments is not None:
+            comments = list(prefetched_comments)[:2]
+
+        if comments is None:
+            comments = list(
+                Comment.objects.get_active_objects()
+                .filter(
+                    post_id=obj.pk,
+                    replies_to__isnull=True,
+                    critique_id__isnull=True,
+                )
+                .select_related('author', 'author__artist')
+                .annotate(
+                    reply_count=Count(
+                        'comment_reply',
+                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False),
+                    )
+                )
+                .order_by('-created_at')[:2]
+            )
         return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -449,12 +479,16 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_critique_author_artist_types(self, obj):
         '''Fetch author's artist types'''
         try:
-            return obj.critique_id.author.artist.artist_types
-        except Artist.DoesNotExist:
+            if obj.critique_id:
+                return obj.critique_id.author.artist.artist_types
+            return []
+        except (Artist.DoesNotExist, AttributeError):
             return []
 
 class TopLevelCommentsViewSerializer(CommentSerializer):
     reply_count = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    show_replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -470,13 +504,30 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
             'author',
             'replies_to',
             'reply_count',
+            'replies',
+            'show_replies',
             'author_artist_types',
             'is_deleted'
         ]
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
-        return obj.comment_reply.get_active_objects().count()
+        '''Get reply counts (excluding critique replies)'''
+        if hasattr(obj, 'reply_count'):
+            return obj.reply_count
+        return obj.comment_reply.get_active_objects().filter(is_critique_reply=False).count()
+
+    def get_replies(self, obj):
+        '''Get all replies for this comment from prefetched data'''
+        # Use prefetched replies if available
+        if hasattr(obj, 'prefetched_replies'):
+            return CommentSerializer(obj.prefetched_replies, many=True, context=self.context).data
+        return []
+
+    def get_show_replies(self, obj):
+        '''Show replies is false by default - user must click to expand'''
+        # Always return False so replies are collapsed by default
+        # The frontend will toggle this when user clicks "View replies"
+        return False
 
 class CommentCreateSerializer(ModelSerializer):
     class Meta:
@@ -596,8 +647,8 @@ class CritiqueReplySerializer(CommentSerializer):
         ]
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
-        return obj.comment_reply.get_active_objects().count()
+        '''Get reply counts (excluding critique replies)'''
+        return obj.comment_reply.get_active_objects().filter(is_critique_reply=False).count()
 
 class CritiqueReplyCreateSerializer(ModelSerializer):
     class Meta:
@@ -641,10 +692,38 @@ class ReplyUpdateSerializer(serializers.ModelSerializer):
 
         return data
 
+class CritiqueReplyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text']  # Only allow updating the text
+
+    def validate(self, data):
+        # Ensure this is actually a critique reply (defensive check)
+        if self.instance and not self.instance.is_critique_reply:
+            raise serializers.ValidationError("This is not a critique reply.")
+
+        # Ensure critique reply is not deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Cannot update a deleted critique reply")
+
+        return data
+
 class PostHeartSerializer(ModelSerializer):
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_fullname = serializers.SerializerMethodField()
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+
     class Meta:
         model = PostHeart
-        fields = '__all__'
+        fields = ['id', 'post_id', 'author', 'hearted_at', 'author_username', 'author_fullname', 'author_picture']
+        read_only_fields = ['id', 'author', 'hearted_at']
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
 
 class PostHeartCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -668,7 +747,7 @@ class PostHeartCreateSerializer(serializers.ModelSerializer):
 
 class CritiqueSerializer(ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
-    author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)
     author_artist_types = serializers.SerializerMethodField()
     author_fullname = serializers.SerializerMethodField()
@@ -694,8 +773,10 @@ class CritiqueSerializer(ModelSerializer):
         return full_name if full_name else user.username
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
-        return obj.critique_reply.count()
+        '''Get reply counts (excluding soft-deleted replies)'''
+        if hasattr(obj, 'reply_count'):
+            return obj.reply_count
+        return obj.critique_reply.filter(is_deleted=False).count()
 
 class CritiqueCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -729,21 +810,10 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
 class CritiqueUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Critique
-        fields = ['text', 'impression']
-
-    def validate_impression(self, value):
-        valid_choices = [choice[0] for choice in choices.CRITIQUE_IMPRESSIONS]
-        if value not in valid_choices:
-            raise serializers.ValidationError('Invalid impression type')
-        return value
-
-    def validate(self, data):
-        # Ensure user owns the critique
-        user = self.context['request'].user
-        if not (user == self.instance.author or user.is_staff):
-            raise serializers.ValidationError("You can only update your own critiques")
-
-        return data
+        fields = ['text']
+        extra_kwargs = {
+            'text': {'required': True}
+        }
 
     def to_representation(self, instance):
         return CritiqueSerializer(instance, context=self.context).data

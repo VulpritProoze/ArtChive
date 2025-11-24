@@ -7,13 +7,19 @@ Usage:
 
 from django.core.management.base import BaseCommand
 
-from post.cache_utils import invalidate_post_list_cache
+from post.cache_utils import (
+    invalidate_post_list_cache,
+    invalidate_post_praise_cache,
+    invalidate_post_trophy_cache,
+)
 
 
 class Command(BaseCommand):
     help = 'Clear all post list cache entries'
 
     def handle(self, *args, **options):
-        self.stdout.write('Clearing post list cache...')
+        self.stdout.write('Clearing post cache entries...')
         invalidate_post_list_cache()
-        self.stdout.write(self.style.SUCCESS('Successfully cleared post list cache!'))
+        invalidate_post_praise_cache()
+        invalidate_post_trophy_cache()
+        self.stdout.write(self.style.SUCCESS('Successfully cleared post related caches!'))

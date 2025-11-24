@@ -94,10 +94,12 @@ export const PostProvider = ({ children }) => {
   });
   const [editingCritique, setEditingCritique] = useState(false);
   const [selectedCritique, setSelectedCritique] = useState<Critique | null>(null);
+  const [submittingCritique, setSubmittingCritique] = useState(false);
   
   // Critique reply states
   const [critiqueReplyForms, setCritiqueReplyForms] = useState<{ [critiqueId: string]: CritiqueReplyForm }>({});
   const [loadingCritiqueReplies, setLoadingCritiqueReplies] = useState<{ [critiqueId: string]: boolean }>({});
+  const [submittingCritiqueReply, setSubmittingCritiqueReply] = useState<{ [critiqueId: string]: boolean }>({});
 
   // Praise states
   const [loadingPraise, setLoadingPraise] = useState<{ [postId: string]: boolean }>({});
@@ -152,11 +154,16 @@ export const PostProvider = ({ children }) => {
   const handleCritiqueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submittingCritique) {
+      return;
+    }
+    setSubmittingCritique(true);
+
     try {
       if (editingCritique) {
+        // Only send text when editing (impression cannot be changed)
         await post.put(`/critique/${selectedCritique?.critique_id}/update/`, {
-          text: critiqueForm.text,
-          impression: critiqueForm.impression
+          text: critiqueForm.text
         });
       } else {
         await post.post("/critique/create/", critiqueForm);
@@ -174,7 +181,11 @@ export const PostProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Critique submission error: ", error);
-      toast.error('Failed to save critique', formatErrorForToast(handleApiError(error, defaultErrors)));
+      const message = formatErrorForToast(handleApiError(error, defaultErrors, true, true));
+      toast.error('Failed to save critique', message);
+    }
+    finally {
+      setSubmittingCritique(false);
     }
   };
 
@@ -204,6 +215,7 @@ export const PostProvider = ({ children }) => {
     if (!replyForm?.text.trim()) return;
 
     try {
+      setSubmittingCritiqueReply(prev => ({ ...prev, [critiqueId]: true }));
       await post.post("/critique/reply/create/", replyForm);
       toast.success("Reply posted", "Your reply has been added successfully");
 
@@ -218,6 +230,8 @@ export const PostProvider = ({ children }) => {
     } catch (error) {
       console.error("Critique reply submission error: ", error);
       toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
+    } finally {
+      setSubmittingCritiqueReply(prev => ({ ...prev, [critiqueId]: false }));
     }
   };
 
@@ -428,14 +442,34 @@ export const PostProvider = ({ children }) => {
       await post.post("/comment/reply/create/", replyForm);
       toast.success("Reply posted", "Your reply has been added successfully");
 
+      // Hide the reply form
+      toggleReplyForm(parentCommentId);
+
       // Clear reply form
       setReplyForms((prev) => ({
         ...prev,
         [parentCommentId]: { ...prev[parentCommentId], text: "" },
       }));
 
-      // Refresh replies for the parent comment
-      await fetchRepliesForComment(parentCommentId);
+      // Refresh the entire comments list to get the new reply
+      const postId = replyForm.post_id;
+      if (postId) {
+        await fetchCommentsForPost(postId, 1, false);
+        
+        // Also ensure replies are shown for this comment
+        setComments((prev) => {
+          const updatedComments = { ...prev };
+          Object.keys(updatedComments).forEach((pid) => {
+            updatedComments[pid] = updatedComments[pid].map((comment) => {
+              if (comment.comment_id === parentCommentId) {
+                return { ...comment, show_replies: true };
+              }
+              return comment;
+            });
+          });
+          return updatedComments;
+        });
+      }
       
     } catch (error) {
       console.error("Reply submission error: ", error);
@@ -445,27 +479,28 @@ export const PostProvider = ({ children }) => {
 
   const fetchRepliesForComment = async (commentId: string) => {
     try {
-      if(!activePost) return
-
       setLoadingReplies((prev) => ({ ...prev, [commentId]: true }));
 
       const response = await post.get(`/comment/${commentId}/replies/`);
       const repliesData = response.data.results || [];
 
-      await fetchCommentsForPost(activePost.post_id, 1, false)
-
-      // Update comments with replies
+      // Update comments with replies - initialize is_replying for each reply
       setComments((prev) => {
         const updatedComments = { ...prev };
         Object.keys(updatedComments).forEach((postId) => {
           updatedComments[postId] = updatedComments[postId].map((comment) => {
             if (comment.comment_id === commentId) {
-              return { ...comment, replies: repliesData };
+              return { 
+                ...comment, 
+                replies: repliesData.map((reply: Comment) => ({
+                  ...reply,
+                  is_replying: false
+                }))
+              };
             }
             return comment;
           });
         });
-        console.log('commnets replt ', comments)
 
         return updatedComments;
       });
@@ -675,7 +710,18 @@ export const PostProvider = ({ children }) => {
       const response = await post.get(`/comment/${postId}/`, {
         params: { page },
       });
-      const commentsData = response.data.results || [];
+      const rawCommentsData = response.data.results || [];
+      
+      // Initialize is_replying for comments and their replies
+      const commentsData = rawCommentsData.map((comment: Comment) => ({
+        ...comment,
+        is_replying: false,
+        replies: comment.replies?.map((reply: Comment) => ({
+          ...reply,
+          is_replying: false
+        }))
+      }));
+      
       const paginationData = {
         currentPage: page,
         hasNext: response.data.next !== null,
@@ -961,6 +1007,8 @@ export const PostProvider = ({ children }) => {
     setEditingCritique,
     selectedCritique,
     setSelectedCritique,
+    submittingCritique,
+    setSubmittingCritique,
     fetchCritiquesForPost,
     handleCritiqueSubmit,
     deleteCritique,
@@ -968,6 +1016,7 @@ export const PostProvider = ({ children }) => {
     // Critique reply functionality
     critiqueReplyForms,
     loadingCritiqueReplies,
+    submittingCritiqueReply,
     handleCritiqueReplySubmit,
     fetchRepliesForCritique,
     setupCritiqueReplyForm,

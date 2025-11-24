@@ -1,9 +1,8 @@
 // artchive/frontend/src/common/layout/MainLayout.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
-import { formatArtistTypesToString } from '@utils';
 import useToggleTheme from "@hooks/use-theme";
 import NotificationDropdown from "@components/notifications/notification-dropdown.component";
 import {
@@ -25,7 +24,6 @@ import {
   TrendingUp,
   Radio,
   X,
-  Menu,
   PanelRightOpen
 } from "lucide-react";
 
@@ -44,18 +42,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const location = useLocation();
   const navigate = useNavigate()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isMobileLeftSidebarOpen, setIsMobileLeftSidebarOpen] = useState(false);
   const [isMobileRightSidebarOpen, setIsMobileRightSidebarOpen] = useState(false);
+  const [isDesktopRightSidebarCollapsed, setIsDesktopRightSidebarCollapsed] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
+
+  useEffect(() => {
+    if (!showRightSidebar) {
+      setIsDesktopRightSidebarCollapsed(false);
+    }
+  }, [showRightSidebar]);
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Construct full name from separate fields
-  const getFullName = () => {
-    if (!user) return '';
-    const parts = [user.first_name, user.middle_name, user.last_name].filter(Boolean);
-    return parts.join(' ');
-  };
 
   const navItems = [
     { path: "/home", label: "Home", icon: Home },
@@ -63,6 +61,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     { path: "/collective", label: "Collective", icon: Users },
     { path: "/profile", label: "Profile", icon: User },
   ];
+
+  const mainContentCols = (() => {
+    const classes: string[] = [];
+
+    if (showSidebar) {
+      classes.push("md:col-start-4 md:col-end-13");
+    } else {
+      classes.push("md:col-span-12");
+    }
+
+    if (showSidebar && showRightSidebar) {
+      classes.push(
+        isDesktopRightSidebarCollapsed
+          ? "lg:col-start-4 lg:col-end-13"
+          : "lg:col-start-3 lg:col-end-10"
+      );
+    } else if (showSidebar && !showRightSidebar) {
+      classes.push("lg:col-start-4 lg:col-end-13");
+    } else if (!showSidebar && showRightSidebar) {
+      classes.push(
+        isDesktopRightSidebarCollapsed
+          ? "lg:col-start-1 lg:col-end-13"
+          : "lg:col-start-1 lg:col-end-10"
+      );
+    } else {
+      classes.push("lg:col-span-12");
+    }
+
+    return classes.join(" ");
+  })();
 
   const settingsItems = [
     {
@@ -114,18 +142,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <header className="sticky top-0 z-50 bg-base-100/95 backdrop-blur-xl border-b border-base-300 shadow-sm">
         <div className="container max-w-7xl mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Left Section with Menu Button */}
+            {/* Left Section */}
             <div className="flex items-center gap-3">
-              {/* Left Sidebar Toggle - Shows on small screens (below md) when left sidebar is hidden */}
-              {showSidebar && (
-                <button
-                  className="md:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
-                  onClick={() => setIsMobileLeftSidebarOpen(true)}
-                  title="Open menu"
-                >
-                  <Menu className="w-5 h-5 flex-shrink-0" />
-                </button>
-              )}
 
               {/* Logo */}
               <Link
@@ -157,33 +175,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
             {/* Right Section */}
             <div className="flex items-center gap-4">
-              {/* User Profile Section */}
+              {/* User Profile Section - Hidden on small screens */}
               {user && (
-                <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-3">
                   <Link
                     to="/profile"
-                    className="hidden md:flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
+                    className="flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
                   >
                     <img
                       src={user.profile_picture}
-                      alt={getFullName()}
+                      alt={user.fullname || user.username}
                       className="w-10 h-10 rounded-full border-2 border-base-300 hover:border-primary transition-colors"
                     />
-                    <div className="hidden lg:block">
-                      <h5 className="text-sm font-semibold text-base-content">
-                        {getFullName()}
-                      </h5>
-                      <p className="text-xs text-primary">@{user.username}</p>
+                    <div className="flex flex-col gap-0.5">
+                      {user.fullname && (
+                        <h5 className="text-xs font-semibold text-base-content truncate max-w-[120px]">
+                          {user.fullname}
+                        </h5>
+                      )}
+                      <p className="text-xs text-primary truncate max-w-[120px]">@{user.username}</p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
+                      </div>
                     </div>
-                  </Link>
-
-                  {/* Mobile Avatar */}
-                  <Link to="/profile" className="md:hidden">
-                    <img
-                      src={user.profile_picture}
-                      alt={getFullName()}
-                      className="w-10 h-10 rounded-full border-2 border-base-300"
-                    />
                   </Link>
                 </div>
               )}
@@ -192,13 +207,33 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               <div className="flex items-center gap-2">
                 {/* Right Sidebar Toggle - Shows on medium screens (below lg) when right sidebar is hidden */}
                 {showRightSidebar && (
-                  <button
-                    className="lg:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
-                    onClick={() => setIsMobileRightSidebarOpen(true)}
-                    title="Open sidebar"
-                  >
-                    <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
-                  </button>
+                  <>
+                    <button
+                      className="lg:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+                      onClick={() => setIsMobileRightSidebarOpen(true)}
+                      title="Open sidebar"
+                    >
+                      <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
+                    </button>
+                    <button
+                      className="hidden lg:flex btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+                      onClick={() =>
+                        setIsDesktopRightSidebarCollapsed((prev) => !prev)
+                      }
+                      title={
+                        isDesktopRightSidebarCollapsed
+                          ? "Expand discover panel"
+                          : "Collapse discover panel"
+                      }
+                      aria-pressed={isDesktopRightSidebarCollapsed}
+                    >
+                      <PanelRightOpen
+                        className={`w-5 h-5 flex-shrink-0 transition-transform ${
+                          isDesktopRightSidebarCollapsed ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -268,6 +303,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
           {/* Settings Content */}
           <div className="flex-1 overflow-y-auto p-4">
+            {/* User Profile Section - Shows on small screens only */}
+            {user && (
+              <div className="sm:hidden mb-6 pb-6 border-b border-base-300">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  <img
+                    src={user.profile_picture}
+                    alt={user.fullname || user.username}
+                    className="w-12 h-12 rounded-full border-2 border-base-300"
+                  />
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    {user.fullname && (
+                      <h5 className="text-sm font-semibold text-base-content truncate">
+                        {user.fullname}
+                      </h5>
+                    )}
+                    <p className="text-xs text-primary truncate">@{user.username}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            )}
+
             <div className="space-y-2">
               {settingsItems.map((item, index) => {
                 const IconComponent = item.icon;
@@ -315,60 +379,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </div>
 
-      {/* Mobile Left Sidebar Overlay */}
-      {isMobileLeftSidebarOpen && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm md:hidden"
-          onClick={() => setIsMobileLeftSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile Left Sidebar Drawer */}
-      <div
-        className={`fixed top-0 left-0 h-full w-full max-w-xs bg-base-100 shadow-2xl z-[60] transform transition-transform duration-300 ease-in-out md:hidden ${
-          isMobileLeftSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-base-300">
-            <div className="flex items-center gap-2">
-              <Menu className="w-5 h-5 flex-shrink-0" />
-              <h2 className="text-xl font-bold">Menu</h2>
-            </div>
-            <button
-              className="btn btn-ghost btn-sm btn-circle"
-              onClick={() => setIsMobileLeftSidebarOpen(false)}
-            >
-              <X className="w-5 h-5 flex-shrink-0" />
-            </button>
-          </div>
-
-          {/* Navigation Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <nav className="flex flex-col gap-1">
-              {navItems.map((item) => {
-                const IconComponent = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsMobileLeftSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
-                      isActive(item.path)
-                        ? "bg-primary text-primary-content shadow-lg scale-[1.02]"
-                        : "hover:bg-base-300 text-base-content hover:scale-[1.01]"
-                    }`}
-                  >
-                    <IconComponent className={`w-5 h-5 flex-shrink-0 ${!isActive(item.path) && 'group-hover:scale-110 transition-transform'}`} />
-                    <span className="font-medium">{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      </div>
 
       {/* Mobile Right Sidebar Overlay */}
       {isMobileRightSidebarOpen && (
@@ -475,9 +485,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       {/* Main Content Area */}
       <div className="container max-w-7xl mx-auto px-4 lg:px-8 py-6">
         <div className="flex flex-col md:grid md:grid-cols-12 gap-6">
-          {/* LEFT SIDEBAR - Columns 1-2 (shows on md and above) */}
+          {/* LEFT SIDEBAR - Columns 1-3 (shows on md and above) */}
           {showSidebar && (
-            <aside className="md:col-start-1 md:col-end-3 hidden md:flex flex-col gap-4 relative">
+            <aside
+              className={`hidden md:flex flex-col gap-4 relative pr-4 ${
+                showRightSidebar && !isDesktopRightSidebarCollapsed
+                  ? "md:col-start-1 md:col-end-4 lg:col-start-1 lg:col-end-3"
+                  : "md:col-start-1 md:col-end-4 lg:col-start-1 lg:col-end-4"
+              }`}
+            >
               <nav className="flex flex-col gap-1 bg-base-200/30 rounded-xl p-3 border border-base-300/50">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
@@ -503,23 +519,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           )}
 
           {/* MAIN CONTENT - Responsive columns based on visible sidebars */}
-          <main
-            className={
-              showSidebar && showRightSidebar
-                ? "md:col-start-3 md:col-end-13 lg:col-end-11"
-                : showSidebar
-                ? "md:col-start-3 md:col-end-13"
-                : showRightSidebar
-                ? "md:col-start-1 md:col-end-13 lg:col-end-11"
-                : "md:col-span-12"
-            }
-          >
+          <main className={mainContentCols}>
             {children}
           </main>
 
           {/* RIGHT SIDEBAR - Columns 11-13 (shows only on lg and above) */}
           {showRightSidebar && (
-            <aside className="lg:col-start-11 lg:col-end-13 hidden lg:flex flex-col gap-6 relative">
+            <aside
+              className={`hidden lg:flex flex-col gap-6 relative pl-4 transition-all duration-300 ${
+                isDesktopRightSidebarCollapsed
+                  ? "lg:col-start-13 lg:col-end-13 opacity-0 pointer-events-none scale-95"
+                  : "lg:col-start-10 lg:col-end-13"
+              }`}
+            >
               {/* Vertical line on the left edge of right sidebar */}
               <div className="absolute top-0 left-0 bottom-0 w-px bg-base-300"></div>
                 {/* Popular This Week */}
@@ -593,7 +605,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-base-100/95 backdrop-blur-xl border-t border-base-300 shadow-lg z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-base-100/95 backdrop-blur-xl border-t border-base-300 shadow-lg z-50">
         <div className="flex justify-around items-center h-16 px-2">
           {navItems.map((item) => {
             const IconComponent = item.icon;
