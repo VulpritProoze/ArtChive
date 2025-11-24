@@ -11,10 +11,12 @@ const CommentsRenderer = ({
   postItem,
   isFirstComments = true,
   showLoadMore = false,
+  highlightedItemId,
 }: {
   postItem: Post;
   isFirstComments?: boolean;
   showLoadMore?: boolean;
+  highlightedItemId?: string | null;
 }) => {
   const { commentPagination, loadingComments, comments, setActivePost } =
     usePostContext();
@@ -165,6 +167,7 @@ const CommentsRenderer = ({
                 key={comment.comment_id}
                 comment={comment}
                 postId={postId}
+                highlightedItemId={highlightedItemId}
               />
             ))}
           </div>

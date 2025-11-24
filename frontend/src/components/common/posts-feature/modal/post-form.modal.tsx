@@ -85,7 +85,8 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
           </div>
 
           {/* Mobile Tab Navigation - Only visible on small screens and when not default post */}
-          {postForm.post_type !== 'default' && (
+          {/* Hide media tab when editing image or video posts */}
+          {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
             <div className="lg:hidden border-b border-base-300 bg-base-100">
               <div className="flex">
                 <button
@@ -135,7 +136,8 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
           <form id="post-form" onSubmit={(e) => handlePostSubmit(e, channel_id, user_id)} className="flex flex-col lg:flex-row max-h-[85vh]">
 
             {/* Left Side - Enhanced Media Preview / Chapters with Gradient Background */}
-            {postForm.post_type !== 'default' && (
+            {/* Hide media section when editing image or video posts */}
+            {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
               <div className={`lg:w-3/5 bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 lg:p-8 lg:min-h-[550px] relative overflow-hidden ${
                 mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex'
               }`}>
@@ -187,8 +189,9 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
             )}
 
             {/* Right Side - Enhanced Details Panel */}
-            <div className={`${postForm.post_type === 'default' ? 'w-full' : 'lg:w-2/5'} flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
-              postForm.post_type === 'default' ? 'block' : mobileView === 'details' ? 'block' : 'hidden lg:flex'
+            {/* Expand to full width when editing image/video posts (no media section) */}
+            <div className={`${postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) ? 'w-full' : 'lg:w-2/5'} flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
+              postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) ? 'block' : mobileView === 'details' ? 'block' : 'hidden lg:flex'
             }`}>
               
               {/* Post Type Selection with Enhanced Design */}

@@ -1,39 +1,34 @@
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faHandsClapping } from "@fortawesome/free-solid-svg-icons";
-import type { PostPraise } from "@types";
-import { post } from "@lib/api";
-import { handleApiError } from "@utils";
+import React, { useEffect, useState } from 'react';
+import { X, Heart } from 'lucide-react';
+import { postService } from '@services/post.service';
+import type { PostHeart } from '@types';
+import { handleApiError } from '@utils';
 
-interface PraiseListModalProps {
+interface HeartListModalProps {
   isOpen: boolean;
   onClose: () => void;
   postId: string;
 }
 
-export default function PraiseListModal({
-  isOpen,
-  onClose,
-  postId,
-}: PraiseListModalProps) {
-  const [praises, setPraises] = useState<PostPraise[]>([]);
+export const HeartListModal: React.FC<HeartListModalProps> = ({ isOpen, onClose, postId }) => {
+  const [hearts, setHearts] = useState<PostHeart[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen && postId) {
-      fetchPraises();
+      fetchHearts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, postId]);
 
-  const fetchPraises = async () => {
+  const fetchHearts = async () => {
     setLoading(true);
     try {
-      const response = await post.get(`/${postId}/praises/`);
-      setPraises(response.data.results || response.data || []);
+      const data = await postService.getPostHearts(postId);
+      setHearts(data);
     } catch (error) {
-      console.error("Fetch praises error:", error);
-      handleApiError(error, 'Failed to load praises');
+      console.error('Error fetching hearts:', error);
+      handleApiError(error, 'Failed to load hearts');
     } finally {
       setLoading(false);
     }
@@ -54,12 +49,9 @@ export default function PraiseListModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-base-300">
           <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faHandsClapping}
-              className="text-warning text-xl"
-            />
+            <Heart className="w-5 h-5 text-error fill-error" />
             <h3 className="text-lg font-bold text-base-content">
-              Praises
+              Likes
             </h3>
           </div>
           <button
@@ -77,46 +69,40 @@ export default function PraiseListModal({
             <div className="flex justify-center py-8">
               <div className="loading loading-spinner loading-md text-primary"></div>
             </div>
-          ) : praises.length === 0 ? (
+          ) : hearts.length === 0 ? (
             <div className="text-center py-12">
-              <FontAwesomeIcon
-                icon={faHandsClapping}
-                className="text-6xl text-base-content/30 mb-3"
-              />
-              <p className="text-base-content/70">No praises yet</p>
+              <Heart className="w-12 h-12 mx-auto text-base-content/30 mb-3" />
+              <p className="text-base-content/70">No likes yet</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {praises.map((praise) => (
+              {hearts.map((heart) => (
                 <div
-                  key={praise.id}
+                  key={heart.id}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
                 >
                   {/* User Avatar */}
                   <img
-                    src={praise.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`}
-                    alt={praise.author_username}
+                    src={heart.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`}
+                    alt={heart.author_username}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`;
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`;
                     }}
                   />
                   
                   {/* User Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-base-content truncate">
-                      {praise.author_fullname}
+                      {heart.author_fullname}
                     </p>
                     <p className="text-xs text-base-content/60 truncate">
-                      @{praise.author_username}
+                      @{heart.author_username}
                     </p>
                   </div>
 
-                  {/* Praise Icon */}
-                  <FontAwesomeIcon
-                    icon={faHandsClapping}
-                    className="text-warning text-xl flex-shrink-0"
-                  />
+                  {/* Heart Icon */}
+                  <Heart className="w-5 h-5 text-error fill-error flex-shrink-0" />
                 </div>
               ))}
             </div>
@@ -125,4 +111,5 @@ export default function PraiseListModal({
       </div>
     </div>
   );
-}
+};
+

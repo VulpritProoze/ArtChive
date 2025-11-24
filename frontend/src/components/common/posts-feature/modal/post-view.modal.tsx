@@ -24,6 +24,8 @@ const PostViewModal = () => {
   const [showComments, setShowComments] = useState(false);
   // Screen size state
   const [isMobile, setIsMobile] = useState(false);
+  // Track initial render to prevent animation artifact
+  const [isInitialRender, setIsInitialRender] = useState(true);
 
   if (!activePost) return null;
 
@@ -58,6 +60,9 @@ const PostViewModal = () => {
     } else {
       setShowComments(false);
     }
+    // Mark that initial render is complete after a brief delay
+    const timer = setTimeout(() => setIsInitialRender(false), 50);
+    return () => clearTimeout(timer);
   }, [isMobile, activePost]);
 
   const handleLoadMore = async () => {
@@ -289,7 +294,9 @@ const PostViewModal = () => {
 
           {/* Right: Comments */}
           <div
-            className={`flex flex-col border-l border-base-300 flex-shrink-0 transition-all duration-300 ${
+            className={`flex flex-col border-l border-base-300 flex-shrink-0 ${
+              !isInitialRender ? "transition-all duration-300" : ""
+            } ${
               isMobile
                 ? `absolute inset-0 bg-base-100 transform ${
                     showComments ? "translate-x-0" : "translate-x-full"

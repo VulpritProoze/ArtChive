@@ -276,12 +276,22 @@ class PostUpdateSerializer(ModelSerializer):
                 )
 
         elif current_post_type == 'image':
+            # Do not allow updating image_url for image posts
+            if 'image_url' in data:
+                raise serializers.ValidationError(
+                    'Image cannot be updated for image posts'
+                )
             if any(field in data for field in ['video_url', 'chapters']):
                 raise serializers.ValidationError(
                     'Image posts cannot have video or chapter fields'
                 )
 
         elif current_post_type == 'video':
+            # Do not allow updating video_url for video posts
+            if 'video_url' in data:
+                raise serializers.ValidationError(
+                    'Video cannot be updated for video posts'
+                )
             if any(field in data for field in ['image_url', 'chapters']):
                 raise serializers.ValidationError(
                     'Video posts cannot have image or chapter fields'
@@ -469,12 +479,16 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_critique_author_artist_types(self, obj):
         '''Fetch author's artist types'''
         try:
-            return obj.critique_id.author.artist.artist_types
-        except Artist.DoesNotExist:
+            if obj.critique_id:
+                return obj.critique_id.author.artist.artist_types
+            return []
+        except (Artist.DoesNotExist, AttributeError):
             return []
 
 class TopLevelCommentsViewSerializer(CommentSerializer):
     reply_count = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    show_replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -490,6 +504,8 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
             'author',
             'replies_to',
             'reply_count',
+            'replies',
+            'show_replies',
             'author_artist_types',
             'is_deleted'
         ]
@@ -499,6 +515,19 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
         if hasattr(obj, 'reply_count'):
             return obj.reply_count
         return obj.comment_reply.get_active_objects().filter(is_critique_reply=False).count()
+
+    def get_replies(self, obj):
+        '''Get all replies for this comment from prefetched data'''
+        # Use prefetched replies if available
+        if hasattr(obj, 'prefetched_replies'):
+            return CommentSerializer(obj.prefetched_replies, many=True, context=self.context).data
+        return []
+
+    def get_show_replies(self, obj):
+        '''Show replies is false by default - user must click to expand'''
+        # Always return False so replies are collapsed by default
+        # The frontend will toggle this when user clicks "View replies"
+        return False
 
 class CommentCreateSerializer(ModelSerializer):
     class Meta:
@@ -680,9 +709,21 @@ class CritiqueReplyUpdateSerializer(serializers.ModelSerializer):
         return data
 
 class PostHeartSerializer(ModelSerializer):
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_fullname = serializers.SerializerMethodField()
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+
     class Meta:
         model = PostHeart
-        fields = '__all__'
+        fields = ['id', 'post_id', 'author', 'hearted_at', 'author_username', 'author_fullname', 'author_picture']
+        read_only_fields = ['id', 'author', 'hearted_at']
+
+    def get_author_fullname(self, obj):
+        '''Fetch author's full name. Return username if author has no provided name'''
+        user = obj.author
+        parts = [user.first_name or '', user.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
 
 class PostHeartCreateSerializer(serializers.ModelSerializer):
     class Meta:

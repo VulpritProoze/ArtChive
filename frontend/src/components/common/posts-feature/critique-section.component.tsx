@@ -8,9 +8,10 @@ import { handleApiError } from '@utils';
 
 interface CritiqueSectionProps {
   postId: string;
+  highlightedItemId?: string | null;
 }
 
-export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId }) => {
+export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId, highlightedItemId }) => {
   const {
     critiques,
     loadingCritiques,
@@ -112,6 +113,7 @@ export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId }) => {
             key={critique.critique_id}
             critique={critique}
             postId={postId}
+            highlightedItemId={highlightedItemId}
           />
         ))}
       </div>
@@ -145,7 +147,7 @@ export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId }) => {
 };
 
 // Individual Critique Card Component (StackOverflow-style)
-const CritiqueCard: React.FC<{ critique: Critique; postId: string }> = ({ critique, postId }) => {
+const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedItemId?: string | null }> = ({ critique, postId, highlightedItemId }) => {
   const { user } = useAuth();
   const {
     deleteCritique,
@@ -172,6 +174,10 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string }> = ({ critiq
   const [editingReplyText, setEditingReplyText] = React.useState('');
   const [updatingReply, setUpdatingReply] = React.useState(false);
   const [deletingReplyId, setDeletingReplyId] = React.useState<string | null>(null);
+  
+  // Check if this critique or critique reply should be highlighted
+  const critiqueId = `critique-${critique.critique_id}`;
+  const isCritiqueHighlighted = highlightedItemId === critiqueId;
 
   const handleEditCritique = () => {
     setSelectedCritique(critique);
@@ -264,7 +270,10 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string }> = ({ critiq
   };
 
   return (
-    <div className="border border-base-300 rounded-lg bg-base-100">
+    <div 
+      id={critiqueId}
+      className={`border border-base-300 rounded-lg bg-base-100 ${isCritiqueHighlighted ? "ring-4 ring-primary/30 bg-primary/5 transition-all duration-300" : ""}`}
+    >
       <div className="p-6">
         {/* Critique Content */}
         <div className="flex gap-4">
@@ -347,8 +356,16 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string }> = ({ critiq
           </div>
         ) : critique.show_replies && critique.replies && critique.replies.length > 0 ? (
           <div className="space-y-2 mb-3">
-            {critique.replies.map((reply, index) => (
-              <div key={reply.comment_id} className={`py-2 text-sm ${index > 0 ? 'border-t border-base-200' : ''}`}>
+            {critique.replies.map((reply, index) => {
+              const critiqueReplyId = `critique-reply-${reply.comment_id}`;
+              const isReplyHighlighted = highlightedItemId === critiqueReplyId;
+              
+              return (
+              <div 
+                key={reply.comment_id} 
+                id={critiqueReplyId}
+                className={`py-2 text-sm ${index > 0 ? 'border-t border-base-200' : ''} ${isReplyHighlighted ? "bg-primary/10 border-l-4 border-l-primary pl-3 rounded-lg transition-all duration-300" : ""}`}
+              >
                 {editingReplyId === reply.comment_id ? (
                   // Edit mode
                   <div className="space-y-2">
@@ -425,7 +442,8 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string }> = ({ critiq
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         ) : null}
 

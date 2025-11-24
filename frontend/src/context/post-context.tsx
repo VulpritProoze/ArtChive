@@ -442,14 +442,34 @@ export const PostProvider = ({ children }) => {
       await post.post("/comment/reply/create/", replyForm);
       toast.success("Reply posted", "Your reply has been added successfully");
 
+      // Hide the reply form
+      toggleReplyForm(parentCommentId);
+
       // Clear reply form
       setReplyForms((prev) => ({
         ...prev,
         [parentCommentId]: { ...prev[parentCommentId], text: "" },
       }));
 
-      // Refresh replies for the parent comment
-      await fetchRepliesForComment(parentCommentId);
+      // Refresh the entire comments list to get the new reply
+      const postId = replyForm.post_id;
+      if (postId) {
+        await fetchCommentsForPost(postId, 1, false);
+        
+        // Also ensure replies are shown for this comment
+        setComments((prev) => {
+          const updatedComments = { ...prev };
+          Object.keys(updatedComments).forEach((pid) => {
+            updatedComments[pid] = updatedComments[pid].map((comment) => {
+              if (comment.comment_id === parentCommentId) {
+                return { ...comment, show_replies: true };
+              }
+              return comment;
+            });
+          });
+          return updatedComments;
+        });
+      }
       
     } catch (error) {
       console.error("Reply submission error: ", error);
@@ -459,27 +479,28 @@ export const PostProvider = ({ children }) => {
 
   const fetchRepliesForComment = async (commentId: string) => {
     try {
-      if(!activePost) return
-
       setLoadingReplies((prev) => ({ ...prev, [commentId]: true }));
 
       const response = await post.get(`/comment/${commentId}/replies/`);
       const repliesData = response.data.results || [];
 
-      await fetchCommentsForPost(activePost.post_id, 1, false)
-
-      // Update comments with replies
+      // Update comments with replies - initialize is_replying for each reply
       setComments((prev) => {
         const updatedComments = { ...prev };
         Object.keys(updatedComments).forEach((postId) => {
           updatedComments[postId] = updatedComments[postId].map((comment) => {
             if (comment.comment_id === commentId) {
-              return { ...comment, replies: repliesData };
+              return { 
+                ...comment, 
+                replies: repliesData.map((reply: Comment) => ({
+                  ...reply,
+                  is_replying: false
+                }))
+              };
             }
             return comment;
           });
         });
-        console.log('commnets replt ', comments)
 
         return updatedComments;
       });
@@ -689,7 +710,18 @@ export const PostProvider = ({ children }) => {
       const response = await post.get(`/comment/${postId}/`, {
         params: { page },
       });
-      const commentsData = response.data.results || [];
+      const rawCommentsData = response.data.results || [];
+      
+      // Initialize is_replying for comments and their replies
+      const commentsData = rawCommentsData.map((comment: Comment) => ({
+        ...comment,
+        is_replying: false,
+        replies: comment.replies?.map((reply: Comment) => ({
+          ...reply,
+          is_replying: false
+        }))
+      }));
+      
       const paginationData = {
         currentPage: page,
         hasNext: response.data.next !== null,

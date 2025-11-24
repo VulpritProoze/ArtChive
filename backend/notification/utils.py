@@ -109,10 +109,13 @@ def create_comment_notification(comment, post_author):
 
     message = f"{comment.author.username} commented on your post"
 
+    # Format: "postId:commentId" for proper navigation
+    notification_object_id = f"{comment.post_id.post_id}:{comment.comment_id}"
+
     return create_notification(
         message=message,
         notification_object_type=NOTIFICATION_TYPES.post_comment,
-        notification_object_id=str(comment.comment_id),
+        notification_object_id=notification_object_id,
         notified_to=post_author,
         notified_by=comment.author
     )
@@ -132,10 +135,13 @@ def create_critique_notification(critique, post_author):
 
     message = f"{critique.author.username} critiqued your post"
 
+    # Format: "postId:critiqueId" for proper navigation
+    notification_object_id = f"{critique.post_id.post_id}:{critique.critique_id}"
+
     return create_notification(
         message=message,
         notification_object_type=NOTIFICATION_TYPES.post_critique,
-        notification_object_id=str(critique.critique_id),
+        notification_object_id=notification_object_id,
         notified_to=post_author,
         notified_by=critique.author
     )
@@ -185,4 +191,56 @@ def create_trophy_notification(trophy, post_author):
         notification_object_id=str(trophy.post_id.post_id),
         notified_to=post_author,
         notified_by=trophy.author
+    )
+
+
+def create_comment_reply_notification(reply, parent_comment_author):
+    """
+    Create a notification when someone replies to a comment.
+
+    Args:
+        reply: The Comment object (the reply)
+        parent_comment_author: The User who owns the parent comment
+    """
+    # Don't notify if replying to own comment
+    if reply.author.id == parent_comment_author.id:
+        return None
+
+    message = f"{reply.author.username} replied to your comment"
+
+    # Format: "postId:replyId" for proper navigation
+    notification_object_id = f"{reply.post_id.post_id}:{reply.comment_id}"
+
+    return create_notification(
+        message=message,
+        notification_object_type=NOTIFICATION_TYPES.post_comment,
+        notification_object_id=notification_object_id,
+        notified_to=parent_comment_author,
+        notified_by=reply.author
+    )
+
+
+def create_critique_reply_notification(reply, critique_author):
+    """
+    Create a notification when someone replies to a critique.
+
+    Args:
+        reply: The Comment object (the critique reply)
+        critique_author: The User who owns the critique
+    """
+    # Don't notify if replying to own critique
+    if reply.author.id == critique_author.id:
+        return None
+
+    message = f"{reply.author.username} replied to your critique"
+
+    # Format: "postId:replyId" for proper navigation
+    notification_object_id = f"{reply.post_id.post_id}:{reply.comment_id}"
+
+    return create_notification(
+        message=message,
+        notification_object_type=NOTIFICATION_TYPES.post_critique,
+        notification_object_id=notification_object_id,
+        notified_to=critique_author,
+        notified_by=reply.author
     )

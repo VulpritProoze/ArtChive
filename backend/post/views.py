@@ -4,7 +4,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
+from rest_framework import generics, permissions, status
 from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
@@ -22,7 +22,9 @@ from core.models import BrushDripTransaction, BrushDripWallet, User
 from core.permissions import IsAuthorOrSuperUser
 from notification.utils import (
     create_comment_notification,
+    create_comment_reply_notification,
     create_critique_notification,
+    create_critique_reply_notification,
     create_praise_notification,
     create_trophy_notification,
 )
@@ -231,13 +233,22 @@ class OwnPostsListView(generics.ListAPIView):
 
 class PostCommentsView(generics.ListAPIView):
     '''
-    Fetch all top-level comments
+    Fetch all top-level comments with their replies (with context)
     '''
     serializer_class = TopLevelCommentsViewSerializer
     pagination_class = CommentPagination
 
     def get_queryset(self):
         post_id = self.kwargs['post_id']
+
+        # Prefetch replies for each comment
+        replies_prefetch = Prefetch(
+            'comment_reply',
+            queryset=Comment.objects.get_active_objects().filter(
+                is_critique_reply=False
+            ).select_related('author', 'author__artist').order_by('created_at'),
+            to_attr='prefetched_replies'
+        )
 
         return Comment.objects.get_active_objects().filter(
             post_id=post_id,
@@ -250,7 +261,9 @@ class PostCommentsView(generics.ListAPIView):
                         comment_reply__is_critique_reply=False
                     ))
             ).select_related(
-                'author',
+                'author', 'author__artist'
+            ).prefetch_related(
+                replies_prefetch
             ).order_by(
                 '-created_at'
             )
@@ -302,6 +315,15 @@ class PostCommentsReplyView(ListAPIView):
 class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = CommentReplyCreateSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Create the reply
+        reply = serializer.save(author=self.request.user)
+
+        # Send notification to parent comment author
+        if reply.replies_to:
+            parent_author = reply.replies_to.author
+            create_comment_reply_notification(reply, parent_author)
 
 class CommentReplyUpdateView(generics.UpdateAPIView):
     queryset = Comment.objects.get_active_objects().filter(replies_to__isnull=False)
@@ -634,7 +656,13 @@ class CritiqueReplyCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        # Create the critique reply
+        reply = serializer.save()
+
+        # Send notification to critique author
+        if reply.critique_id:
+            critique_author = reply.critique_id.author
+            create_critique_reply_notification(reply, critique_author)
 
 class CritiqueReplyDetailView(generics.RetrieveAPIView):
     """
@@ -1030,3 +1058,94 @@ class PostTrophyCheckView(APIView):
                 {'error': f'Trophy type "{trophy_type}" not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+# ============================================================================
+# COMMENT/CRITIQUE DETAIL WITH CONTEXT (for notification navigation)
+# ============================================================================
+
+class CommentDetailWithContextView(generics.RetrieveAPIView):
+    """
+    Fetch a specific comment with its replies for navigation from notifications.
+    Used when navigating to a specific comment that may not be loaded yet.
+    GET /api/comment/<comment_id>/detail/
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CommentSerializer
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        return Comment.objects.get_active_objects().select_related(
+            'author', 'author__artist', 'post_id'
+        ).prefetch_related('comment_reply')
+
+    def retrieve(self, request, *args, **kwargs):
+        comment = self.get_object()
+        serializer = self.get_serializer(comment)
+
+        # If it's a reply, fetch parent comment with all its replies
+        if comment.replies_to:
+            parent_comment = comment.replies_to
+            parent_serializer = self.get_serializer(parent_comment)
+
+            # Fetch all replies for the parent
+            replies_qs = Comment.objects.get_active_objects().filter(
+                replies_to=parent_comment
+            ).select_related('author', 'author__artist').order_by('created_at')
+
+            replies_data = CommentSerializer(replies_qs, many=True).data
+
+            return Response({
+                'comment': serializer.data,
+                'post_id': str(comment.post_id.post_id),
+                'is_reply': True,
+                'parent_comment': parent_serializer.data,
+                'all_replies': replies_data
+            })
+        else:
+            # It's a top-level comment, fetch its replies
+            replies_qs = Comment.objects.get_active_objects().filter(
+                replies_to=comment
+            ).select_related('author', 'author__artist').order_by('created_at')
+
+            replies_data = CommentSerializer(replies_qs, many=True).data
+
+            return Response({
+                'comment': serializer.data,
+                'post_id': str(comment.post_id.post_id),
+                'is_reply': False,
+                'replies': replies_data
+            })
+
+
+class CritiqueDetailWithContextView(generics.RetrieveAPIView):
+    """
+    Fetch a specific critique with its replies for navigation from notifications.
+    GET /api/critique/<critique_id>/detail/
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CritiqueSerializer
+    lookup_field = 'critique_id'
+
+    def get_queryset(self):
+        return Critique.objects.filter(
+            is_deleted=False
+        ).select_related('author', 'author__artist', 'post_id')
+
+    def retrieve(self, request, *args, **kwargs):
+        critique = self.get_object()
+        serializer = self.get_serializer(critique)
+
+        # Fetch critique replies
+        replies_qs = Comment.objects.get_active_objects().filter(
+            critique_id=critique,
+            is_critique_reply=True
+        ).select_related('author', 'author__artist').order_by('created_at')
+
+        replies_data = CommentSerializer(replies_qs, many=True).data
+
+        return Response({
+            'critique': serializer.data,
+            'post_id': str(critique.post_id.post_id),
+            'replies': replies_data
+        })
