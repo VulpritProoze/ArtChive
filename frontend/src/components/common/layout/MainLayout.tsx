@@ -54,12 +54,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Construct full name from separate fields
-  const getFullName = () => {
-    if (!user) return '';
-    const parts = [user.first_name, user.middle_name, user.last_name].filter(Boolean);
-    return parts.join(' ');
-  };
 
   const navItems = [
     { path: "/home", label: "Home", icon: Home },
@@ -181,33 +175,30 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
             {/* Right Section */}
             <div className="flex items-center gap-4">
-              {/* User Profile Section */}
+              {/* User Profile Section - Hidden on small screens */}
               {user && (
-                <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-3">
                   <Link
                     to="/profile"
-                    className="hidden md:flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
+                    className="flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
                   >
                     <img
                       src={user.profile_picture}
-                      alt={getFullName()}
+                      alt={user.fullname || user.username}
                       className="w-10 h-10 rounded-full border-2 border-base-300 hover:border-primary transition-colors"
                     />
-                    <div className="hidden lg:block">
-                      <h5 className="text-sm font-semibold text-base-content">
-                        {getFullName()}
-                      </h5>
-                      <p className="text-xs text-primary">@{user.username}</p>
+                    <div className="flex flex-col gap-0.5">
+                      {user.fullname && (
+                        <h5 className="text-xs font-semibold text-base-content truncate max-w-[120px]">
+                          {user.fullname}
+                        </h5>
+                      )}
+                      <p className="text-xs text-primary truncate max-w-[120px]">@{user.username}</p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
+                      </div>
                     </div>
-                  </Link>
-
-                  {/* Mobile Avatar */}
-                  <Link to="/profile" className="md:hidden">
-                    <img
-                      src={user.profile_picture}
-                      alt={getFullName()}
-                      className="w-10 h-10 rounded-full border-2 border-base-300"
-                    />
                   </Link>
                 </div>
               )}
@@ -312,6 +303,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
           {/* Settings Content */}
           <div className="flex-1 overflow-y-auto p-4">
+            {/* User Profile Section - Shows on small screens only */}
+            {user && (
+              <div className="sm:hidden mb-6 pb-6 border-b border-base-300">
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
+                  onClick={() => setIsSettingsOpen(false)}
+                >
+                  <img
+                    src={user.profile_picture}
+                    alt={user.fullname || user.username}
+                    className="w-12 h-12 rounded-full border-2 border-base-300"
+                  />
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    {user.fullname && (
+                      <h5 className="text-sm font-semibold text-base-content truncate">
+                        {user.fullname}
+                      </h5>
+                    )}
+                    <p className="text-xs text-primary truncate">@{user.username}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            )}
+
             <div className="space-y-2">
               {settingsItems.map((item, index) => {
                 const IconComponent = item.icon;

@@ -1,10 +1,10 @@
 from collections import deque
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
@@ -27,6 +27,10 @@ from notification.utils import (
     create_trophy_notification,
 )
 
+from .cache_utils import (
+    get_post_praise_count_cache_key,
+    get_post_trophy_count_cache_key,
+)
 from .models import (
     Comment,
     Critique,
@@ -49,6 +53,7 @@ from .serializers import (
     CritiqueDeleteSerializer,
     CritiqueReplyCreateSerializer,
     CritiqueReplySerializer,
+    CritiqueReplyUpdateSerializer,
     CritiqueSerializer,
     CritiqueUpdateSerializer,
     PostCreateSerializer,
@@ -65,6 +70,8 @@ from .serializers import (
     ReplyUpdateSerializer,
     TopLevelCommentsViewSerializer,
 )
+
+POST_META_COUNT_CACHE_TIMEOUT = 300  # seconds
 
 
 class PostCreateView(generics.CreateAPIView):
@@ -143,7 +150,7 @@ class PostListView(generics.ListAPIView):
                 .annotate(
                     reply_count=Count(
                         'comment_reply',
-                        filter=Q(comment_reply__is_deleted=False)
+                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False)
                     )
                 )
                 .order_by('-created_at')
@@ -151,8 +158,11 @@ class PostListView(generics.ListAPIView):
 
         # Build base queryset with common optimizations
         queryset = Post.objects.get_active_objects().annotate(
-            # Annotate comment count to avoid separate COUNT queries
-            total_comment_count=Count('post_comment', filter=Q(post_comment__is_deleted=False)),
+            # Annotate comment count to avoid separate COUNT queries (exclude critique replies)
+            total_comment_count=Count(
+                'post_comment',
+                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
+            ),
             # Annotate hearts count to avoid separate COUNT queries
             total_hearts_count=Count('post_heart'),
         ).prefetch_related(
@@ -236,7 +246,8 @@ class PostCommentsView(generics.ListAPIView):
             ).annotate(
                 reply_count=Count('comment_reply',
                     filter=Q(
-                        comment_reply__is_deleted=False
+                        comment_reply__is_deleted=False,
+                        comment_reply__is_critique_reply=False
                     ))
             ).select_related(
                 'author',
@@ -249,8 +260,10 @@ class PostCommentsView(generics.ListAPIView):
         queryset = self.filter_queryset(self.get_queryset())
         post_id = self.kwargs['post_id']
 
+        # Count total comments excluding critique replies
         total_comments = Comment.objects.get_active_objects().filter(
-            post_id=post_id
+            post_id=post_id,
+            is_critique_reply=False
         ).count()
 
         # Let DRF handle pagination and serialization
@@ -550,7 +563,7 @@ class CritiqueDetailView(RetrieveAPIView):
 
 class CritiqueUpdateView(UpdateAPIView):
     """
-    Update a specific critique
+    Update a specific critique (text only, impression cannot be changed)
     """
     serializer_class = CritiqueUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
@@ -558,13 +571,6 @@ class CritiqueUpdateView(UpdateAPIView):
 
     def get_queryset(self):
         return Critique.objects.get_active_objects()
-
-    def perform_update(self, serializer):
-        # Ensure the user owns the critique
-        critique = self.get_object()
-        if critique.author != self.request.user and not self.request.user.is_staff:
-            raise PermissionDenied("You can only update your own critiques")
-        serializer.save()
 
 class CritiqueDeleteView(DestroyAPIView):
     """
@@ -643,6 +649,21 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
         return Comment.objects.get_active_objects().filter(
             is_critique_reply=True
         ).select_related('author', 'post_id', 'critique_id')
+
+
+class CritiqueReplyUpdateView(generics.UpdateAPIView):
+    """
+    Update a critique reply (text only)
+    PUT/PATCH /api/critiques/replies/<comment_id>/update/
+    """
+    serializer_class = CritiqueReplyUpdateSerializer
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        return Comment.objects.get_active_objects().filter(
+            is_critique_reply=True
+        )
 
 
 # ============================================================================
@@ -766,19 +787,24 @@ class PostPraiseCountView(APIView):
 
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_praise_count_cache_key(post_id, user_id)
+        cached_payload = cache.get(cache_key)
+        if cached_payload:
+            return Response(cached_payload, status=status.HTTP_200_OK)
+
         aggregate_result = PostPraise.objects.filter(post_id=post).aggregate(
             total_count=Count('id'),
             user_count=Count('id', filter=Q(author=request.user)),
         )
 
-        praise_count = aggregate_result['total_count'] or 0
-        is_praised_by_user = bool(aggregate_result['user_count'])
-
-        return Response({
+        payload = {
             'post_id': str(post_id),
-            'praise_count': praise_count,
-            'is_praised_by_user': is_praised_by_user
-        }, status=status.HTTP_200_OK)
+            'praise_count': aggregate_result['total_count'] or 0,
+            'is_praised_by_user': bool(aggregate_result['user_count']),
+        }
+        cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class PostPraiseCheckView(APIView):
@@ -936,6 +962,11 @@ class PostTrophyCountView(APIView):
 
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_trophy_count_cache_key(post_id, user_id)
+        cached_payload = cache.get(cache_key)
+        if cached_payload:
+            return Response(cached_payload, status=status.HTTP_200_OK)
 
         trophies_qs = PostTrophy.objects.filter(post_id=post)
         counts_by_type = {
@@ -954,12 +985,14 @@ class PostTrophyCountView(APIView):
             trophies_qs.filter(author=request.user).values_list('post_trophy_type__trophy', flat=True)
         )
 
-        return Response({
+        payload = {
             'post_id': str(post_id),
             'trophy_counts': trophy_counts,
             'total_trophy_count': total_count,
-            'user_awarded_trophies': user_awarded_trophies
-        }, status=status.HTTP_200_OK)
+            'user_awarded_trophies': user_awarded_trophies,
+        }
+        cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class PostTrophyCheckView(APIView):

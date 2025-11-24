@@ -94,10 +94,12 @@ export const PostProvider = ({ children }) => {
   });
   const [editingCritique, setEditingCritique] = useState(false);
   const [selectedCritique, setSelectedCritique] = useState<Critique | null>(null);
+  const [submittingCritique, setSubmittingCritique] = useState(false);
   
   // Critique reply states
   const [critiqueReplyForms, setCritiqueReplyForms] = useState<{ [critiqueId: string]: CritiqueReplyForm }>({});
   const [loadingCritiqueReplies, setLoadingCritiqueReplies] = useState<{ [critiqueId: string]: boolean }>({});
+  const [submittingCritiqueReply, setSubmittingCritiqueReply] = useState<{ [critiqueId: string]: boolean }>({});
 
   // Praise states
   const [loadingPraise, setLoadingPraise] = useState<{ [postId: string]: boolean }>({});
@@ -152,11 +154,16 @@ export const PostProvider = ({ children }) => {
   const handleCritiqueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submittingCritique) {
+      return;
+    }
+    setSubmittingCritique(true);
+
     try {
       if (editingCritique) {
+        // Only send text when editing (impression cannot be changed)
         await post.put(`/critique/${selectedCritique?.critique_id}/update/`, {
-          text: critiqueForm.text,
-          impression: critiqueForm.impression
+          text: critiqueForm.text
         });
       } else {
         await post.post("/critique/create/", critiqueForm);
@@ -174,7 +181,11 @@ export const PostProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Critique submission error: ", error);
-      toast.error('Failed to save critique', formatErrorForToast(handleApiError(error, defaultErrors)));
+      const message = formatErrorForToast(handleApiError(error, defaultErrors, true, true));
+      toast.error('Failed to save critique', message);
+    }
+    finally {
+      setSubmittingCritique(false);
     }
   };
 
@@ -204,6 +215,7 @@ export const PostProvider = ({ children }) => {
     if (!replyForm?.text.trim()) return;
 
     try {
+      setSubmittingCritiqueReply(prev => ({ ...prev, [critiqueId]: true }));
       await post.post("/critique/reply/create/", replyForm);
       toast.success("Reply posted", "Your reply has been added successfully");
 
@@ -218,6 +230,8 @@ export const PostProvider = ({ children }) => {
     } catch (error) {
       console.error("Critique reply submission error: ", error);
       toast.error('Operation failed', formatErrorForToast(handleApiError(error, defaultErrors)));
+    } finally {
+      setSubmittingCritiqueReply(prev => ({ ...prev, [critiqueId]: false }));
     }
   };
 
@@ -961,6 +975,8 @@ export const PostProvider = ({ children }) => {
     setEditingCritique,
     selectedCritique,
     setSelectedCritique,
+    submittingCritique,
+    setSubmittingCritique,
     fetchCritiquesForPost,
     handleCritiqueSubmit,
     deleteCritique,
@@ -968,6 +984,7 @@ export const PostProvider = ({ children }) => {
     // Critique reply functionality
     critiqueReplyForms,
     loadingCritiqueReplies,
+    submittingCritiqueReply,
     handleCritiqueReplySubmit,
     fetchRepliesForCritique,
     setupCritiqueReplyForm,

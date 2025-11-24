@@ -399,8 +399,8 @@ class PostViewSerializer(serializers.ModelSerializer):
         # Use annotated field if available (from PostListView optimization)
         if hasattr(obj, 'total_comment_count'):
             return obj.total_comment_count
-        # Fallback for other views that don't annotate
-        return obj.post_comment.get_active_objects().count()
+        # Fallback for other views that don't annotate (exclude critique replies)
+        return obj.post_comment.get_active_objects().filter(is_critique_reply=False).count()
 
 
 class PostDetailViewSerializer(PostViewSerializer):
@@ -437,7 +437,7 @@ class PostListViewSerializer(PostViewSerializer):
                 .annotate(
                     reply_count=Count(
                         'comment_reply',
-                        filter=Q(comment_reply__is_deleted=False),
+                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False),
                     )
                 )
                 .order_by('-created_at')[:2]
@@ -495,10 +495,10 @@ class TopLevelCommentsViewSerializer(CommentSerializer):
         ]
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
+        '''Get reply counts (excluding critique replies)'''
         if hasattr(obj, 'reply_count'):
             return obj.reply_count
-        return obj.comment_reply.get_active_objects().count()
+        return obj.comment_reply.get_active_objects().filter(is_critique_reply=False).count()
 
 class CommentCreateSerializer(ModelSerializer):
     class Meta:
@@ -618,8 +618,8 @@ class CritiqueReplySerializer(CommentSerializer):
         ]
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
-        return obj.comment_reply.get_active_objects().count()
+        '''Get reply counts (excluding critique replies)'''
+        return obj.comment_reply.get_active_objects().filter(is_critique_reply=False).count()
 
 class CritiqueReplyCreateSerializer(ModelSerializer):
     class Meta:
@@ -663,6 +663,22 @@ class ReplyUpdateSerializer(serializers.ModelSerializer):
 
         return data
 
+class CritiqueReplyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['text']  # Only allow updating the text
+
+    def validate(self, data):
+        # Ensure this is actually a critique reply (defensive check)
+        if self.instance and not self.instance.is_critique_reply:
+            raise serializers.ValidationError("This is not a critique reply.")
+
+        # Ensure critique reply is not deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Cannot update a deleted critique reply")
+
+        return data
+
 class PostHeartSerializer(ModelSerializer):
     class Meta:
         model = PostHeart
@@ -690,7 +706,7 @@ class PostHeartCreateSerializer(serializers.ModelSerializer):
 
 class CritiqueSerializer(ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)
-    author_picture = serializers.CharField(source='author.profile_picture', read_only=True)
+    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
     post_title = serializers.CharField(source='post_id.title', read_only=True)
     author_artist_types = serializers.SerializerMethodField()
     author_fullname = serializers.SerializerMethodField()
@@ -716,8 +732,10 @@ class CritiqueSerializer(ModelSerializer):
         return full_name if full_name else user.username
 
     def get_reply_count(self, obj):
-        '''Get reply counts'''
-        return obj.critique_reply.count()
+        '''Get reply counts (excluding soft-deleted replies)'''
+        if hasattr(obj, 'reply_count'):
+            return obj.reply_count
+        return obj.critique_reply.filter(is_deleted=False).count()
 
 class CritiqueCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -751,21 +769,10 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
 class CritiqueUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Critique
-        fields = ['text', 'impression']
-
-    def validate_impression(self, value):
-        valid_choices = [choice[0] for choice in choices.CRITIQUE_IMPRESSIONS]
-        if value not in valid_choices:
-            raise serializers.ValidationError('Invalid impression type')
-        return value
-
-    def validate(self, data):
-        # Ensure user owns the critique
-        user = self.context['request'].user
-        if not (user == self.instance.author or user.is_staff):
-            raise serializers.ValidationError("You can only update your own critiques")
-
-        return data
+        fields = ['text']
+        extra_kwargs = {
+            'text': {'required': True}
+        }
 
     def to_representation(self, instance):
         return CritiqueSerializer(instance, context=self.context).data

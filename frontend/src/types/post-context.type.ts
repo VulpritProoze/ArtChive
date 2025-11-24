@@ -80,6 +80,7 @@ export type PostContextType = {
   critiqueForm: CritiqueForm;
   editingCritique: boolean;
   selectedCritique: Critique | null;
+  submittingCritique: boolean;
 
   // Critique methods
   fetchCritiquesForPost: (
@@ -93,10 +94,12 @@ export type PostContextType = {
   setCritiqueForm: Dispatch<SetStateAction<CritiqueForm>>
   setEditingCritique: Dispatch<SetStateAction<boolean>>
   setSelectedCritique: Dispatch<SetStateAction<Critique | null>>
+  setSubmittingCritique: Dispatch<SetStateAction<boolean>>
 
   // Critique reply states
   critiqueReplyForms: { [critiqueId: string]: CritiqueReplyForm };
   loadingCritiqueReplies: { [critiqueId: string]: boolean };
+  submittingCritiqueReply: { [critiqueId: string]: boolean };
 
   // Critique reply methods
   handleCritiqueReplySubmit: (

@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from .models import Comment, Post, PostHeart
+from .models import Comment, Post, PostHeart, PostPraise, PostTrophy
 
 
 def get_post_list_cache_key(user_id, page=1, page_size=10):
@@ -71,6 +71,34 @@ def invalidate_post_cache(post_id):
     invalidate_post_list_cache()
 
 
+def _delete_pattern_or_clear(pattern: str):
+    """Helper that deletes by pattern when supported, otherwise clears cache."""
+    try:
+        cache.delete_pattern(pattern)
+    except AttributeError:
+        cache.clear()
+
+
+def get_post_praise_count_cache_key(post_id, user_id):
+    user_key = f"user_{user_id}" if user_id else "anon"
+    return f"post_praise_count:{post_id}:{user_key}"
+
+
+def get_post_trophy_count_cache_key(post_id, user_id):
+    user_key = f"user_{user_id}" if user_id else "anon"
+    return f"post_trophy_count:{post_id}:{user_key}"
+
+
+def invalidate_post_praise_cache(post_id=None):
+    pattern = f"post_praise_count:{post_id}:*" if post_id else "post_praise_count:*"
+    _delete_pattern_or_clear(pattern)
+
+
+def invalidate_post_trophy_cache(post_id=None):
+    pattern = f"post_trophy_count:{post_id}:*" if post_id else "post_trophy_count:*"
+    _delete_pattern_or_clear(pattern)
+
+
 # Signal handlers to automatically invalidate cache
 @receiver(post_save, sender=Post)
 def invalidate_cache_on_post_save(sender, instance, created, **kwargs):
@@ -119,3 +147,19 @@ def invalidate_cache_on_heart_delete(sender, instance, **kwargs):
     invalidate_post_list_cache()
     if instance.post_id:
         invalidate_post_cache(instance.post_id.post_id)
+
+
+@receiver(post_save, sender=PostPraise)
+@receiver(post_delete, sender=PostPraise)
+def invalidate_cache_on_praise_change(sender, instance, **kwargs):
+    """Invalidate cached praise counts when praises change."""
+    if instance.post_id:
+        invalidate_post_praise_cache(instance.post_id.post_id)
+
+
+@receiver(post_save, sender=PostTrophy)
+@receiver(post_delete, sender=PostTrophy)
+def invalidate_cache_on_trophy_change(sender, instance, **kwargs):
+    """Invalidate cached trophy counts when trophies change."""
+    if instance.post_id:
+        invalidate_post_trophy_cache(instance.post_id.post_id)
