@@ -5,6 +5,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Build arguments for Vite envs (provided via Render build args)
+ARG VITE_API_URL
+ARG VITE_WS_URL
+
+# Expose them as env vars so Vite can read them during the build step
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
+
 # Install dependencies first to leverage Docker layer caching
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
