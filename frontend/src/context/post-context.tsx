@@ -376,7 +376,8 @@ export const PostProvider = ({ children }) => {
       setSelectedPostForTrophy(null);
     } catch (error) {
       console.error("Award trophy error: ", error);
-      toast.error('Failed to award trophy', formatErrorForToast(handleApiError(error, brushDripTransactionErrors)));
+      const message = formatErrorForToast(handleApiError(error, brushDripTransactionErrors, true, true));
+      toast.error('Failed to award trophy', message);
     } finally {
       setLoadingTrophy((prev) => ({ ...prev, [postId]: false }));
     }

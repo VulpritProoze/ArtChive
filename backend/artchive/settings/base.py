@@ -22,45 +22,6 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# Application definition
-
-INSTALLED_APPS = [
-    'daphne',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'cloudinary',
-    'cloudinary_storage',
-    'corsheaders',
-    'core',
-    'notification',
-    'post',
-    'collective',
-    'gallery',
-    'avatar',
-    'conversation',
-    'rest_framework',
-    'silk', # remove in prod
-    'drf_spectacular'  # idk if iremove? creates api documentation. maybe dont remove
-]
-
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'silk.middleware.SilkyMiddleware',
-]
-
 ROOT_URLCONF = 'artchive.urls'
 
 REST_FRAMEWORK = {

@@ -1,0 +1,64 @@
+###########
+# Builder #
+###########
+FROM python:3.12-slim AS builder
+
+ENV PYTHONBUFFERED=1 \
+    PYTHONDEFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=off
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY backend/requirements.txt .
+
+RUN python -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ .
+
+############
+# Runtime  #
+############
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONBUFFERED=1 \
+    PYTHONDEFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    DJANGO_SETTINGS_MODULE=artchive.settings.production \
+    PATH="/opt/venv/bin:$PATH"
+
+# Install only runtime libs (libpq for psycopg2, etc.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Non-root user for security
+RUN groupadd user && useradd --create-home --home-dir /home/user -g user user
+
+WORKDIR /app
+
+# Bring the pre-built virtualenv + application code
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /app /app
+
+RUN chmod +x start_prod.sh && \
+    chown -R user:user /app
+
+USER user
+
+EXPOSE 8000
+
+CMD ["./start_prod.sh"]
+
+# build: docker build -f backend/Dockerfile.prod -t artchive_backend_prod .
+# run:   docker run -d -p 8000:8000 --env-file .env --name artchive-backend artchive_backend_prod
