@@ -37,3 +37,4 @@ class Migration(migrations.Migration):
         migrations.RunPython(add_artist_to_existing_users, reverse_func),
     ]
 
+
