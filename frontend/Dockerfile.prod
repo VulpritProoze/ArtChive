@@ -18,21 +18,18 @@ RUN npm run build
 ##########
 FROM nginx:1.27-alpine
 
-ENV NGINX_PORT=80
-EXPOSE ${NGINX_PORT}
+ENV PORT=8080
+EXPOSE 8080
+
+RUN apk add --no-cache gettext
 
 # Copy the built assets into nginx's default html directory
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Provide a default nginx configuration that honors the port env var
-RUN printf 'server { \
-    listen ${NGINX_PORT}; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    include /etc/nginx/mime.types; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}\n' > /etc/nginx/conf.d/default.conf
+# Copy nginx template and entrypoint that injects the runtime PORT value
+RUN mkdir -p /etc/nginx/templates
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/docker-entrypoint.sh"]
