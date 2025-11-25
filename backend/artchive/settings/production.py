@@ -44,8 +44,8 @@ INSTALLED_APPS = [
     'avatar',
     'conversation',
     'rest_framework',
-    # 'silk',
-    # 'drf_spectacular'
+    'silk',
+    'drf_spectacular'
 ]
 
 MIDDLEWARE = [
@@ -57,5 +57,5 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'silk.middleware.SilkyMiddleware',
+    'silk.middleware.SilkyMiddleware',
 ]

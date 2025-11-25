@@ -24,8 +24,8 @@ AUTHENTICATION_BACKENDS = [
 
 ROOT_URLCONF = 'artchive.urls'
 
+# Conditionally set schema class based on DEBUG mode
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'core.authentication.CookieJWTAuthentication',
         # 'rest_framework.authentication.SessionAuthentication',
@@ -41,6 +41,10 @@ REST_FRAMEWORK = {
         'login': '10/min',
     },
 }
+
+# Only set schema class if DEBUG is True (drf_spectacular available)
+if config('DJANGO_DEBUG', default=False, cast=bool):
+    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
 
 TEMPLATES = [
     {
@@ -83,11 +87,6 @@ AUTH_PASSWORD_VALIDATORS = [
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-
-# Media files
-
-# MEDIA_URL = 'media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 cloudinary.config(
     cloud_name=config('CLOUDINARY_CLOUD_NAME'),
@@ -179,36 +178,6 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(hours=12),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'ArtChive API',
-    'DESCRIPTION': 'This serves as the official API documentation of ArtChive\'s API. Do not reproduce, and do not distribute. For internal usage only.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SCHEMA_PATH_PREFIX': r'/api/',
-    'COMPONENTS': {
-        'SECURITY_SCHEMES': {
-            'cookieJWTAuth': {  # Changed from 'cookieAuth' to match extension
-                'type': 'apiKey',
-                'in': 'cookie',
-                'name': 'access_token',
-                'description': 'Cookie-based JWT authentication'
-            },
-            'refreshJWTAuth': {  # Changed from 'refreshAuth'
-                'type': 'apiKey',
-                'in': 'cookie',
-                'name': 'refresh_token',
-                'description': 'Refresh token cookie'
-            }
-        }
-    },
-    'AUTHENTICATION_EXTENSIONS': [
-        'core.spectacular.CookieJWTAuthExtension',
-    ],
-}
-
-# py manage.py spectacular --color --file schema.yml
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
