@@ -3,7 +3,7 @@ import { usePostContext } from "@context/post-context";
 import usePost from "@hooks/use-post";
 import { getCommentsForPost } from "@utils";
 import { ReplyComponent } from "@components/common";
-import type { CommentPagination, Post } from "@types";
+import type { Post } from "@types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComment } from "@fortawesome/free-solid-svg-icons";
 

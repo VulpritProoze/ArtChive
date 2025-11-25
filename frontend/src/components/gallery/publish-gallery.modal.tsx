@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, CheckCircle2, Circle } from 'lucide-react';
-import { galleryService, type Gallery } from '@services/gallery.service';
+import type { Gallery } from '@services/gallery.service';
 
 interface PublishGalleryModalProps {
   isOpen: boolean;
@@ -20,7 +20,6 @@ export function PublishGalleryModal({
 
   // Check if there's an active gallery
   const hasActiveGallery = galleries.some((g) => g.status === 'active');
-  const activeGallery = galleries.find((g) => g.status === 'active');
 
   // Reset selection when modal opens/closes
   useEffect(() => {

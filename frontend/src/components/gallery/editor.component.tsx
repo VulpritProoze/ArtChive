@@ -7,7 +7,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@components/common/gallery-feature/hooks/use-canvas-state.hook';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
-import type { CanvasObject as GalleryCanvasObject } from '../../types/gallery.type';
 import { LoadingOverlay } from '@components/loading-spinner';
 import { CanvasStage } from '@components/common/gallery-feature/canvas-stage.component';
 import { Toolbar } from '@components/common/gallery-feature/toolbar.component';
@@ -44,24 +43,15 @@ export default function GalleryEditor() {
   // Load gallery data on mount
   useEffect(() => {
     if (!galleryId) {
-      console.log('[GalleryEditor] No galleryId, skipping load');
       setIsLoading(false);
       return;
     }
 
     const loadGallery = async () => {
-      console.log('[GalleryEditor] Loading gallery:', galleryId);
       try {
         const gallery = await galleryService.getGallery(galleryId);
-        console.log('[GalleryEditor] Gallery loaded:', gallery);
 
         if (gallery.canvas_json) {
-          console.log('[GalleryEditor] Initializing canvas with saved data:', {
-            objectCount: gallery.canvas_json.objects.length,
-            width: gallery.canvas_json.width,
-            height: gallery.canvas_json.height,
-          });
-
           // Load existing canvas state
           editorState.initializeState({
             objects: gallery.canvas_json.objects,
@@ -69,15 +59,8 @@ export default function GalleryEditor() {
             height: gallery.canvas_json.height,
             background: gallery.canvas_json.background,
           });
-
-          console.log('[GalleryEditor] Canvas initialized successfully');
         } else {
           // Use canvas dimensions from gallery model if no canvas_json exists
-          console.log('[GalleryEditor] No canvas_json found, initializing with gallery dimensions:', {
-            width: gallery.canvas_width,
-            height: gallery.canvas_height,
-          });
-
           editorState.initializeState({
             objects: [],
             width: gallery.canvas_width || 1920,
@@ -85,7 +68,6 @@ export default function GalleryEditor() {
           });
         }
       } catch (error) {
-        console.error('[GalleryEditor] Failed to load gallery:', error);
         toast.error('Failed to load gallery', 'An error occurred while loading your gallery');
       } finally {
         setIsLoading(false);
@@ -99,36 +81,6 @@ export default function GalleryEditor() {
   const generateId = () => Math.random().toString(36).substring(2, 15);
 
   // Add object handlers
-  const handleAddRect = useCallback(() => {
-    const newRect: CanvasObject = {
-      id: generateId(),
-      type: 'rect',
-      x: 100,
-      y: 100,
-      width: 200,
-      height: 150,
-      fill: '#3b82f6',
-      stroke: '#1e40af',
-      strokeWidth: 2,
-      draggable: true,
-    };
-    editorState.addObject(newRect);
-  }, [editorState]);
-
-  const handleAddCircle = useCallback(() => {
-    const newCircle: CanvasObject = {
-      id: generateId(),
-      type: 'circle',
-      x: 150,
-      y: 150,
-      radius: 75,
-      fill: '#10b981',
-      stroke: '#059669',
-      strokeWidth: 2,
-      draggable: true,
-    };
-    editorState.addObject(newCircle);
-  }, [editorState]);
 
   const handleAddText = useCallback(() => {
     const newText: CanvasObject = {
@@ -143,20 +95,6 @@ export default function GalleryEditor() {
       draggable: true,
     };
     editorState.addObject(newText);
-  }, [editorState]);
-
-  const handleAddLine = useCallback(() => {
-    const newLine: CanvasObject = {
-      id: generateId(),
-      type: 'line',
-      x: 100,
-      y: 100,
-      points: [0, 0, 200, 0],
-      stroke: '#000000',
-      strokeWidth: 2,
-      draggable: true,
-    };
-    editorState.addObject(newLine);
   }, [editorState]);
 
   const handleAddImage = useCallback((url: string) => {
@@ -242,7 +180,6 @@ export default function GalleryEditor() {
     if (newIndex < 0 || newIndex >= editorState.objects.length) return;
 
     // This is a simplified version - you'd need to implement array reordering in useCanvasState
-    console.log('Reorder:', id, direction);
     toast.info('Coming soon', 'Reordering feature will be available soon');
   }, [editorState]);
 
@@ -416,16 +353,6 @@ export default function GalleryEditor() {
     .map(id => editorState.findObject(id))
     .filter((obj): obj is CanvasObject => obj !== null);
 
-  // Log render state
-  console.log('[GalleryEditor] Rendering', {
-    showLayers,
-    showProperties,
-    isPreviewMode,
-    objectCount: editorState.objects.length,
-    selectedCount: editorState.selectedIds.length,
-    isLoading,
-  });
-
   const loadingPhrases = [
     'Loading your masterpiece of a gallery...',
     'Preparing your canvas...',
@@ -447,7 +374,6 @@ export default function GalleryEditor() {
         onAddImage={handleAddImage}
         onUndo={editorState.undo}
         onRedo={editorState.redo}
-        onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
         onToggleGrid={editorState.toggleGrid}
         onToggleSnap={editorState.toggleSnap}
         onGroup={handleGroup}
@@ -465,7 +391,6 @@ export default function GalleryEditor() {
             toast.success('Gallery saved', 'Your changes have been saved');
           } catch (error) {
             toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
-            console.error('[GalleryEditor] Save error:', error);
           }
         }}
         showShapes={showShapes}
@@ -490,7 +415,6 @@ export default function GalleryEditor() {
           <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 shrink-0">
             <button
               onClick={() => {
-                console.log('[GalleryEditor] Toggling layers:', !showLayers);
                 const newShowLayers = !showLayers;
                 setShowLayers(newShowLayers);
                 // Reset sidebar width if opening and it was collapsed
@@ -505,7 +429,6 @@ export default function GalleryEditor() {
             </button>
             <button
               onClick={() => {
-                console.log('[GalleryEditor] Toggling properties:', !showProperties);
                 const newShowProperties = !showProperties;
                 setShowProperties(newShowProperties);
                 // Reset sidebar width if opening and it was collapsed
@@ -705,7 +628,6 @@ export default function GalleryEditor() {
                     setShowHamburgerMenu(false);
                   } catch (error) {
                     toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
-                    console.error('[GalleryEditor] Save error:', error);
                   }
                 }}
                 disabled={editorState.isSaving}

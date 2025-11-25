@@ -19,7 +19,7 @@ const getFullName = (member: Member) => {
 export default function CollectiveMembers() {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
-  const { user, isAdminOfACollective } = useAuth();
+  const { isAdminOfACollective } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [collectiveTitle, setCollectiveTitle] = useState("");

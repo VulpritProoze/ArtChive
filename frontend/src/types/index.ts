@@ -15,5 +15,10 @@ export * from './collective-api.type'
 export * from './brush-drips.types'
 export * from './notification'
 export * from './canvas'
-export * from './gallery.type'
+// Export only unique types from gallery.type.ts (triangle/star/diamond) to avoid conflicts
+export type {
+  TriangleObject,
+  StarObject,
+  DiamondObject,
+} from './gallery.type'
 export * from './gallery-list.type'

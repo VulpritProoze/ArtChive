@@ -9,7 +9,6 @@ interface ToolbarProps {
   onAddImage: (url: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onTogglePreview: () => void;
   onToggleGrid: () => void;
   onToggleSnap: () => void;
   onGroup: () => void;
@@ -39,7 +38,6 @@ export function Toolbar({
   onAddImage,
   onUndo,
   onRedo,
-  onTogglePreview,
   onToggleGrid,
   onToggleSnap,
   onGroup,

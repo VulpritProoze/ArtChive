@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { CanvasObject, EditorState, Command } from '@types';
+import type { CanvasObject, EditorState, Command, ImageObject } from '@types';
 import { useUndoRedo } from './use-undo-redo.hook';
 import { galleryService } from '@services/gallery.service';
 
@@ -65,17 +65,13 @@ export function useCanvasState({
   // Mark as having unsaved changes whenever state changes
   useEffect(() => {
     if (lastSaved !== null) {
-      console.log('[useCanvasState] Objects changed, marking as unsaved. Object count:', state.objects.length);
       setHasUnsavedChanges(true);
     }
   }, [state.objects]);
 
   // Auto-save functionality
   const save = useCallback(async () => {
-    console.log('[useCanvasState] Save called. galleryId:', galleryId);
-
     if (!galleryId) {
-      console.warn('[useCanvasState] No galleryId provided, skipping save');
       return;
     }
 
@@ -86,21 +82,12 @@ export function useCanvasState({
       height: state.height,
     };
 
-    console.log('[useCanvasState] Saving canvas data:', {
-      objectCount: canvasData.objects.length,
-      width: canvasData.width,
-      height: canvasData.height,
-      background: canvasData.background,
-    });
-
     setIsSaving(true);
     try {
-      const result = await galleryService.saveGallery(galleryId, canvasData);
-      console.log('[useCanvasState] Save successful:', result);
+      await galleryService.saveGallery(galleryId, canvasData);
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
     } catch (error) {
-      console.error('[useCanvasState] Failed to save gallery:', error);
       throw error;
     } finally {
       setIsSaving(false);
@@ -109,31 +96,20 @@ export function useCanvasState({
 
   // Auto-save timer
   useEffect(() => {
-    console.log('[useCanvasState] Auto-save timer effect triggered:', {
-      galleryId,
-      hasUnsavedChanges,
-      autoSaveInterval,
-    });
-
     if (!galleryId) {
-      console.log('[useCanvasState] No galleryId, auto-save timer not started');
       return;
     }
 
     if (!hasUnsavedChanges) {
-      console.log('[useCanvasState] No unsaved changes, auto-save timer not started');
       return;
     }
 
-    console.log(`[useCanvasState] Starting auto-save timer (${autoSaveInterval}ms)`);
     autoSaveTimerRef.current = setTimeout(() => {
-      console.log('[useCanvasState] Auto-save timer fired, calling save()');
       save();
     }, autoSaveInterval);
 
     return () => {
       if (autoSaveTimerRef.current) {
-        console.log('[useCanvasState] Clearing auto-save timer');
         clearTimeout(autoSaveTimerRef.current);
       }
     };
@@ -353,7 +329,6 @@ export function useCanvasState({
   const groupObjects = useCallback(
     (ids: string[]) => {
       if (ids.length < 2) {
-        console.warn('[useCanvasState] Need at least 2 objects to group');
         return;
       }
 
@@ -442,7 +417,6 @@ export function useCanvasState({
     (groupId: string) => {
       const group = state.objects.find((o) => o.id === groupId);
       if (!group || group.type !== 'group') {
-        console.warn('[useCanvasState] Object is not a group');
         return;
       }
 
@@ -503,13 +477,11 @@ export function useCanvasState({
         ...prev,
         clipboard: selectedObjects,
       }));
-      console.log('[useCanvasState] Copied', selectedObjects.length, 'object(s)');
     }
   }, [state.objects, state.selectedIds]);
 
   const pasteObjects = useCallback(() => {
     if (state.clipboard.length === 0) {
-      console.log('[useCanvasState] Clipboard is empty, nothing to paste');
       return;
     }
 
@@ -543,7 +515,6 @@ export function useCanvasState({
       description: `Paste ${pastedObjects.length} object(s)`,
     };
     undoRedo.execute(command);
-    console.log('[useCanvasState] Pasted', pastedObjects.length, 'object(s)');
   }, [state.clipboard, state.selectedIds, undoRedo, cloneObjectWithNewId]);
 
   const attachImageToFrame = useCallback((imageId: string, frameId: string) => {
@@ -551,7 +522,6 @@ export function useCanvasState({
     const frame = findObject(state.objects, frameId);
 
     if (!image || image.type !== 'image' || !frame || frame.type !== 'frame') {
-      console.warn('[useCanvasState] Invalid image or frame for attachment');
       return;
     }
 
@@ -632,17 +602,9 @@ export function useCanvasState({
       description: 'Attach image to frame',
     };
     undoRedo.execute(command);
-    console.log('[useCanvasState] Attached image', imageId, 'to frame', frameId);
   }, [state.objects, undoRedo, findObject]);
 
   const initializeState = useCallback((canvasData: { objects: CanvasObject[]; width?: number; height?: number; background?: string }) => {
-    console.log('[useCanvasState] initializeState called with:', {
-      objectCount: canvasData.objects.length,
-      width: canvasData.width,
-      height: canvasData.height,
-      background: canvasData.background,
-    });
-
     setState((prev) => ({
       ...prev,
       objects: canvasData.objects,
@@ -651,7 +613,6 @@ export function useCanvasState({
       background: canvasData.background,
     }));
 
-    console.log('[useCanvasState] State initialized with canvas data');
     setLastSaved(new Date());
     setHasUnsavedChanges(false);
   }, []);

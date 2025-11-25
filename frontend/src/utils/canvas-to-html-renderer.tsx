@@ -1,6 +1,6 @@
 import React from 'react';
 import type { CanvasObject, BaseCanvasObject, TextObject, ImageObject, RectObject, CircleObject, LineObject, GroupObject, FrameObject, GalleryItemObject } from '@types';
-import type { TriangleObject, StarObject, DiamondObject } from '../../types/gallery.type';
+import type { TriangleObject, StarObject, DiamondObject } from '@types';
 
 /**
  * Calculate scale to fit viewport while maintaining aspect ratio
@@ -64,7 +64,6 @@ export function renderCanvasObjectToHTML(
 ): React.ReactElement {
   // Skip invisible objects
   if (object.visible === false) {
-    console.log(`[RENDER] Skipping invisible object: ${object.type} (${object.id})`);
     return <></>;
   }
 
@@ -75,28 +74,9 @@ export function renderCanvasObjectToHTML(
     ...applyTransformStyles(object),
   };
 
-  // Log base positioning info for all objects
-  console.log(`[RENDER] ${object.type.toUpperCase()} - ID: ${object.id}`, {
-    originalPosition: { x: object.x, y: object.y },
-    scaledPosition: { left: object.x * scale, top: object.y * scale },
-    scale: scale,
-    rotation: object.rotation,
-    opacity: object.opacity ?? 1,
-    zIndex: object.zIndex ?? 0,
-    visible: object.visible ?? true,
-  });
-
   switch (object.type) {
     case 'text': {
       const textObj = object as TextObject;
-      console.log(`  ↳ TEXT Details:`, {
-        text: textObj.text,
-        originalSize: { fontSize: textObj.fontSize, width: textObj.width },
-        scaledSize: { fontSize: textObj.fontSize ? textObj.fontSize * scale : undefined, width: textObj.width ? textObj.width * scale : undefined },
-        fontFamily: textObj.fontFamily,
-        fill: textObj.fill,
-        align: textObj.align,
-      });
       
       // Only use width as a soft constraint (maxWidth) for wrapping, not a hard constraint
       // This allows text to grow naturally but wrap if width is specified
@@ -142,20 +122,10 @@ export function renderCanvasObjectToHTML(
       if (imageObj.cropX !== undefined && imageObj.cropY !== undefined &&
           imageObj.cropWidth !== undefined && imageObj.cropHeight !== undefined) {
         imageStyles.objectFit = 'none';
-        imageStyles.objectPosition = `${-imageObj.cropX * scale}px ${-imageObj.cropY * scale}px`;
+        imageStyles.objectPosition = `${-imageObj.cropX * scale}px ${-(imageObj.cropY ?? 0) * scale}px`;
         imageStyles.width = `${imageObj.cropWidth * scale}px`;
         imageStyles.height = `${imageObj.cropHeight * scale}px`;
       }
-
-      console.log(`  ↳ IMAGE Details:`, {
-        src: imageObj.src,
-        originalSize: { width: imageObj.width, height: imageObj.height },
-        scaledSize: { width: imageObj.width * scale, height: imageObj.height * scale },
-        crop: imageObj.cropX !== undefined ? {
-          original: { x: imageObj.cropX, y: imageObj.cropY, width: imageObj.cropWidth, height: imageObj.cropHeight },
-          scaled: { x: imageObj.cropX * scale, y: imageObj.cropY * scale, width: imageObj.cropWidth! * scale, height: imageObj.cropHeight! * scale }
-        } : 'none',
-      });
 
       return (
         <img
@@ -169,14 +139,6 @@ export function renderCanvasObjectToHTML(
 
     case 'rect': {
       const rectObj = object as RectObject;
-      console.log(`  ↳ RECT Details:`, {
-        originalSize: { width: rectObj.width, height: rectObj.height },
-        scaledSize: { width: rectObj.width * scale, height: rectObj.height * scale },
-        fill: rectObj.fill,
-        stroke: rectObj.stroke,
-        strokeWidth: rectObj.strokeWidth,
-        cornerRadius: rectObj.cornerRadius,
-      });
       return (
         <div
           key={object.id}
@@ -203,16 +165,6 @@ export function renderCanvasObjectToHTML(
       const adjustedLeft = (object.x - circleObj.radius) * scale;
       const adjustedTop = (object.y - circleObj.radius) * scale;
       
-      console.log(`  ↳ CIRCLE Details:`, {
-        originalRadius: circleObj.radius,
-        scaledRadius: scaledRadius,
-        scaledDiameter: diameter,
-        originalCenter: { x: object.x, y: object.y },
-        adjustedPosition: { left: adjustedLeft, top: adjustedTop },
-        fill: circleObj.fill,
-        stroke: circleObj.stroke,
-        strokeWidth: circleObj.strokeWidth,
-      });
       return (
         <div
           key={object.id}
@@ -237,7 +189,6 @@ export function renderCanvasObjectToHTML(
     case 'line': {
       const lineObj = object as LineObject;
       if (lineObj.points.length < 4) {
-        console.log(`  ↳ LINE Skipped: Not enough points`);
         return <></>;
       }
       
@@ -274,15 +225,6 @@ export function renderCanvasObjectToHTML(
       const strokeWidth = (lineObj.strokeWidth || 1) * scale;
       const strokeColor = lineObj.stroke || '#000000';
 
-      console.log(`  ↳ LINE Details:`, {
-        originalPosition: { x: lineObj.x, y: lineObj.y },
-        relativePoints: lineObj.points,
-        absolutePoints: absolutePoints,
-        bounds: { minX, minY, width: svgWidth, height: svgHeight },
-        stroke: strokeColor,
-        strokeWidth: strokeWidth,
-      });
-
       return (
         <svg
           key={object.id}
@@ -303,8 +245,8 @@ export function renderCanvasObjectToHTML(
             fill="none"
             stroke={strokeColor}
             strokeWidth={strokeWidth / scale}
-            strokeLinecap={lineObj.lineCap || 'round'}
-            strokeLinejoin={lineObj.lineJoin || 'round'}
+            strokeLinecap={(lineObj.lineCap || 'round') as 'butt' | 'round' | 'square' | 'inherit'}
+            strokeLinejoin={(lineObj.lineJoin || 'round') as 'miter' | 'round' | 'bevel' | 'inherit'}
           />
         </svg>
       );
@@ -313,15 +255,6 @@ export function renderCanvasObjectToHTML(
     case 'group':
     case 'gallery-item': {
       const groupObj = object as GroupObject | GalleryItemObject;
-      console.log(`  ↳ GROUP/GALLERY-ITEM Details:`, {
-        originalSize: { width: groupObj.width, height: groupObj.height },
-        scaledSize: { width: groupObj.width * scale, height: groupObj.height * scale },
-        childrenCount: groupObj.children?.length || 0,
-        background: (groupObj as GalleryItemObject).background,
-        borderColor: (groupObj as GalleryItemObject).borderColor,
-        borderWidth: (groupObj as GalleryItemObject).borderWidth,
-      });
-      console.log(`  ↳ GROUP Children (${groupObj.children?.length || 0}):`);
       return (
         <div
           key={object.id}
@@ -343,17 +276,6 @@ export function renderCanvasObjectToHTML(
     case 'frame': {
       const frameObj = object as FrameObject;
       const borderStyle = frameObj.dashEnabled ? 'dashed' : 'solid';
-      console.log(`  ↳ FRAME Details:`, {
-        originalSize: { width: frameObj.width, height: frameObj.height },
-        scaledSize: { width: frameObj.width * scale, height: frameObj.height * scale },
-        childrenCount: frameObj.children?.length || 0,
-        stroke: frameObj.stroke,
-        strokeWidth: frameObj.strokeWidth,
-        fill: frameObj.fill,
-        dashEnabled: frameObj.dashEnabled,
-        placeholder: frameObj.placeholder,
-      });
-      console.log(`  ↳ FRAME Children (${frameObj.children?.length || 0}):`);
       return (
         <div
           key={object.id}
@@ -386,12 +308,15 @@ export function renderCanvasObjectToHTML(
       );
     }
 
+    // @ts-expect-error - triangle/star/diamond are in gallery.type.ts but not canvas.ts
     case 'triangle':
+    // @ts-expect-error - triangle/star/diamond are in gallery.type.ts but not canvas.ts
     case 'diamond':
+    // @ts-expect-error - triangle/star/diamond are in gallery.type.ts but not canvas.ts
     case 'star': {
-      const shapeObj = object as TriangleObject | DiamondObject | StarObject;
+      // Type assertion needed because triangle/star/diamond are in gallery.type.ts but not canvas.ts
+      const shapeObj = object as unknown as TriangleObject | DiamondObject | StarObject;
       if (!shapeObj.points || shapeObj.points.length < 4) {
-        console.log(`  ↳ ${object.type.toUpperCase()} Skipped: Not enough points`);
         return <></>;
       }
 
@@ -426,20 +351,9 @@ export function renderCanvasObjectToHTML(
       const strokeColor = shapeObj.stroke || '#000000';
       const fillColor = shapeObj.fill || 'transparent';
 
-      console.log(`  ↳ ${object.type.toUpperCase()} Details:`, {
-        originalPosition: { x: shapeObj.x, y: shapeObj.y },
-        pointsCount: shapeObj.points.length / 2,
-        bounds: { minX, minY, width, height },
-        scaledBounds: { width: width * scale, height: height * scale },
-        scaledStrokeWidth: strokeWidth,
-        fill: fillColor,
-        stroke: strokeColor,
-        closed: shapeObj.closed,
-      });
-
       return (
         <svg
-          key={object.id}
+          key={shapeObj.id}
           style={{
             position: 'absolute',
             left: `${(shapeObj.x + minX) * scale}px`,
@@ -448,7 +362,7 @@ export function renderCanvasObjectToHTML(
             height: `${height * scale}px`,
             pointerEvents: 'none',
             overflow: 'visible',
-            ...applyTransformStyles(object),
+            ...applyTransformStyles(shapeObj as unknown as BaseCanvasObject),
           }}
           viewBox={`0 0 ${width} ${height}`}
         >

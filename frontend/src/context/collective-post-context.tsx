@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react'
+import { createContext, useState, useContext } from 'react'
 import type { CollectivePostContextType, Collective, Channel, ChannelCreateForm, ChannelCreateRequest } from '@types'
 import { collective } from '@lib/api'
 import { usePostContext } from './post-context'

@@ -4,8 +4,6 @@ import type { AuthContextType, User, CollectiveMember } from "@types";
 import { isAxiosError } from "axios";
 import { toast } from "@utils/toast.util";
 import formatFieldName from '@utils/format-fieldname'
-import handleApiError from '@utils/handle-api-error';
-import formatErrorForToast from '@utils/format-error-for-toast';
 
 type CollectiveMemberType = CollectiveMember[] | null
 

@@ -1,5 +1,4 @@
 import { Outlet, Navigate, useParams } from 'react-router-dom'
-import { useEffect } from 'react'
 import { toast } from '@utils/toast.util'
 import { useAuth } from '@context/auth-context'
 

@@ -8,7 +8,7 @@ import { SkeletonCollectiveCard } from "@components/common/skeleton";
 export default function Index() {
   const navigate = useNavigate();
 
-  const { isMemberOfACollective, fetchCollectiveMemberDetails, user } =
+  const { isMemberOfACollective, fetchCollectiveMemberDetails } =
     useAuth();
   const { fetchCollectives, collectives, handleJoinCollectiveAsync, loading } =
     useCollectiveContext();

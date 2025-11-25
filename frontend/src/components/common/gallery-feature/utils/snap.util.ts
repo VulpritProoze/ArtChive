@@ -70,29 +70,10 @@ export function snapPosition(
   const safeWidth = Math.max(1, currWidth);
   const safeHeight = Math.max(1, currHeight);
 
-  // Debug logging for groups
-  if (currentObject?.type === 'group') {
-    const bounds = getGroupVisualBounds(currentObject);
-    console.log('[snapUtils] Group snap calculation:', {
-      id: currentObjectId,
-      x,
-      y,
-      calculatedWidth: currWidth,
-      calculatedHeight: currHeight,
-      storedWidth: currentObject.width,
-      storedHeight: currentObject.height,
-      children: currentObject.children?.length,
-      visibleChildren: currentObject.children?.filter(c => c.visible !== false).length,
-      visualBounds: bounds,
-      calculatedCenter: { x: x + currWidth / 2, y: y + currHeight / 2 },
-      actualVisualCenter: bounds ? { x: x + (bounds.minX + bounds.maxX) / 2, y: y + (bounds.minY + bounds.maxY) / 2 } : null,
-    });
-  }
 
   // For circles, position is already at center in Konva
   const isCircle = currentObject?.type === 'circle';
   const isGroup = currentObject?.type === 'group';
-  const isText = currentObject?.type === 'text';
 
   // Calculate visual center considering rotation and group child positions
   // For non-rotated objects or circles, use simple calculation
@@ -194,7 +175,7 @@ export function snapPosition(
     ];
 
     let closestXDist = Infinity;
-    let bestXCandidate = null;
+    let bestXCandidate: { pos: number; type: string } | null = null;
 
     for (const candidate of xCandidates) {
       const dist = Math.abs(candidate.pos - canvasCenterX);
@@ -224,7 +205,7 @@ export function snapPosition(
     ];
 
     let closestYDist = Infinity;
-    let bestYCandidate = null;
+    let bestYCandidate: { pos: number; type: string } | null = null;
 
     for (const candidate of yCandidates) {
       const dist = Math.abs(candidate.pos - canvasCenterY);
@@ -284,22 +265,6 @@ export function snapPosition(
       }
     }
 
-    // Debug logging for text objects
-    if (currentObject?.type === 'text') {
-      console.log('[snapUtils] Text grid snapping:', {
-        original: { x, y },
-        snapped: { x: snappedX, y: snappedY },
-        guides: guides.length,
-        guideDetails: guides,
-        currCenterX,
-        currCenterY,
-        safeWidth,
-        safeHeight,
-        gridEnabled,
-        snapEnabled,
-        centerValid: !isNaN(currCenterX) && !isNaN(currCenterY) && isFinite(currCenterX) && isFinite(currCenterY),
-      });
-    }
   }
 
   // Frame edge snapping (for frame children) - after center calculation
@@ -383,12 +348,6 @@ export function snapPosition(
   // Object-to-object snapping (edges and centers)
   if (snapEnabled) {
     const otherObjects = objects.filter((obj) => obj.id !== currentObjectId);
-    console.log('[snapUtils] Object snapping check:', {
-      snapEnabled,
-      otherObjectsCount: otherObjects.length,
-      currentObjectId,
-      totalObjects: objects.length,
-    });
 
     let closestX: number | null = null;
     let closestY: number | null = null;
@@ -472,22 +431,9 @@ export function snapPosition(
     let hasObjSnapX = false;
     let hasObjSnapY = false;
 
-    console.log('[snapUtils] Object snap results:', {
-      closestX,
-      closestY,
-      guideLineX,
-      guideLineY,
-      minXDist,
-      minYDist,
-      threshold: SNAP_THRESHOLD,
-      hasExistingVerticalGuide: guides.some(g => g.type === 'vertical'),
-      hasExistingHorizontalGuide: guides.some(g => g.type === 'horizontal'),
-    });
-
     // Allow multiple guides of the same type (vertical/horizontal) as long as they're at different positions
     // This enables grid, canvas-center, AND object snap guides to coexist
     if (closestX !== null && guideLineX !== null) {
-      console.log('[snapUtils] ✅ Adding VERTICAL object snap guide at position:', guideLineX);
       // Calculate what center position this closestX represents
       if (isCircle) {
         objSnappedCenterX = closestX;
@@ -497,11 +443,9 @@ export function snapPosition(
       // Use the actual alignment line position for the guide, not the object center
       guides.push({ type: 'vertical', position: guideLineX, snapType: 'object' });
       hasObjSnapX = true;
-      console.log('[snapUtils] Guides array after adding vertical:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
     }
 
     if (closestY !== null && guideLineY !== null) {
-      console.log('[snapUtils] ✅ Adding HORIZONTAL object snap guide at position:', guideLineY);
       // Calculate what center position this closestY represents
       if (isCircle) {
         objSnappedCenterY = closestY;
@@ -511,7 +455,6 @@ export function snapPosition(
       // Use the actual alignment line position for the guide, not the object center
       guides.push({ type: 'horizontal', position: guideLineY, snapType: 'object' });
       hasObjSnapY = true;
-      console.log('[snapUtils] Guides array after adding horizontal:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
     }
 
     // Apply both object snaps together if any occurred
@@ -522,7 +465,6 @@ export function snapPosition(
     }
   }
 
-  console.log('[snapUtils] FINAL guides being returned:', guides.map(g => ({ type: g.type, snapType: g.snapType, position: g.position })));
   return { x: snappedX, y: snappedY, guides };
 }
 
@@ -614,7 +556,8 @@ function getGroupVisualBounds(obj: CanvasObject): { minX: number; minY: number; 
       childMaxY = child.y + child.height * (child.scaleY || 1);
     }
     // Handle circles (radius)
-    if ('radius' in child && child.radius !== undefined && child.type !== 'line') {
+    // Note: lines don't have radius, so they're already excluded by the 'radius' in child check
+    if ('radius' in child && child.radius !== undefined) {
       const radiusX = child.radius * (child.scaleX || 1);
       const radiusY = child.radius * (child.scaleY || 1);
       // For circles, we need to account for the full diameter

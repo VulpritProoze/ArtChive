@@ -1,5 +1,4 @@
 import type { Template } from '@/types/canvas';
-import { v4 as uuidv4 } from 'uuid';
 
 // Note: You'll need to install uuid: npm install uuid @types/uuid
 // Or use a simple ID generator if you prefer

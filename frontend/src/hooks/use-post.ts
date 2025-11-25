@@ -1,5 +1,5 @@
 import { usePostContext } from "@context/post-context";
-import type { Post, Comment } from "@types";
+import type { Post, Comment, Channel } from "@types";
 import { useCollectivePostContext } from "@context/collective-post-context";
 
 const usePost = () => {
@@ -31,10 +31,10 @@ const usePost = () => {
   } = usePostContext();
 
   // Try to get collective context if available (optional)
-  let selectedChannel = null;
+  let selectedChannel: Channel | null = null;
   try {
     const collectiveContext = useCollectivePostContext();
-    selectedChannel = collectiveContext?.selectedChannel;
+    selectedChannel = collectiveContext?.selectedChannel || null;
   } catch {
     // Not in a collective context, that's fine
   }

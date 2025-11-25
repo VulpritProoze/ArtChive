@@ -47,13 +47,6 @@ export interface PostHeart {
   hearted_at: string
 }
 
-type PaginatedComments = {
-  count? : number;
-  next?: string | null;
-  previous?: string | null;
-  results?: Comment[];
-}
-
 export interface Comment {
   comment_id: string;
   text: string;

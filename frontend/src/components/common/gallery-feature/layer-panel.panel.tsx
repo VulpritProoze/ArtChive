@@ -19,8 +19,6 @@ export function LayerPanel({
   onDelete,
   onReorder,
 }: LayerPanelProps) {
-  console.log('[LayerPanel] Rendering', { objectCount: objects.length, selectedCount: selectedIds.length });
-
   // Track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 

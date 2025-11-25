@@ -62,7 +62,6 @@ const CollectiveHome = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [heroImageError, setHeroImageError] = useState(false);
-  const [currentChannelType, setCurrentChannelType] = useState<'Post Channel' | 'Media Channel' | 'Event Channel'>('Post Channel');
   const joinedButtonRef = useRef<HTMLDivElement>(null);
   const rightSidebarRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +151,7 @@ const CollectiveHome = () => {
     <>
       {/* Modals */}
       {editingChannel && <ChannelEditModal />}
-      {showCreateChannelModal && <ChannelCreateModal channel_type={currentChannelType} />}
+      {showCreateChannelModal && <ChannelCreateModal />}
       {activePost && <PostViewModal />}
       {showPostForm && <PostFormModal channel_id={selectedChannel?.channel_id} />}
       {showCommentForm && <CommentFormModal channel_id={selectedChannel?.channel_id} />}

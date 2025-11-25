@@ -7,8 +7,6 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelProps) {
-  console.log('[PropertiesPanel] Rendering', { selectedCount: selectedObjects.length });
-
   const [localValues, setLocalValues] = useState<Record<string, any>>({});
   const [isDragging, setIsDragging] = useState(false);
 
@@ -97,7 +95,8 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
         </div>
 
         {/* Size (for objects with width/height, but not for groups, text, or lines) */}
-        {('width' in obj || 'radius' in obj) && obj.type !== 'group' && obj.type !== 'text' && obj.type !== 'line' && (
+        {/* Note: lines don't have width/height, so they're already excluded by the 'width' in obj check */}
+        {('width' in obj || 'radius' in obj) && obj.type !== 'group' && obj.type !== 'text' && (
           <div>
             <label className="label label-text text-xs font-semibold">Size</label>
             {obj.type === 'circle' ? (

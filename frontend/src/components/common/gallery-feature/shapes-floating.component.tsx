@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
-import type { CanvasObject } from '@types/gallery.type';
+import type { CanvasObject } from '@types';
 import { SHAPE_DEFINITIONS, createShape } from './utils/shape-factory.util';
 
 interface ShapesFloatingProps {
@@ -56,7 +56,8 @@ export function ShapesFloating({
 
     const shape = createShape(shapeType);
     if (shape) {
-      onAddShape(shape);
+      // Type assertion needed because createShape may return triangle/star/diamond types
+      onAddShape(shape as any);
       onClose();
     }
   };

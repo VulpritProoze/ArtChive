@@ -104,7 +104,6 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
   }, [selectedIds, objects]);
 
   const handleTransform = (e?: any) => {
-    console.log('[CanvasTransformer] Transform started');
     // Check if shift key is pressed for aspect ratio lock
     const isShiftPressed = e?.evt?.shiftKey || false;
     
@@ -123,7 +122,8 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
           }
           
           // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
-          if (isShiftPressed && obj && 'width' in obj && 'height' in obj && obj.type !== 'line') {
+          // Note: lines don't have width/height, so they're already excluded by the 'width' in obj check
+          if (isShiftPressed && obj && 'width' in obj && 'height' in obj) {
             const originalAspect = obj.width / obj.height;
             const currentWidth = node.width() * (node.scaleX() || 1);
             const currentHeight = node.height() * (node.scaleY() || 1);
@@ -168,10 +168,8 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
   };
 
   const handleTransformEndInternal = (e?: any) => {
-    console.log('[CanvasTransformer] Transform ended');
     const transformer = transformerRef.current;
     if (!transformer) {
-      console.log('[CanvasTransformer] No transformer ref');
       return;
     }
 
@@ -180,21 +178,10 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
 
     // Get all nodes attached to the transformer
     const nodes = transformer.nodes();
-    console.log('[CanvasTransformer] Nodes attached to transformer:', nodes.length);
 
     // Update each transformed node
     nodes.forEach((node: any) => {
       const id = node.id();
-      console.log('[CanvasTransformer] Processing node:', {
-        id,
-        x: node.x(),
-        y: node.y(),
-        rotation: node.rotation(),
-        scaleX: node.scaleX(),
-        scaleY: node.scaleY(),
-        width: node.width?.(),
-        height: node.height?.(),
-      });
 
       if (!id) return;
 
@@ -222,12 +209,8 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       };
 
       // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
-      if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject && currentObject.type !== 'line') {
-        const originalAspect = currentObject.width / currentObject.height;
-        const currentWidth = currentObject.width * scaleX;
-        const currentHeight = currentObject.height * scaleY;
-        const currentAspect = currentWidth / currentHeight;
-        
+      // Note: lines don't have width/height, so they're already excluded by the 'width' in currentObject check
+      if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject) {
         // Maintain aspect ratio using average scale
         const avgScale = (scaleX + scaleY) / 2;
         updates.width = Math.max(5, currentObject.width * avgScale);
@@ -278,7 +261,6 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         updates.scaleY = scaleY;
       }
 
-      console.log('[CanvasTransformer] Calling onUpdate with:', { id, updates });
       onUpdate(id, updates);
 
       // Reset node scale after update (but not for circles which use scale)

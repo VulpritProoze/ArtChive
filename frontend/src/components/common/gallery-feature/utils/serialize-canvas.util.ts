@@ -22,7 +22,6 @@ export function deserializeCanvas(json: string): CanvasState | null {
 
     return parsed as CanvasState;
   } catch (error) {
-    console.error('Failed to deserialize canvas:', error);
     return null;
   }
 }

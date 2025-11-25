@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { X, Plus, Search, Shapes, LayoutTemplate } from 'lucide-react';
-import type { Template } from '@types/gallery.type';
-import type { CanvasObject } from '@types/gallery.type';
-import { SHAPE_DEFINITIONS, createShape, type ShapeDefinition } from './utils/shape-factory.util';
+import { X, Search, Shapes, LayoutTemplate } from 'lucide-react';
+import type { Template, CanvasObject } from '@types';
+import { SHAPE_DEFINITIONS, createShape } from './utils/shape-factory.util';
 import { galleryTemplates } from '@/data/templates';
 
 interface ObjectsLibraryModalProps {
@@ -29,13 +28,15 @@ export function ObjectsLibraryModal({
 
     const shape = createShape(shapeType);
     if (shape) {
-      onAddShape(shape);
+      // Type assertion needed because createShape may return triangle/star/diamond types
+      onAddShape(shape as any);
       onClose();
     }
   };
 
   const handleTemplateClick = (template: Template) => {
-    onSelectTemplate(template);
+    // Type assertion needed because Template from canvas.ts uses GroupObject, but gallery.type.ts uses GalleryItemObject
+    onSelectTemplate(template as any);
     onClose();
   };
 
