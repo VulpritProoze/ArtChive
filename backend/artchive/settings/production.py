@@ -1,12 +1,25 @@
 # For production environment
 
+from decouple import config
+
 from .base import *  # noqa: F403
 
-ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS must be explicitly set via environment variable in production
+ALLOWED_HOSTS_STR = config('ALLOWED_HOSTS')
+if not ALLOWED_HOSTS_STR:
+    raise ValueError(
+        'ALLOWED_HOSTS environment variable is required in production. '
+        'Please set it in your Render dashboard, or whichever service provider you are using '
+        '(e.g., "your-backend.onrender.com" or comma-separated list).'
+    )
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STR.split(',')]
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
+    'https://artchive.onrender.com',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://artchive.onrender.com',
 ]
 
 # Application definition
