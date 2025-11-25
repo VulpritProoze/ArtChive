@@ -11,7 +11,7 @@ from core.models import (
 )
 
 # Set the "View site" URL to the React app URL
-admin.site.site_url = config('REACT_API_URL', default='/')
+admin.site.site_url = config('REACT_CLIENT_URL', default='/')
 
 
 # Admin for ACTIVE users (default User admin)
