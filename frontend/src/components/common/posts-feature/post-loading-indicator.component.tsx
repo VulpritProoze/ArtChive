@@ -1,5 +1,6 @@
 import React from "react";
 import { usePostContext } from "@context/post-context";
+import { SkeletonPostCard } from "@components/common/skeleton";
 
 const PostLoadingIndicator = ({ observerTarget }: { observerTarget: React.Ref<HTMLDivElement> }) => {
   const { loadingMore, pagination, posts} = usePostContext()
@@ -9,19 +10,17 @@ const PostLoadingIndicator = ({ observerTarget }: { observerTarget: React.Ref<HT
   return (
     <>
       {loadingMore && (
-        <div className="flex justify-center py-4">
-          <div className="loading loading-spinner loading-lg"></div>
-          <span className="ml-2">Loading more posts...</span>
+        <div className="py-4">
+          <SkeletonPostCard count={3} containerClassName="space-y-4" />
         </div>
       )}
 
       {pagination.hasNext && !loadingMore && (
         <div
           ref={observerTarget}
-          className="h-10 flex justify-center items-center"
-        >
-          <div className="loading loading-spinner"></div>
-        </div>
+          className="h-10"
+          aria-label="Load more posts"
+        />
       )}
 
       {!pagination.hasNext && postsLength > 0 && (

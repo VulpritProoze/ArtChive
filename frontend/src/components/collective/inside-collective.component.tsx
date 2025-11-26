@@ -62,13 +62,67 @@ const CollectiveHome = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [heroImageError, setHeroImageError] = useState(false);
+  const [isApplyingAsAdmin, setIsApplyingAsAdmin] = useState(false);
+  const [isLeavingCollective, setIsLeavingCollective] = useState(false);
   const joinedButtonRef = useRef<HTMLDivElement>(null);
   const rightSidebarRef = useRef<HTMLDivElement>(null);
+  const hasAutoSelectedChannel = useRef(false);
 
   useEffect(() => {
     fetchCollectiveData(collectiveId);
     setHeroImageError(false); // Reset error state when collective changes
+    hasAutoSelectedChannel.current = false; // Reset when collective changes
   }, [collectiveId]);
+
+  // Auto-select "General" channel or first channel when collective data loads
+  useEffect(() => {
+    if (
+      collectiveData &&
+      collectiveData.channels &&
+      collectiveData.channels.length > 0 &&
+      !hasAutoSelectedChannel.current
+    ) {
+      // Check if current selectedChannel belongs to this collective
+      const currentChannelBelongsToCollective = selectedChannel &&
+        collectiveData.channels.some(
+          (ch) => ch.channel_id === selectedChannel.channel_id
+        );
+
+      // Only auto-select if no channel is selected or selected channel doesn't belong to this collective
+      if (!currentChannelBelongsToCollective) {
+        // Try to find "General" Post Channel first (prioritize Post Channels)
+        const generalPostChannel = collectiveData.channels.find(
+          (ch) => ch.title.toLowerCase() === 'general' && ch.channel_type === 'Post Channel'
+        );
+        
+        // If no "General" Post Channel, try any "General" channel
+        const generalChannel = generalPostChannel || collectiveData.channels.find(
+          (ch) => ch.title.toLowerCase() === 'general'
+        );
+
+        const channelToSelect = generalChannel || collectiveData.channels[0];
+
+        if (channelToSelect) {
+          hasAutoSelectedChannel.current = true;
+          const channelWithCollectiveId = {
+            ...channelToSelect,
+            collective_id: collectiveData.collective_id,
+          };
+          setSelectedChannel(channelWithCollectiveId);
+          setPostForm((prev) => ({ ...prev, channel_id: channelToSelect.channel_id }));
+
+          // Fetch posts if it's a Post Channel
+          if (channelToSelect.channel_type === 'Post Channel') {
+            fetchPosts(1, false, channelToSelect.channel_id);
+          }
+        }
+      } else {
+        // Channel already selected and belongs to this collective, mark as auto-selected
+        hasAutoSelectedChannel.current = true;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectiveData?.collective_id, collectiveData?.channels?.length, selectedChannel?.channel_id]);
 
   // Handle click outside for joined dropdown
   useEffect(() => {
@@ -642,7 +696,7 @@ const CollectiveHome = () => {
                   {collectiveData.artist_types.map((type, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-base-200 text-sm rounded-full"
+                      className="bg-primary text-primary-content px-3 py-1 bg-base-200 text-sm rounded-full"
                     >
                       {type}
                     </span>
@@ -667,14 +721,18 @@ const CollectiveHome = () => {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 mb-6">
-                  <button className="btn btn-primary">
-                    <span className="mr-2">+</span>
-                    Invite
-                  </button>
-                  <button className="btn btn-outline">
-                    <span className="mr-2">📤</span>
-                    Share
-                  </button>
+                  <div title="Coming soon...">
+                    <button className="btn btn-primary" disabled>
+                      <span className="mr-2">+</span>
+                      Invite
+                    </button>
+                  </div>
+                  <div title="Coming soon...">
+                    <button className="btn btn-outline" disabled>
+                      <span className="mr-2">📤</span>
+                      Share
+                    </button>
+                  </div>
                   {isMemberOfACollective(collectiveData.collective_id) ? (
                     <div
                       className="relative"
@@ -692,18 +750,30 @@ const CollectiveHome = () => {
                       {showJoinedDropdown && (
                         <div className="absolute top-full left-0 mt-2 w-64 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50 overflow-hidden">
                           <button
-                            className="w-full px-4 py-3 text-left hover:bg-error hover:text-error-content transition-colors flex items-center gap-3 group"
-                            onClick={() => {
-                              handleLeaveCollective(collectiveData.collective_id);
-                              setShowJoinedDropdown(false);
+                            className="w-full px-4 py-3 text-left hover:bg-error hover:text-error-content transition-colors flex items-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={async () => {
+                              setIsLeavingCollective(true);
+                              try {
+                                await handleLeaveCollective(collectiveData.collective_id);
+                                setShowJoinedDropdown(false);
+                              } finally {
+                                setIsLeavingCollective(false);
+                              }
                             }}
+                            disabled={isLeavingCollective}
                           >
-                            <FontAwesomeIcon
-                              icon={faRightFromBracket}
-                              className="w-4 h-4 text-error group-hover:text-error-content"
-                            />
+                            {isLeavingCollective ? (
+                              <span className="loading loading-spinner loading-sm text-error"></span>
+                            ) : (
+                              <FontAwesomeIcon
+                                icon={faRightFromBracket}
+                                className="w-4 h-4 text-error group-hover:text-error-content"
+                              />
+                            )}
                             <div>
-                              <div className="font-semibold">Leave Collective</div>
+                              <div className="font-semibold">
+                                {isLeavingCollective ? "Leaving..." : "Leave Collective"}
+                              </div>
                               <div className="text-xs opacity-70">You can rejoin anytime</div>
                             </div>
                           </button>
@@ -711,16 +781,26 @@ const CollectiveHome = () => {
                           <div className="border-t border-base-300"></div>
 
                           <button
-                            className="w-full px-4 py-3 text-left hover:bg-base-200 transition-colors flex items-center gap-3"
-                            onClick={() => {
-                              handleBecomeAdmin(collectiveData.collective_id);
-                              setShowJoinedDropdown(false);
+                            className="w-full px-4 py-3 text-left hover:bg-base-200 transition-colors flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={async () => {
+                              setIsApplyingAsAdmin(true);
+                              try {
+                                await handleBecomeAdmin(collectiveData.collective_id);
+                                setShowJoinedDropdown(false);
+                              } finally {
+                                setIsApplyingAsAdmin(false);
+                              }
                             }}
+                            disabled={isApplyingAsAdmin}
                           >
-                            <FontAwesomeIcon
-                              icon={faUserShield}
-                              className="w-4 h-4 text-primary"
-                            />
+                            {isApplyingAsAdmin ? (
+                              <span className="loading loading-spinner loading-sm text-primary"></span>
+                            ) : (
+                              <FontAwesomeIcon
+                                icon={faUserShield}
+                                className="w-4 h-4 text-primary"
+                              />
+                            )}
                             <div>
                               <div className="font-semibold">Apply to Join as Admin</div>
                               <div className="text-xs opacity-70">Request admin privileges</div>
@@ -886,10 +966,22 @@ const CollectiveHome = () => {
                   {isMemberOfACollective(collectiveData.collective_id) && (
                     <button
                       className="btn btn-error w-full gap-2"
-                      onClick={() => handleLeaveCollective(collectiveData.collective_id)}
+                      onClick={async () => {
+                        setIsLeavingCollective(true);
+                        try {
+                          await handleLeaveCollective(collectiveData.collective_id);
+                        } finally {
+                          setIsLeavingCollective(false);
+                        }
+                      }}
+                      disabled={isLeavingCollective}
                     >
-                      <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
-                      Leave Collective
+                      {isLeavingCollective ? (
+                        <span className="loading loading-spinner loading-sm"></span>
+                      ) : (
+                        <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
+                      )}
+                      {isLeavingCollective ? "Leaving..." : "Leave Collective"}
                     </button>
                   )}
                 </div>
@@ -993,13 +1085,23 @@ const CollectiveHome = () => {
                     {isMemberOfACollective(collectiveData.collective_id) && (
                       <button
                         className="btn btn-error w-full gap-2"
-                        onClick={() => {
-                          handleLeaveCollective(collectiveData.collective_id);
-                          setShowRightSidebar(false);
+                        onClick={async () => {
+                          setIsLeavingCollective(true);
+                          try {
+                            await handleLeaveCollective(collectiveData.collective_id);
+                            setShowRightSidebar(false);
+                          } finally {
+                            setIsLeavingCollective(false);
+                          }
                         }}
+                        disabled={isLeavingCollective}
                       >
-                        <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
-                        Leave Collective
+                        {isLeavingCollective ? (
+                          <span className="loading loading-spinner loading-sm"></span>
+                        ) : (
+                          <FontAwesomeIcon icon={faRightFromBracket} className="w-4 h-4" />
+                        )}
+                        {isLeavingCollective ? "Leaving..." : "Leave Collective"}
                       </button>
                     )}
                   </div>

@@ -11,7 +11,6 @@ import {
 import { PostLoadingIndicator } from "@components/common";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout";
-import { formatArtistTypesToString } from '@utils';
 import { SkeletonPostCard } from "@components/common/skeleton";
 
 const Timeline: React.FC = () => {
@@ -156,10 +155,24 @@ const Timeline: React.FC = () => {
               </div>
 
               {/* Bio/Artist Types - NOW SHOWS YOUR ACTUAL ARTIST TYPES */}
-              <p className="text-base-content/70 text-sm lg:text-base mb-4 max-w-2xl">
-                {formatArtistTypesToString(user?.artist_types || [])}
-                {user?.artist_types && user.artist_types.length > 0 && " artist"}
-              </p>
+              {user?.artist_types && user.artist_types.length > 0 ? (
+                <div className="mb-4 max-w-2xl">
+                  <div className="flex flex-wrap gap-2">
+                    {user.artist_types.map((type, index) => (
+                      <span
+                        key={index}
+                        className="badge badge-primary badge-lg px-4 py-2 text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+                      >
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-base-content/70 text-sm lg:text-base mb-4 max-w-2xl">
+                  No artist types selected
+                </p>
+              )}
 
               {/* Stats - PLACEHOLDER FOR NOW (you can add real stats later) */}
               <div className="flex justify-center lg:justify-start gap-6 lg:gap-8">

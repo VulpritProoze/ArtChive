@@ -29,7 +29,7 @@ export default function PostHeader({
   const isAdmin = user?.is_superuser;
   const canEdit = isAuthor; // Only author can edit
   const canDelete = isAuthor || isAdmin; // Author or admin can delete
-  const showDropdown = canEdit || canDelete; // Show dropdown if user can edit or delete
+  // Show dropdown for everyone, but edit/delete options are conditionally shown
   
   // Check if we're already on the post detail page
   const isOnPostDetailPage = location.pathname === `/post/${postItem.post_id}`;
@@ -59,8 +59,8 @@ export default function PostHeader({
           </div>
         </div>
 
-        {/* Show dropdown if: not in comment modal AND user can edit or delete */}
-        {!IsCommentViewModal && showDropdown && (
+        {/* Show dropdown for everyone (not in comment modal) */}
+        {!IsCommentViewModal && (
           <div className="dropdown dropdown-end">
             <button
               className="btn btn-ghost btn-sm btn-circle"
