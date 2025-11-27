@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHandsClapping } from "@fortawesome/free-solid-svg-icons";
-import type { PostPraise } from "@types";
-import { post } from "@lib/api";
-import { handleApiError } from "@utils";
+import { usePostPraises } from "@hooks/queries/use-post-lists";
+import { InfiniteScrolling } from "@components/common";
 
 interface PraiseListModalProps {
   isOpen: boolean;
@@ -17,27 +16,19 @@ export default function PraiseListModal({
   onClose,
   postId,
 }: PraiseListModalProps) {
-  const [praises, setPraises] = useState<PostPraise[]>([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = usePostPraises(postId, isOpen);
 
-  useEffect(() => {
-    if (isOpen && postId) {
-      fetchPraises();
-    }
-  }, [isOpen, postId]);
-
-  const fetchPraises = async () => {
-    setLoading(true);
-    try {
-      const response = await post.get(`/${postId}/praises/`);
-      setPraises(response.data.results || response.data || []);
-    } catch (error) {
-      console.error("Fetch praises error:", error);
-      handleApiError(error, 'Failed to load praises');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const praises = useMemo(
+    () => data?.pages.flatMap((page) => page.results || []) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages?.[0]?.count ?? praises.length;
 
   if (!isOpen) return null;
 
@@ -73,7 +64,7 @@ export default function PraiseListModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
+          {isLoading && praises.length === 0 ? (
             <div className="flex justify-center py-8">
               <div className="loading loading-spinner loading-md text-primary"></div>
             </div>
@@ -86,40 +77,60 @@ export default function PraiseListModal({
               <p className="text-base-content/70">No praises yet</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {praises.map((praise) => (
-                <div
-                  key={praise.id}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
-                >
-                  {/* User Avatar */}
-                  <img
-                    src={praise.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`}
-                    alt={praise.author_username}
-                    className="w-10 h-10 rounded-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`;
-                    }}
-                  />
-                  
-                  {/* User Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-base-content truncate">
-                      {praise.author_fullname}
-                    </p>
-                    <p className="text-xs text-base-content/60 truncate">
-                      @{praise.author_username}
-                    </p>
-                  </div>
+            <>
+              <div className="space-y-2">
+                {praises.map((praise) => (
+                  <div
+                    key={praise.id}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
+                  >
+                    {/* User Avatar */}
+                    <img
+                      src={praise.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`}
+                      alt={praise.author_username}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(praise.author_username)}&background=random&size=40`;
+                      }}
+                    />
+                    
+                    {/* User Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-base-content truncate">
+                        {praise.author_fullname}
+                      </p>
+                      <p className="text-xs text-base-content/60 truncate">
+                        @{praise.author_username}
+                      </p>
+                    </div>
 
-                  {/* Praise Icon */}
-                  <FontAwesomeIcon
-                    icon={faHandsClapping}
-                    className="text-warning text-xl flex-shrink-0"
-                  />
+                    {/* Praise Icon */}
+                    <FontAwesomeIcon
+                      icon={faHandsClapping}
+                      className="text-warning text-xl flex-shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+              {hasNextPage && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="btn btn-sm btn-outline"
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Load More"
+                    )}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>

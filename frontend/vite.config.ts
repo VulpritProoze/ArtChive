@@ -38,7 +38,8 @@ export default defineConfig({
       '@types': path.resolve(__dirname, './src/types'),
       '@services': path.resolve(__dirname, './src/services'),
       '@utils': path.resolve(__dirname, './src/utils'),
-      '@data': path.resolve(__dirname, './src/data')
+      '@data': path.resolve(__dirname, './src/data'),
+      '@providers': path.resolve(__dirname, './src/providers')
     }
   }
 })

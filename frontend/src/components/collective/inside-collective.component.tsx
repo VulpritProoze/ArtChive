@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { usePostContext } from "@context/post-context";
 import { useCollectivePostContext } from "@context/collective-post-context";
 import useCollective from "@hooks/use-collective";
 import { useParams, useNavigate } from "react-router-dom";
@@ -7,7 +6,6 @@ import { useAuth } from "@context/auth-context";
 import {
   PostFormModal,
   CommentFormModal,
-  PostViewModal,
 } from "@components/common/posts-feature/modal";
 import {
   ChannelCreateModal,
@@ -15,35 +13,44 @@ import {
 } from "@components/common/collective-feature/modal";
 import type { Channel } from "@types";
 import { CollectiveLayout } from "@components/common/layout";
-import { PostCard, PostLoadingIndicator } from "@components/common/posts-feature";
+import { PostCard, InfiniteScrolling } from "@components/common/posts-feature";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
+import { useEffect as useEffectPosts } from "react";
 import { 
   SkeletonPostCard,
   SkeletonCollectiveSidebar,
   SkeletonCollectiveInfo,
   SkeletonHeroImage,
 } from "@components/common/skeleton";
-import { faRightFromBracket, faUserShield, faCheck, faBars, faTimes, faUsers, faUserCog, faInfoCircle, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import {
+  faRightFromBracket,
+  faUserShield,
+  faCheck,
+  faBars,
+  faTimes,
+  faUsers,
+  faUserCog,
+  faInfoCircle,
+  faArrowLeft,
+} from "@fortawesome/free-solid-svg-icons";
+import { usePosts } from "@hooks/queries/use-posts";
+import { usePostUI } from "@context/post-ui-context";
+import { useCollectiveData } from "@hooks/queries/use-collective-data";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
+  const { showCommentForm, showPostForm, setShowPostForm, activePost } = usePostUI();
+  // Use React Query hook for collective data (prevents infinite loop)
   const {
-    showCommentForm,
-    posts,
-    pagination,
-    showPostForm,
-    setShowPostForm,
-    setPostForm,
-    loading,
-    setExpandedPost,
-    loadingMore,
-    fetchPosts,
-    activePost
-  } = usePostContext();
+    data: collectiveData,
+    isLoading: loadingCollective,
+    error: collectiveError,
+  } = useCollectiveData(collectiveId);
+
   const {
-    collectiveData,
-    fetchCollectiveData,
     selectedChannel,
     setSelectedChannel,
     showCreateChannelModal,
@@ -68,8 +75,32 @@ const CollectiveHome = () => {
   const rightSidebarRef = useRef<HTMLDivElement>(null);
   const hasAutoSelectedChannel = useRef(false);
 
+  const {
+    data: postsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: arePostsLoading,
+    isError: isPostsError,
+    error: postsError,
+  } = usePosts({
+    channelId: selectedChannel?.channel_id,
+    enabled: Boolean(selectedChannel?.channel_id && selectedChannel?.channel_type === 'Post Channel'),
+  });
+
+  const posts = postsData?.pages.flatMap((page) => page.results) || [];
+  const totalPosts = postsData?.pages[0]?.count || 0;
+
+  // Show error toast when posts fail to load
   useEffect(() => {
-    fetchCollectiveData(collectiveId);
+    if (isPostsError && postsError) {
+      const message = handleApiError(postsError, {}, true, true);
+      toast.error('Failed to load posts', formatErrorForToast(message));
+    }
+  }, [isPostsError, postsError]);
+
+  // Reset UI state when collective changes (data fetching handled by React Query)
+  useEffect(() => {
     setHeroImageError(false); // Reset error state when collective changes
     hasAutoSelectedChannel.current = false; // Reset when collective changes
   }, [collectiveId]);
@@ -109,12 +140,6 @@ const CollectiveHome = () => {
             collective_id: collectiveData.collective_id,
           };
           setSelectedChannel(channelWithCollectiveId);
-          setPostForm((prev) => ({ ...prev, channel_id: channelToSelect.channel_id }));
-
-          // Fetch posts if it's a Post Channel
-          if (channelToSelect.channel_type === 'Post Channel') {
-            fetchPosts(1, false, channelToSelect.channel_id);
-          }
         }
       } else {
         // Channel already selected and belongs to this collective, mark as auto-selected
@@ -142,63 +167,46 @@ const CollectiveHome = () => {
   }, [showJoinedDropdown]);
 
   useEffect(() => {
+    const target = observerTarget.current;
+    if (!target) {
+      return;
+    }
+
     let isFetching = false;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          pagination.hasNext &&
-          !loadingMore &&
-          !loading &&
+          hasNextPage &&
+          !isFetchingNextPage &&
+          !arePostsLoading &&
           !isFetching &&
           selectedChannel &&
           selectedChannel.channel_type === 'Post Channel'
         ) {
           isFetching = true;
-          fetchPosts(
-            pagination.currentPage + 1,
-            true,
-            selectedChannel.channel_id
-          ).finally(() => {
+          fetchNextPage().finally(() => {
             isFetching = false;
           });
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
+    observer.observe(target);
 
     return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
       observer.disconnect();
     };
-  }, [
-    pagination.hasNext,
-    loadingMore,
-    loading,
-    fetchPosts,
-    pagination.currentPage,
-    selectedChannel,
-  ]);
+  }, [hasNextPage, isFetchingNextPage, arePostsLoading, fetchNextPage, selectedChannel]);
 
-  const handleChannelClick = async (channel: Channel) => {
+  const handleChannelClick = (channel: Channel) => {
     const channelWithCollectiveId = {
       ...channel,
       collective_id: collectiveData?.collective_id || channel.collective_id,
     };
     setSelectedChannel(channelWithCollectiveId);
-    setPostForm((prev) => ({ ...prev, channel_id: channel.channel_id }));
-    // Only fetch posts for Post Channel type
-    if (channel.channel_type === 'Post Channel') {
-      await fetchPosts(1, false, channel.channel_id);
-    }
-    setExpandedPost(null);
   };
 
   return (
@@ -206,9 +214,8 @@ const CollectiveHome = () => {
       {/* Modals */}
       {editingChannel && <ChannelEditModal />}
       {showCreateChannelModal && <ChannelCreateModal />}
-      {activePost && <PostViewModal />}
       {showPostForm && <PostFormModal channel_id={selectedChannel?.channel_id} />}
-      {showCommentForm && <CommentFormModal channel_id={selectedChannel?.channel_id} />}
+      {showCommentForm && <CommentFormModal />}
 
       <CollectiveLayout showSidebar={false} showRightSidebar={false}>
         {/* Mobile Menu Bar - Sticky below header */}
@@ -255,7 +262,9 @@ const CollectiveHome = () => {
           {/* LEFT SIDEBAR - Custom for Collective */}
           {/* Desktop Sidebar */}
           <aside className="w-60 flex-shrink-0 hidden lg:block">
-            {collectiveData ? (
+            {loadingCollective ? (
+              <SkeletonCollectiveSidebar />
+            ) : collectiveData ? (
               <div className="bg-base-200/50 rounded-xl p-3 sticky top-20">
                 {/* Back to Collectives Button */}
                 <button
@@ -447,7 +456,9 @@ const CollectiveHome = () => {
             }`}
           >
             <div className="p-4">
-              {collectiveData ? (
+              {loadingCollective ? (
+                <SkeletonCollectiveSidebar />
+              ) : collectiveData ? (
                 <>
                   {/* Close button */}
                   <div className="flex items-center justify-between mb-4">
@@ -845,7 +856,7 @@ const CollectiveHome = () => {
             {/* Posts Feed - Only show for Post Channel */}
             {selectedChannel && selectedChannel.channel_type === 'Post Channel' && (
               <div className="space-y-6">
-                {loading && posts.length === 0 && (
+                {arePostsLoading && posts.length === 0 && (
                   <SkeletonPostCard
                     count={3}
                     containerClassName="flex flex-col gap-6"
@@ -856,7 +867,7 @@ const CollectiveHome = () => {
                   <PostCard key={postItem.post_id} postItem={postItem} />
                 ))}
 
-                {posts.length === 0 && !loading && (
+                {posts.length === 0 && !arePostsLoading && (
                   <div className="text-center py-12 bg-base-200/50 rounded-xl">
                     <p className="text-base-content/70">
                       No posts yet in this channel. Be the first to post!
@@ -864,7 +875,13 @@ const CollectiveHome = () => {
                   </div>
                 )}
 
-                <PostLoadingIndicator observerTarget={observerTarget} />
+                <InfiniteScrolling
+                  observerTarget={observerTarget}
+                  isFetchingMore={isFetchingNextPage}
+                  hasNextPage={hasNextPage}
+                  totalCount={totalPosts}
+                  itemCount={posts.length}
+                />
               </div>
             )}
 
@@ -948,8 +965,8 @@ const CollectiveHome = () => {
                             <button
                               className="btn btn-sm btn-error w-full justify-start gap-2"
                               onClick={() => {
-                                if (window.confirm(`Delete channel "${selectedChannel.title}"?`)) {
-                                  handleDeleteChannel(selectedChannel.channel_id);
+                                if (window.confirm(`Delete channel "${selectedChannel.title}"?`) && collectiveData) {
+                                  handleDeleteChannel(collectiveData.collective_id, selectedChannel.channel_id);
                                 }
                               }}
                             >
@@ -1066,8 +1083,8 @@ const CollectiveHome = () => {
                               <button
                                 className="btn btn-sm btn-error w-full justify-start gap-2"
                                 onClick={() => {
-                                  if (window.confirm(`Delete channel "${selectedChannel.title}"?`)) {
-                                    handleDeleteChannel(selectedChannel.channel_id);
+                                  if (window.confirm(`Delete channel "${selectedChannel.title}"?`) && collectiveData) {
+                                    handleDeleteChannel(collectiveData.collective_id, selectedChannel.channel_id);
                                     setShowRightSidebar(false);
                                   }
                                 }}

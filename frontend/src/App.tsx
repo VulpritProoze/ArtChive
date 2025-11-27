@@ -25,11 +25,12 @@ import {
   NotFound,
   MyGalleries,
 } from "@components";
-import { PostProvider } from "@context/post-context";
+import { PostUIProvider } from "@context/post-ui-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
 import { CollectiveProvider } from "@context/collective-context";
 import { NotificationProvider } from "@context/notification-context";
+import { QueryProvider } from "@providers/query-provider";
 import useToggleTheme from "@hooks/use-theme";
 import { ToastContainer } from "@components/common/toast";
 
@@ -57,8 +58,10 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <ThemeProvider>
-            <Router>
+        <QueryProvider>
+          <PostUIProvider>
+            <ThemeProvider>
+              <Router>
               <Suspense fallback={<RouteLoadingFallback />}>
                 <Routes>
                   {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
@@ -75,22 +78,8 @@ function App() {
                     <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
                     <Route path="/notifications" element={<NotificationIndex />} />
 
-                    <Route
-                      path="/home"
-                      element={
-                        <PostProvider>
-                          <Home />
-                        </PostProvider>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <PostProvider>
-                          <Timeline />
-                        </PostProvider>
-                      }
-                    />
+                    <Route path="/home" element={<Home />} />
+                    <Route path="/profile" element={<Timeline />} />
 
                     {/* Collective Routes Layout */}
                     <Route
@@ -110,11 +99,9 @@ function App() {
                         <Route
                           path=":collectiveId"
                           element={
-                            <PostProvider>
-                              <CollectivePostProvider>
-                                <CollectiveHome />
-                              </CollectivePostProvider>
-                            </PostProvider>
+                            <CollectivePostProvider>
+                              <CollectiveHome />
+                            </CollectivePostProvider>
                           }
                         />
                         <Route path=":collectiveId/members" element={<CollectiveMembers />} />
@@ -137,8 +124,10 @@ function App() {
                 </Routes>
               </Suspense>
               <ThemedToastContainer />
-            </Router>
-        </ThemeProvider>
+              </Router>
+            </ThemeProvider>
+          </PostUIProvider>
+        </QueryProvider>
       </NotificationProvider>
     </AuthProvider>
   );
