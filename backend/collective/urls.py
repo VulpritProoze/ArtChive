@@ -5,14 +5,16 @@ from .views import (
     AdminRequestCreateView,
     AdminRequestListView,
     BecomeCollectiveAdminView,
+    ChangeMemberRoleView,
     ChannelCreateView,
     ChannelDeleteView,
     ChannelListView,
     ChannelUpdateView,
     CollectiveCreateView,
     CollectiveDetailsView,
-    CollectiveMembersListView,
     CollectiveMembershipsView,
+    CollectiveMembersListView,
+    CollectiveUpdateView,
     DemoteAdminView,
     InsideCollectivePostsView,
     InsideCollectiveView,
@@ -28,6 +30,7 @@ urlpatterns = [
     path('details/', CollectiveDetailsView.as_view(), name='collective-list'),
     path('<uuid:collective_id>/', InsideCollectiveView.as_view(), name='collective-main'),
     path('<uuid:collective_id>/leave/', LeaveCollectiveView.as_view(), name='collective-leave'),
+    path('<uuid:collective_id>/update/', CollectiveUpdateView.as_view(), name='collective-update'),
     path('create/', CollectiveCreateView.as_view(), name='collective-create'),
     path('collective-memberships/', CollectiveMembershipsView.as_view(), name='fetch-collective-memberships'),
 
@@ -43,6 +46,7 @@ urlpatterns = [
     path('<uuid:collective_id>/members/kick/', KickMemberView.as_view(), name='collective-member-kick'),
     path('<uuid:collective_id>/members/promote/', PromoteMemberView.as_view(), name='collective-member-promote'),
     path('<uuid:collective_id>/members/demote/', DemoteAdminView.as_view(), name='collective-member-demote'),
+    path('<uuid:collective_id>/members/<int:member_id>/role/', ChangeMemberRoleView.as_view(), name='collective-member-role-change'),
 
     # Admin management (legacy - instant promotion)
     path('<uuid:collective_id>/admin/join/', BecomeCollectiveAdminView.as_view(), name='collective-admin-join'),

@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@context/auth-context";
 import { core } from "@lib/api";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import type { UserProfile } from "@types";
 import { MainLayout } from "@components/common/layout";
 
@@ -42,7 +43,8 @@ const ProfileComponent: React.FC = () => {
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      toast.error("Error fetching profile");
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to load profile', formatErrorForToast(message));
     }
   };
 
@@ -76,7 +78,7 @@ const ProfileComponent: React.FC = () => {
         });
 
         setIsEditing(false);
-        toast.success("Profile updated successfully!");
+        toast.success("Profile updated", "Profile updated successfully!");
         
         // Fetch updated profile data
         await fetchProfile();
@@ -94,7 +96,8 @@ const ProfileComponent: React.FC = () => {
         console.error("User is null or not available");
       }
     } catch (error) {
-      toast.error("Error updating profile");
+      const message = handleApiError(error, {}, true, true);
+      toast.error("Failed to update profile", formatErrorForToast(message));
       console.error("Error updating profile:", error);
     } finally {
       setSaving(false);

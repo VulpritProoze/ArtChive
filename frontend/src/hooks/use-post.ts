@@ -1,5 +1,5 @@
 import { usePostContext } from "@context/post-context";
-import type { Post, Comment } from "@types";
+import type { Post, Comment, Channel } from "@types";
 import { useCollectivePostContext } from "@context/collective-post-context";
 
 const usePost = () => {
@@ -31,10 +31,10 @@ const usePost = () => {
   } = usePostContext();
 
   // Try to get collective context if available (optional)
-  let selectedChannel = null;
+  let selectedChannel: Channel | null = null;
   try {
     const collectiveContext = useCollectivePostContext();
-    selectedChannel = collectiveContext?.selectedChannel;
+    selectedChannel = collectiveContext?.selectedChannel || null;
   } catch {
     // Not in a collective context, that's fine
   }
@@ -42,7 +42,8 @@ const usePost = () => {
   // Setup edit forms
   const setupEditPost = (postItem: Post) => {
     setSelectedPost(postItem);
-    setPostForm({
+
+    const baseForm = {
       description: postItem.description,
       post_type: postItem.post_type,
       image_url: null,
@@ -51,8 +52,14 @@ const usePost = () => {
         chapter: np.chapter.toString(),
         content: np.content,
       })) || [{ chapter: "", content: "" }],
-      ...(postItem.channel_id && { channel_id: postItem.channel_id }), // Assign channel_id if exists
-    });
+    };
+
+    // Add channel_id if it exists
+    const formWithChannel = postItem.channel_id
+      ? { ...baseForm, channel_id: postItem.channel_id }
+      : baseForm;
+
+    setPostForm(formWithChannel);
     setEditing(true);
     setShowPostForm(true);
   };

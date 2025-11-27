@@ -14,6 +14,8 @@ import {
   CollectiveAdmin,
   Home,
   GalleryIndex,
+  GalleryEditor,
+  PublishedGalleryView,
   Profile,
   Timeline,
   BrushDripsPage,
@@ -21,15 +23,15 @@ import {
   NotificationIndex,
   PostDetail,
   NotFound,
+  MyGalleries,
 } from "@components";
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
-import { LoadingProvider } from "@context/loading-context";
 import { CollectiveProvider } from "@context/collective-context";
 import { NotificationProvider } from "@context/notification-context";
 import useToggleTheme from "@hooks/use-theme";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer } from "@components/common/toast";
 
 const Index = lazy(() =>
   import("@components/index/index.component").then((module) => {
@@ -48,19 +50,7 @@ function ThemedToastContainer() {
     setToastTheme(isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
-  return (
-    <ToastContainer
-      position="top-right"
-      autoClose={20000}
-      hideProgressBar={false}
-      newestOnTop={false}
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      pauseOnHover
-      theme={toastTheme}
-    />
-  );
+  return <ToastContainer theme={toastTheme} />;
 }
 
 function App() {
@@ -68,85 +58,86 @@ function App() {
     <AuthProvider>
       <NotificationProvider>
         <ThemeProvider>
-          <LoadingProvider>
             <Router>
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <Routes>
-                {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
-                <Route element={<GuestRoute />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                </Route>
-
-                {/* Protected routes (with auth check) */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/profile/me" element={<Profile />} />
-                  <Route path="/drips" element={<BrushDripsPage />} />
-                  <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
-                  <Route path="/notifications" element={<NotificationIndex />} />
-
-                  <Route
-                    path="/home"
-                    element={
-                      <PostProvider>
-                        <Home />
-                      </PostProvider>
-                    }
-                  />
-                  <Route
-                    path="/profile"
-                    element={
-                      <PostProvider>
-                        <Timeline />
-                      </PostProvider>
-                    }
-                  />
-
-                  {/* Collective Routes Layout */}
-                  <Route
-                    path="/collective"
-                    element={
-                      <CollectiveProvider>
-                        <Outlet />
-                      </CollectiveProvider>
-                    }
-                  >
-                    {/* Index route: /collective */}
-                    <Route index element={<Collective />} />
-                    <Route path="create" element={<CollectiveCreate />} />
-
-                    {/* Nested protected route for specific collectives */}
-                    <Route element={<CollectiveProtectedRoute />}>
-                      <Route
-                        path=":collectiveId"
-                        element={
-                          <PostProvider>
-                            <CollectivePostProvider>
-                              <CollectiveHome />
-                            </CollectivePostProvider>
-                          </PostProvider>
-                        }
-                      />
-                      <Route path=":collectiveId/members" element={<CollectiveMembers />} />
-                      <Route path=":collectiveId/admin" element={<CollectiveAdmin />} />
-                    </Route>
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <Routes>
+                  {/* Guest routes (if auth user navigates here, user will be redirected back to /home) */}
+                  <Route element={<GuestRoute />}>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
                   </Route>
 
-                  <Route path="/gallery" element={<GalleryIndex />} />
+                  {/* Protected routes (with auth check) */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/profile/me" element={<Profile />} />
+                    <Route path="/drips" element={<BrushDripsPage />} />
+                    <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
+                    <Route path="/notifications" element={<NotificationIndex />} />
 
-                  {/* Individual Post Route */}
-                  <Route path="/post/:postId" element={<PostDetail />} />
-                </Route>
+                    <Route
+                      path="/home"
+                      element={
+                        <PostProvider>
+                          <Home />
+                        </PostProvider>
+                      }
+                    />
+                    <Route
+                      path="/profile"
+                      element={
+                        <PostProvider>
+                          <Timeline />
+                        </PostProvider>
+                      }
+                    />
 
-                {/* 404 Not Found - Must be last */}
-                <Route path="/404" element={<NotFound />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-            <ThemedToastContainer />
+                    {/* Collective Routes Layout */}
+                    <Route
+                      path="/collective"
+                      element={
+                        <CollectiveProvider>
+                          <Outlet />
+                        </CollectiveProvider>
+                      }
+                    >
+                      {/* Index route: /collective */}
+                      <Route index element={<Collective />} />
+                      <Route path="create" element={<CollectiveCreate />} />
+
+                      {/* Nested protected route for specific collectives */}
+                      <Route element={<CollectiveProtectedRoute />}>
+                        <Route
+                          path=":collectiveId"
+                          element={
+                            <PostProvider>
+                              <CollectivePostProvider>
+                                <CollectiveHome />
+                              </CollectivePostProvider>
+                            </PostProvider>
+                          }
+                        />
+                        <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                        <Route path=":collectiveId/admin" element={<CollectiveAdmin />} />
+                      </Route>
+                    </Route>
+
+                    <Route path="/gallery" element={<GalleryIndex />} />
+                    <Route path="/gallery/me" element={<MyGalleries />} />
+                    <Route path="/gallery/:userId" element={<PublishedGalleryView />} />
+                    <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
+
+                    {/* Individual Post Route */}
+                    <Route path="/post/:postId" element={<PostDetail />} />
+                  </Route>
+
+                  {/* 404 Not Found - Must be last */}
+                  <Route path="/404" element={<NotFound />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <ThemedToastContainer />
             </Router>
-          </LoadingProvider>
         </ThemeProvider>
       </NotificationProvider>
     </AuthProvider>

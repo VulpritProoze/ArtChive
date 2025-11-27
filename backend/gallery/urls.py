@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -15,6 +16,31 @@ router.register(r'layout', GalleryLayoutViewSet, basename='gallery-layout')
 
 urlpatterns = [
     path('', include(router.urls)),
+=======
+from django.urls import path
+
+from .views import (
+    GalleryActiveView,
+    GalleryDetailView,
+    GalleryListCreateView,
+    GalleryListView,
+    GalleryStatusUpdateView,
+    GalleryUserListView,
+    MediaUploadView,
+)
+
+urlpatterns = [
+    # Gallery CRUD
+    path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
+    path('list/', GalleryListView.as_view(), name='gallery-list'),
+    path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
+    path('<uuid:gallery_id>/status/', GalleryStatusUpdateView.as_view(), name='gallery-status-update'),
+    path('user/<int:user_id>/active/', GalleryActiveView.as_view(), name='gallery-active-by-user'),
+    path('user/', GalleryUserListView.as_view(), name='gallery-list-by-user'),
+
+    # Media upload
+    path('media/upload/', MediaUploadView.as_view(), name='media-upload'),
+>>>>>>> 9b57c94341f0e091accd798e04e37453060f4891
 ]
 
 # API Endpoints (accessed via /api/gallery/ prefix from main urls.py):

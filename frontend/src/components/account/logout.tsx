@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@context/auth-context'
-import { toast } from 'react-toastify'
+import { toast } from "@utils/toast.util";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 
@@ -17,7 +17,7 @@ export const LogoutButton = ({ className = '', icon }: LogoutButtonProps) => {
     try {
       await logout()
       navigate('/login')
-      toast.success('Logout successful!')
+      toast.success('Logged out', 'Logout successful!')
     } catch (error) {
       console.error('Logout failed', error)
       toast.error('Logout failed. Please try again.')

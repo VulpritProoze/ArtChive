@@ -4,14 +4,18 @@ from django.db import models
 
 from common.utils import choices
 from core.models import User
+from gallery.manager import GalleryManager
 
 
 class Gallery(models.Model):
     gallery_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=512)
     description = models.CharField(max_length=4096)
-    status = models.CharField(choices=choices.COLLECTIVE_STATUS)
-    picture = models.ImageField(default='static/images/default_600x400.png')
+    status = models.CharField(default=choices.GALLERY_STATUS.draft, choices=choices.GALLERY_STATUS_CHOICES)
+    picture = models.ImageField(default='static/images/default_600x400.png', upload_to='gallery/pictures/', blank=True)
+    canvas_json = models.JSONField(null=True, blank=True)
+    canvas_width = models.IntegerField(default=1920)
+    canvas_height = models.IntegerField(default=1080)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -21,6 +25,8 @@ class Gallery(models.Model):
     max_slots = models.IntegerField(default=12)  # Maximum items in gallery
     allow_free_positioning = models.BooleanField(default=True)  # Hybrid: can use slots or free position
 
+    objects = GalleryManager()
+
     def __str__(self):
         return f"{self.title}, owned by {self.creator.username}"
 
@@ -28,6 +34,7 @@ class Gallery(models.Model):
         self.is_deleted = True
         self.save()
 
+<<<<<<< HEAD
 
 class GalleryItemCategory(models.Model):
     """Categories for gallery items (Artwork, Medal, Trophy, etc.)"""
@@ -141,6 +148,9 @@ class GalleryComment(models.Model):
     is_reply_to_item = models.BooleanField()    # if true, replies_to_item must not be null
     replies_to_item = models.ForeignKey('ItemFeedback', on_delete=models.SET_NULL, blank=True, null=True)   # reply to itemfeedback
     replies_to_gallery = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True) # reply to a gallerycomment
+=======
+    # need to add a softdeletemanager soon, and create active_objects and inactive_objects method
+>>>>>>> 9b57c94341f0e091accd798e04e37453060f4891
 
 
 class GalleryAward(models.Model):
@@ -152,4 +162,22 @@ class GalleryAward(models.Model):
 
 class AwardType(models.Model):
     award = models.CharField(max_length=100)
+<<<<<<< HEAD
     brush_drip_value = models.IntegerField()
+=======
+    brush_drip_value = models.IntegerField()
+
+
+class ActiveGallery(Gallery):
+    class Meta:
+        proxy = True
+        verbose_name = 'Gallery'
+        verbose_name_plural = 'Galleries'
+
+
+class InactiveGallery(Gallery):
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Gallery'
+        verbose_name_plural = 'Inactive Galleries'
+>>>>>>> 9b57c94341f0e091accd798e04e37453060f4891

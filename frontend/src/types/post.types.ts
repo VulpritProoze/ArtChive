@@ -40,16 +40,11 @@ export interface Post {
 export interface PostHeart {
   id: number
   post_id: string 
-  author: string
-  author_username: string 
+  author: number
+  author_username: string
+  author_fullname: string
+  author_picture?: string
   hearted_at: string
-}
-
-type PaginatedComments = {
-  count? : number;
-  next?: string | null;
-  previous?: string | null;
-  results?: Comment[];
 }
 
 export interface Comment {

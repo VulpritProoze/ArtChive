@@ -5,7 +5,6 @@ import { faHeart, faEye, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import type { ArtistType } from "@types";
 import type { Artwork } from "@types"; // Ensure Artwork type is imported
 import { artworks } from "./artworks";
-import { ImageWithSkeleton } from "../image-with-skeleton";
 
 export default function PopularArtworks() {
   const [currentArtistType, setCurrentArtistType] = useState<ArtistType>("visual arts");
@@ -140,10 +139,12 @@ export default function PopularArtworks() {
                     }`}
                   >
                     <figure className="relative h-64">
-                      <ImageWithSkeleton
+                      <img
                         src={artwork.imageUrl}
                         alt={artwork.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                       {isCenter && (
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">

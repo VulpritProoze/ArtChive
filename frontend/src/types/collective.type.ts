@@ -23,6 +23,7 @@ export interface Collective {
   channels: Channel[];
   members: Member[];
   member_count: number
+  brush_drips_count: number
   title: string;
   description: string;
   rules: string[];
@@ -35,14 +36,24 @@ export interface Collective {
 export interface Channel {
   collective_id?: string
   channel_id: string;
+  channel_type: 'Post Channel' | 'Media Channel' | 'Event Channel';
   description: string;
   title: string;
+  posts_count: number;
 }
 
 export interface ChannelCreateForm {
   title: string;
   description: string;
   collective: string;
+  channel_type?: 'Post Channel' | 'Media Channel' | 'Event Channel';
+}
+
+export interface ChannelCreateRequest {
+  title: string;
+  description: string;
+  collective: string;
+  channel_type?: 'post_channel' | 'media_channel' | 'event_channel';
 }
 
 export interface CollectivePost extends Post {

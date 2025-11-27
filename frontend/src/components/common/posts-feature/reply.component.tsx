@@ -1,19 +1,22 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePostContext } from "@context/post-context";
 import usePost from "@hooks/use-post";
 import type { Comment } from "@types";
 import formatArtistTypesArrToString from "@utils/format-artisttypes-arr-to-string";
+import { useAuth } from "@context/auth-context";
 
 interface ReplyComponentProps {
   comment: Comment;
   postId: string;
   depth?: number;
+  highlightedItemId?: string | null;
 }
 
 const ReplyComponent: React.FC<ReplyComponentProps> = ({
   comment,
   postId,
   depth = 0,
+  highlightedItemId,
 }) => {
   const {
     handleReplySubmit,
@@ -30,17 +33,61 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
     setupEditComment,
   } = usePost();
 
+  const { user } = useAuth();
+  const [localReplyText, setLocalReplyText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const replyForm = replyForms[comment.comment_id];
   const isLoadingReplies = loadingReplies[comment.comment_id];
   const replyCount = comment.reply_count || 0;
-  const hasReplies = replyCount > 0;
+  const hasReplies = replyCount > 0 || (comment.replies && comment.replies.length > 0);
   const isTopLevel = depth === 0;
+  
+  // Check if current user is the author of this comment
+  const isAuthor = user?.id === comment.author;
+  const canEditOrDelete = isAuthor;
+  
+  // Sync local text with reply form
+  useEffect(() => {
+    if (replyForm?.text !== undefined) {
+      setLocalReplyText(replyForm.text);
+    }
+  }, [replyForm?.text]);
+  
+  // Check if this comment or reply should be highlighted
+  const commentId = `comment-${comment.comment_id}`;
+  const replyId = `reply-${comment.comment_id}`;
+  const isHighlighted = highlightedItemId === commentId || highlightedItemId === replyId;
+
+  const handleLocalReplyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalReplyText(e.target.value);
+  };
+
+  const handleLocalReplyBlur = () => {
+    handleReplyChange(comment.comment_id, localReplyText);
+  };
+
+  const handleLocalReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!localReplyText.trim() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Sync before submitting
+      handleReplyChange(comment.comment_id, localReplyText);
+      await handleReplySubmit(e, comment.comment_id);
+      setLocalReplyText("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div
+      id={depth === 0 ? commentId : replyId}
       className={`${
         depth > 0 ? "ml-12 mt-3" : "py-3 border-b border-base-300"
-      }`}
+      } ${isHighlighted ? "bg-primary/10 border-l-4 border-l-primary pl-3 rounded-lg transition-all duration-300" : ""}`}
     >
       {/* Comment Content */}
       <div className="flex gap-3">
@@ -114,69 +161,117 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
               </div>
             </div>
 
-            {/* Action Menu (3 dots) */}
-            <div className="relative group">
-              <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="12" r="1.5" />
-                  <circle cx="6" cy="12" r="1.5" />
-                  <circle cx="18" cy="12" r="1.5" />
-                </svg>
-              </button>
+            {/* Action Menu (3 dots) - Only show if user is the author */}
+            {canEditOrDelete && (
+              <div className="relative group">
+                <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg
+                    className="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="6" cy="12" r="1.5" />
+                    <circle cx="18" cy="12" r="1.5" />
+                  </svg>
+                </button>
 
-              {/* Dropdown Menu */}
-              <div className="absolute right-0 top-6 hidden group-hover:block bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[120px]">
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={() => setupEditComment(comment)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
-                  onClick={() => deleteComment(comment.comment_id, postId)}
-                >
-                  Delete
-                </button>
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-6 hidden group-hover:block bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[120px]">
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => setupEditComment(comment)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
+                    onClick={() => deleteComment(comment.comment_id, postId)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Reply Form */}
           {comment.is_replying && (
-            <div className="mt-3 flex gap-2">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={replyForm?.text || ""}
-                  onChange={(e) =>
-                    handleReplyChange(comment.comment_id, e.target.value)
-                  }
-                  placeholder="Add a reply..."
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:border-gray-400"
-                  required
-                  autoFocus
-                />
+            <div className="mt-4 bg-base-200/50 rounded-lg p-3 border border-base-300">
+              <div className="flex gap-3 items-start">
+                {/* User Avatar */}
+                <div className="flex-shrink-0">
+                  {user?.profile_picture ? (
+                    <img
+                      src={user.profile_picture}
+                      alt={user.username}
+                      className="w-8 h-8 rounded-full ring ring-primary ring-offset-base-100 ring-offset-1"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gradient-to-br from-primary via-secondary to-accent rounded-full flex items-center justify-center text-primary-content text-xs font-bold">
+                      {user?.username?.[0]?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input and Actions */}
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={localReplyText}
+                    onChange={handleLocalReplyChange}
+                    onBlur={handleLocalReplyBlur}
+                    placeholder="Write a reply..."
+                    className="w-full px-4 py-2 text-sm bg-base-100 border border-base-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    required
+                    autoFocus
+                    disabled={isSubmitting}
+                    maxLength={500}
+                  />
+                  
+                  {/* Character Count */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-base-content/50">
+                      {localReplyText.length}/500
+                    </span>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs text-base-content/70 hover:text-error"
+                        onClick={() => {
+                          toggleReplyForm(comment.comment_id);
+                          setLocalReplyText("");
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn btn-primary btn-xs gap-1"
+                        onClick={handleLocalReplySubmit}
+                        disabled={!localReplyText.trim() || isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <span className="loading loading-spinner loading-xs"></span>
+                            Posting...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Post Reply
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                className="text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:text-blue-300 transition-colors"
-                onClick={() => toggleReplyForm(comment.comment_id)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:text-blue-300 transition-colors"
-                onClick={(e) => handleReplySubmit(e, comment.comment_id)}
-                disabled={!replyForm?.text?.trim()}
-              >
-                Post
-              </button>
             </div>
           )}
         </div>
@@ -191,6 +286,7 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
               comment={reply}
               postId={postId}
               depth={depth + 1}
+              highlightedItemId={highlightedItemId}
             />
           ))}
         </div>

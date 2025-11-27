@@ -3,11 +3,12 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { useCollectiveContext } from "@context/collective-context";
+import { SkeletonCollectiveCard } from "@components/common/skeleton";
 
 export default function Index() {
   const navigate = useNavigate();
 
-  const { isMemberOfACollective, fetchCollectiveMemberDetails, user } =
+  const { isMemberOfACollective, fetchCollectiveMemberDetails } =
     useAuth();
   const { fetchCollectives, collectives, handleJoinCollectiveAsync, loading } =
     useCollectiveContext();
@@ -27,18 +28,18 @@ export default function Index() {
   };
 
   return (
-    <MainLayout showSidebar={true} showRightSidebar={true}>
+    <MainLayout showSidebar={true} showRightSidebar={false}>
       <div>
-          <button
-            onClick={() => navigate("create")}
-            className="btn btn-primary"
-          >
-            Create
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("create")}
+          className="btn btn-primary"
+        >
+          Create (+)
+        </button>
+      </div>
       <div className="space-y-6">
         {/* Page Header */}
-        
+
         <div className="bg-base-200/50 rounded-xl p-6">
           <h1 className="text-3xl font-bold text-base-content mb-2">
             Discover Collectives
@@ -50,7 +51,12 @@ export default function Index() {
 
         {/* Collectives Grid */}
         <div>
-          {(collectives.length === 0 && loading) ? (
+          {loading ? (
+            <SkeletonCollectiveCard
+              count={6}
+              containerClassName="grid grid-cols-1 gap-4"
+            />
+          ) : collectives.length === 0 ? (
             <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
               <div className="text-6xl mb-4">🎨</div>
               <p className="text-lg font-semibold text-base-content">
@@ -92,17 +98,18 @@ export default function Index() {
                               {collective.title}
                             </h2>
                             <div className="flex items-center gap-3 text-sm text-base-content/70">
-                              <span>{collective.member_count || 'N/A'} members</span>
-                              <span className="flex items-center gap-1">
-                                ❤️ 7114
+                              <span>{collective.member_count || 0} members</span>
+                              <span className="flex items-center gap-1" title="Total Brush Drips">
+                                <span className="w-3 h-3 rounded-full bg-primary"></span>
+                                {collective.brush_drips_count || 0}
                               </span>
-                              <span className="flex items-center gap-1">
-                                💬 2161
+                              <span className="flex items-center gap-1" title="Total Posts">
+                                💬 {collective.channels?.reduce((sum, ch) => sum + (ch.posts_count || 0), 0) || 0}
                               </span>
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-cyan-500 text-sm font-medium">130 online</span>
+                            <span className="text-cyan-500 text-sm font-medium">? online</span>
                             <div className="text-xs text-base-content/50 mt-1">
                               Active {new Date(collective.created_at).toLocaleDateString()}
                             </div>
@@ -140,7 +147,9 @@ export default function Index() {
                                   <span className="text-base-content/50">#</span>
                                   {channel.title}
                                 </span>
-                                <span className="badge badge-primary badge-sm">88</span>
+                                <span className="badge badge-primary badge-sm"
+                                  title={`${channel.posts_count ?? '?'} posts`}
+                                >{channel.posts_count ?? '?'}</span>
                               </div>
                             ))}
                             {collective.channels.length > 3 && (
@@ -154,8 +163,8 @@ export default function Index() {
                         {/* Action Buttons - Hidden on hover/click to go to page */}
                         <div className="flex gap-2 mt-3">
                           {isMemberOfACollective(collective.collective_id) ? (
-                            <button 
-                              className="btn btn-sm btn-primary" 
+                            <button
+                              className="btn btn-sm btn-primary"
                               disabled
                               onClick={(e) => e.stopPropagation()}
                             >

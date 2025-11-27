@@ -4,7 +4,7 @@ import { LoadingSpinner } from '@components/loading-spinner'
 import { useEffect } from 'react'
 
 export default function ProtectedRoute() {
-    const { user, isLoading, initialized, initializeAuth } = useAuth()
+    const { user, initialized, initializeAuth } = useAuth()
 
     // Initialize auth on mount
     useEffect(() => {

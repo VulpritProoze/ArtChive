@@ -1,4 +1,4 @@
-import type { ArtistType } from "./artist-type.type";
+import type { ArtistType } from "@types";
 
 export interface Artwork {
   id: number;

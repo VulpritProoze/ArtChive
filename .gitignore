@@ -6,8 +6,8 @@ secrets/
 *.pem
 # Ignore everything in backend/media
 # except static/
-backend/media/
-!backend/media/static/
+# backend/media/
+# !backend/media/static/
 
 # Logs
 logs

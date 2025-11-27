@@ -2,6 +2,7 @@ import os
 
 from decouple import config
 from django.conf import settings
+from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db.models import Count, Q, Sum
 from drf_spectacular.utils import (
@@ -19,7 +20,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
+from silk.profiling.profiler import silk_profile
 
+from .cache_utils import get_user_info_cache_key
 from .models import BrushDripTransaction, BrushDripWallet, User
 from .pagination import BrushDripsTransactionPagination
 from .serializers import (
@@ -65,14 +68,22 @@ class LoginView(APIView):
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
 
+    @silk_profile(name='Login API')
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        with silk_profile(name='Validate LoginSerializer'):
+            serializer = LoginSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if serializer.is_valid():
+        with silk_profile(name='Get user and tokens'):
             user = serializer.validated_data
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
+
+        with silk_profile(name='Set response'):
             response = Response({'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
+
+        with silk_profile(name='Set cookies'):
             response.set_cookie(
                 key='access_token',
                 value=str(refresh.access_token),
@@ -87,8 +98,8 @@ class LoginView(APIView):
                 secure=config('AUTH_COOKIE_SECURE'),
                 samesite='None'
             )
+        with silk_profile(name='Return response'):
             return response
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
     tags=['Authentication'],
@@ -103,19 +114,26 @@ class LogoutView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = [] # Disable any auth classes to make sure anybody can log out. Will have to tweak sometime to put this check to login
 
+    @silk_profile(name='Logout API')
     def post(self, request):
-        refresh_token = request.COOKIES.get('refresh_token')
-        if refresh_token:
-            try:
-                refresh = RefreshToken(refresh_token)
-                refresh.blacklist()
-            except Exception as e:
-                return Response({'error': f'Error invalidating refresh token {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-        response = Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
-        response.delete_cookie('access_token')
-        response.delete_cookie('refresh_token')
+        with silk_profile(name='Get token'):
+            refresh_token = request.COOKIES.get('refresh_token')
 
-        return response
+        with silk_profile(name='Validate refresh_token'):
+            if refresh_token:
+                try:
+                    with silk_profile(name='Blacklist token'):
+                        refresh = RefreshToken(refresh_token)
+                        refresh.blacklist()
+                except Exception as e:
+                    return Response({'error': f'Error invalidating refresh token {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+            response = Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+        with silk_profile(name='Delete cookies'):
+            response.delete_cookie('access_token')
+            response.delete_cookie('refresh_token')
+
+        with silk_profile(name='Return response'):
+            return response
 
 @extend_schema(
     tags=['Authentication'],
@@ -168,18 +186,65 @@ class CookieTokenRefreshView(TokenRefreshView):
 
 @extend_schema(
     tags=['Users'],
-    description='Get current authenticated user information',
+    description='Get current authenticated user information with caching',
     responses={
         200: UserSerializer,
         401: OpenApiResponse(description='Unauthorized')
     }
 )
 class UserInfoView(RetrieveAPIView):
+    """
+    Get authenticated user information.
+
+    Cache is automatically invalidated when user, artist, or wallet data changes.
+    Cache TTL: 10 minutes (600 seconds)
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
+    @silk_profile(name='User/Me Retrieve (with cache)')
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve to add caching support."""
+        user_id = request.user.id
+        cache_key = get_user_info_cache_key(user_id)
+
+        # Try to get from cache
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # If not in cache, get from database
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        # Cache the response data for 10 minutes (600 seconds)
+        cache.set(cache_key, serializer.data, 600)
+
+        return Response(serializer.data)
+
+    @silk_profile(name='User/Me Get Queryset')
+    def get_queryset(self):
+        return User.objects.select_related(
+            'artist',
+            'user_wallet',
+        ).only(
+            # User fields
+            'id',
+            'email',
+            'username',
+            'first_name',
+            'last_name',
+            'profile_picture',
+            'is_superuser',
+            # artist relation fields (to avoid full fetch)
+            'artist__artist_types',
+            # user_wallet relation fields
+            'user_wallet__balance',
+        )
+
+    @silk_profile(name='User/Me Get Object')
     def get_object(self):
-        return self.request.user
+        return self.get_queryset().get(pk=self.request.user.pk)
 
 @extend_schema(
     tags=['Authentication'],

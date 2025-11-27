@@ -1,10 +1,12 @@
 import uuid
 
+from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 from django.db import models
 
 from collective.models import Channel, Collective
 from common.utils import choices
 from core.models import User
+from gallery.models import Gallery
 
 from .manager import SoftDeleteManager
 
@@ -15,7 +17,7 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     image_url = models.ImageField(upload_to='posts/images/', blank=True, null=True)
-    video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True)
+    video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True, storage=VideoMediaCloudinaryStorage())
     is_deleted = models.BooleanField(default=False)
     post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
@@ -75,6 +77,10 @@ class Comment(models.Model):
     critique_id = models.ForeignKey('Critique', on_delete=models.SET_NULL, blank=True, null=True, related_name='critique_reply')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_comment')
     replies_to = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='comment_reply')
+    '''
+    Gallery comment
+    '''
+    gallery = models.ForeignKey(Gallery, on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_comment')
 
     objects = SoftDeleteManager()
 

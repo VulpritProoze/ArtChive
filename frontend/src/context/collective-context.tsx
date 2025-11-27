@@ -1,8 +1,8 @@
 import { createContext, useContext, useState } from "react";
 import type { CollectiveContextType, Collective, CollectiveApi } from "@types";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
 import { collective } from "@lib/api";
-import { handleApiError } from "@utils";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 import { type CreateCollectiveFormData } from "@lib/validations";
 
@@ -21,15 +21,18 @@ export const CollectiveProvider = ({ children }) => {
       const submitData = new FormData();
       submitData.append('title', formData.title.trim());
       submitData.append('description', formData.description.trim());
-      
-      if (formData.rules) {
-        formData.rules
-        .filter(rule => rule.trim())
-        .forEach(rule => submitData.append('rules[]', rule.trim()));
+
+      // Send rules as array - append each item separately
+      if (formData.rules && formData.rules.length > 0) {
+        const filteredRules = formData.rules.filter(rule => rule.trim());
+        filteredRules.forEach(rule => submitData.append('rules', rule));
       }
 
-      formData.artist_types.forEach(type => submitData.append('artist_types[]', type));
-      
+      // Send artist_types as array - append each item separately
+      if (formData.artist_types && formData.artist_types.length > 0) {
+        formData.artist_types.forEach(type => submitData.append('artist_types', type));
+      }
+
       // Add picture if exists
       if (formData.picture) {
         submitData.append('picture', formData.picture);
@@ -44,12 +47,11 @@ export const CollectiveProvider = ({ children }) => {
 
       // Refresh collectives list after creation
       await fetchCollectives();
-      
+
       return response.data.collective_id;
     } catch (err) {
-      const message = handleApiError(err, defaultErrors)
-      toast.error(message);
       console.error("Error creating collective: ", err);
+      throw err; // Re-throw to let the form handle the error
     } finally {
       setLoading(false);
     }
@@ -70,9 +72,9 @@ export const CollectiveProvider = ({ children }) => {
 
       setCollectives(filteredCollectives);
     } catch (err) {
-      const message = handleApiError(err, defaultErrors)
-      toast.error(message);
-      console.error("Error joining collective: ", err);
+      const message = handleApiError(err, defaultErrors, true, true)
+      toast.error('Failed to fetch collectives', formatErrorForToast(message));
+      console.error("Error fetching collectives: ", err);
     } finally {
       setLoading(false)
     }
@@ -91,10 +93,10 @@ export const CollectiveProvider = ({ children }) => {
           { collective_id: collectiveId },
           { withCredentials: true }
         );
-        toast.success("Successfully joined this collective!");
+        toast.success("Collective joined", "You have successfully joined this collective");
       } catch (err) {
-        const message = handleApiError(err, defaultErrors)
-        toast.error(message);
+        const message = handleApiError(err, defaultErrors, true, true)
+        toast.error('Failed to join collective', formatErrorForToast(message));
         console.error("Error joining collective: ", err);
       } finally {
         setLoading(false);

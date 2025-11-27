@@ -8,7 +8,6 @@ import Hero from "./hero.component";
 import Header from "./header.component";
 import Footer from "./footer.component";
 import { lazy, Suspense } from "react";
-import { ImageCacheProvider } from "@context/image-cache-context";
 
 const Artworks = lazy(() => import("./artworks.component"));
 // const Hero = lazy(() => lazyWithRetry(() => import('./hero.component')))
@@ -29,9 +28,7 @@ export default function Index() {
 
       <Suspense fallback={<div className="p-5">Loading...</div>}>
         {/* Artworks Section */}
-        <ImageCacheProvider>
-          <Artworks />
-        </ImageCacheProvider>
+        <Artworks />
       </Suspense>
 
       <Suspense fallback={<div className="p-5">Loading...</div>}>

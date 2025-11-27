@@ -1,5 +1,6 @@
 export { default as NovelRenderer } from './novel-renderer.component'
 export { default as CommentsRenderer } from './comments-renderer.component'
+export { default as CommentsRendererFull } from './comments-renderer-full.component'
 export { default as PostHeader } from './post-header'
 export { default as HeartButton } from './heart-button'
 export { default as PostCard } from './post-card.component'

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collective } from "@lib/api";
-import { MainLayout } from "@components/common/layout";
+import { CollectiveLayout } from "@components/common/layout";
 import { LoadingSpinner } from "../loading-spinner";
-import { toast } from "react-toastify";
-import { handleApiError } from "@utils";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { useAuth } from "@context/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShield, faUser, faCrown } from "@fortawesome/free-solid-svg-icons";
@@ -19,7 +19,7 @@ const getFullName = (member: Member) => {
 export default function CollectiveMembers() {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
-  const { user, isAdminOfACollective } = useAuth();
+  const { isAdminOfACollective } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [collectiveTitle, setCollectiveTitle] = useState("");
@@ -39,7 +39,8 @@ export default function CollectiveMembers() {
       setCollectiveTitle(collectiveResponse.data.title);
     } catch (error) {
       console.error("Error fetching members:", error);
-      toast.error(handleApiError(error, {}));
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to load members', formatErrorForToast(message));
     } finally {
       setLoading(false);
     }
@@ -47,9 +48,9 @@ export default function CollectiveMembers() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <CollectiveLayout>
         <LoadingSpinner text="Loading members..." />
-      </MainLayout>
+      </CollectiveLayout>
     );
   }
 
@@ -57,7 +58,7 @@ export default function CollectiveMembers() {
   const regularMembers = members.filter((m) => m.collective_role === "member");
 
   return (
-    <MainLayout>
+    <CollectiveLayout>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
@@ -116,7 +117,7 @@ export default function CollectiveMembers() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }
 

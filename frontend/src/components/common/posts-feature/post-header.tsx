@@ -3,12 +3,14 @@ import {
   faEllipsisH,
   faEdit,
   faTrash,
+  faEye,
 } from "@fortawesome/free-solid-svg-icons";
 import type { Post } from "@types";
 import { formatArtistTypesToString } from "@utils";
 import usePost from "@hooks/use-post";
 import { usePostContext } from "@context/post-context";
-import { useAuth } from "@context/auth-context"; // 👈 Import useAuth
+import { useAuth } from "@context/auth-context";
+import { useLocation } from "react-router-dom";
 
 export default function PostHeader({
   postItem,
@@ -19,12 +21,18 @@ export default function PostHeader({
 }) {
   const { toggleDropdown, handleEditPost, handleDeletePost } = usePost();
   const { dropdownOpen } = usePostContext();
-  const { user } = useAuth(); // 👈 Get current user
+  const { user } = useAuth();
+  const location = useLocation();
 
-  // Check if current user is the author
+  // Check if current user is the author or admin
   const isAuthor = user?.id === postItem.author;
   const isAdmin = user?.is_superuser;
-  const canEdit = isAuthor || isAdmin
+  const canEdit = isAuthor; // Only author can edit
+  const canDelete = isAuthor || isAdmin; // Author or admin can delete
+  const showDropdown = canEdit || canDelete; // Show dropdown if user can edit or delete
+  
+  // Check if we're already on the post detail page
+  const isOnPostDetailPage = location.pathname === `/post/${postItem.post_id}`;
 
   return (
     <>
@@ -51,8 +59,8 @@ export default function PostHeader({
           </div>
         </div>
 
-        {/* Only show dropdown if: not in comment modal AND user can edit */}
-        {!IsCommentViewModal && canEdit && (
+        {/* Show dropdown if: not in comment modal AND user can edit or delete */}
+        {!IsCommentViewModal && showDropdown && (
           <div className="dropdown dropdown-end">
             <button
               className="btn btn-ghost btn-sm btn-circle"
@@ -62,25 +70,41 @@ export default function PostHeader({
             </button>
 
             {dropdownOpen === postItem.post_id && (
-              <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-300">
-                <li>
-                  <button
-                    className="text-sm flex items-center gap-2"
-                    onClick={() => handleEditPost(postItem)}
-                  >
-                    <FontAwesomeIcon icon={faEdit} />
-                    Edit
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="text-sm text-error flex items-center gap-2"
-                    onClick={() => handleDeletePost(postItem.post_id)}
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                    Delete
-                  </button>
-                </li>
+              <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-300">
+                {/* Only show "View in Other Tab" if NOT already on post detail page */}
+                {!isOnPostDetailPage && (
+                  <li>
+                    <button
+                      className="text-sm flex items-center gap-2"
+                      onClick={() => window.open(`/post/${postItem.post_id}`, '_blank')}
+                    >
+                      <FontAwesomeIcon icon={faEye} />
+                      View in Other Tab
+                    </button>
+                  </li>
+                )}
+                {canEdit && (
+                  <li>
+                    <button
+                      className="text-sm flex items-center gap-2"
+                      onClick={() => handleEditPost(postItem)}
+                    >
+                      <FontAwesomeIcon icon={faEdit} />
+                      Edit
+                    </button>
+                  </li>
+                )}
+                {canDelete && (
+                  <li>
+                    <button
+                      className="text-sm text-error flex items-center gap-2"
+                      onClick={() => handleDeletePost(postItem.post_id)}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                      Delete
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
           </div>

@@ -1,0 +1,43 @@
+###########
+# Builder #
+###########
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Build arguments for Vite envs (provided via Render build args)
+ARG VITE_API_URL
+ARG VITE_WS_URL
+
+# Expose them as env vars so Vite can read them during the build step
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
+
+# Install dependencies first to leverage Docker layer caching
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps
+
+# Copy the rest of the frontend source and build the production bundle
+COPY . .
+RUN npm run build
+
+##########
+# Runner #
+##########
+FROM nginx:1.27-alpine
+
+ENV PORT=8080
+EXPOSE 8080
+
+RUN apk add --no-cache gettext
+
+# Copy the built assets into nginx's default html directory
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx template and entrypoint that injects the runtime PORT value
+RUN mkdir -p /etc/nginx/templates
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+CMD ["/docker-entrypoint.sh"]

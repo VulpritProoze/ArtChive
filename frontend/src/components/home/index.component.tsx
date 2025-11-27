@@ -11,7 +11,7 @@ import { PostLoadingIndicator } from "@components/common";
 import { usePostContext } from "@context/post-context";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
-import { Link } from "react-router-dom";
+import { SkeletonPostCard } from "@components/common/skeleton";
 
 const Index: React.FC = () => {
   const {
@@ -124,12 +124,10 @@ const Index: React.FC = () => {
 
         {/* Loading State */}
         {loading && posts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="loading loading-spinner loading-lg text-primary"></div>
-            <p className="mt-4 text-base-content/70 font-medium">
-              Loading amazing artworks...
-            </p>
-          </div>
+          <SkeletonPostCard
+            count={3}
+            containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
+          />
         )}
 
         {/* Posts Grid */}

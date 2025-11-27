@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrophy, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import type { PostTrophy } from "@types";
 import { post } from "@lib/api";
-import { toast } from "react-toastify";
 import { handleApiError } from "@utils";
-import { defaultErrors } from "@errors";
 
 interface TrophyListModalProps {
   isOpen: boolean;
   onClose: () => void;
   postId: string;
+}
+
+interface GroupedTrophy {
+  author: number;
+  author_username: string;
+  author_fullname: string;
+  author_picture?: string;
+  trophies: {
+    id: number;
+    trophy_type_name: string;
+    trophy_brush_drip_value: number;
+    awarded_at: string;
+  }[];
+  totalValue: number;
 }
 
 export default function TrophyListModal({
@@ -28,39 +41,15 @@ export default function TrophyListModal({
   }, [isOpen, postId]);
 
   const fetchTrophies = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await post.get(`/${postId}/trophies/`);
       setTrophies(response.data.results || response.data || []);
     } catch (error) {
       console.error("Fetch trophies error:", error);
-      toast.error(handleApiError(error, defaultErrors));
+      handleApiError(error, 'Failed to load trophies');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  };
-
-  const getTrophyColor = (trophyType: string) => {
-    switch (trophyType.toLowerCase()) {
-      case "bronze_stroke":
-        return "text-orange-700";
-      case "golden_bristle":
-        return "text-yellow-600";
-      case "diamond_canvas":
-        return "text-blue-600";
-      default:
-        return "text-base-content";
     }
   };
 
@@ -77,149 +66,134 @@ export default function TrophyListModal({
     }
   };
 
-  const getTrophyBgColor = (trophyType: string) => {
-    switch (trophyType.toLowerCase()) {
-      case "bronze_stroke":
-        return "bg-orange-100";
-      case "golden_bristle":
-        return "bg-yellow-100";
-      case "diamond_canvas":
-        return "bg-blue-100";
-      default:
-        return "bg-base-200";
+  // Group trophies by user
+  const groupedTrophies: GroupedTrophy[] = trophies.reduce((acc, trophy) => {
+    const existingUser = acc.find((item) => item.author === trophy.author);
+    
+    if (existingUser) {
+      existingUser.trophies.push({
+        id: trophy.id,
+        trophy_type_name: trophy.trophy_type_name,
+        trophy_brush_drip_value: trophy.trophy_brush_drip_value,
+        awarded_at: trophy.awarded_at,
+      });
+      existingUser.totalValue += trophy.trophy_brush_drip_value;
+    } else {
+      acc.push({
+        author: trophy.author,
+        author_username: trophy.author_username,
+        author_fullname: trophy.author_fullname,
+        author_picture: trophy.author_picture,
+        trophies: [{
+          id: trophy.id,
+          trophy_type_name: trophy.trophy_type_name,
+          trophy_brush_drip_value: trophy.trophy_brush_drip_value,
+          awarded_at: trophy.awarded_at,
+        }],
+        totalValue: trophy.trophy_brush_drip_value,
+      });
     }
-  };
+    
+    return acc;
+  }, [] as GroupedTrophy[]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal modal-open">
-      <div className="modal-box max-w-md">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-base-100 rounded-2xl shadow-2xl w-full max-w-md max-h-[600px] flex flex-col animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between p-4 border-b border-base-300">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faTrophy}
               className="text-warning text-xl"
             />
-            <h3 className="font-bold text-lg">Trophies</h3>
+            <h3 className="text-lg font-bold text-base-content">
+              Trophies
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost"
+            className="btn btn-ghost btn-sm btn-circle hover:bg-base-200"
+            aria-label="Close modal"
           >
-            <FontAwesomeIcon icon={faTimes} />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="divider my-2"></div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="loading loading-spinner loading-md text-primary"></div>
+            </div>
+          ) : trophies.length === 0 ? (
+            <div className="text-center py-12">
+              <FontAwesomeIcon
+                icon={faTrophy}
+                className="text-6xl text-base-content/30 mb-3"
+              />
+              <p className="text-base-content/70">No trophies yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {groupedTrophies.map((userTrophies) => (
+                <div
+                  key={userTrophies.author}
+                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
+                >
+                  {/* User Avatar */}
+                  <img
+                    src={userTrophies.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(userTrophies.author_username)}&background=random&size=40`}
+                    alt={userTrophies.author_username}
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userTrophies.author_username)}&background=random&size=40`;
+                    }}
+                  />
+                  
+                  {/* User Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-base-content truncate">
+                      {userTrophies.author_fullname}
+                    </p>
+                    <p className="text-xs text-base-content/60 truncate">
+                      @{userTrophies.author_username}
+                    </p>
+                    {/* Total Value */}
+                    <p className="text-xs text-warning font-semibold mt-1">
+                      {userTrophies.totalValue} BD total
+                    </p>
+                  </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <span className="loading loading-spinner loading-lg text-warning"></span>
-          </div>
-        ) : trophies.length === 0 ? (
-          <div className="text-center py-12">
-            <FontAwesomeIcon
-              icon={faTrophy}
-              className="text-6xl text-base-content/20 mb-4"
-            />
-            <p className="text-base-content/60">No trophies yet</p>
-            <p className="text-sm text-base-content/40 mt-1">
-              Be the first to award a trophy!
-            </p>
-          </div>
-        ) : (
-          <div className="max-h-96 overflow-y-auto">
-            {trophies.map((trophy) => (
-              <div
-                key={trophy.id}
-                className="flex items-center gap-3 p-3 hover:bg-base-200 rounded-lg transition-colors"
-              >
-                {/* Avatar */}
-                <div className="avatar">
-                  <div className="w-12 h-12 rounded-full ring ring-warning ring-offset-base-100 ring-offset-2">
-                    {trophy.author_picture ? (
-                      <img
-                        src={trophy.author_picture}
-                        alt={trophy.author_username}
-                      />
-                    ) : (
-                      <div className="bg-warning flex items-center justify-center">
-                        <span className="text-warning-content font-bold">
-                          {trophy.author_username?.charAt(0).toUpperCase()}
+                  {/* Trophy Badges */}
+                  <div className="flex flex-wrap gap-1 flex-shrink-0 max-w-[120px] justify-end">
+                    {userTrophies.trophies.map((trophy) => (
+                      <div
+                        key={trophy.id}
+                        className="flex flex-col items-center"
+                        title={`${trophy.trophy_type_name.replace('_', ' ')} - ${trophy.trophy_brush_drip_value} BD`}
+                      >
+                        <span className="text-2xl">
+                          {getTrophyEmoji(trophy.trophy_type_name)}
                         </span>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
-
-                {/* User Info */}
-                <div className="flex-1">
-                  <p className="font-semibold text-base-content">
-                    {trophy.author_fullname || trophy.author_username}
-                  </p>
-                  <p className="text-sm text-base-content/60">
-                    @{trophy.author_username}
-                  </p>
-                  <p className="text-xs text-base-content/40 mt-1">
-                    {formatDate(trophy.awarded_at)}
-                  </p>
-                </div>
-
-                {/* Trophy Badge */}
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className={`badge ${getTrophyBgColor(
-                      trophy.trophy_type_name
-                    )} gap-1 px-3 py-3 border-0`}
-                  >
-                    <span className="text-xl">
-                      {getTrophyEmoji(trophy.trophy_type_name)}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-xs font-semibold ${getTrophyColor(
-                      trophy.trophy_type_name
-                    )}`}
-                  >
-                    {trophy.trophy_brush_drip_value} BD
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Footer - Summary */}
-        {trophies.length > 0 && (
-          <>
-            <div className="divider my-2"></div>
-            <div className="flex justify-around text-center text-sm">
-              <div>
-                <p className="font-semibold text-base-content">
-                  {trophies.length}
-                </p>
-                <p className="text-xs text-base-content/60">
-                  {trophies.length === 1 ? "Trophy" : "Trophies"}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-warning">
-                  {trophies.reduce(
-                    (sum, t) => sum + t.trophy_brush_drip_value,
-                    0
-                  )}{" "}
-                  BD
-                </p>
-                <p className="text-xs text-base-content/60">Total Value</p>
-              </div>
+              ))}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
-      <div className="modal-backdrop" onClick={onClose}></div>
     </div>
   );
 }

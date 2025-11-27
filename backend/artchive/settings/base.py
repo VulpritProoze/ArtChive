@@ -1,5 +1,8 @@
+import os
+from datetime import timedelta
 from pathlib import Path
 
+import cloudinary
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -19,47 +22,10 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# Application definition
-
-INSTALLED_APPS = [
-    'daphne',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'corsheaders',
-    'core',
-    'notification',
-    'post',
-    'collective',
-    'gallery',
-    'avatar',
-    'conversation',
-    'rest_framework',
-    'silk', # remove in prod
-    'drf_spectacular'  # idk if iremove? creates api documentation. maybe dont remove
-]
-
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'silk.middleware.SilkyMiddleware',  # remove in prod
-]
-
 ROOT_URLCONF = 'artchive.urls'
 
+# Conditionally set schema class based on DEBUG mode
 REST_FRAMEWORK = {
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'core.authentication.CookieJWTAuthentication',
         # 'rest_framework.authentication.SessionAuthentication',
@@ -75,6 +41,10 @@ REST_FRAMEWORK = {
         'login': '10/min',
     },
 }
+
+# Only set schema class if DEBUG is True (drf_spectacular available)
+if config('DJANGO_DEBUG', default=False, cast=bool):
+    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
 
 TEMPLATES = [
     {
@@ -111,6 +81,27 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Static Files
+
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+
+cloudinary.config(
+    cloud_name=config('CLOUDINARY_CLOUD_NAME'),
+    api_key=config('CLOUDINARY_API_KEY'),
+    api_secret=config('CLOUDINARY_API_SECRET'),
+)
+
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -158,9 +149,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=3),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
@@ -190,36 +178,6 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(hours=12),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'ArtChive API',
-    'DESCRIPTION': 'This serves as the official API documentation of ArtChive\'s API. Do not reproduce, and do not distribute. For internal usage only.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SCHEMA_PATH_PREFIX': r'/api/',
-    'COMPONENTS': {
-        'SECURITY_SCHEMES': {
-            'cookieJWTAuth': {  # Changed from 'cookieAuth' to match extension
-                'type': 'apiKey',
-                'in': 'cookie',
-                'name': 'access_token',
-                'description': 'Cookie-based JWT authentication'
-            },
-            'refreshJWTAuth': {  # Changed from 'refreshAuth'
-                'type': 'apiKey',
-                'in': 'cookie',
-                'name': 'refresh_token',
-                'description': 'Refresh token cookie'
-            }
-        }
-    },
-    'AUTHENTICATION_EXTENSIONS': [
-        'core.spectacular.CookieJWTAuthExtension',
-    ],
-}
-
-# py manage.py spectacular --color --file schema.yml
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

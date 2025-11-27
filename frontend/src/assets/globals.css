@@ -22,6 +22,8 @@
 
   --color-primary: #6a5acd;
   --color-primary-content: white;
+  --color-secondary: #f97316;
+  --color-secondary-content: white;
 
   /* Custom base-400 color */
   --color-base-100: oklch(100% 0 0);
@@ -35,6 +37,8 @@
   name: "dark";
 
   --color-primary: #443893;
+  --color-secondary: #c2410c;
+  --color-secondary-content: white;
 
   --color-base-100: oklch(25% 0 0);
   --color-base-200: oklch(22% 0 0);
@@ -48,6 +52,34 @@ body {
   @apply bg-base-300;
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
 /* customizing daisyui components */
 
 html {
@@ -56,6 +88,10 @@ html {
 
 @utility btn {
   @apply shadow-none;
+}
+
+@utility badge {
+  @apply text-xs px-2 py-0.5 rounded-full;
 }
 
 @utility card-body {
@@ -78,11 +114,11 @@ html {
   .bg-base-400 {
     background-color: var(--color-base-400);
   }
-  
+
   .border-base-400 {
     border-color: var(--color-base-400);
   }
-  
+
   .text-base-400 {
     color: var(--color-base-400);
   }
@@ -90,8 +126,8 @@ html {
 
 /* toast container (react-toastify) */
 .Toastify__toast {
-    font-family: sans-serif;
-    @apply text-sm font-light;
+  font-family: sans-serif;
+  @apply text-sm font-light;
 }
 /* toast.css */
 .Toastify__toast-theme--dark,

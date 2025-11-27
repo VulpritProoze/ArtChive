@@ -1,14 +1,17 @@
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@context/auth-context";
 import { useCollectiveContext } from "@context/collective-context";
 import { createCollectiveSchema, type CreateCollectiveFormData } from "@lib/validations/collective";
 import { ARTIST_TYPE_VALUES, type ArtistType } from "@types";
-import { MainLayout } from "@components/common/layout";
+import { CollectiveLayout } from "@components/common/layout";
 
 export default function CreateCollectiveForm() {
   const navigate = useNavigate();
+  const { fetchCollectiveMemberDetails } = useAuth();
   const { loading, createCollective } = useCollectiveContext();
   
   const {
@@ -63,15 +66,25 @@ export default function CreateCollectiveForm() {
   const onSubmit = async (data: CreateCollectiveFormData) => {
     try {
       const collectiveId = await createCollective(data);
-      toast.success("Collective created successfully!");
-      navigate(`/collective/${collectiveId}`);
+
+      // Only navigate if we successfully got a collective ID
+      if (collectiveId) {
+        // Fetch updated membership details to update auth context
+        await fetchCollectiveMemberDetails();
+
+        toast.success("Collective created", "Collective created successfully!");
+        navigate(`/collective/${collectiveId}`);
+      } else {
+        toast.error("Failed to create collective", "No collective ID returned");
+      }
     } catch (error: any) {
-      toast.error(error.message);
+      const message = handleApiError(error, {}, true, true);
+      toast.error("Failed to create collective", formatErrorForToast(message));
     }
   };
 
   return (
-    <MainLayout showSidebar={true} showRightSidebar={false}>
+    <CollectiveLayout showSidebar={true} showRightSidebar={false}>
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Header Section */}
         <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-xl p-6 text-center">
@@ -320,6 +333,6 @@ export default function CreateCollectiveForm() {
           </div>
         </form>
       </div>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }

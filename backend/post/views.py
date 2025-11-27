@@ -1,10 +1,10 @@
 from collections import deque
 
+from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework import generics, permissions, status
 from rest_framework.generics import (
     CreateAPIView,
     DestroyAPIView,
@@ -22,11 +22,17 @@ from core.models import BrushDripTransaction, BrushDripWallet, User
 from core.permissions import IsAuthorOrSuperUser
 from notification.utils import (
     create_comment_notification,
+    create_comment_reply_notification,
     create_critique_notification,
+    create_critique_reply_notification,
     create_praise_notification,
     create_trophy_notification,
 )
 
+from .cache_utils import (
+    get_post_praise_count_cache_key,
+    get_post_trophy_count_cache_key,
+)
 from .models import (
     Comment,
     Critique,
@@ -49,6 +55,7 @@ from .serializers import (
     CritiqueDeleteSerializer,
     CritiqueReplyCreateSerializer,
     CritiqueReplySerializer,
+    CritiqueReplyUpdateSerializer,
     CritiqueSerializer,
     CritiqueUpdateSerializer,
     PostCreateSerializer,
@@ -66,6 +73,8 @@ from .serializers import (
     TopLevelCommentsViewSerializer,
 )
 
+POST_META_COUNT_CACHE_TIMEOUT = 300  # seconds
+
 
 class PostCreateView(generics.CreateAPIView):
     queryset = Post.objects.all()
@@ -78,14 +87,54 @@ class PostCreateView(generics.CreateAPIView):
 
 class PostListView(generics.ListAPIView):
     '''
-    Paginated list of all posts
+    Paginated list of all posts with caching
     Example URLs:
     - /posts/ (first 10 posts)
     - /posts/?page=2 (next 10 posts)
     - /posts/?page_size=20 (20 posts per page)
+
+    Cache is automatically invalidated when posts, comments, or hearts are modified.
+    Cache TTL: 5 minutes (300 seconds)
     '''
     serializer_class = PostListViewSerializer
     pagination_class = PostPagination
+
+    '''
+    def list(self, request, *args, **kwargs):
+        """
+        Override list to add caching support.
+        Cache key is based on user ID, page number, and page size.
+        """
+        # Get pagination parameters
+        page = request.query_params.get('page', 1)
+        try:
+            page = int(page)
+        except (ValueError, TypeError):
+            page = 1
+
+        page_size = request.query_params.get('page_size', 10)
+        try:
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page_size = 10
+
+        # Generate cache key
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_list_cache_key(user_id, page, page_size)
+
+        # Try to get from cache
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+
+        # If not in cache, get from database
+        response = super().list(request, *args, **kwargs)
+
+        # Cache the response data for 5 minutes (300 seconds)
+        cache.set(cache_key, response.data, 300)
+
+        return response
+    '''
 
     def get_queryset(self):
         '''
@@ -93,26 +142,63 @@ class PostListView(generics.ListAPIView):
         Only returns active (non-deleted) posts.
         '''
         user = self.request.user
-        # Use get_active_objects() to filter out soft-deleted posts
-        queryset = Post.objects.get_active_objects().prefetch_related(
+
+        # Prefetch top-level comments with reply counts; serializer will slice to the first 2
+        comments_prefetch = Prefetch(
+            'post_comment',
+            queryset=Comment.objects.get_active_objects()
+                .filter(replies_to__isnull=True, critique_id__isnull=True)
+                .select_related('author', 'author__artist')
+                .annotate(
+                    reply_count=Count(
+                        'comment_reply',
+                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False)
+                    )
+                )
+                .order_by('-created_at')
+        )
+
+        # Build base queryset with common optimizations
+        queryset = Post.objects.get_active_objects().annotate(
+            # Annotate comment count to avoid separate COUNT queries (exclude critique replies)
+            total_comment_count=Count(
+                'post_comment',
+                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
+            ),
+            # Annotate hearts count to avoid separate COUNT queries
+            total_hearts_count=Count('post_heart'),
+        ).prefetch_related(
             'novel_post',
             'channel',
-            'channel__collective'  # needed for collective filtering
+            'channel__collective',  # needed for collective filtering
+            comments_prefetch,  # Optimized comment prefetch with author and artist
+            'post_heart',  # Prefetch all hearts for is_hearted check
         ).select_related(
             'author',
+            'author__artist',  # Fetch artist info for post author
         ).order_by('-created_at')
 
-        # Always include public posts (from the known public channel)
-        public_channel_id = '00000000-0000-0000-0000-000000000001'
-        public_posts = Q(channel=public_channel_id)
-
+        # If user is authenticated, annotate whether they hearted each post
         if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_hearted_by_current_user=Exists(
+                    PostHeart.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                )
+            )
+
             joined_collectives = CollectiveMember.objects.filter(
                 member=user
             ).values_list('collective_id', flat=True)
 
             # Posts from joined collectives
             joined_posts = Q(channel__collective__in=joined_collectives)
+
+            # Always include public posts (from the known public channel)
+            public_channel_id = '00000000-0000-0000-0000-000000000001'
+            public_posts = Q(channel=public_channel_id)
 
             # Combine: public posts OR posts from joined collectives
             return queryset.filter(public_posts | joined_posts)
@@ -147,13 +233,22 @@ class OwnPostsListView(generics.ListAPIView):
 
 class PostCommentsView(generics.ListAPIView):
     '''
-    Fetch all top-level comments
+    Fetch all top-level comments with their replies (with context)
     '''
     serializer_class = TopLevelCommentsViewSerializer
     pagination_class = CommentPagination
 
     def get_queryset(self):
         post_id = self.kwargs['post_id']
+
+        # Prefetch replies for each comment
+        replies_prefetch = Prefetch(
+            'comment_reply',
+            queryset=Comment.objects.get_active_objects().filter(
+                is_critique_reply=False
+            ).select_related('author', 'author__artist').order_by('created_at'),
+            to_attr='prefetched_replies'
+        )
 
         return Comment.objects.get_active_objects().filter(
             post_id=post_id,
@@ -162,10 +257,13 @@ class PostCommentsView(generics.ListAPIView):
             ).annotate(
                 reply_count=Count('comment_reply',
                     filter=Q(
-                        comment_reply__is_deleted=False
+                        comment_reply__is_deleted=False,
+                        comment_reply__is_critique_reply=False
                     ))
             ).select_related(
-                'author',
+                'author', 'author__artist'
+            ).prefetch_related(
+                replies_prefetch
             ).order_by(
                 '-created_at'
             )
@@ -175,8 +273,10 @@ class PostCommentsView(generics.ListAPIView):
         queryset = self.filter_queryset(self.get_queryset())
         post_id = self.kwargs['post_id']
 
+        # Count total comments excluding critique replies
         total_comments = Comment.objects.get_active_objects().filter(
-            post_id=post_id
+            post_id=post_id,
+            is_critique_reply=False
         ).count()
 
         # Let DRF handle pagination and serialization
@@ -215,6 +315,15 @@ class PostCommentsReplyView(ListAPIView):
 class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = CommentReplyCreateSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        # Create the reply
+        reply = serializer.save(author=self.request.user)
+
+        # Send notification to parent comment author
+        if reply.replies_to:
+            parent_author = reply.replies_to.author
+            create_comment_reply_notification(reply, parent_author)
 
 class CommentReplyUpdateView(generics.UpdateAPIView):
     queryset = Comment.objects.get_active_objects().filter(replies_to__isnull=False)
@@ -476,7 +585,7 @@ class CritiqueDetailView(RetrieveAPIView):
 
 class CritiqueUpdateView(UpdateAPIView):
     """
-    Update a specific critique
+    Update a specific critique (text only, impression cannot be changed)
     """
     serializer_class = CritiqueUpdateSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
@@ -484,13 +593,6 @@ class CritiqueUpdateView(UpdateAPIView):
 
     def get_queryset(self):
         return Critique.objects.get_active_objects()
-
-    def perform_update(self, serializer):
-        # Ensure the user owns the critique
-        critique = self.get_object()
-        if critique.author != self.request.user and not self.request.user.is_staff:
-            raise PermissionDenied("You can only update your own critiques")
-        serializer.save()
 
 class CritiqueDeleteView(DestroyAPIView):
     """
@@ -554,7 +656,13 @@ class CritiqueReplyCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        # Create the critique reply
+        reply = serializer.save()
+
+        # Send notification to critique author
+        if reply.critique_id:
+            critique_author = reply.critique_id.author
+            create_critique_reply_notification(reply, critique_author)
 
 class CritiqueReplyDetailView(generics.RetrieveAPIView):
     """
@@ -569,6 +677,21 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
         return Comment.objects.get_active_objects().filter(
             is_critique_reply=True
         ).select_related('author', 'post_id', 'critique_id')
+
+
+class CritiqueReplyUpdateView(generics.UpdateAPIView):
+    """
+    Update a critique reply (text only)
+    PUT/PATCH /api/critiques/replies/<comment_id>/update/
+    """
+    serializer_class = CritiqueReplyUpdateSerializer
+    permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        return Comment.objects.get_active_objects().filter(
+            is_critique_reply=True
+        )
 
 
 # ============================================================================
@@ -692,19 +815,24 @@ class PostPraiseCountView(APIView):
 
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
-        praise_count = PostPraise.objects.filter(post_id=post).count()
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_praise_count_cache_key(post_id, user_id)
+        cached_payload = cache.get(cache_key)
+        if cached_payload:
+            return Response(cached_payload, status=status.HTTP_200_OK)
 
-        # Check if current user has praised this post
-        is_praised_by_user = PostPraise.objects.filter(
-            post_id=post,
-            author=request.user
-        ).exists()
+        aggregate_result = PostPraise.objects.filter(post_id=post).aggregate(
+            total_count=Count('id'),
+            user_count=Count('id', filter=Q(author=request.user)),
+        )
 
-        return Response({
+        payload = {
             'post_id': str(post_id),
-            'praise_count': praise_count,
-            'is_praised_by_user': is_praised_by_user
-        }, status=status.HTTP_200_OK)
+            'praise_count': aggregate_result['total_count'] or 0,
+            'is_praised_by_user': bool(aggregate_result['user_count']),
+        }
+        cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class PostPraiseCheckView(APIView):
@@ -862,33 +990,37 @@ class PostTrophyCountView(APIView):
 
     def get(self, request, post_id):
         post = get_object_or_404(Post, post_id=post_id)
+        user_id = request.user.id if request.user.is_authenticated else None
+        cache_key = get_post_trophy_count_cache_key(post_id, user_id)
+        cached_payload = cache.get(cache_key)
+        if cached_payload:
+            return Response(cached_payload, status=status.HTTP_200_OK)
 
-        # Count trophies by type
+        trophies_qs = PostTrophy.objects.filter(post_id=post)
+        counts_by_type = {
+            row['post_trophy_type__trophy']: row['count']
+            for row in trophies_qs.values('post_trophy_type__trophy').annotate(count=Count('id'))
+        }
+
         trophy_counts = {}
         total_count = 0
-
         for trophy_type in TrophyType.objects.all():
-            count = PostTrophy.objects.filter(
-                post_id=post,
-                post_trophy_type=trophy_type
-            ).count()
+            count = counts_by_type.get(trophy_type.trophy, 0)
             trophy_counts[trophy_type.trophy] = count
             total_count += count
 
-        # Check which trophies current user has awarded to this post
         user_awarded_trophies = list(
-            PostTrophy.objects.filter(
-                post_id=post,
-                author=request.user
-            ).values_list('post_trophy_type__trophy', flat=True)
+            trophies_qs.filter(author=request.user).values_list('post_trophy_type__trophy', flat=True)
         )
 
-        return Response({
+        payload = {
             'post_id': str(post_id),
             'trophy_counts': trophy_counts,
             'total_trophy_count': total_count,
-            'user_awarded_trophies': user_awarded_trophies
-        }, status=status.HTTP_200_OK)
+            'user_awarded_trophies': user_awarded_trophies,
+        }
+        cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class PostTrophyCheckView(APIView):
@@ -926,3 +1058,94 @@ class PostTrophyCheckView(APIView):
                 {'error': f'Trophy type "{trophy_type}" not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+# ============================================================================
+# COMMENT/CRITIQUE DETAIL WITH CONTEXT (for notification navigation)
+# ============================================================================
+
+class CommentDetailWithContextView(generics.RetrieveAPIView):
+    """
+    Fetch a specific comment with its replies for navigation from notifications.
+    Used when navigating to a specific comment that may not be loaded yet.
+    GET /api/comment/<comment_id>/detail/
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CommentSerializer
+    lookup_field = 'comment_id'
+
+    def get_queryset(self):
+        return Comment.objects.get_active_objects().select_related(
+            'author', 'author__artist', 'post_id'
+        ).prefetch_related('comment_reply')
+
+    def retrieve(self, request, *args, **kwargs):
+        comment = self.get_object()
+        serializer = self.get_serializer(comment)
+
+        # If it's a reply, fetch parent comment with all its replies
+        if comment.replies_to:
+            parent_comment = comment.replies_to
+            parent_serializer = self.get_serializer(parent_comment)
+
+            # Fetch all replies for the parent
+            replies_qs = Comment.objects.get_active_objects().filter(
+                replies_to=parent_comment
+            ).select_related('author', 'author__artist').order_by('created_at')
+
+            replies_data = CommentSerializer(replies_qs, many=True).data
+
+            return Response({
+                'comment': serializer.data,
+                'post_id': str(comment.post_id.post_id),
+                'is_reply': True,
+                'parent_comment': parent_serializer.data,
+                'all_replies': replies_data
+            })
+        else:
+            # It's a top-level comment, fetch its replies
+            replies_qs = Comment.objects.get_active_objects().filter(
+                replies_to=comment
+            ).select_related('author', 'author__artist').order_by('created_at')
+
+            replies_data = CommentSerializer(replies_qs, many=True).data
+
+            return Response({
+                'comment': serializer.data,
+                'post_id': str(comment.post_id.post_id),
+                'is_reply': False,
+                'replies': replies_data
+            })
+
+
+class CritiqueDetailWithContextView(generics.RetrieveAPIView):
+    """
+    Fetch a specific critique with its replies for navigation from notifications.
+    GET /api/critique/<critique_id>/detail/
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CritiqueSerializer
+    lookup_field = 'critique_id'
+
+    def get_queryset(self):
+        return Critique.objects.filter(
+            is_deleted=False
+        ).select_related('author', 'author__artist', 'post_id')
+
+    def retrieve(self, request, *args, **kwargs):
+        critique = self.get_object()
+        serializer = self.get_serializer(critique)
+
+        # Fetch critique replies
+        replies_qs = Comment.objects.get_active_objects().filter(
+            critique_id=critique,
+            is_critique_reply=True
+        ).select_related('author', 'author__artist').order_by('created_at')
+
+        replies_data = CommentSerializer(replies_qs, many=True).data
+
+        return Response({
+            'critique': serializer.data,
+            'post_id': str(critique.post_id.post_id),
+            'replies': replies_data
+        })

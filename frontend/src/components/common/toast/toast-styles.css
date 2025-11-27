@@ -1,0 +1,42 @@
+/* Custom toast styles to make the container transparent and show our custom design */
+
+/* Make the toast wrapper transparent */
+.Toastify__toast {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 1rem !important;
+  min-height: auto !important;
+}
+
+/* Remove default toast body padding */
+.Toastify__toast-body {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Style the progress bar to match primary color */
+.Toastify__progress-bar {
+  background: hsl(var(--p)) !important;
+  height: 3px !important;
+}
+
+/* Toast container positioning */
+.Toastify__toast-container {
+  width: auto !important;
+  max-width: 420px !important;
+  padding: 1rem !important;
+}
+
+/* Remove default colors for success, error, etc */
+.Toastify__toast--success,
+.Toastify__toast--error,
+.Toastify__toast--warning,
+.Toastify__toast--info {
+  background: transparent !important;
+}
+
+/* Ensure toast animations are smooth */
+.Toastify__toast {
+  animation-duration: 0.3s !important;
+}

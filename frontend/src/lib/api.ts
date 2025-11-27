@@ -1,28 +1,42 @@
 import axios, { AxiosError } from 'axios'
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
+const apiBaseUrl = import.meta.env.VITE_API_URL
+
+if (!apiBaseUrl) {
+  console.warn('[api] VITE_API_URL is not set. Falling back to http://localhost:8000. Server URL may not exist.')
+}
+
+const fallbackApiUrl = 'http://localhost:8000'
+const resolvedApiUrl = apiBaseUrl || fallbackApiUrl
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+    baseURL: resolvedApiUrl,
     withCredentials: true,
 })
 
 export const post = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/post/`,
+    baseURL: `${resolvedApiUrl}/api/post/`,
     withCredentials: true,
 })
 
 export const collective = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/collective/`,
+    baseURL: `${resolvedApiUrl}/api/collective/`,
     withCredentials: true,
 })
 
 export const core = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/core/`,
+    baseURL: `${resolvedApiUrl}/api/core/`,
     withCredentials: true,
 })
 
 export const notification = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/notifications/`,
+    baseURL: `${resolvedApiUrl}/api/notifications/`,
+    withCredentials: true,
+})
+
+export const gallery = axios.create({
+    baseURL: `${resolvedApiUrl}/api/gallery/`,
     withCredentials: true,
 })
 
@@ -155,7 +169,7 @@ api.interceptors.response.use(
 );
 
 // 🚨 SIMPLIFIED interceptors for other instances - no refresh logic, just logout on 401
-const instances = [post, collective, core, notification];
+const instances = [post, collective, core, notification, gallery];
 
 instances.forEach(instance => {
   // Request interceptor
