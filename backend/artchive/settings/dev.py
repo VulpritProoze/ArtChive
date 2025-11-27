@@ -80,3 +80,11 @@ SPECTACULAR_SETTINGS = {
 
 # py manage.py spectacular --color --file schema.yml
 
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}

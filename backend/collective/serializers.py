@@ -162,11 +162,15 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()  # Verify it's a real image
-            value.seek(0)  # Reset file pointer for Django to save it
-        except Exception:
+            value.seek(0)  # Reset file pointer
+            
+            # 3. Process image: resize and compress
+            from common.utils.image_processing import process_collective_picture
+            return process_collective_picture(value)
+        except Exception as e:
+            if 'Failed to process image' in str(e):
+                raise serializers.ValidationError(str(e))
             raise serializers.ValidationError("Invalid or corrupted image file.") from None
-
-        return value
 
     def create(self, validated_data):
         """Create the Collective instance."""
@@ -431,14 +435,27 @@ class LeaveCollectiveSerializer(Serializer):
     collective_id = serializers.UUIDField()
 
     def validate_collective_id(self, value):
+        # Use collective instance from context if available (optimized)
+        collective = self.context.get('collective')
+        collective_exists = self.context.get('collective_exists', False)
+
+        if collective:
+            # Collective already fetched in view, just validate UUID matches
+            if collective.collective_id != value:
+                raise serializers.ValidationError("Collective ID mismatch.")
+            return value
+
+        # Fallback validation if collective not in context (shouldn't happen in normal flow)
         if not isinstance(value, uuid.UUID):
             try:
                 value = uuid.UUID(value)
             except ValueError:
-                raise serializers.ValidationError("Invalid UUID format.")
+                raise serializers.ValidationError("Invalid UUID format.")  # noqa: B904
 
-        if not Collective.objects.filter(collective_id=value).exists():
-            raise serializers.ValidationError("Collective not found.")
+        # Use existence flag from view to avoid duplicate query
+        if not collective_exists:
+            if not Collective.objects.filter(collective_id=value).exists():
+                raise serializers.ValidationError("Collective not found.")
 
         return value
 

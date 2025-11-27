@@ -1,9 +1,11 @@
+import logging
 import os
 
 from decouple import config
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -23,7 +25,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from silk.profiling.profiler import silk_profile
 
 from .cache_utils import get_user_info_cache_key
-from .models import BrushDripTransaction, BrushDripWallet, User
+from .models import Artist, BrushDripTransaction, BrushDripWallet, User
 from .pagination import BrushDripsTransactionPagination
 from .serializers import (
     BrushDripTransactionCreateSerializer,
@@ -84,19 +86,21 @@ class LoginView(APIView):
             response = Response({'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
 
         with silk_profile(name='Set cookies'):
+            cookie_kwargs = {
+                'httponly': True,
+                'secure': config('AUTH_COOKIE_SECURE', default=False),
+                'samesite': 'None',
+                'path': '/',
+            }
             response.set_cookie(
                 key='access_token',
-                value=str(refresh.access_token),
-                httponly=True,
-                secure=config('AUTH_COOKIE_SECURE', default=False),
-                samesite='None'
+                value=access_token,
+                **cookie_kwargs
             )
             response.set_cookie(
                 key='refresh_token',
                 value=str(refresh),
-                httponly=True,
-                secure=config('AUTH_COOKIE_SECURE'),
-                samesite='None'
+                **cookie_kwargs
             )
         with silk_profile(name='Return response'):
             return response
@@ -129,8 +133,14 @@ class LogoutView(APIView):
                     return Response({'error': f'Error invalidating refresh token {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
             response = Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
         with silk_profile(name='Delete cookies'):
-            response.delete_cookie('access_token')
-            response.delete_cookie('refresh_token')
+            # Must match the exact same parameters used when setting cookies
+            # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_kwargs = {
+                'path': '/',
+                'samesite': 'None',
+            }
+            response.delete_cookie('access_token', **cookie_kwargs)
+            response.delete_cookie('refresh_token', **cookie_kwargs)
 
         with silk_profile(name='Return response'):
             return response
@@ -151,16 +161,42 @@ class CookieTokenRefreshView(TokenRefreshView):
             return Response({'error': 'Refresh token not provided'}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            refresh = RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
+            # Use the serializer which handles rotation correctly
+            # The serializer automatically handles token rotation and returns new tokens
+            serializer = self.get_serializer(data={'refresh': refresh_token})
+            serializer.is_valid(raise_exception=True)
+
+            # Get tokens from validated_data (handles rotation automatically)
+            # If rotation is enabled, 'refresh' will contain the new refresh token
+            # If rotation is disabled, 'refresh' will be None or the same token
+            validated_data = serializer.validated_data
+            new_access_token = validated_data['access']
+            new_refresh_token = validated_data.get('refresh', refresh_token)
+
             response = Response({'message': 'Access token refreshed successfully'}, status=status.HTTP_200_OK)
+
+            # Cookie settings
+            cookie_kwargs = {
+                'httponly': True,
+                'secure': config('AUTH_COOKIE_SECURE', default=False),
+                'samesite': 'None',
+                'path': '/',
+            }
+
+            # Set access token cookie
             response.set_cookie(
                 key='access_token',
-                value=access_token,
-                httponly=True,
-                secure=config('AUTH_COOKIE_SECURE'),
-                samesite='None'
+                value=new_access_token,
+                **cookie_kwargs
             )
+
+            # Set refresh token cookie (will be new token if rotation enabled, same if disabled)
+            response.set_cookie(
+                key='refresh_token',
+                value=new_refresh_token,
+                **cookie_kwargs
+            )
+
             return response
         except ExpiredTokenError:
             # Handle expired refresh token - CLEAR COOKIES
@@ -169,9 +205,14 @@ class CookieTokenRefreshView(TokenRefreshView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-            # Clear both cookies
-            response.delete_cookie('access_token')
-            response.delete_cookie('refresh_token')
+            # Clear both cookies with matching parameters
+            # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_kwargs = {
+                'path': '/',
+                'samesite': 'None',
+            }
+            response.delete_cookie('access_token', **cookie_kwargs)
+            response.delete_cookie('refresh_token', **cookie_kwargs)
             return response
 
         except TokenError:
@@ -180,8 +221,14 @@ class CookieTokenRefreshView(TokenRefreshView):
                 {'error': 'Invalid refresh token'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-            response.delete_cookie('access_token')
-            response.delete_cookie('refresh_token')
+            # Clear both cookies with matching parameters
+            # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_kwargs = {
+                'path': '/',
+                'samesite': 'None',
+            }
+            response.delete_cookie('access_token', **cookie_kwargs)
+            response.delete_cookie('refresh_token', **cookie_kwargs)
             return response
 
 @extend_schema(
@@ -308,48 +355,131 @@ class UserInfoView(RetrieveAPIView):
     }
 )
 class RegistrationView(APIView):
+    logger = logging.getLogger(__name__)
+
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
 
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                # Prepare response data
-                response_data = {
-                    'message': 'User registered successfully',
-                    'user': {
-                        'id': user.id,
-                        'username': user.username,
-                        'email': user.email,
-                        'first_name': user.first_name,
-                        'middle_name': user.middle_name,
-                        'last_name': user.last_name,
-                        'city': user.city,
-                        'country': user.country,
-                        'birthday': user.birthday
-                    },
-                    'artist': {
-                        'artist_types': user.artist.artist_types
-                    }
+        validated_data = serializer.validated_data
+        artist_types = validated_data.pop('artistTypes', [])
+
+        try:
+            with transaction.atomic():
+                # Create user
+                try:
+                    user = User.objects.create_user(
+                        username=validated_data['username'],
+                        email=validated_data['email'],
+                        password=validated_data['password'],
+                        first_name=validated_data.get('firstName', ''),
+                        middle_name=validated_data.get('middleName', ''),
+                        last_name=validated_data.get('lastName', ''),
+                        city=validated_data.get('city', ''),
+                        country=validated_data.get('country', ''),
+                        birthday=validated_data.get('birthday', None)
+                    )
+                    self.logger.info(f'User created successfully: {user.email} (ID: {user.id})')
+                except Exception as e:
+                    self.logger.error(
+                        f'Failed to create user: {str(e)}',
+                        exc_info=True,
+                        extra={
+                            'username': validated_data.get('username'),
+                            'email': validated_data.get('email'),
+                        }
+                    )
+                    return Response(
+                        {'error': 'Failed to create user account', 'detail': str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
+                # Create artist profile
+                try:
+                    artist, created = Artist.objects.get_or_create(
+                        user_id=user,
+                        defaults={'artist_types': artist_types}
+                    )
+                    if not created:
+                        # Artist already exists - update it (shouldn't happen in normal flow)
+                        self.logger.warning(
+                            f'Artist profile already existed for user: {user.email} (ID: {user.id}), updating it',
+                            extra={
+                                'user_id': user.id,
+                                'user_email': user.email,
+                                'artist_types': artist_types,
+                            }
+                        )
+                        artist.artist_types = artist_types
+                        artist.save()
+                    else:
+                        self.logger.info(f'Artist profile created successfully for user: {user.email} (ID: {user.id})')
+                except Exception as e:
+                    self.logger.error(
+                        f'Failed to create artist profile: {str(e)}',
+                        exc_info=True,
+                        extra={
+                            'user_id': user.id,
+                            'user_email': user.email,
+                            'artist_types': artist_types,
+                        }
+                    )
+                    # User was created but artist failed - transaction will rollback
+                    return Response(
+                        {'error': 'Failed to create artist profile', 'detail': str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
+
+            return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            self.logger.error(
+                f'Unexpected error during registration: {str(e)}',
+                exc_info=True,
+                extra={
+                    'username': validated_data.get('username'),
+                    'email': validated_data.get('email'),
                 }
+            )
+            return Response(
+                {'error': 'An unexpected error occurred during registration', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-                return Response(response_data, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                return Response({ 'error': f'Error creating user: {str(e)}' }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.all()
-    serializer_class = ProfileViewUpdateSerializer
+class ProfileRetrieveUpdateView(APIView):
     permission_classes = [IsAuthenticated]
-    lookup_field = 'id'
+    serializer_class = ProfileViewUpdateSerializer
 
-    # Delete old profile picture before updating
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        new_profile_picture = self.request.FILES.get('profilePicture', None)
+    logger = logging.getLogger(__name__)
 
+    def get_object(self, user_id):
+        """Get user object by id, ensuring user can only access their own profile unless superuser."""
+        try:
+            user = User.objects.get(id=user_id)
+            # Users can only access their own profile unless they're a superuser
+            if self.request.user.id != user.id and not self.request.user.is_superuser:
+                return None
+            return user
+        except User.DoesNotExist:
+            return None
+
+    def get(self, request, id):
+        """Retrieve user profile."""
+        user = self.get_object(id)
+        if not user:
+            return Response(
+                {'error': 'User not found or permission denied'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ProfileViewUpdateSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _delete_old_profile_picture(self, instance, new_profile_picture):
+        """Helper method to delete old profile picture before updating."""
         if new_profile_picture and instance.profile_picture:
             try:
                 # Check if file is in media/profile/images
@@ -359,11 +489,71 @@ class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
                 if (file_path.startswith(profile_images_path)) and instance.profile_picture.name != 'profile/images/default-pic-min.jpg':
                     if default_storage.exists(instance.profile_picture.name):
                         default_storage.delete(instance.profile_picture.name)
-
             except Exception as e:
-                print(f'Error deleting old profile picture: {e}')
+                # Log error and raise to return error response
+                self.logger.error(
+                    f'Failed to delete old profile picture for user {instance.id}: {e}',
+                    exc_info=True
+                )
+                raise
 
-        serializer.save()
+    def put(self, request, id):
+        """Update user profile (full update)."""
+        user = self.get_object(id)
+        if not user:
+            return Response(
+                {'error': 'User not found or permission denied'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        new_profile_picture = request.FILES.get('profilePicture', None)
+
+        # Delete old profile picture before updating
+        try:
+            self._delete_old_profile_picture(user, new_profile_picture)
+        except Exception as e:
+            return Response(
+                {
+                    'error': 'Failed to delete old profile picture',
+                    'detail': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        serializer = ProfileViewUpdateSerializer(user, data=request.data, files=request.FILES)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, id):
+        """Update user profile (partial update)."""
+        user = self.get_object(id)
+        if not user:
+            return Response(
+                {'error': 'User not found or permission denied'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        new_profile_picture = request.FILES.get('profilePicture', None)
+
+        # Delete old profile picture before updating
+        try:
+            self._delete_old_profile_picture(user, new_profile_picture)
+        except Exception as e:
+            return Response(
+                {
+                    'error': 'Failed to delete old profile picture',
+                    'detail': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        serializer = ProfileViewUpdateSerializer(user, data=request.data, partial=True, files=request.FILES)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============================================================================

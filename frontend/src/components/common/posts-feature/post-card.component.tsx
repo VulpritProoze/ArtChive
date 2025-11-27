@@ -59,6 +59,7 @@ export default function PostCard({
     closeTrophyListModal,
     showTrophyListModal,
     selectedPostForTrophyList,
+    setActivePost,
   } = usePostContext();
 
   const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
@@ -86,11 +87,14 @@ export default function PostCard({
 
         {/* Media Content */}
         {postItem.post_type === "image" && postItem.image_url && (
-          <div className="w-full h-96 bg-black flex items-center justify-center overflow-hidden">
+          <div 
+            className="w-full bg-black flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-95 transition-opacity"
+            onClick={() => setActivePost(postItem)}
+          >
             <img
               src={postItem.image_url}
               alt={postItem.description}
-              className="w-full h-full object-cover"
+              className="w-full h-auto max-h-[600px] object-contain"
             />
           </div>
         )}

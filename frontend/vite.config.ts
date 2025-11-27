@@ -23,7 +23,17 @@ export default defineConfig({
   ],
   build: {
     sourcemap: true,
-    chunkSizeWarningLimit: 1600,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['konva', 'react-konva', 'framer-motion'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'icon-vendor': ['@fortawesome/react-fontawesome', '@fortawesome/fontawesome-svg-core'],
+        }
+      }
+    }
   },
   resolve: {
     alias: {
