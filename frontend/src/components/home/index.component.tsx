@@ -1,89 +1,83 @@
 // artchive/frontend/src/home/index.component.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   CommentFormModal,
   PostFormModal,
-  PostViewModal,
   CritiqueFormModal,
   TrophySelectionModal,
 } from "@components/common/posts-feature/modal";
-import { PostLoadingIndicator } from "@components/common";
-import { usePostContext } from "@context/post-context";
+import { InfiniteScrolling } from "@components/common";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
 import { SkeletonPostCard } from "@components/common/skeleton";
+import { usePosts } from "@hooks/queries/use-posts";
+import { usePostUI } from "@context/post-ui-context";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 
 const Index: React.FC = () => {
   const {
     showCommentForm,
-    posts,
-    pagination,
     showPostForm,
     setShowPostForm,
-    loading,
-    setLoading,
-    loadingMore,
-    setLoadingMore,
-    fetchPosts,
-    activePost,
     showCritiqueForm,
-  } = usePostContext();
+  } = usePostUI();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+  } = usePosts();
+
+  const posts = useMemo(
+    () => data?.pages.flatMap((page) => page.results || []) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages?.[0]?.count ?? posts.length;
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  // Infinite scrolling behavior
   useEffect(() => {
-    let isFetching = false;
+    const target = observerTarget.current;
+    if (!target) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          pagination.hasNext &&
-          !loadingMore &&
-          !loading &&
-          !isFetching
+          hasNextPage &&
+          !isFetchingNextPage
         ) {
-          isFetching = true;
-          fetchPosts(pagination.currentPage + 1, true).finally(() => {
-            isFetching = false;
-          });
+          fetchNextPage();
         }
       },
       { threshold: 0.5 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
+    observer.observe(target);
     return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
+      observer.unobserve(target);
       observer.disconnect();
     };
-  }, [
-    pagination.hasNext,
-    loadingMore,
-    loading,
-    fetchPosts,
-    pagination.currentPage,
-  ]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  useEffect(() => {
-    setLoading(false);
-    setLoadingMore(false);
-  }, []);
+  const isInitialLoading = isLoading && posts.length === 0;
 
+  // Show error toast when there's an error
   useEffect(() => {
-    fetchPosts(1);
-  }, [fetchPosts]);
+    if (isError && error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to load posts', formatErrorForToast(message));
+    }
+  }, [isError, error]);
 
   return (
     <MainLayout>
       {/* Modals */}
-      {activePost && <PostViewModal />}
       {showPostForm && <PostFormModal />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
@@ -123,7 +117,7 @@ const Index: React.FC = () => {
         </div>
 
         {/* Loading State */}
-        {loading && posts.length === 0 && (
+        {isInitialLoading && (
           <SkeletonPostCard
             count={3}
             containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
@@ -133,12 +127,12 @@ const Index: React.FC = () => {
         {/* Posts Grid */}
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
           {posts.map((postItem) => (
-            <PostCard key={postItem.id} postItem={postItem} />
+            <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
           ))}
         </div>
 
         {/* Empty State */}
-        {posts.length === 0 && !loading && (
+        {posts.length === 0 && !isInitialLoading && !isError && (
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <div className="text-8xl mb-4">🎨</div>
             <h3 className="text-2xl font-bold text-base-content mb-2">
@@ -169,7 +163,13 @@ const Index: React.FC = () => {
           </div>
         )}
 
-        <PostLoadingIndicator observerTarget={observerTarget} />
+        <InfiniteScrolling
+          observerTarget={observerTarget}
+          isFetchingMore={isFetchingNextPage}
+          hasNextPage={!!hasNextPage}
+          totalCount={totalCount}
+          itemCount={posts.length}
+        />
       </div>
     </MainLayout>
   );

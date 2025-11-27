@@ -1,6 +1,6 @@
 import type { NovelPost, Post } from "@types";
 import { useState, useEffect } from "react";
-import { usePostContext } from "@context/post-context";
+import { usePostUI } from "@context/post-ui-context";
 
 interface PostItem extends Post {
   novel_post: NovelPost[];
@@ -8,8 +8,7 @@ interface PostItem extends Post {
 
 export default function NovelRenderer({ postItem }: { postItem: PostItem }) {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-
-  const { setActivePost } = usePostContext()
+  const { openPostModal } = usePostUI();
 
   // Reset to first chapter when post changes
   useEffect(() => {
@@ -72,7 +71,9 @@ export default function NovelRenderer({ postItem }: { postItem: PostItem }) {
         
         {/* Bottom fade overlay */}
         <div className="absolute bottom-0 left-0 right-0 h-32 flex justify-center items-end pb-0.5 bg-gradient-to-t from-base-100 to-transparent">
-          <button className="btn btn-xs btn-primary text-xs" onClick={() => setActivePost(postItem)}>See more in full tab view.</button>
+          <button className="btn btn-xs btn-primary text-xs" onClick={() => openPostModal(postItem)}>
+            See more in full tab view.
+          </button>
         </div>
       </div>
     </div>

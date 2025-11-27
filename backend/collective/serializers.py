@@ -431,14 +431,27 @@ class LeaveCollectiveSerializer(Serializer):
     collective_id = serializers.UUIDField()
 
     def validate_collective_id(self, value):
+        # Use collective instance from context if available (optimized)
+        collective = self.context.get('collective')
+        collective_exists = self.context.get('collective_exists', False)
+
+        if collective:
+            # Collective already fetched in view, just validate UUID matches
+            if collective.collective_id != value:
+                raise serializers.ValidationError("Collective ID mismatch.")
+            return value
+
+        # Fallback validation if collective not in context (shouldn't happen in normal flow)
         if not isinstance(value, uuid.UUID):
             try:
                 value = uuid.UUID(value)
             except ValueError:
-                raise serializers.ValidationError("Invalid UUID format.")
+                raise serializers.ValidationError("Invalid UUID format.")  # noqa: B904
 
-        if not Collective.objects.filter(collective_id=value).exists():
-            raise serializers.ValidationError("Collective not found.")
+        # Use existence flag from view to avoid duplicate query
+        if not collective_exists:
+            if not Collective.objects.filter(collective_id=value).exists():
+                raise serializers.ValidationError("Collective not found.")
 
         return value
 

@@ -6,6 +6,7 @@ import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { ARTIST_TYPE_VALUES, type ArtistType } from "@types";
 
 interface CollectiveEditModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface CollectiveEditModalProps {
 interface CollectiveData {
   description: string;
   rules: string[];
-  artist_types: string[];
+  artist_types: ArtistType[];
   picture: string;
 }
 
@@ -32,9 +33,14 @@ export default function CollectiveEditModal({
   const [formData, setFormData] = useState<CollectiveData>({
     description: "",
     rules: [""],
-    artist_types: [],
+    artist_types: [] as ArtistType[],
     picture: "",
   });
+  const [errors, setErrors] = useState<{
+    description?: string;
+    rules?: string;
+    artist_types?: string;
+  }>({});
   const [pictureFile, setPictureFile] = useState<File | null>(null);
   const [picturePreview, setPicturePreview] = useState<string>("");
 
@@ -52,7 +58,11 @@ export default function CollectiveEditModal({
       setFormData({
       description: data.description || "",
       rules: data.rules && data.rules.length > 0 ? data.rules : [""],
-      artist_types: data.artist_types && data.artist_types.length > 0 ? data.artist_types : [""],
+      artist_types: (data.artist_types && data.artist_types.length > 0 
+        ? data.artist_types.filter((type): type is ArtistType => 
+            ARTIST_TYPE_VALUES.includes(type as ArtistType)
+          )
+        : []) as ArtistType[],
       picture: data.picture || "",
       });
       setPicturePreview(data.picture || "");
@@ -66,20 +76,16 @@ export default function CollectiveEditModal({
     }
   };
 
-  const handleArtistTypeChange = (index: number, value: string) => {
-    const newArtistTypes = [...formData.artist_types];
-    newArtistTypes[index] = value;
-    setFormData({ ...formData, artist_types: newArtistTypes });
-  };
-
-  const addArtistType = () => {
-    setFormData({ ...formData, artist_types: [...formData.artist_types, ""] });
-  };
-
-  const removeArtistType = (index: number) => {
-    if (formData.artist_types.length > 1) {
-      const newArtistTypes = formData.artist_types.filter((_, i) => i !== index);
-      setFormData({ ...formData, artist_types: newArtistTypes });
+  const handleArtistTypeToggle = (artistType: ArtistType) => {
+    const currentTypes = formData.artist_types || [];
+    const newTypes = currentTypes.includes(artistType)
+      ? currentTypes.filter(type => type !== artistType)
+      : [...currentTypes, artistType];
+    
+    setFormData({ ...formData, artist_types: newTypes });
+    // Clear error when user selects
+    if (errors.artist_types) {
+      setErrors({ ...errors, artist_types: undefined });
     }
   };
 
@@ -112,8 +118,38 @@ export default function CollectiveEditModal({
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: typeof errors = {};
+
+    // Validate description
+    if (!formData.description.trim()) {
+      newErrors.description = "Description is required";
+    }
+
+    // Validate rules - at least one non-empty rule required
+    const validRules = formData.rules.filter((r) => r.trim());
+    if (validRules.length === 0) {
+      newErrors.rules = "At least one rule is required";
+    }
+
+    // Validate artist_types - at least one required
+    if (formData.artist_types.length === 0) {
+      newErrors.artist_types = "Select at least one artist type";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form
+    if (!validateForm()) {
+      toast.error("Validation failed", "Please fix the errors in the form");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -121,12 +157,14 @@ export default function CollectiveEditModal({
       if (formData.description.trim()) {
         updateData.description = formData.description.trim();
       }
-      if (formData.rules.filter((r) => r.trim()).length > 0) {
-        updateData.rules = formData.rules.filter((r) => r.trim());
-      }
-      if (formData.artist_types.filter((t) => t.trim()).length > 0) {
-        updateData.artist_types = formData.artist_types.filter((t) => t.trim());
-      }
+      
+      // Rules are required - send filtered non-empty rules
+      const validRules = formData.rules.filter((r) => r.trim());
+      updateData.rules = validRules;
+      
+      // Artist types are required
+      updateData.artist_types = formData.artist_types;
+      
       if (pictureFile) {
         updateData.picture = pictureFile;
       }
@@ -177,31 +215,44 @@ export default function CollectiveEditModal({
                     <span className="label-text font-semibold">Description *</span>
                   </label>
                   <textarea
-                    className="textarea textarea-bordered h-32"
+                    className={`textarea textarea-bordered h-32 ${errors.description ? 'textarea-error' : ''}`}
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, description: e.target.value });
+                      if (errors.description) {
+                        setErrors({ ...errors, description: undefined });
+                      }
+                    }}
                     placeholder="Describe your collective..."
                     required
                     maxLength={4096}
                     disabled={loading}
                   />
+                  {errors.description && (
+                    <div className="label">
+                      <span className="label-text-alt text-error">{errors.description}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Rules */}
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-semibold">Rules</span>
+                    <span className="label-text font-semibold">Rules *</span>
                   </label>
                   <div className="space-y-2">
                     {formData.rules.map((rule, index) => (
                       <div key={index} className="flex gap-2">
                         <input
                           type="text"
-                          className="input input-bordered flex-1"
+                          className={`input input-bordered flex-1 ${errors.rules ? 'input-error' : ''}`}
                           value={rule}
-                          onChange={(e) => handleRuleChange(index, e.target.value)}
+                          onChange={(e) => {
+                            handleRuleChange(index, e.target.value);
+                            if (errors.rules) {
+                              setErrors({ ...errors, rules: undefined });
+                            }
+                          }}
                           placeholder={`Rule ${index + 1}`}
                           maxLength={100}
                           disabled={loading}
@@ -226,46 +277,59 @@ export default function CollectiveEditModal({
                     >
                       + Add Rule
                     </button>
+                    {errors.rules && (
+                      <div className="label">
+                        <span className="label-text-alt text-error">{errors.rules}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Artist Types */}
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text font-semibold">Artist Types (max 5)</span>
+                    <span className="label-text font-semibold">Artist Types *</span>
                   </label>
-                  <div className="space-y-2">
-                    {formData.artist_types.map((type, index) => (
-                      <div key={index} className="flex gap-2">
-                        <input
-                          type="text"
-                          className="input input-bordered flex-1"
-                          value={type}
-                          onChange={(e) => handleArtistTypeChange(index, e.target.value)}
-                          placeholder={`Artist type ${index + 1}`}
-                          disabled={loading}
-                        />
-                        {formData.artist_types.length > 1 && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {ARTIST_TYPE_VALUES.map((artistType) => {
+                        const isSelected = formData.artist_types.includes(artistType);
+                        return (
                           <button
+                            key={artistType}
                             type="button"
-                            className="btn btn-sm btn-error"
-                            onClick={() => removeArtistType(index)}
-                            disabled={loading}
+                            onClick={() => handleArtistTypeToggle(artistType)}
+                            disabled={loading || (!isSelected && formData.artist_types.length >= 5)}
+                            className={`btn btn-sm ${
+                              isSelected
+                                ? "btn-primary"
+                                : "btn-outline"
+                            } ${!isSelected && formData.artist_types.length >= 5 ? "btn-disabled" : ""}`}
                           >
-                            <FontAwesomeIcon icon={faTimes} />
+                            <span className="capitalize">{artistType}</span>
                           </button>
-                        )}
+                        );
+                      })}
+                    </div>
+                    {errors.artist_types && (
+                      <div className="label">
+                        <span className="label-text-alt text-error">{errors.artist_types}</span>
                       </div>
-                    ))}
-                    {formData.artist_types.length < 5 && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline"
-                        onClick={addArtistType}
-                        disabled={loading}
-                      >
-                        + Add Artist Type
-                      </button>
+                    )}
+                    {formData.artist_types.length > 0 && (
+                      <div className="text-sm text-base-content/70">
+                        Selected ({formData.artist_types.length}):
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {formData.artist_types.map((type) => (
+                            <span
+                              key={type}
+                              className="badge badge-primary badge-sm"
+                            >
+                              {type}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -297,7 +361,7 @@ export default function CollectiveEditModal({
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={loading || !formData.description.trim()}
+                    disabled={loading || !formData.description.trim() || formData.artist_types.length === 0 || formData.rules.filter((r) => r.trim()).length === 0}
                   >
                     {loading ? (
                       <>
@@ -374,18 +438,18 @@ export default function CollectiveEditModal({
                         </div>
                       )}
 
-                      {formData.artist_types.filter((t) => t.trim()).length > 0 && (
+                      {formData.artist_types.length > 0 && (
                         <div>
-                          <h5 className="font-semibold text-sm text-base-content/70">
+                          <h5 className="font-semibold text-sm text-base-content/70 mb-2">
                             Artist Types
                           </h5>
-                          <ul className="list-disc list-inside text-sm space-y-1">
-                            {formData.artist_types
-                              .filter((t) => t.trim())
-                              .map((type, idx) => (
-                                <li key={idx}>{type}</li>
-                              ))}
-                          </ul>
+                          <div className="flex flex-wrap gap-1">
+                            {formData.artist_types.map((type, idx) => (
+                              <span key={idx} className="badge badge-primary badge-sm">
+                                {type}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

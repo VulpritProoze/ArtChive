@@ -1,8 +1,18 @@
+import uuid
 from collections import deque
 
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import (
+    Count,
+    Exists,
+    IntegerField,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+)
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.generics import (
@@ -43,7 +53,12 @@ from .models import (
     PostTrophy,
     TrophyType,
 )
-from .pagination import CommentPagination, CritiquePagination, PostPagination
+from .pagination import (
+    CommentPagination,
+    CritiquePagination,
+    PostListPagination,
+    PostPagination,
+)
 from .serializers import (
     CommentCreateSerializer,
     CommentDeleteSerializer,
@@ -141,38 +156,36 @@ class PostListView(generics.ListAPIView):
         Fetch public posts, and also posts from collectives the user has joined.
         Only returns active (non-deleted) posts.
         '''
+        from post.models import Comment
+
         user = self.request.user
 
-        # Prefetch top-level comments with reply counts; serializer will slice to the first 2
-        comments_prefetch = Prefetch(
-            'post_comment',
-            queryset=Comment.objects.get_active_objects()
-                .filter(replies_to__isnull=True, critique_id__isnull=True)
-                .select_related('author', 'author__artist')
-                .annotate(
-                    reply_count=Count(
-                        'comment_reply',
-                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False)
-                    )
-                )
-                .order_by('-created_at')
+        # Subquery for comment count (exclude deleted comments and critique replies)
+        comment_count_subquery = Subquery(
+            Comment.objects.get_active_objects().filter(
+                post_id=OuterRef('pk'),
+                is_critique_reply=False
+            ).values('post_id').annotate(count=Count('comment_id')).values('count')[:1],
+            output_field=IntegerField()
         )
 
-        # Build base queryset with common optimizations
+        # Build base queryset with COUNT annotations only (no prefetching of full objects)
         queryset = Post.objects.get_active_objects().annotate(
-            # Annotate comment count to avoid separate COUNT queries (exclude critique replies)
-            total_comment_count=Count(
-                'post_comment',
-                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
-            ),
+            # Annotate comment count using subquery (exclude critique replies)
+            total_comment_count=comment_count_subquery,
             # Annotate hearts count to avoid separate COUNT queries
-            total_hearts_count=Count('post_heart'),
+            total_hearts_count=Count('post_heart', distinct=True),
+            total_praise_count=Count('post_praise', distinct=True),
+            total_trophy_count=Count('post_trophy', distinct=True),
         ).prefetch_related(
-            'novel_post',
+            'novel_post',  # Keep - needed for novel posts
             'channel',
             'channel__collective',  # needed for collective filtering
-            comments_prefetch,  # Optimized comment prefetch with author and artist
-            'post_heart',  # Prefetch all hearts for is_hearted check
+            # REMOVED: comments_prefetch - comments fetched separately via API
+            # REMOVED: 'post_heart' - only need count, not full objects
+            # REMOVED: 'post_praise' - only need count, not full objects
+            # REMOVED: 'post_trophy' - only need count, not full objects
+            # REMOVED: 'post_trophy__post_trophy_type' - only need count, not full objects
         ).select_related(
             'author',
             'author__artist',  # Fetch artist info for post author
@@ -186,7 +199,18 @@ class PostListView(generics.ListAPIView):
                         post_id=OuterRef('pk'),
                         author=user
                     )
-                )
+                ),
+                is_praised_by_current_user=Exists(
+                    PostPraise.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                ),
+                user_trophies_for_post=ArrayAgg(
+                    'post_trophy__post_trophy_type__trophy',
+                    filter=Q(post_trophy__author=user),
+                    distinct=True
+                ),
             )
 
             joined_collectives = CollectiveMember.objects.filter(
@@ -527,8 +551,10 @@ class UserHeartedPostsListView(generics.ListAPIView):
         ).select_related('post_id', 'author').order_by('-hearted_at')
 
 class PostHeartsListView(ListAPIView):
-    """List all hearts for a specific post"""
+    """List all hearts for a specific post (paginated)"""
     serializer_class = PostHeartSerializer
+    pagination_class = PostListPagination
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         post_id = self.kwargs.get('post_id')
@@ -779,10 +805,11 @@ class PostPraiseCreateView(APIView):
 
 class PostPraiseListView(generics.ListAPIView):
     """
-    List all praises for a specific post
+    List all praises for a specific post (paginated)
     GET /api/posts/<post_id>/praises/
     """
     serializer_class = PostPraiseSerializer
+    pagination_class = PostListPagination
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -804,6 +831,75 @@ class UserPraisedPostsListView(generics.ListAPIView):
         return PostPraise.objects.filter(
             author=self.request.user
         ).select_related('author', 'post_id').order_by('-praised_at')
+
+
+class BulkPostPraiseCountView(APIView):
+    """
+    Get praise counts for multiple posts in a single request
+    POST /api/posts/bulk/praises/count/
+    Body: {"post_ids": ["uuid1", "uuid2", ...]}
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        post_ids = request.data.get('post_ids')
+        if not isinstance(post_ids, list) or not post_ids or len(post_ids) > 50:
+            return Response(
+                {'error': 'Provide between 1 and 50 post IDs'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        normalized_ids = []
+        normalized_uuid = []
+        seen = set()
+        for pid in post_ids:
+            try:
+                post_uuid = uuid.UUID(str(pid))
+            except (ValueError, TypeError):
+                return Response({'error': f'Invalid post ID: {pid}'}, status=status.HTTP_400_BAD_REQUEST)
+            str_id = str(post_uuid)
+            if str_id in seen:
+                continue
+            seen.add(str_id)
+            normalized_ids.append(str_id)
+            normalized_uuid.append(post_uuid)
+
+        user_id = request.user.id
+        results = {}
+        missing_ids = []
+
+        for post_id in normalized_ids:
+            cache_key = get_post_praise_count_cache_key(post_id, user_id)
+            cached_payload = cache.get(cache_key)
+            if cached_payload:
+                results[post_id] = cached_payload
+            else:
+                missing_ids.append(post_id)
+
+        if missing_ids:
+            missing_uuid = [uuid.UUID(post_id) for post_id in missing_ids]
+            praise_queryset = PostPraise.objects.filter(
+                post_id__in=missing_uuid
+            ).values('post_id').annotate(
+                total_count=Count('id'),
+                user_count=Count('id', filter=Q(author=request.user)),
+            )
+            praise_map = {
+                str(row['post_id']): row for row in praise_queryset
+            }
+
+            for post_id in missing_ids:
+                aggregate = praise_map.get(post_id, {'total_count': 0, 'user_count': 0})
+                payload = {
+                    'post_id': post_id,
+                    'praise_count': aggregate['total_count'] or 0,
+                    'is_praised_by_user': bool(aggregate['user_count']),
+                }
+                results[post_id] = payload
+                cache_key = get_post_praise_count_cache_key(post_id, user_id)
+                cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+
+        return Response(results, status=status.HTTP_200_OK)
 
 
 class PostPraiseCountView(APIView):
@@ -954,10 +1050,11 @@ class PostTrophyCreateView(APIView):
 
 class PostTrophyListView(generics.ListAPIView):
     """
-    List all trophies for a specific post
+    List all trophies for a specific post (paginated)
     GET /api/posts/<post_id>/trophies/
     """
     serializer_class = PostTrophySerializer
+    pagination_class = PostListPagination
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -979,6 +1076,92 @@ class UserAwardedTrophiesListView(generics.ListAPIView):
         return PostTrophy.objects.filter(
             author=self.request.user
         ).select_related('author', 'post_id', 'post_trophy_type').order_by('-awarded_at')
+
+
+class BulkPostTrophyCountView(APIView):
+    """
+    Get trophy counts (per type) for multiple posts in a single request
+    POST /api/posts/bulk/trophies/count/
+    Body: {"post_ids": ["uuid1", "uuid2", ...]}
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        post_ids = request.data.get('post_ids')
+        if not isinstance(post_ids, list) or not post_ids or len(post_ids) > 50:
+            return Response(
+                {'error': 'Provide between 1 and 50 post IDs'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        normalized_ids = []
+        normalized_uuid = []
+        seen = set()
+        for pid in post_ids:
+            try:
+                post_uuid = uuid.UUID(str(pid))
+            except (ValueError, TypeError):
+                return Response({'error': f'Invalid post ID: {pid}'}, status=status.HTTP_400_BAD_REQUEST)
+            str_id = str(post_uuid)
+            if str_id in seen:
+                continue
+            seen.add(str_id)
+            normalized_ids.append(str_id)
+            normalized_uuid.append(post_uuid)
+
+        user_id = request.user.id
+        results = {}
+        missing_ids = []
+
+        for post_id in normalized_ids:
+            cache_key = get_post_trophy_count_cache_key(post_id, user_id)
+            cached_payload = cache.get(cache_key)
+            if cached_payload:
+                results[post_id] = cached_payload
+            else:
+                missing_ids.append(post_id)
+
+        if missing_ids:
+            missing_uuid = [uuid.UUID(post_id) for post_id in missing_ids]
+            trophies = PostTrophy.objects.filter(
+                post_id__in=missing_uuid
+            ).values('post_id', 'post_trophy_type__trophy').annotate(count=Count('id'))
+
+            user_trophies = PostTrophy.objects.filter(
+                post_id__in=missing_uuid,
+                author=request.user
+            ).values('post_id', 'post_trophy_type__trophy')
+
+            trophy_map = {}
+            for row in trophies:
+                str_id = str(row['post_id'])
+                trophy_map.setdefault(str_id, {})
+                trophy_map[str_id][row['post_trophy_type__trophy']] = row['count']
+
+            user_trophy_map = {}
+            for row in user_trophies:
+                str_id = str(row['post_id'])
+                user_trophy_map.setdefault(str_id, [])
+                user_trophy_map[str_id].append(row['post_trophy_type__trophy'])
+
+            all_trophy_types = list(TrophyType.objects.values_list('trophy', flat=True))
+
+            for post_id in missing_ids:
+                counts = trophy_map.get(post_id, {}).copy()
+                for trophy_type in all_trophy_types:
+                    counts.setdefault(trophy_type, 0)
+                total = sum(counts.values())
+                payload = {
+                    'post_id': post_id,
+                    'trophy_counts': counts,
+                    'total_trophy_count': total,
+                    'user_awarded_trophies': user_trophy_map.get(post_id, []),
+                }
+                results[post_id] = payload
+                cache_key = get_post_trophy_count_cache_key(post_id, user_id)
+                cache.set(cache_key, payload, POST_META_COUNT_CACHE_TIMEOUT)
+
+        return Response(results, status=status.HTTP_200_OK)
 
 
 class PostTrophyCountView(APIView):

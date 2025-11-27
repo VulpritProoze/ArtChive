@@ -87,28 +87,6 @@ class RegistrationSerializer(ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
-        artist_types = validated_data.pop('artistTypes', [])
-
-        try:
-            # Create user
-            user = User.objects.create_user(
-                username=validated_data['username'],
-                email=validated_data['email'],
-                password=validated_data['password'],
-                first_name=validated_data.get('first_name', ''),
-                middle_name=validated_data.get('middle_name', ''),
-                last_name=validated_data.get('last_name', ''),
-                city=validated_data.get('city', ''),
-                country=validated_data.get('country', ''),
-                birthday=validated_data.get('birthday', None)
-            )
-
-            Artist.objects.create(user_id=user, artist_types=artist_types)
-            return user
-        except Exception:
-            raise serializers.ValidationError({'general': 'Failed to create account. Either the user object failed to create, or the artist object failed to create'})
-
 class ProfileViewUpdateSerializer(ModelSerializer):
     firstName = serializers.CharField(source='first_name', required=False, allow_blank=True, max_length=255)
     middleName = serializers.CharField(source='middle_name', required=False, allow_blank=True, max_length=100)
@@ -339,7 +317,7 @@ class BrushDripTransactionCreateSerializer(serializers.ModelSerializer):
                     f"Insufficient balance. Available: {sender_wallet.balance}, Required: {amount}"
                 )
         except BrushDripWallet.DoesNotExist:
-            raise serializers.ValidationError("Sender wallet not found.")
+            raise serializers.ValidationError("Sender wallet not found.") from None
 
         # Check if receiver wallet exists
         if not BrushDripWallet.objects.filter(user=transacted_to).exists():

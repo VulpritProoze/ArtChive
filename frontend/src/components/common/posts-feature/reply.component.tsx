@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { usePostContext } from "@context/post-context";
-import usePost from "@hooks/use-post";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Comment } from "@types";
 import formatArtistTypesArrToString from "@utils/format-artisttypes-arr-to-string";
 import { useAuth } from "@context/auth-context";
+import { usePostUI } from "@context/post-ui-context";
+import {
+  useReplies,
+  useCreateReply,
+  useDeleteComment,
+} from "@hooks/queries/use-comments";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 
 interface ReplyComponentProps {
   comment: Comment;
@@ -19,66 +25,90 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   highlightedItemId,
 }) => {
   const {
-    handleReplySubmit,
-    replyForms,
-    loadingReplies,
-    deleteComment,
-    toggleReplyForm,
-  } = usePostContext();
-
-  const {
-    setupNewReply,
-    handleReplyChange,
-    handleToggleReplies,
-    setupEditComment,
-  } = usePost();
+    setSelectedComment,
+    setShowCommentForm,
+    setCommentTargetPostId,
+    setEditingComment,
+  } = usePostUI();
 
   const { user } = useAuth();
   const [localReplyText, setLocalReplyText] = useState("");
+  const [isReplying, setIsReplying] = useState(comment.is_replying ?? false);
+  const [showReplies, setShowReplies] = useState(depth > 0 ? true : Boolean(comment.show_replies));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const replyForm = replyForms[comment.comment_id];
-  const isLoadingReplies = loadingReplies[comment.comment_id];
   const replyCount = comment.reply_count || 0;
-  const hasReplies = replyCount > 0 || (comment.replies && comment.replies.length > 0);
+  const hasReplies = replyCount > 0 || (comment.replies?.length ?? 0) > 0;
   const isTopLevel = depth === 0;
-  
-  // Check if current user is the author of this comment
+
+  const shouldFetchReplies = showReplies && hasReplies;
+  const {
+    data: repliesData,
+    isFetching: isFetchingReplies,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useReplies(comment.comment_id, shouldFetchReplies);
+
+  // Flatten paginated replies
+  const fetchedReplies = repliesData?.pages.flatMap((page) => page.results) ?? [];
+  const replies = useMemo(
+    () => fetchedReplies.length > 0 ? fetchedReplies : (comment.replies ?? []),
+    [fetchedReplies, comment.replies],
+  );
+
+  const { mutateAsync: createReplyMutation, isPending: isCreatingReply } = useCreateReply();
+  const { mutateAsync: deleteCommentMutation, isPending: isDeletingComment } = useDeleteComment();
+
   const isAuthor = user?.id === comment.author;
   const canEditOrDelete = isAuthor;
-  
-  // Sync local text with reply form
-  useEffect(() => {
-    if (replyForm?.text !== undefined) {
-      setLocalReplyText(replyForm.text);
-    }
-  }, [replyForm?.text]);
-  
-  // Check if this comment or reply should be highlighted
+
   const commentId = `comment-${comment.comment_id}`;
   const replyId = `reply-${comment.comment_id}`;
   const isHighlighted = highlightedItemId === commentId || highlightedItemId === replyId;
 
-  const handleLocalReplyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalReplyText(e.target.value);
-  };
-
-  const handleLocalReplyBlur = () => {
-    handleReplyChange(comment.comment_id, localReplyText);
-  };
+  useEffect(() => {
+    if (highlightedItemId && highlightedItemId.startsWith("reply-") && depth === 0) {
+      setShowReplies(true);
+    }
+  }, [highlightedItemId, depth]);
 
   const handleLocalReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!localReplyText.trim() || isSubmitting) return;
-    
+
     setIsSubmitting(true);
     try {
-      // Sync before submitting
-      handleReplyChange(comment.comment_id, localReplyText);
-      await handleReplySubmit(e, comment.comment_id);
+      await createReplyMutation({
+        text: localReplyText.trim(),
+        replies_to: comment.comment_id,
+        post_id: postId,
+      });
+      toast.success("Reply posted", "Your reply has been added successfully");
       setLocalReplyText("");
+      setIsReplying(false);
+      setShowReplies(true);
+      // Replies will be refetched automatically via query invalidation
+    } catch (error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error("Failed to post reply", formatErrorForToast(message));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleReplies = () => {
+    setShowReplies((prev) => !prev);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      await deleteCommentMutation({ commentId: comment.comment_id, postId });
+      toast.success("Comment deleted", "The comment has been removed successfully");
+    } catch (error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error("Failed to delete comment", formatErrorForToast(message));
     }
   };
 
@@ -136,28 +166,17 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                 {isTopLevel && (
                   <button
                     className="text-xs font-semibold cursor-pointer text-gray-500 hover:text-gray-700 transition-colors"
-                    onClick={() => setupNewReply(comment.comment_id, postId)}
+                    onClick={() => {
+                      setIsReplying(true);
+                      setLocalReplyText("");
+                      setShowReplies(true);
+                    }}
                   >
                     Reply
                   </button>
                 )}
 
-                {/* Show Replies Toggle - only for top-level comments with replies */}
-                {isTopLevel && hasReplies && (
-                  <button
-                    className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
-                    onClick={() => handleToggleReplies(comment.comment_id)}
-                    disabled={isLoadingReplies}
-                  >
-                    <span className="cursor-pointer flex flex-row gap-1 items-center">
-                      {isLoadingReplies && comment.show_replies && (
-                        <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
-                      )}{" "}
-                      {comment.show_replies ? "Hide" : "View"} {replyCount}{" "}
-                      {replyCount === 1 ? "reply" : "replies"}
-                    </span>
-                  </button>
-                )}
+                {/* Removed duplicate "View replies" button - kept only the Instagram-style one at bottom */}
               </div>
             </div>
 
@@ -180,15 +199,28 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                 <div className="absolute right-0 top-6 hidden group-hover:block bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[120px]">
                   <button
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setupEditComment(comment)}
+                    onClick={() => {
+                      setSelectedComment(comment);
+                      setCommentTargetPostId(postId);
+                      setEditingComment(true);
+                      setShowCommentForm(true);
+                    }}
                   >
                     Edit
                   </button>
                   <button
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
-                    onClick={() => deleteComment(comment.comment_id, postId)}
+                    onClick={handleDelete}
+                    disabled={isDeletingComment}
                   >
-                    Delete
+                    {isDeletingComment ? (
+                      <span className="flex items-center gap-2">
+                        <span className="loading loading-spinner loading-xs"></span>
+                        Deleting...
+                      </span>
+                    ) : (
+                      "Delete"
+                    )}
                   </button>
                 </div>
               </div>
@@ -196,8 +228,11 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
           </div>
 
           {/* Reply Form */}
-          {comment.is_replying && (
-            <div className="mt-4 bg-base-200/50 rounded-lg p-3 border border-base-300">
+          {isReplying && (
+            <form
+              className="mt-4 bg-base-200/50 rounded-lg p-3 border border-base-300"
+              onSubmit={handleLocalReplySubmit}
+            >
               <div className="flex gap-3 items-start">
                 {/* User Avatar */}
                 <div className="flex-shrink-0">
@@ -219,13 +254,12 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                   <input
                     type="text"
                     value={localReplyText}
-                    onChange={handleLocalReplyChange}
-                    onBlur={handleLocalReplyBlur}
+                    onChange={(e) => setLocalReplyText(e.target.value)}
                     placeholder="Write a reply..."
                     className="w-full px-4 py-2 text-sm bg-base-100 border border-base-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                     required
                     autoFocus
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isCreatingReply}
                     maxLength={500}
                   />
                   
@@ -241,20 +275,19 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                         type="button"
                         className="btn btn-ghost btn-xs text-base-content/70 hover:text-error"
                         onClick={() => {
-                          toggleReplyForm(comment.comment_id);
+                          setIsReplying(false);
                           setLocalReplyText("");
                         }}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isCreatingReply}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         className="btn btn-primary btn-xs gap-1"
-                        onClick={handleLocalReplySubmit}
-                        disabled={!localReplyText.trim() || isSubmitting}
+                        disabled={!localReplyText.trim() || isSubmitting || isCreatingReply}
                       >
-                        {isSubmitting ? (
+                        {isSubmitting || isCreatingReply ? (
                           <>
                             <span className="loading loading-spinner loading-xs"></span>
                             Posting...
@@ -272,15 +305,15 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </form>
           )}
         </div>
       </div>
 
       {/* Nested Replies */}
-      {comment.show_replies && comment.replies && (
+      {showReplies && replies.length > 0 && (
         <div className="mt-3 space-y-3">
-          {comment.replies.map((reply) => (
+          {replies.map((reply) => (
             <ReplyComponent
               key={reply.comment_id}
               comment={reply}
@@ -289,21 +322,39 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
               highlightedItemId={highlightedItemId}
             />
           ))}
+          
+          {/* Load More Replies Button */}
+          {hasNextPage && (
+            <button
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1 ml-12"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
+                  Loading more...
+                </>
+              ) : (
+                "Load more replies"
+              )}
+            </button>
+          )}
         </div>
       )}
 
       {/* View Replies Line - Instagram style */}
-      {isTopLevel && hasReplies && !comment.show_replies && (
+      {isTopLevel && hasReplies && !showReplies && (
         <div className="mt-2 flex items-center gap-2">
           <div className="w-8 flex justify-center">
             <div className="w-0.5 h-6 bg-gray-300"></div>
           </div>
           <button
             className="text-xs font-semibold cursor-pointer text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
-            onClick={() => handleToggleReplies(comment.comment_id)}
-            disabled={isLoadingReplies}
+            onClick={handleToggleReplies}
+            disabled={isFetchingReplies}
           >
-            {isLoadingReplies ? (
+            {isFetchingReplies ? (
               <>
                 <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
                 Loading replies...

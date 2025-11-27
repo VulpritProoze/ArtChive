@@ -4,9 +4,11 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
-import { ARTIST_TYPE_VALUES } from "@types";
+import { ARTIST_TYPE_VALUES, ARTIST_TYPE_KEYWORDS } from "@types";
 import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
+import { formatErrorForToast, handleApiError, toast } from "@/utils";
+import { defaultErrors } from "@/errors";
 
 export default function Register() {
   const { register: registerRoute } = useAuth();
@@ -89,6 +91,7 @@ export default function Register() {
   });
 
   const [selectedArtistTypes, setSelectedArtistTypes] = useState<string[]>([]);
+  const [allowSubmission, setAllowSubmission] = useState(false);
   const formValues = watch();
 
   const handleArtistTypeChange = (type: string) => {
@@ -106,7 +109,13 @@ export default function Register() {
     setValue("artistTypes", updatedTypes as any);
   };
 
-  const nextStep = async () => {
+  const nextStep = async (e?: React.MouseEvent) => {
+    // Prevent any form submission
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     let fieldsToValidate: (keyof FormFields)[] = [];
 
     if (currentStep === 1) {
@@ -117,6 +126,8 @@ export default function Register() {
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
+      // Reset submission flag when moving to next step
+      setAllowSubmission(false);
       setCurrentStep(currentStep + 1);
     }
   };
@@ -126,6 +137,14 @@ export default function Register() {
   };
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
+    // Only allow submission on step 4 and if explicitly allowed
+    if (currentStep !== 4 || !allowSubmission) {
+      return;
+    }
+
+    // Reset the flag after checking
+    setAllowSubmission(false);
+
     try {
       const success = await registerRoute(
         data.username,
@@ -146,21 +165,18 @@ export default function Register() {
         message: error as string,
       });
       console.error("Registration failed: ", error);
+      const message = formatErrorForToast(handleApiError(error, defaultErrors, true, true))
+      toast.error("Registration failed", message)
     }
   };
 
-  const artistTypeImages: Record<string, string> = {
-    "visual arts": "/api/placeholder/120/120",
-    "digital & new media arts": "/api/placeholder/120/120",
-    "literary arts": "/api/placeholder/120/120",
-    "performance arts": "/api/placeholder/120/120",
-    "music art": "/api/placeholder/120/120",
-    "culinary art": "/api/placeholder/120/120",
-    "functional art": "/api/placeholder/120/120",
-    "environmental art": "/api/placeholder/120/120",
-    "film art": "/api/placeholder/120/120",
-    "cross-disciplinary art": "/api/placeholder/120/120",
-  };
+  // Generate artist type images dynamically from ARTIST_TYPE_VALUES and ARTIST_TYPE_KEYWORDS
+  const artistTypeImages: Record<string, string> = Object.fromEntries(
+    ARTIST_TYPE_VALUES.map((type) => [
+      type,
+      `https://loremflickr.com/120/120/${ARTIST_TYPE_KEYWORDS[type] || "art,creative"}`,
+    ])
+  );
 
   return (
     <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
@@ -213,7 +229,25 @@ export default function Register() {
           </div>
 
           {/* Form Content */}
-          <form onSubmit={handleSubmit(onSubmit)} className="px-6 pb-6">
+          <form 
+            onSubmit={(e) => {
+              // Always prevent default and only allow submission if explicitly triggered
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // Only proceed if we're on step 4 and submission is allowed
+              if (currentStep === 4 && allowSubmission) {
+                handleSubmit(onSubmit)(e);
+              }
+            }} 
+            onKeyDown={(e) => {
+              // Prevent Enter key from submitting form unless on step 4 and submit button is focused
+              if (e.key === 'Enter' && currentStep !== 4) {
+                e.preventDefault();
+              }
+            }}
+            className="px-6 pb-6"
+          >
             {errors.root && (
               <div className="alert alert-error mb-4 text-sm">
                 <span>{errors.root.message}</span>
@@ -299,7 +333,9 @@ export default function Register() {
             {currentStep === 2 && (
               <div className="space-y-4">
                 <p className="text-sm text-center text-base-content/60 mb-4">
-                  Tell us a bit more about yourself 
+                  Tell us a bit more about yourself
+                  <br></br>
+                  <span className="italic text-xs text-base-content/60">(All fields are optional)</span>
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -317,7 +353,7 @@ export default function Register() {
 
                   <div>
                     <label className="block text-xs font-semibold mb-1 text-base-content/70 flex items-center gap-1">
-                      <i className="fas fa-user text-xs"></i> Middle Name (Optional)
+                      <i className="fas fa-user text-xs"></i> Middle Name
                     </label>
                     <input
                       type="text"
@@ -480,14 +516,21 @@ export default function Register() {
               {currentStep < 4 ? (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={(e) => nextStep(e)}
                   className="btn btn-sm btn-primary gap-1 ml-auto"
                 >
                   NEXT <i className="fas fa-arrow-right"></i>
                 </button>
               ) : (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAllowSubmission(true);
+                    // Trigger form submission manually
+                    handleSubmit(onSubmit)();
+                  }}
                   className="btn btn-sm btn-success gap-1 ml-auto"
                   disabled={isSubmitting}
                 >

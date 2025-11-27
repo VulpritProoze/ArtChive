@@ -5,6 +5,7 @@ import { core } from "@lib/api";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import type { UserProfile } from "@types";
+import { ARTIST_TYPE_VALUES, type ArtistType } from "@types";
 import { MainLayout } from "@components/common/layout";
 
 const ProfileComponent: React.FC = () => {
@@ -127,26 +128,15 @@ const ProfileComponent: React.FC = () => {
     }));
   };
 
-  const handleArtistTypeChange = (index: number, value: string) => {
-    const newArtistTypes = [...profile.artistTypes];
-    newArtistTypes[index] = value;
+  const handleArtistTypeToggle = (artistType: ArtistType) => {
+    const currentTypes = profile.artistTypes || [];
+    const newTypes = currentTypes.includes(artistType)
+      ? currentTypes.filter(type => type !== artistType)
+      : [...currentTypes, artistType];
+    
     setProfile((prev) => ({
       ...prev,
-      artistTypes: newArtistTypes,
-    }));
-  };
-
-  const addArtistType = () => {
-    setProfile((prev) => ({
-      ...prev,
-      artistTypes: [...prev.artistTypes, ""],
-    }));
-  };
-
-  const removeArtistType = (index: number) => {
-    setProfile((prev) => ({
-      ...prev,
-      artistTypes: prev.artistTypes.filter((_, i) => i !== index),
+      artistTypes: newTypes,
     }));
   };
 
@@ -267,7 +257,7 @@ const ProfileComponent: React.FC = () => {
                 <input
                   type="text"
                   value={profile.username}
-                  className="input input-bordered bg-base-200"
+                  className="input input-bordered bg-base-200 w-full"
                   disabled
                 />
               </div>
@@ -282,7 +272,7 @@ const ProfileComponent: React.FC = () => {
                 <input
                   type="email"
                   value={profile.email}
-                  className="input input-bordered bg-base-200"
+                  className="input input-bordered bg-base-200 w-full"
                   disabled
                 />
               </div>
@@ -297,7 +287,7 @@ const ProfileComponent: React.FC = () => {
                   name="firstName"
                   value={profile.firstName}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -315,7 +305,7 @@ const ProfileComponent: React.FC = () => {
                   name="middleName"
                   value={profile.middleName}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -333,7 +323,7 @@ const ProfileComponent: React.FC = () => {
                   name="lastName"
                   value={profile.lastName}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -353,7 +343,7 @@ const ProfileComponent: React.FC = () => {
                   name="city"
                   value={profile.city}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -373,7 +363,7 @@ const ProfileComponent: React.FC = () => {
                   name="country"
                   value={profile.country}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -393,7 +383,7 @@ const ProfileComponent: React.FC = () => {
                   name="contactNo"
                   value={profile.contactNo}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -413,7 +403,7 @@ const ProfileComponent: React.FC = () => {
                   name="birthday"
                   value={profile.birthday}
                   onChange={handleInputChange}
-                  className={`input input-bordered ${
+                  className={`input input-bordered w-full ${
                     isEditing ? "input-primary" : "bg-base-200"
                   }`}
                   disabled={!isEditing}
@@ -425,69 +415,68 @@ const ProfileComponent: React.FC = () => {
             <div className="mb-6 p-4 bg-base-200/50 rounded-xl">
               <label className="label">
                 <span className="label-text font-semibold text-lg flex items-center gap-2">
-                  <span>🎨</span> Artist Types (max 5)
+                  <span>🎨</span> Artist Types
                 </span>
               </label>
-              <div className="space-y-3">
-                {profile.artistTypes.map((type, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={type}
-                      onChange={(e) =>
-                        handleArtistTypeChange(index, e.target.value)
-                      }
-                      className={`input input-bordered flex-1 ${
-                        isEditing ? "input-primary" : "bg-base-200"
-                      }`}
-                      disabled={!isEditing}
-                      placeholder="e.g., Digital Artist, Illustrator"
-                    />
-                    {isEditing && profile.artistTypes.length > 1 && (
+              <p className="text-base-content/70 text-sm mb-4">
+                Select the types of art you practice
+              </p>
+              {isEditing ? (
+                <div className="flex flex-wrap gap-2">
+                  {ARTIST_TYPE_VALUES.map((artistType) => {
+                    const isSelected = profile.artistTypes?.includes(artistType);
+                    return (
                       <button
+                        key={artistType}
                         type="button"
-                        onClick={() => removeArtistType(index)}
-                        className="btn btn-error btn-square"
+                        onClick={() => handleArtistTypeToggle(artistType)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-primary text-primary-content shadow-md scale-105'
+                            : 'bg-base-200 text-base-content hover:bg-base-300'
+                        }`}
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <span className="capitalize">{artistType}</span>
+                        {isSelected && <span className="ml-2">✓</span>}
                       </button>
-                    )}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {profile.artistTypes && profile.artistTypes.length > 0 ? (
+                    profile.artistTypes.map((type) => (
+                      <span
+                        key={type}
+                        className="badge badge-primary capitalize text-sm"
+                      >
+                        {type}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-base-content/60 text-sm">No artist types selected</span>
+                  )}
+                </div>
+              )}
+              {/* Selected Artist Types Preview (when editing) */}
+              {isEditing && (profile.artistTypes?.length || 0) > 0 && (
+                <div className="mt-4 p-3 bg-primary/10 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold text-sm text-base-content">
+                      Selected ({profile.artistTypes?.length}):
+                    </span>
                   </div>
-                ))}
-              </div>
-              {isEditing && profile.artistTypes.length < 5 && (
-                <button
-                  type="button"
-                  onClick={addArtistType}
-                  className="btn btn-outline btn-sm mt-3 gap-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Add Artist Type
-                </button>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.artistTypes?.map((type) => (
+                      <span
+                        key={type}
+                        className="badge badge-primary capitalize text-xs"
+                      >
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

@@ -3,77 +3,150 @@ import {
   PostHeader,
   NovelRenderer,
   HeartButton,
-  CommentsRenderer,
-  CommentsRendererFull,
   CritiqueSection,
+  DetailedCommentSection,
 } from "@components/common/posts-feature";
-import { 
+import {
   PraiseListModal,
   TrophyListModal,
   HeartListModal,
-} from "@components/common/posts-feature/modal"
-import { usePostContext } from "@context/post-context";
+} from "@components/common/posts-feature/modal";
+import { usePostUI } from "@context/post-ui-context";
+import {
+  useHeartPost,
+  useUnheartPost,
+  usePraisePost,
+} from "@hooks/mutations/use-post-mutations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBookmark,
   faCommentDots,
   faPaperPlane,
-  faStar,
   faHandsClapping,
   faTrophy,
+  faStar,
 } from "@fortawesome/free-solid-svg-icons";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface PostCardPostItem extends Post {
   novel_post: NovelPost[];
 }
 
-export default function PostCard({ 
-  postItem, 
+export default function PostCard({
+  postItem,
   highlightedItemId,
-  isDetailView = false,
-}: { 
+}: {
   postItem: PostCardPostItem;
   highlightedItemId?: string | null;
-  isDetailView?: boolean;
 }) {
   const {
-    heartPost,
-    unheartPost,
-    loadingHearts,
-    loadingComments,
-    loadingCritiques,
-    fetchCritiquesForPost,
-    praisePost,
-    loadingPraise,
-    praiseStatus,
-    fetchPraiseStatus,
-    openTrophyModal,
-    trophyStatus,
-    fetchTrophyStatus,
-    openPraiseListModal,
-    closePraiseListModal,
     showPraiseListModal,
+    setShowPraiseListModal,
     selectedPostForPraiseList,
-    openTrophyListModal,
-    closeTrophyListModal,
+    setSelectedPostForPraiseList,
     showTrophyListModal,
+    setShowTrophyListModal,
     selectedPostForTrophyList,
-  } = usePostContext();
+    setSelectedPostForTrophyList,
+    showHeartListModal,
+    setShowHeartListModal,
+    selectedPostForHeartList,
+    setSelectedPostForHeartList,
+    setShowTrophyModal,
+    setSelectedPostForTrophy,
+    setSelectedPostTrophyAwards,
+  } = usePostUI();
+  const { mutate: heartPostMutation, isPending: isHearting } = useHeartPost();
+  const { mutate: unheartPostMutation, isPending: isUnhearting } = useUnheartPost();
+  const { mutate: praisePostMutation, isPending: isPraising } = usePraisePost();
+  const praiseCount = postItem.praise_count ?? 0;
+  const isPraised = postItem.is_praised_by_user ?? false;
+  const trophyCounts = postItem.trophy_counts_by_type ?? {};
+  const userAwardedTrophies = postItem.user_awarded_trophies ?? [];
+  const isHeartLoading = isHearting || isUnhearting;
+  const praiseButtonDisabled = isPraised || isPraising;
+  const hasTrophies = Object.values(trophyCounts).some((count) => count > 0);
 
-  const [activeSection, setActiveSection] = useState<"comments" | "critiques">(
-    "comments"
-  );
-  const [showHeartListModal, setShowHeartListModal] = useState(false);
+  const handleHeart = (postId: string) => {
+    heartPostMutation({ postId });
+  };
 
-  // Fetch praise and trophy status on mount
-  useEffect(() => {
-    fetchPraiseStatus(postItem.post_id);
-    fetchTrophyStatus(postItem.post_id);
-  }, [postItem.post_id]);
+  const handleUnheart = (postId: string) => {
+    unheartPostMutation({ postId });
+  };
 
-  const currentPraiseStatus = praiseStatus[postItem.post_id];
-  const currentTrophyStatus = trophyStatus[postItem.post_id];
+  const handlePraise = () => {
+    if (praiseButtonDisabled) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to praise this post? This will cost 1 Brush Drip."
+      )
+    ) {
+      return;
+    }
+    praisePostMutation({ postId: postItem.post_id });
+  };
+
+  const handleOpenPraiseList = () => {
+    setSelectedPostForPraiseList(postItem.post_id);
+    setShowPraiseListModal(true);
+  };
+
+  const handleClosePraiseList = () => {
+    setShowPraiseListModal(false);
+    setSelectedPostForPraiseList(null);
+  };
+
+  const handleOpenTrophyList = () => {
+    setSelectedPostForTrophyList(postItem.post_id);
+    setShowTrophyListModal(true);
+  };
+
+  const handleCloseTrophyList = () => {
+    setShowTrophyListModal(false);
+    setSelectedPostForTrophyList(null);
+  };
+
+  const handleOpenHeartList = () => {
+    setSelectedPostForHeartList(postItem.post_id);
+    setShowHeartListModal(true);
+  };
+
+  const handleCloseHeartList = () => {
+    setShowHeartListModal(false);
+    setSelectedPostForHeartList(null);
+  };
+
+  const handleOpenTrophyModal = () => {
+    setSelectedPostForTrophy(postItem.post_id);
+    setSelectedPostTrophyAwards(userAwardedTrophies);
+    setShowTrophyModal(true);
+  };
+
+  const [showComments, setShowComments] = useState(false);
+  const [showCritiques, setShowCritiques] = useState(false);
+
+  const handleToggleComments = () => {
+    if (showComments) {
+      // If already open, close it
+      setShowComments(false);
+    } else {
+      // Open comments and close critiques
+      setShowComments(true);
+      setShowCritiques(false);
+    }
+  };
+
+  const handleToggleCritiques = () => {
+    if (showCritiques) {
+      // If already open, close it
+      setShowCritiques(false);
+    } else {
+      // Open critiques and close comments
+      setShowCritiques(true);
+      setShowComments(false);
+    }
+  };
 
   return (
     <>
@@ -110,14 +183,10 @@ export default function PostCard({
             <NovelRenderer postItem={postItem} />
           )}
 
-        {/* Text-only post (default type) */}
+        {/* Text-only post (default type) - description shown below likes/date */}
         {(!postItem.post_type || postItem.post_type === "default") && (
           <div className="p-6">
-            <div className="prose max-w-none">
-              <p className="text-base-content whitespace-pre-wrap">
-                {postItem.description}
-              </p>
-            </div>
+            {/* Description will be shown below likes/date */}
           </div>
         )}
 
@@ -131,22 +200,17 @@ export default function PostCard({
                 postId={postItem.post_id}
                 heartsCount={postItem.hearts_count || 0}
                 isHearted={postItem.is_hearted_by_user || false}
-                onHeart={heartPost}
-                onUnheart={unheartPost}
-                isLoading={loadingHearts[postItem.post_id]}
+                onHeart={handleHeart}
+                onUnheart={handleUnheart}
+                isLoading={isHeartLoading}
                 size="lg"
               />
 
-              {/* Comment */}
+              {/* Comment - Toggle comments */}
               <button
-                className={`btn btn-ghost btn-sm btn-circle ${
-                  activeSection === "comments" ? "text-primary" : ""
-                }`}
-                onClick={() => {
-                  setActiveSection("comments")
-                }}
-                disabled={loadingComments[postItem.post_id]}
-                title="View comments"
+                className={`btn btn-ghost btn-sm btn-circle ${showComments ? 'text-primary' : ''}`}
+                onClick={handleToggleComments}
+                title={showComments ? "Hide comments" : "View comments"}
               >
                 <FontAwesomeIcon
                   icon={faCommentDots}
@@ -154,17 +218,11 @@ export default function PostCard({
                 />
               </button>
 
-              {/* Critique */}
+              {/* Critique - Toggle critiques */}
               <button
-                className={`btn btn-ghost btn-sm btn-circle relative ${
-                  activeSection === "critiques" ? "text-primary" : ""
-                }`}
-                onClick={() => {
-                  setActiveSection("critiques")
-                  fetchCritiquesForPost(postItem.post_id, 1, false)
-                }}
-                disabled={loadingCritiques[postItem.post_id]}
-                title="View critiques"
+                className={`btn btn-ghost btn-sm btn-circle ${showCritiques ? 'text-primary' : ''}`}
+                onClick={handleToggleCritiques}
+                title={showCritiques ? "Hide critiques" : "View critiques"}
               >
                 <FontAwesomeIcon
                   icon={faStar}
@@ -175,20 +233,17 @@ export default function PostCard({
               {/* Praise */}
               <button
                 className={`btn btn-ghost btn-sm btn-circle relative ${
-                  currentPraiseStatus?.isPraised ? "text-warning" : ""
+                  isPraised ? "text-warning" : ""
                 }`}
-                onClick={() => praisePost(postItem.post_id)}
-                disabled={
-                  loadingPraise[postItem.post_id] ||
-                  currentPraiseStatus?.isPraised
-                }
+                onClick={handlePraise}
+                disabled={praiseButtonDisabled}
                 title={
-                  currentPraiseStatus?.isPraised
+                  isPraised
                     ? "Already praised"
                     : "Praise this post (1 Brush Drip)"
                 }
               >
-                {loadingPraise[postItem.post_id] ? (
+                {isPraising ? (
                   <span className="loading loading-spinner loading-xs"></span>
                 ) : (
                   <FontAwesomeIcon
@@ -201,19 +256,18 @@ export default function PostCard({
               {/* Trophy */}
               <button
                 className="btn btn-ghost btn-sm btn-circle relative"
-                onClick={() => openTrophyModal(postItem.post_id)}
+                onClick={handleOpenTrophyModal}
                 title="Award a trophy"
               >
                 <FontAwesomeIcon
                   icon={faTrophy}
                   className="text-xl hover:scale-110 transition-transform"
                 />
-                {currentTrophyStatus?.userAwarded &&
-                  currentTrophyStatus.userAwarded.length > 0 && (
+                {userAwardedTrophies.length > 0 && (
                     <span className="absolute -top-1 -right-1 badge badge-xs badge-warning">
-                      {currentTrophyStatus.userAwarded.length}
+                    {userAwardedTrophies.length}
                     </span>
-                  )}
+                )}
               </button>
 
               {/* Share (no implementation yet) */}
@@ -237,43 +291,53 @@ export default function PostCard({
           {/* Likes Count */}
           <div className="mb-2 flex flex-row gap-3 items-center flex-wrap">
             <button
-              onClick={() => setShowHeartListModal(true)}
+              onClick={handleOpenHeartList}
               className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
             >
               {postItem.hearts_count || 0} likes
             </button>
 
             {/* Praise Count - Clickable */}
-            {currentPraiseStatus && currentPraiseStatus.count > 0 && (
+            {praiseCount > 0 && (
               <button
-                onClick={() => openPraiseListModal(postItem.post_id)}
+                onClick={handleOpenPraiseList}
                 className="text-sm font-semibold text-warning hover:underline cursor-pointer transition-all hover:scale-105"
               >
-                {currentPraiseStatus.count} praises
+                {praiseCount} praises
               </button>
             )}
 
             {/* Trophy Count - Clickable */}
-            {currentTrophyStatus && currentTrophyStatus.counts && (
+            {hasTrophies && (
               <button
-                onClick={() => openTrophyListModal(postItem.post_id)}
+                onClick={handleOpenTrophyList}
                 className="flex gap-2 text-sm hover:opacity-80 transition-all cursor-pointer"
               >
-                {currentTrophyStatus.counts.bronze_stroke > 0 && (
+                {(trophyCounts.bronze_stroke ?? 0) > 0 && (
                   <span className="text-orange-700 font-semibold">
-                    🥉 {currentTrophyStatus.counts.bronze_stroke}
+                    🥉 {trophyCounts.bronze_stroke}
                   </span>
                 )}
-                {currentTrophyStatus.counts.golden_bristle > 0 && (
+                {(trophyCounts.golden_bristle ?? 0) > 0 && (
                   <span className="text-yellow-600 font-semibold">
-                    🥈 {currentTrophyStatus.counts.golden_bristle}
+                    🥈 {trophyCounts.golden_bristle}
                   </span>
                 )}
-                {currentTrophyStatus.counts.diamond_canvas > 0 && (
+                {(trophyCounts.diamond_canvas ?? 0) > 0 && (
                   <span className="text-blue-600 font-semibold">
-                    🥇 {currentTrophyStatus.counts.diamond_canvas}
+                    🥇 {trophyCounts.diamond_canvas}
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* Comment Count - Clickable (same as comment icon) */}
+            {(postItem.comment_count || 0) > 0 && (
+              <button
+                onClick={handleToggleComments}
+                className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
+              >
+                {postItem.comment_count || 0} {postItem.comment_count === 1 ? 'comment' : 'comments'}
               </button>
             )}
 
@@ -286,9 +350,9 @@ export default function PostCard({
             </p>
           </div>
 
-          {/* Caption - Only show for non-text posts */}
-          {postItem.post_type && postItem.post_type !== "default" && (
-            <div className="mb-2">
+          {/* Description - Below likes/date, above Comments */}
+          {postItem.description && (
+            <div className="mb-3">
               <p className="text-sm text-base-content">
                 <span className="font-semibold">
                   {postItem.author_username}
@@ -298,28 +362,18 @@ export default function PostCard({
             </div>
           )}
 
-          {/* Conditional Rendering based on active section */}
-          {activeSection === "comments" ? (
-            <>
-              {/* Comments - Full view for detail page, preview for feed */}
-              {isDetailView ? (
-                <CommentsRendererFull
-                  postItem={postItem}
-                  highlightedItemId={highlightedItemId}
-                />
-              ) : (
-                <CommentsRenderer
-                  postItem={postItem}
-                  isFirstComments={true}
-                  highlightedItemId={highlightedItemId}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              {/* Critique Section */}
-              <CritiqueSection postId={postItem.post_id} highlightedItemId={highlightedItemId} />
-            </>
+          {/* Comment Section - Toggleable, fetches when shown */}
+          {showComments && (
+            <DetailedCommentSection 
+              postItem={postItem} 
+              highlightedItemId={highlightedItemId}
+              enableInitialFetch={true}
+            />
+          )}
+
+          {/* Critique Section - Toggleable, always available */}
+          {showCritiques && (
+            <CritiqueSection postId={postItem.post_id} highlightedItemId={highlightedItemId} />
           )}
         </div>
       </div>
@@ -328,7 +382,7 @@ export default function PostCard({
       {showPraiseListModal && selectedPostForPraiseList === postItem.post_id && (
         <PraiseListModal
           isOpen={showPraiseListModal}
-          onClose={closePraiseListModal}
+          onClose={handleClosePraiseList}
           postId={postItem.post_id}
         />
       )}
@@ -337,16 +391,16 @@ export default function PostCard({
       {showTrophyListModal && selectedPostForTrophyList === postItem.post_id && (
         <TrophyListModal
           isOpen={showTrophyListModal}
-          onClose={closeTrophyListModal}
+          onClose={handleCloseTrophyList}
           postId={postItem.post_id}
         />
       )}
 
       {/* Heart List Modal */}
-      {showHeartListModal && (
+      {showHeartListModal && selectedPostForHeartList === postItem.post_id && (
         <HeartListModal
           isOpen={showHeartListModal}
-          onClose={() => setShowHeartListModal(false)}
+          onClose={handleCloseHeartList}
           postId={postItem.post_id}
         />
       )}

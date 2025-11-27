@@ -260,10 +260,53 @@ class InsideCollectivePostsView(ListAPIView):
 
     # Filter out posts by channel and collective, only show active (non-deleted) posts
     def get_queryset(self):
+        from django.db.models import Count, Exists, OuterRef, Q
+        from django.contrib.postgres.aggregates import ArrayAgg
+        from post.models import PostHeart, PostPraise, PostTrophy
+        
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
-        # Use get_active_objects() to filter out soft-deleted posts
-        return Post.objects.get_active_objects().filter(channel=channel).select_related('author').order_by('-created_at')
+        user = self.request.user
+        
+        # Build queryset with COUNT annotations only (no prefetching)
+        queryset = Post.objects.get_active_objects().filter(channel=channel).annotate(
+            total_comment_count=Count(
+                'post_comment',
+                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
+            ),
+            total_hearts_count=Count('post_heart', distinct=True),
+            total_praise_count=Count('post_praise', distinct=True),
+            total_trophy_count=Count('post_trophy', distinct=True),
+        ).prefetch_related(
+            'novel_post',  # Keep - needed for novel posts
+        ).select_related(
+            'author',
+            'author__artist',
+        )
+        
+        # If user is authenticated, annotate whether they hearted/praised/awarded each post
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_hearted_by_current_user=Exists(
+                    PostHeart.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                ),
+                is_praised_by_current_user=Exists(
+                    PostPraise.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                ),
+                user_trophies_for_post=ArrayAgg(
+                    'post_trophy__post_trophy_type__trophy',
+                    filter=Q(post_trophy__author=user),
+                    distinct=True
+                ),
+            )
+        
+        return queryset.order_by('-created_at')
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]
@@ -302,16 +345,80 @@ class LeaveCollectiveView(APIView):
 
     def delete(self, request, collective_id=None):
         if collective_id:
-            data = { 'collective_id': collective_id }
+            data = {'collective_id': collective_id}
         else:
             data = request.data
 
-        serializer = LeaveCollectiveSerializer(data=data)
+        # Fetch collective once - optimized query
+        try:
+            collective = Collective.objects.get(collective_id=data.get('collective_id'))
+        except Collective.DoesNotExist:
+            return Response(
+                {'collective_id': ['Collective not found.']},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except (ValueError, TypeError):
+            return Response(
+                {'collective_id': ['Invalid UUID format.']},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user is the only member - using the collective instance
+        member_count = CollectiveMember.objects.filter(
+            collective_id=collective.collective_id
+        ).count()
+
+        if member_count == 1:
+            return Response(
+                {
+                    'non_field_errors': [
+                        'You cannot leave the collective as you are the only member. '
+                        'Please delete the collective or invite other members first.'
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user is the last admin - prevent leaving if they are
+        user_membership = CollectiveMember.objects.filter(
+            member=request.user,
+            collective_id=collective.collective_id
+        ).first()
+
+        if user_membership and user_membership.collective_role == 'admin':
+            admin_count = CollectiveMember.objects.filter(
+                collective_id=collective.collective_id,
+                collective_role='admin'
+            ).count()
+
+            if admin_count == 1:
+                return Response(
+                    {
+                        'non_field_errors': [
+                            'You cannot leave the collective as you are the last admin. '
+                            'Please promote another member to admin or delete the collective first.'
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Pass collective instance and existence flag to serializer via context
+        serializer = LeaveCollectiveSerializer(
+            data=data,
+            context={
+                'request': request,
+                'collective': collective,
+                'collective_exists': True
+            }
+        )
         serializer.is_valid(raise_exception=True)
 
-        collective_id = serializer.validated_data['collective_id']
+        # Delete member relationship
+        CollectiveMember.objects.filter(
+            member=request.user,
+            collective_id=collective.collective_id
+        ).delete()
 
-        CollectiveMember.objects.filter(member=request.user, collective_id=collective_id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class IsCollectiveMemberView(RetrieveAPIView):
