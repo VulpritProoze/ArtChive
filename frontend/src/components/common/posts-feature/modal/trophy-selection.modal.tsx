@@ -1,4 +1,6 @@
-import { usePostContext } from "@context/post-context";
+import { useState } from "react";
+import { usePostUI } from "@context/post-ui-context";
+import { useAwardTrophy } from "@hooks/mutations/use-post-mutations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 
@@ -32,24 +34,43 @@ const TROPHY_TYPES = [
 export default function TrophySelectionModal() {
   const {
     showTrophyModal,
-    closeTrophyModal,
+    setShowTrophyModal,
     selectedPostForTrophy,
-    awardTrophy,
-    loadingTrophy,
-    trophyStatus,
-  } = usePostContext();
+    setSelectedPostForTrophy,
+    selectedPostTrophyAwards,
+    setSelectedPostTrophyAwards,
+  } = usePostUI();
+  const { mutate: awardTrophy, isPending } = useAwardTrophy();
+  const [pendingType, setPendingType] = useState<string | null>(null);
 
   if (!showTrophyModal || !selectedPostForTrophy) return null;
 
-  const handleAwardTrophy = (trophyType: string) => {
-    if (selectedPostForTrophy) {
-      awardTrophy(selectedPostForTrophy, trophyType);
-    }
+  const closeModal = () => {
+    setShowTrophyModal(false);
+    setSelectedPostForTrophy(null);
+    setSelectedPostTrophyAwards([]);
+    setPendingType(null);
   };
 
-  const isLoading = loadingTrophy[selectedPostForTrophy];
-  const status = trophyStatus[selectedPostForTrophy];
-  const userAwardedTrophies = status?.userAwarded || [];
+  const handleAwardTrophy = (trophyType: string) => {
+    if (!selectedPostForTrophy || selectedPostTrophyAwards.includes(trophyType) || isPending) {
+      return;
+    }
+    setPendingType(trophyType);
+    awardTrophy(
+      { postId: selectedPostForTrophy, trophyType },
+      {
+        onSuccess: () => {
+          setSelectedPostTrophyAwards((prev) =>
+            prev.includes(trophyType) ? prev : [...prev, trophyType]
+          );
+        },
+        onSettled: () => {
+          setPendingType(null);
+        },
+      }
+    );
+  };
 
   return (
     <div className="modal modal-open">
@@ -61,7 +82,8 @@ export default function TrophySelectionModal() {
 
         <div className="space-y-4">
           {TROPHY_TYPES.map((trophy) => {
-            const hasAwarded = userAwardedTrophies.includes(trophy.name);
+            const hasAwarded = selectedPostTrophyAwards.includes(trophy.name);
+            const isLoading = isPending && pendingType === trophy.name;
 
             return (
               <div
@@ -113,15 +135,15 @@ export default function TrophySelectionModal() {
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={closeTrophyModal}
-            disabled={isLoading}
+            onClick={closeModal}
+            disabled={isPending}
           >
             Close
           </button>
         </div>
       </div>
       {/* Backdrop */}
-      <div className="modal-backdrop" onClick={closeTrophyModal}></div>
+      <div className="modal-backdrop" onClick={closeModal}></div>
     </div>
   );
 }

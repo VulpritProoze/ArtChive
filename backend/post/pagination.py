@@ -29,3 +29,8 @@ class CommentPagination(PageNumberPagination):
 class CritiquePagination(PageNumberPagination):
     page_size = 10
     max_page_size = 100
+
+class PostListPagination(PageNumberPagination):
+    """Pagination for post-related lists (hearts, praises, trophies)"""
+    page_size = 20
+    max_page_size = 100

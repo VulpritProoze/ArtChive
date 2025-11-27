@@ -1,70 +1,193 @@
-import { usePostContext } from "@context/post-context";
-import { AddChapterRenderer, AddMediaRenderer } from '@components/common'
-import { useAuth } from "@context/auth-context";
 import React, { useEffect, useState } from 'react';
+import { AddChapterRenderer, AddMediaRenderer } from '@components/common';
+import { usePostUI } from '@context/post-ui-context';
+import { usePostForm } from '@hooks/forms/use-post-form';
+import { useCreatePost, useUpdatePost } from '@hooks/mutations/use-post-mutations';
+import { useAuth } from '@context/auth-context';
+import { toast } from '@utils/toast.util';
+import { handleApiError, formatErrorForToast } from '@utils';
 
-export default function PostFormModal({channel_id, user_id} : {channel_id?: string, user_id?: number}) {
-  const { editing, handlePostSubmit, postForm, handlePostFormChange, setPostForm, resetForms, submittingPost} = usePostContext()
+interface PostFormModalProps {
+  channel_id?: string;
+  user_id?: number;
+}
+
+export default function PostFormModal({ channel_id }: PostFormModalProps) {
+  const { showPostForm, closePostForm, selectedPost, editing } = usePostUI();
+  const {
+    form: postForm,
+    setForm: setPostForm,
+    handleFieldChange: handlePostFormChange,
+  } = usePostForm({ channel_id: channel_id });
+
+  const { mutateAsync: createPost, isPending: isCreating } = useCreatePost();
+  const { mutateAsync: updatePost, isPending: isUpdating } = useUpdatePost();
   const { user } = useAuth();
-  const [mobileView, setMobileView] = React.useState<'media' | 'details'>('media');
-  const [localDescription, setLocalDescription] = useState(postForm.description);
+  const [mobileView, setMobileView] = useState<'media' | 'details'>('media');
+  const [localDescription, setLocalDescription] = useState(postForm?.description || '');
+
+  // Update form when selectedPost changes (for editing) or reset when creating new post
+  useEffect(() => {
+    if (!showPostForm) return;
+
+    if (selectedPost && editing) {
+      setPostForm({
+        description: selectedPost.description || '',
+        post_type: selectedPost.post_type || 'default',
+        image_url: null,
+        video_url: null,
+        chapters:
+          selectedPost.novel_post?.map((chapter) => ({
+            chapter: chapter.chapter?.toString() ?? '',
+            content: chapter.content ?? '',
+          })) ?? [{ chapter: '', content: '' }],
+        channel_id: selectedPost.channel_id ?? channel_id,
+      });
+      setLocalDescription(selectedPost.description || '');
+    } else if (!selectedPost && !editing) {
+      // Reset form for new post
+      setPostForm({
+        description: '',
+        post_type: 'default',
+        image_url: null,
+        video_url: null,
+        chapters: [{ chapter: '', content: '' }],
+        channel_id: channel_id,
+      });
+      setLocalDescription('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPostForm, selectedPost?.post_id, editing, channel_id]);
 
   useEffect(() => {
-    setLocalDescription(postForm.description);
-  }, [postForm.description]);
-  
-  const handleTextareaChange = (e) => {
+    setLocalDescription(postForm?.description || '');
+  }, [postForm?.description]);
+
+  const isSubmitting = isCreating || isUpdating;
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setLocalDescription(e.target.value);
   };
-  
+
   const handleTextareaBlur = () => {
-    setPostForm(prev => ({ ...prev, description: localDescription }));
+    setPostForm((prev) => ({ ...prev, description: localDescription }));
   };
+
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.append('description', postForm?.description || '');
+    formData.append('post_type', postForm?.post_type || 'default');
+    if (postForm?.channel_id || channel_id) {
+      formData.append('channel', postForm?.channel_id ?? channel_id ?? '');
+    }
+
+    if (postForm?.image_url) {
+      formData.append('image_url', postForm.image_url);
+    }
+
+    if (postForm?.video_url) {
+      formData.append('video_url', postForm.video_url);
+    }
+
+    if (postForm?.post_type === 'novel') {
+      postForm.chapters.forEach((chapter, index) => {
+        formData.append(`chapters[${index}].chapter`, chapter.chapter);
+        formData.append(`chapters[${index}].content`, chapter.content);
+      });
+    }
+
+    return formData;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = buildFormData();
+
+    try {
+      if (editing && selectedPost) {
+        await updatePost({ postId: selectedPost.post_id, formData });
+        toast.success('Post updated', 'Your post has been saved successfully');
+      } else {
+        await createPost({ formData });
+        toast.success('Post created', 'Your post has been saved successfully');
+      }
+      closePostForm();
+      setPostForm({
+        description: '',
+        post_type: 'default',
+        image_url: null,
+        video_url: null,
+        chapters: [{ chapter: '', content: '' }],
+        channel_id: channel_id,
+      });
+      setLocalDescription('');
+    } catch (error) {
+      const message = handleApiError(error, undefined, true, true);
+      toast.error('Operation failed', formatErrorForToast(message));
+    }
+  };
+
+  const handleClose = () => {
+    if (isSubmitting) return;
+    closePostForm();
+    setPostForm({
+      description: '',
+      post_type: 'default',
+      image_url: null,
+      video_url: null,
+      chapters: [{ chapter: '', content: '' }],
+      channel_id: channel_id,
+    });
+    setLocalDescription('');
+  };
+
+  if (!showPostForm || !postForm) {
+    return null;
+  }
 
   return (
     <>
       {/* Enhanced Backdrop with Animation */}
       <div className="modal modal-open animate-fade-in">
-        <div 
-          className="fixed inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-lg transition-all duration-300" 
-          onClick={() => resetForms(channel_id)}
+        <div
+          className="fixed inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-lg transition-all duration-300"
+          onClick={handleClose}
         ></div>
-        
+
         {/* Enhanced Modal Content with Scale Animation */}
         <div className="modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50">
-          
           {/* Modern Top Bar with Gradient */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 backdrop-blur-sm sticky top-0 z-10">
-            <button 
+            <button
               type="button"
-              onClick={() => resetForms(channel_id)}
+              onClick={handleClose}
               className="btn btn-circle btn-ghost btn-sm hover:bg-error/10 hover:text-error transition-all duration-200 hover:rotate-90"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
+
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
                 <div className="absolute inset-0 w-3 h-3 bg-primary rounded-full animate-ping"></div>
               </div>
               <h2 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                {editing ? "✏️ Edit Post" : "✨ Create New Post"}
+                {editing ? '✏️ Edit Post' : '✨ Create New Post'}
               </h2>
             </div>
-            
+
             <button
               type="submit"
               form="post-form"
-              disabled={submittingPost}
+              disabled={isSubmitting}
               className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submittingPost ? (
+              {isSubmitting ? (
                 <>
                   <span className="loading loading-spinner loading-sm"></span>
-                  {editing ? "Updating..." : "Posting..."}
+                  {editing ? 'Updating...' : 'Posting...'}
                 </>
               ) : editing ? (
                 <>
@@ -133,18 +256,19 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
           )}
 
           {/* Main Content Area */}
-          <form id="post-form" onSubmit={(e) => handlePostSubmit(e, channel_id, user_id)} className="flex flex-col lg:flex-row max-h-[85vh]">
-
+          <form id="post-form" onSubmit={handleSubmit} className="flex flex-col lg:flex-row max-h-[85vh]">
             {/* Left Side - Enhanced Media Preview / Chapters with Gradient Background */}
             {/* Hide media section when editing image or video posts */}
             {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
-              <div className={`lg:w-3/5 bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 lg:p-8 lg:min-h-[550px] relative overflow-hidden ${
-                mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex'
-              }`}>
+              <div
+                className={`lg:w-3/5 bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 lg:p-8 lg:min-h-[550px] relative overflow-hidden ${
+                  mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex'
+                }`}
+              >
                 {/* Animated Background Pattern */}
                 <div className="absolute inset-0 opacity-5">
                   <div className="absolute top-0 left-0 w-72 h-72 bg-primary rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute bottom-0 right-0 w-96 h-96 bg-secondary rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+                  <div className="absolute bottom-0 right-0 w-96 h-96 bg-secondary rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
                 </div>
 
                 {/* Media/Chapter Badge - Hidden on mobile */}
@@ -172,17 +296,10 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                 <div className="w-full h-full relative z-10">
                   {postForm.post_type === 'novel' ? (
                     <div className="w-full h-full p-4 lg:p-6 overflow-y-auto max-h-[60vh] lg:max-h-[550px]">
-                      <AddChapterRenderer
-                        postForm={postForm}
-                        setPostForm={setPostForm}
-                      />
+                      <AddChapterRenderer postForm={postForm} setPostForm={setPostForm} />
                     </div>
                   ) : (
-                    <AddMediaRenderer
-                      postForm={postForm}
-                      setPostForm={setPostForm}
-                      editing={editing}
-                    />
+                    <AddMediaRenderer postForm={postForm} setPostForm={setPostForm} editing={editing || false} />
                   )}
                 </div>
               </div>
@@ -190,10 +307,19 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
 
             {/* Right Side - Enhanced Details Panel */}
             {/* Expand to full width when editing image/video posts (no media section) */}
-            <div className={`${postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) ? 'w-full' : 'lg:w-2/5'} flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
-              postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) ? 'block' : mobileView === 'details' ? 'block' : 'hidden lg:flex'
-            }`}>
-              
+            <div
+              className={`${
+                postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
+                  ? 'w-full'
+                  : 'lg:w-2/5'
+              } flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
+                postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
+                  ? 'block'
+                  : mobileView === 'details'
+                  ? 'block'
+                  : 'hidden lg:flex'
+              }`}
+            >
               {/* Post Type Selection with Enhanced Design */}
               {!editing && (
                 <div className="p-6 border-b border-base-300 bg-gradient-to-br from-base-100 to-base-200">
@@ -209,7 +335,7 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                     className="select select-bordered w-full bg-base-200 hover:bg-base-300 focus:ring-2 focus:ring-primary transition-all duration-200 font-medium"
                     name="post_type"
                     value={postForm.post_type}
-                    onChange={handlePostFormChange}
+                    onChange={(e) => handlePostFormChange('post_type', e.target.value)}
                     required
                   >
                     <option value="default">📌 Default Post</option>
@@ -230,16 +356,16 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                         <img src={user.profile_picture} alt={user.username} className="object-cover" />
                       ) : (
                         <div className="bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center text-primary-content font-bold text-lg">
-                          {user?.username?.[0]?.toUpperCase() || "U"}
+                          {user?.username?.[0]?.toUpperCase() || 'U'}
                         </div>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="mb-3 flex items-center gap-2">
-                      <span className="font-bold text-base">{user?.username || "User"}</span>
-                      <span className="badge badge-sm badge-primary">@{user?.username || "user"}</span>
+                      <span className="font-bold text-base">{user?.username || 'User'}</span>
+                      <span className="badge badge-sm badge-primary">@{user?.username || 'user'}</span>
                     </div>
                     <textarea
                       className="w-full bg-transparent border-0 focus:outline-none resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[200px]"
@@ -251,7 +377,7 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                       rows={10}
                       maxLength={2200}
                     />
-                    
+
                     {/* Enhanced Footer with Icons and Character Count */}
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
                       <div className="flex gap-1">
@@ -272,22 +398,29 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className={`text-sm font-semibold transition-colors ${
-                          postForm.description?.length > 2000 
-                            ? 'text-warning' 
-                            : postForm.description?.length > 1800 
-                            ? 'text-info' 
-                            : 'text-base-content/60'
-                        }`}>
+                        <div
+                          className={`text-sm font-semibold transition-colors ${
+                            (localDescription.length || 0) > 2000
+                              ? 'text-warning'
+                              : (localDescription.length || 0) > 1800
+                              ? 'text-info'
+                              : 'text-base-content/60'
+                          }`}
+                        >
                           {localDescription.length || 0}
                         </div>
                         <div className="text-xs text-base-content/40">/2,200</div>
-                        {postForm.description?.length > 1800 && (
-                          <div className={`radial-progress text-xs ${
-                            postForm.description?.length > 2000 ? 'text-warning' : 'text-info'
-                          }`} 
-                          style={{"--value": (postForm.description?.length / 2200) * 100, "--size": "2rem", "--thickness": "3px"} as React.CSSProperties}>
-                          </div>
+                        {(localDescription.length || 0) > 1800 && (
+                          <div
+                            className={`radial-progress text-xs ${(localDescription.length || 0) > 2000 ? 'text-warning' : 'text-info'}`}
+                            style={
+                              {
+                                '--value': ((localDescription.length || 0) / 2200) * 100,
+                                '--size': '2rem',
+                                '--thickness': '3px',
+                              } as React.CSSProperties
+                            }
+                          ></div>
                         )}
                       </div>
                     </div>
@@ -297,7 +430,6 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
 
               {/* Enhanced Additional Options */}
               <div className="border-t border-base-300 bg-base-50">
-                
                 {/* Accessibility Option */}
                 <div className="p-5 hover:bg-base-200/50 transition-all duration-200 cursor-pointer group border-b border-base-300/50">
                   <div className="flex justify-between items-center">
@@ -338,10 +470,8 @@ export default function PostFormModal({channel_id, user_id} : {channel_id?: stri
                     </svg>
                   </div>
                 </div>
-
               </div>
             </div>
-
           </form>
         </div>
       </div>

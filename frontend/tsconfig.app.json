@@ -42,7 +42,9 @@
       "@utils/*": ["./utils/*"],
       "@utils": ["./utils"],
       "@data/*": ["./data/*"],
-      "@data": ["./data"]
+      "@data": ["./data"],
+      "@providers/*": ["./providers/*"],
+      "@providers": ["./providers"]
     }
   },
   "include": ["src/**/*"]

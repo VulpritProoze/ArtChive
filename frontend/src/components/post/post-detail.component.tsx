@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { post as postApi } from "@lib/api";
-import type { Post } from "@types";
+import type { Post, NovelPost } from "@types";
 import { PostCard } from "@components/common/posts-feature";
-import { PostProvider, usePostContext } from "@context/post-context";
 import { MainLayout } from "@components/common/layout/MainLayout";
 import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { postService } from "@services/post.service";
-import { CommentFormModal, PostFormModal } from "@components/common/posts-feature/modal";
+import { CommentFormModal, PostFormModal, TrophySelectionModal } from "@components/common/posts-feature/modal";
+import { usePostUI } from "@context/post-ui-context";
 
 interface PostCardPostItem extends Post {
-  novel_post: any[];
+  novel_post: NovelPost[];
 }
 
 export default function PostDetail() {
@@ -37,7 +37,7 @@ export default function PostDetail() {
         setError(null);
         const response = await postApi.get(`/${postId}/`);
         setPost(response.data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching post:", err);
         const message = handleApiError(err, {}, true, true);
         setError(Array.isArray(message) ? message[0] : message);
@@ -157,31 +157,29 @@ export default function PostDetail() {
   }
 
   return (
-    <PostProvider>
-      <MainLayout>
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <button
-            onClick={() => navigate('/home')}
-            className="btn btn-ghost btn-sm mb-4"
-          >
-            ← Back
-          </button>
-          <PostCard postItem={post} highlightedItemId={highlightedItemId} isDetailView={true} />
-        </div>
-        <PostDetailModals />
-      </MainLayout>
-    </PostProvider>
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <button
+          onClick={() => navigate('/home')}
+          className="btn btn-ghost btn-sm mb-4"
+        >
+          ← Back
+        </button>
+        <PostCard postItem={post} highlightedItemId={highlightedItemId} isDetailView={true} />
+      </div>
+      <PostDetailModals />
+    </MainLayout>
   );
 }
 
-// Separate component to access PostContext
 function PostDetailModals() {
-  const { showCommentForm, showPostForm } = usePostContext();
+  const { showCommentForm, showPostForm } = usePostUI();
   
   return (
     <>
       {showCommentForm && <CommentFormModal />}
       {showPostForm && <PostFormModal />}
+      <TrophySelectionModal />
     </>
   );
 }

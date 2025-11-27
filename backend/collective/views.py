@@ -260,10 +260,53 @@ class InsideCollectivePostsView(ListAPIView):
 
     # Filter out posts by channel and collective, only show active (non-deleted) posts
     def get_queryset(self):
+        from django.db.models import Count, Exists, OuterRef, Q
+        from django.contrib.postgres.aggregates import ArrayAgg
+        from post.models import PostHeart, PostPraise, PostTrophy
+        
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
-        # Use get_active_objects() to filter out soft-deleted posts
-        return Post.objects.get_active_objects().filter(channel=channel).select_related('author').order_by('-created_at')
+        user = self.request.user
+        
+        # Build queryset with COUNT annotations only (no prefetching)
+        queryset = Post.objects.get_active_objects().filter(channel=channel).annotate(
+            total_comment_count=Count(
+                'post_comment',
+                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
+            ),
+            total_hearts_count=Count('post_heart', distinct=True),
+            total_praise_count=Count('post_praise', distinct=True),
+            total_trophy_count=Count('post_trophy', distinct=True),
+        ).prefetch_related(
+            'novel_post',  # Keep - needed for novel posts
+        ).select_related(
+            'author',
+            'author__artist',
+        )
+        
+        # If user is authenticated, annotate whether they hearted/praised/awarded each post
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_hearted_by_current_user=Exists(
+                    PostHeart.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                ),
+                is_praised_by_current_user=Exists(
+                    PostPraise.objects.filter(
+                        post_id=OuterRef('pk'),
+                        author=user
+                    )
+                ),
+                user_trophies_for_post=ArrayAgg(
+                    'post_trophy__post_trophy_type__trophy',
+                    filter=Q(post_trophy__author=user),
+                    distinct=True
+                ),
+            )
+        
+        return queryset.order_by('-created_at')
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]

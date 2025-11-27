@@ -361,6 +361,11 @@ class PostViewSerializer(serializers.ModelSerializer):
     novel_post = NovelPostSerializer(many=True)
     hearts_count = serializers.SerializerMethodField()
     is_hearted_by_user = serializers.SerializerMethodField()
+    praise_count = serializers.SerializerMethodField()
+    is_praised_by_user = serializers.SerializerMethodField()
+    trophy_count = serializers.SerializerMethodField()
+    user_awarded_trophies = serializers.SerializerMethodField()
+    trophy_counts_by_type = serializers.SerializerMethodField()
     author_username = serializers.CharField(source='author.username', read_only=True)
     author_artist_types = serializers.SerializerMethodField()
     author_fullname = serializers.SerializerMethodField()
@@ -412,6 +417,47 @@ class PostViewSerializer(serializers.ModelSerializer):
         # Fallback for other views that don't annotate (exclude critique replies)
         return obj.post_comment.get_active_objects().filter(is_critique_reply=False).count()
 
+    def get_praise_count(self, obj):
+        if hasattr(obj, 'total_praise_count'):
+            return obj.total_praise_count
+        return obj.post_praise.count()
+
+    def get_is_praised_by_user(self, obj):
+        if hasattr(obj, 'is_praised_by_current_user'):
+            return obj.is_praised_by_current_user
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.post_praise.filter(author=request.user).exists()
+        return False
+
+    def get_trophy_count(self, obj):
+        if hasattr(obj, 'total_trophy_count'):
+            return obj.total_trophy_count
+        return obj.post_trophy.count()
+
+    def get_user_awarded_trophies(self, obj):
+        if hasattr(obj, 'user_trophies_for_post') and obj.user_trophies_for_post:
+            return obj.user_trophies_for_post
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return list(
+                obj.post_trophy.filter(author=request.user).values_list('post_trophy_type__trophy', flat=True)
+            )
+        return []
+
+    def get_trophy_counts_by_type(self, obj):
+        """Calculate trophy counts by type - always use query since prefetching removed"""
+        counts = {}
+        # Query trophies to get type breakdown (prefetching removed for performance)
+        aggregates = obj.post_trophy.values('post_trophy_type__trophy').annotate(count=Count('id'))
+        for row in aggregates:
+            counts[row['post_trophy_type__trophy']] = row['count']
+
+        # Fill in missing trophy types with 0
+        for trophy_type in TrophyType.objects.all():
+            counts.setdefault(trophy_type.trophy, 0)
+        return counts
+
 
 class PostDetailViewSerializer(PostViewSerializer):
     class Meta:
@@ -419,40 +465,12 @@ class PostDetailViewSerializer(PostViewSerializer):
         fields = '__all__'
 
 class PostListViewSerializer(PostViewSerializer):
-    comments = serializers.SerializerMethodField()
+    # REMOVED: comments field - comments are fetched separately via API endpoint
+    # This reduces initial payload size and improves performance
 
     class Meta:
         model = Post
         fields = '__all__'
-
-    def get_comments(self, obj):
-        """Get first 2 comments for this post"""
-        comments = None
-
-        # Use prefetched comments when available to avoid extra queries
-        prefetched_cache = getattr(obj, '_prefetched_objects_cache', {})
-        prefetched_comments = prefetched_cache.get('post_comment')
-        if prefetched_comments is not None:
-            comments = list(prefetched_comments)[:2]
-
-        if comments is None:
-            comments = list(
-                Comment.objects.get_active_objects()
-                .filter(
-                    post_id=obj.pk,
-                    replies_to__isnull=True,
-                    critique_id__isnull=True,
-                )
-                .select_related('author', 'author__artist')
-                .annotate(
-                    reply_count=Count(
-                        'comment_reply',
-                        filter=Q(comment_reply__is_deleted=False, comment_reply__is_critique_reply=False),
-                    )
-                )
-                .order_by('-created_at')[:2]
-            )
-        return TopLevelCommentsViewSerializer(comments, many=True, context=self.context).data
 
 class CommentSerializer(serializers.ModelSerializer):
     author_username = serializers.CharField(source='author.username', read_only=True)

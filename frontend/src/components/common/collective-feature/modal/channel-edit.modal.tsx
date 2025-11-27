@@ -1,7 +1,12 @@
 // channel-edit.modal.tsx
+import React from "react";
 import { useCollectivePostContext } from "@context/collective-post-context";
+import { useParams } from "react-router-dom";
+import { useCollectiveData } from "@hooks/queries/use-collective-data";
 
 export default function ChannelEditModal() {
+  const { collectiveId } = useParams<{ collectiveId: string }>();
+  const { data: collectiveData } = useCollectiveData(collectiveId);
   const {
     editingChannel,
     setEditingChannel,
@@ -12,11 +17,17 @@ export default function ChannelEditModal() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleUpdateChannel({
-      title: editingChannel.title,
-      description: editingChannel.description || '',
-    });
+    if (collectiveData && editingChannel) {
+      handleUpdateChannel(collectiveData.collective_id, {
+        title: editingChannel.title,
+        description: editingChannel.description || '',
+      });
+    }
   };
+
+  if (!editingChannel) {
+    return null;
+  }
 
   return (
     <div className="modal modal-open">

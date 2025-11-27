@@ -35,6 +35,11 @@ export interface Post {
   channel_id?: string; 
   hearts_count?: number
   is_hearted_by_user: boolean
+  praise_count?: number
+  is_praised_by_user?: boolean
+  trophy_count?: number
+  user_awarded_trophies?: string[]
+  trophy_counts_by_type?: Record<string, number>
 }
 
 export interface PostHeart {

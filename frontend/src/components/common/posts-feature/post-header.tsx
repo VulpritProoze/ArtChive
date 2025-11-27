@@ -7,10 +7,12 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { Post } from "@types";
 import { formatArtistTypesToString } from "@utils";
-import usePost from "@hooks/use-post";
-import { usePostContext } from "@context/post-context";
 import { useAuth } from "@context/auth-context";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
+import { usePostUI } from "@context/post-ui-context";
+import { useDeletePost } from "@hooks/mutations/use-post-mutations";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
 
 export default function PostHeader({
   postItem,
@@ -19,10 +21,10 @@ export default function PostHeader({
   postItem: Post;
   IsCommentViewModal?: boolean;
 }) {
-  const { toggleDropdown, handleEditPost, handleDeletePost } = usePost();
-  const { dropdownOpen } = usePostContext();
   const { user } = useAuth();
   const location = useLocation();
+  const { dropdownOpen, setDropdownOpen, openPostForm } = usePostUI();
+  const { mutateAsync: deletePost, isPending: isDeletingPost } = useDeletePost();
 
   // Check if current user is the author or admin
   const isAuthor = user?.id === postItem.author;
@@ -64,30 +66,36 @@ export default function PostHeader({
           <div className="dropdown dropdown-end">
             <button
               className="btn btn-ghost btn-sm btn-circle"
-              onClick={() => toggleDropdown(postItem.post_id)}
+              onClick={() =>
+                setDropdownOpen(dropdownOpen === postItem.post_id ? null : postItem.post_id)
+              }
             >
               <FontAwesomeIcon icon={faEllipsisH} />
             </button>
 
             {dropdownOpen === postItem.post_id && (
               <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-300">
-                {/* Only show "View in Other Tab" if NOT already on post detail page */}
+                {/* Only show "View in Detail" if NOT already on post detail page */}
                 {!isOnPostDetailPage && (
                   <li>
-                    <button
+                    <Link
+                      to={`/post/${postItem.post_id}`}
                       className="text-sm flex items-center gap-2"
-                      onClick={() => window.open(`/post/${postItem.post_id}`, '_blank')}
+                      onClick={() => setDropdownOpen(null)}
                     >
                       <FontAwesomeIcon icon={faEye} />
-                      View in Other Tab
-                    </button>
+                      View in Detail
+                    </Link>
                   </li>
                 )}
                 {canEdit && (
                   <li>
                     <button
                       className="text-sm flex items-center gap-2"
-                      onClick={() => handleEditPost(postItem)}
+                      onClick={() => {
+                        openPostForm(postItem);
+                        setDropdownOpen(null);
+                      }}
                     >
                       <FontAwesomeIcon icon={faEdit} />
                       Edit
@@ -98,10 +106,22 @@ export default function PostHeader({
                   <li>
                     <button
                       className="text-sm text-error flex items-center gap-2"
-                      onClick={() => handleDeletePost(postItem.post_id)}
+                      onClick={async () => {
+                        if (!window.confirm("Are you sure you want to delete this post?")) return;
+                        try {
+                          await deletePost({ postId: postItem.post_id });
+                          toast.success("Post deleted", "The post has been removed successfully");
+                        } catch (error) {
+                          const message = handleApiError(error, {}, true, true);
+                          toast.error("Failed to delete post", formatErrorForToast(message));
+                        } finally {
+                          setDropdownOpen(null);
+                        }
+                      }}
+                      disabled={isDeletingPost}
                     >
                       <FontAwesomeIcon icon={faTrash} />
-                      Delete
+                      {isDeletingPost ? "Deleting..." : "Delete"}
                     </button>
                   </li>
                 )}

@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { X, Heart } from 'lucide-react';
-import { postService } from '@services/post.service';
-import type { PostHeart } from '@types';
-import { handleApiError } from '@utils';
+import { usePostHearts } from '@hooks/queries/use-post-lists';
 
 interface HeartListModalProps {
   isOpen: boolean;
@@ -11,28 +9,18 @@ interface HeartListModalProps {
 }
 
 export const HeartListModal: React.FC<HeartListModalProps> = ({ isOpen, onClose, postId }) => {
-  const [hearts, setHearts] = useState<PostHeart[]>([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = usePostHearts(postId, isOpen);
 
-  useEffect(() => {
-    if (isOpen && postId) {
-      fetchHearts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, postId]);
-
-  const fetchHearts = async () => {
-    setLoading(true);
-    try {
-      const data = await postService.getPostHearts(postId);
-      setHearts(data);
-    } catch (error) {
-      console.error('Error fetching hearts:', error);
-      handleApiError(error, 'Failed to load hearts');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const hearts = useMemo(
+    () => data?.pages.flatMap((page) => page.results || []) ?? [],
+    [data]
+  );
 
   if (!isOpen) return null;
 
@@ -65,7 +53,7 @@ export const HeartListModal: React.FC<HeartListModalProps> = ({ isOpen, onClose,
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
+          {isLoading && hearts.length === 0 ? (
             <div className="flex justify-center py-8">
               <div className="loading loading-spinner loading-md text-primary"></div>
             </div>
@@ -75,37 +63,57 @@ export const HeartListModal: React.FC<HeartListModalProps> = ({ isOpen, onClose,
               <p className="text-base-content/70">No likes yet</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {hearts.map((heart) => (
-                <div
-                  key={heart.id}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
-                >
-                  {/* User Avatar */}
-                  <img
-                    src={heart.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`}
-                    alt={heart.author_username}
-                    className="w-10 h-10 rounded-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`;
-                    }}
-                  />
-                  
-                  {/* User Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-base-content truncate">
-                      {heart.author_fullname}
-                    </p>
-                    <p className="text-xs text-base-content/60 truncate">
-                      @{heart.author_username}
-                    </p>
-                  </div>
+            <>
+              <div className="space-y-2">
+                {hearts.map((heart) => (
+                  <div
+                    key={heart.id}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
+                  >
+                    {/* User Avatar */}
+                    <img
+                      src={heart.author_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`}
+                      alt={heart.author_username}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(heart.author_username)}&background=random&size=40`;
+                      }}
+                    />
+                    
+                    {/* User Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-base-content truncate">
+                        {heart.author_fullname}
+                      </p>
+                      <p className="text-xs text-base-content/60 truncate">
+                        @{heart.author_username}
+                      </p>
+                    </div>
 
-                  {/* Heart Icon */}
-                  <Heart className="w-5 h-5 text-error fill-error flex-shrink-0" />
+                    {/* Heart Icon */}
+                    <Heart className="w-5 h-5 text-error fill-error flex-shrink-0" />
+                  </div>
+                ))}
+              </div>
+              {hasNextPage && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="btn btn-sm btn-outline"
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Load More"
+                    )}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>

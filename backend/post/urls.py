@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    BulkPostPraiseCountView,
+    BulkPostTrophyCountView,
     CommentCreateView,
     CommentDeleteView,
     CommentDetailView,
@@ -87,6 +89,7 @@ urlpatterns = [
     # PostPraise endpoints (costs 1 Brush Drip, cannot be deleted or updated)
     path('praise/create/', PostPraiseCreateView.as_view(), name='post-praise-create'),
     path('praise/list/me/', UserPraisedPostsListView.as_view(), name='user-praised-posts'),
+    path('bulk/praises/count/', BulkPostPraiseCountView.as_view(), name='bulk-post-praise-count'),
     path('<uuid:post_id>/praises/', PostPraiseListView.as_view(), name='post-praises-list'),
     path('<uuid:post_id>/praises/count/', PostPraiseCountView.as_view(), name='post-praise-count'),
     path('<uuid:post_id>/praise/check/', PostPraiseCheckView.as_view(), name='post-praise-check'),
@@ -94,6 +97,7 @@ urlpatterns = [
     # PostTrophy endpoints (costs 5/10/20 Brush Drips, cannot be deleted or updated)
     path('trophy/create/', PostTrophyCreateView.as_view(), name='post-trophy-create'),
     path('trophy/list/me/', UserAwardedTrophiesListView.as_view(), name='user-awarded-trophies'),
+    path('bulk/trophies/count/', BulkPostTrophyCountView.as_view(), name='bulk-post-trophy-count'),
     path('<uuid:post_id>/trophies/', PostTrophyListView.as_view(), name='post-trophies-list'),
     path('<uuid:post_id>/trophies/count/', PostTrophyCountView.as_view(), name='post-trophy-count'),
     path('<uuid:post_id>/trophy/check/', PostTrophyCheckView.as_view(), name='post-trophy-check'),
