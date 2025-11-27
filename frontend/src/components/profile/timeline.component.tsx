@@ -14,7 +14,7 @@ import { usePostUI } from '@context/post-ui-context';
 
 const Timeline: React.FC = () => {
   const { user } = useAuth();
-  const { showCommentForm, showPostForm, activePost, setShowPostForm } = usePostUI();
+  const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'works' | 'avatar' | 'collectives'>('timeline');
@@ -184,7 +184,7 @@ const Timeline: React.FC = () => {
 
             <div className="flex flex-col gap-6 max-w-3xl mx-auto">
               {posts.map((postItem) => (
-                <PostCard key={postItem.post_id} postItem={postItem} />
+                <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
               ))}
             </div>
 

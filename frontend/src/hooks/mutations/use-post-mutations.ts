@@ -176,7 +176,7 @@ export const useAwardTrophy = () => {
           user_awarded_trophies: currentUserTrophies.includes(trophyType)
             ? currentUserTrophies
             : [...currentUserTrophies, trophyType],
-          total_trophy_count: (p.total_trophy_count || 0) + 1,
+          trophy_count: (p.trophy_count || 0) + 1,
         };
       });
       

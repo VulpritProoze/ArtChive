@@ -43,7 +43,7 @@ export default function PostDetail() {
         setError(Array.isArray(message) ? message[0] : message);
 
         // If post not found (404), redirect to 404 page
-        if (err.response?.status === 404) {
+        if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 404) {
           navigate("/404", { replace: true });
         } else {
           toast.error('Failed to load post', formatErrorForToast(message));
@@ -165,7 +165,7 @@ export default function PostDetail() {
         >
           ← Back
         </button>
-        <PostCard postItem={post} highlightedItemId={highlightedItemId} isDetailView={true} />
+        <PostCard postItem={post} highlightedItemId={highlightedItemId} />
       </div>
       <PostDetailModals />
     </MainLayout>

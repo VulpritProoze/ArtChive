@@ -21,7 +21,6 @@ const Index: React.FC = () => {
     showPostForm,
     setShowPostForm,
     showCritiqueForm,
-    activePost,
   } = usePostUI();
 
   const {
@@ -128,7 +127,7 @@ const Index: React.FC = () => {
         {/* Posts Grid */}
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
           {posts.map((postItem) => (
-            <PostCard key={postItem.post_id} postItem={postItem} />
+            <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
           ))}
         </div>
 

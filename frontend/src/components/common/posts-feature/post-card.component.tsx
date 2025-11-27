@@ -35,11 +35,9 @@ interface PostCardPostItem extends Post {
 export default function PostCard({
   postItem,
   highlightedItemId,
-  isDetailView = false,
 }: {
   postItem: PostCardPostItem;
   highlightedItemId?: string | null;
-  isDetailView?: boolean;
 }) {
   const {
     showPraiseListModal,
@@ -57,10 +55,6 @@ export default function PostCard({
     setShowTrophyModal,
     setSelectedPostForTrophy,
     setSelectedPostTrophyAwards,
-    setShowCommentForm,
-    setCommentTargetPostId,
-    setSelectedComment,
-    setEditingComment,
   } = usePostUI();
   const { mutate: heartPostMutation, isPending: isHearting } = useHeartPost();
   const { mutate: unheartPostMutation, isPending: isUnhearting } = useUnheartPost();
@@ -127,14 +121,6 @@ export default function PostCard({
     setSelectedPostForTrophy(postItem.post_id);
     setSelectedPostTrophyAwards(userAwardedTrophies);
     setShowTrophyModal(true);
-  };
-
-  const handleAddComment = () => {
-    // Always open comment form modal (same as detailed-comment-section)
-    setSelectedComment(null);
-    setCommentTargetPostId(postItem.post_id);
-    setEditingComment(false);
-    setShowCommentForm(true);
   };
 
   const [showComments, setShowComments] = useState(false);

@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
-import type { PostTrophy } from "@types";
 import { usePostTrophies } from "@hooks/queries/use-post-lists";
 
 interface TrophyListModalProps {

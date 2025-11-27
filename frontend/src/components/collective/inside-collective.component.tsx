@@ -17,7 +17,6 @@ import { PostCard, InfiniteScrolling } from "@components/common/posts-feature";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
-import { useEffect as useEffectPosts } from "react";
 import { 
   SkeletonPostCard,
   SkeletonCollectiveSidebar,
@@ -42,12 +41,11 @@ import { useCollectiveData } from "@hooks/queries/use-collective-data";
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
-  const { showCommentForm, showPostForm, setShowPostForm, activePost } = usePostUI();
+  const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();
   // Use React Query hook for collective data (prevents infinite loop)
   const {
     data: collectiveData,
     isLoading: loadingCollective,
-    error: collectiveError,
   } = useCollectiveData(collectiveId);
 
   const {
@@ -720,7 +718,7 @@ const CollectiveHome = () => {
                     {collectiveData.members.slice(0, 10).map((member) => (
                       <div key={member.id} className="w-10 h-10 rounded-full border-2 border-base-100 overflow-hidden">
                         <img
-                          src={member.profile_picture}
+                          src={member.profile_picture || undefined}
                           alt={member.username}
                           className="w-full h-full object-cover"
                           title={`@${member.username}`}
@@ -864,7 +862,7 @@ const CollectiveHome = () => {
                 )}
 
                 {posts.map((postItem) => (
-                  <PostCard key={postItem.post_id} postItem={postItem} />
+                  <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
                 ))}
 
                 {posts.length === 0 && !arePostsLoading && (

@@ -3,7 +3,6 @@ import { X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHandsClapping } from "@fortawesome/free-solid-svg-icons";
 import { usePostPraises } from "@hooks/queries/use-post-lists";
-import { InfiniteScrolling } from "@components/common";
 
 interface PraiseListModalProps {
   isOpen: boolean;
@@ -28,7 +27,6 @@ export default function PraiseListModal({
     () => data?.pages.flatMap((page) => page.results || []) ?? [],
     [data]
   );
-  const totalCount = data?.pages?.[0]?.count ?? praises.length;
 
   if (!isOpen) return null;
 
