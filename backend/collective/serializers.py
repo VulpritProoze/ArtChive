@@ -162,11 +162,15 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()  # Verify it's a real image
-            value.seek(0)  # Reset file pointer for Django to save it
-        except Exception:
+            value.seek(0)  # Reset file pointer
+            
+            # 3. Process image: resize and compress
+            from common.utils.image_processing import process_collective_picture
+            return process_collective_picture(value)
+        except Exception as e:
+            if 'Failed to process image' in str(e):
+                raise serializers.ValidationError(str(e))
             raise serializers.ValidationError("Invalid or corrupted image file.") from None
-
-        return value
 
     def create(self, validated_data):
         """Create the Collective instance."""

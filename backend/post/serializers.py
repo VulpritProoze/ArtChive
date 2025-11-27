@@ -88,11 +88,16 @@ class PostCreateSerializer(ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()
-            # Reset file pointer after verification so Cloudinary can read it
+            # Reset file pointer after verification
             value.seek(0)
-        except Exception:
+            
+            # Process image: resize and compress
+            from common.utils.image_processing import process_post_image
+            return process_post_image(value)
+        except Exception as e:
+            if 'Failed to process image' in str(e):
+                raise serializers.ValidationError(str(e))
             raise serializers.ValidationError('Invalid image file')
-        return value
 
     def validate_post_type(self, value):
         if value is None and self.instance:  # Allow None for updates
@@ -241,11 +246,16 @@ class PostUpdateSerializer(ModelSerializer):
         try:
             img = Image.open(value)
             img.verify()
-            # Reset file pointer after verification so Cloudinary can read it
+            # Reset file pointer after verification
             value.seek(0)
-        except Exception:
+            
+            # Process image: resize and compress
+            from common.utils.image_processing import process_post_image
+            return process_post_image(value)
+        except Exception as e:
+            if 'Failed to process image' in str(e):
+                raise serializers.ValidationError(str(e))
             raise serializers.ValidationError('Invalid image file')
-        return value
 
     def validate_chapters(self, value):
         if value is None:

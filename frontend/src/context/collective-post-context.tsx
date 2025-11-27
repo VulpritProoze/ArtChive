@@ -11,7 +11,7 @@ export const CollectivePostContext = createContext<CollectivePostContextType | u
 
 export const CollectivePostProvider = ({ children }) => {
     const [collectiveData, setCollectiveData] = useState<Collective | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // Start as false, only set true when actually fetching
     const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
     const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
     const [createChannelForm, setCreateChannelForm] = useState<ChannelCreateForm>({ title: '', description: '', collective: '', channel_type: undefined });

@@ -74,12 +74,10 @@ const Timeline: React.FC = () => {
   ]);
 
   useEffect(() => {
-    fetchPosts(1, false, null, user?.id);
-  }, [fetchPosts]);
-
-  useEffect(() => {
-    setPosts([])
-  }, [])
+    if (user?.id) {
+      fetchPosts(1, false, null, user.id);
+    }
+  }, [fetchPosts, user?.id]);
 
   const tabs = [
     { id: "timeline", label: "Timeline", icon: "📝" },

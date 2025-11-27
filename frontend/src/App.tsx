@@ -11,10 +11,7 @@ import {
   CollectiveCreate,
   CollectiveHome,
   CollectiveMembers,
-  CollectiveAdmin,
   Home,
-  GalleryIndex,
-  GalleryEditor,
   PublishedGalleryView,
   Profile,
   Timeline,
@@ -23,8 +20,13 @@ import {
   NotificationIndex,
   PostDetail,
   NotFound,
-  MyGalleries,
 } from "@components";
+
+// Lazy load heavy components
+const CollectiveAdmin = lazy(() => import("@components/collective/collective-admin.component"));
+const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
+const GalleryEditor = lazy(() => import("@components/gallery/editor.component"));
+const MyGalleries = lazy(() => import("@components/gallery/galleries.component"));
 import { PostProvider } from "@context/post-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";

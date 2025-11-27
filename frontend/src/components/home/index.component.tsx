@@ -72,13 +72,10 @@ const Index: React.FC = () => {
   ]);
 
   useEffect(() => {
-    setLoading(false);
-    setLoadingMore(false);
-  }, []);
-
-  useEffect(() => {
+    // Only fetch posts once on mount
     fetchPosts(1);
-  }, [fetchPosts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // fetchPosts is stable (memoized with empty deps)
 
   return (
     <MainLayout>

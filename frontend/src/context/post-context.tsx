@@ -4,6 +4,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import type {
   PostContextType,
@@ -34,6 +35,9 @@ export const PostContext = createContext<PostContextType | undefined>(
 );
 
 export const PostProvider = ({ children }) => {
+  // Use ref to track if fetch is in progress to prevent duplicate calls
+  const fetchingRef = useRef(false);
+  
   const [comments, setComments] = useState<Comment[]>([]);
   // const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
   const [loadingComments, setLoadingComments] = useState<{
@@ -763,6 +767,10 @@ export const PostProvider = ({ children }) => {
   // user_id -> if post-context is used within profile timeline
   const fetchPosts: FetchPost = useCallback(
     async (page = 1, append = false, channel_id?, user_id?) => {
+      // Prevent duplicate fetches
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+      
       try {
         if (append) {
           setLoadingMore(true);
@@ -817,9 +825,10 @@ export const PostProvider = ({ children }) => {
       } finally {
         setLoading(false);
         setLoadingMore(false);
+        fetchingRef.current = false;
       }
     },
-    []
+    [] // Keep empty deps - setLoading/setLoadingMore are stable
   );
 
   // Post operations

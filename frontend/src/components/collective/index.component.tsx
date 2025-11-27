@@ -15,7 +15,8 @@ export default function Index() {
 
   useEffect(() => {
     fetchCollectives();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only fetch once on mount
 
   const handleJoinCollective = async (collectiveId: string) => {
     await handleJoinCollectiveAsync(collectiveId);
