@@ -13,11 +13,12 @@ import { usePosts } from '@hooks/queries/use-posts';
 import { usePostsMeta } from '@hooks/queries/use-post-meta';
 import { useUserProfile } from '@hooks/queries/use-user-profile';
 import { usePostUI } from '@context/post-ui-context';
+import { extractUsernameFromUrl } from '@utils';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
-  // Strip @ symbol if present (React Router includes it in the param)
-  const username = usernameParam?.startsWith('@') ? usernameParam.substring(1) : usernameParam;
+  // Extract username from URL parameter (strips @ if present)
+  const username = extractUsernameFromUrl(usernameParam);
   const navigate = useNavigate();
   const { user: currentUser } = useAuth(); // For comparison only
   const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();

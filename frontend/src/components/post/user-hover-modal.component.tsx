@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useUserSummary } from '@hooks/queries/use-user-summary';
-import { formatArtistTypesToString } from '@utils';
 
 interface UserHoverModalProps {
   userId: number;
@@ -78,7 +77,7 @@ export default function UserHoverModal({
             <div className="border-t border-base-300 pt-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">💰</span>
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
                   <div>
                     <p className="text-xs text-base-content/60">Brush Drips</p>
                     <p className="text-sm font-semibold text-base-content">

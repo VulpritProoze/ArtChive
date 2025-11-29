@@ -72,11 +72,13 @@ function App() {
                     <Route path="/register" element={<Register />} />
                   </Route>
 
+                  {/* Public profile route - accessible to everyone */}
+                  <Route path="/profile/:username" element={<Timeline />} />
+                  <Route path="/profile" element={<NavigateToOwnProfile />} />
+
                   {/* Protected routes (with auth check) */}
                   <Route element={<ProtectedRoute />}>
                     <Route path="/profile/me" element={<Profile />} />
-                    <Route path="/profile" element={<NavigateToOwnProfile />} />
-                    <Route path="/profile/:username" element={<Timeline />} />
                     <Route path="/drips" element={<BrushDripsPage />} />
                     <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
                     <Route path="/notifications" element={<NotificationIndex />} />

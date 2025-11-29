@@ -4,3 +4,4 @@ export { default as formatArtistTypesToString} from './format-artisttypes-arr-to
 export { default as formatErrorForToast } from './format-error-for-toast'
 export { formatDate } from './format-date.util'
 export { toast } from './toast.util'
+export { extractUsernameFromUrl } from './extract-username-from-url'
