@@ -106,10 +106,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
     try {
       if (editing && selectedPost) {
         await updatePost({ postId: selectedPost.post_id, formData });
-        toast.success('Post updated', 'Your post has been saved successfully');
+        // Toast shown in mutation callback
       } else {
         await createPost({ formData });
-        toast.success('Post created', 'Your post has been saved successfully');
+        // Toast shown in mutation callback - remove duplicate
       }
       closePostForm();
       setPostForm({

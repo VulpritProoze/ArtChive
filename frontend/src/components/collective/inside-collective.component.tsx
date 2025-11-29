@@ -17,7 +17,7 @@ import { PostCard, InfiniteScrolling } from "@components/common/posts-feature";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
-import { 
+import {
   SkeletonPostCard,
   SkeletonCollectiveSidebar,
   SkeletonCollectiveInfo,
@@ -37,6 +37,8 @@ import {
 import { usePosts } from "@hooks/queries/use-posts";
 import { usePostUI } from "@context/post-ui-context";
 import { useCollectiveData } from "@hooks/queries/use-collective-data";
+import { usePostsMeta } from "@hooks/queries/use-post-meta";
+import { useMemo } from "react";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
@@ -86,7 +88,45 @@ const CollectiveHome = () => {
     enabled: Boolean(selectedChannel?.channel_id && selectedChannel?.channel_type === 'Post Channel'),
   });
 
-  const posts = postsData?.pages.flatMap((page) => page.results) || [];
+  const postIds = useMemo(() => {
+    if (!postsData) return [];
+    return postsData.pages.flatMap(page =>
+      page.results.map(p => p.post_id)
+    );
+  }, [postsData]);
+
+  const {
+    data: metaData,
+    isLoading: metaLoading
+  } = usePostsMeta(postIds, postIds.length > 0);
+
+  const enrichedPosts = useMemo(() => {
+    if (!postsData) return [];
+    return postsData.pages.flatMap(page =>
+      page.results.map(post => ({
+        ...post,
+        ...(metaData?.[post.post_id] || {
+          hearts_count: 0,
+          praise_count: 0,
+          trophy_count: 0,
+          comment_count: 0,
+          user_trophies: [],
+          trophy_breakdown: {},
+          is_hearted: false,
+          is_praised: false,
+        }),
+        trophy_counts_by_type: metaData?.[post.post_id]?.trophy_breakdown || {},
+        user_awarded_trophies: metaData?.[post.post_id]?.user_trophies || [],
+        // Map is_hearted/is_praised from meta to Post interface fields
+        // Always default to false if meta data is not available
+        is_hearted_by_user: metaData?.[post.post_id]?.is_hearted ?? false,
+        is_praised_by_user: metaData?.[post.post_id]?.is_praised ?? false,
+      }))
+    );
+  }, [postsData, metaData]);
+
+  const showCountsLoading = metaLoading && !metaData;
+  const posts = enrichedPosts;
   const totalPosts = postsData?.pages[0]?.count || 0;
 
   // Show error toast when posts fail to load
@@ -123,7 +163,7 @@ const CollectiveHome = () => {
         const generalPostChannel = collectiveData.channels.find(
           (ch) => ch.title.toLowerCase() === 'general' && ch.channel_type === 'Post Channel'
         );
-        
+
         // If no "General" Post Channel, try any "General" channel
         const generalChannel = generalPostChannel || collectiveData.channels.find(
           (ch) => ch.title.toLowerCase() === 'general'
@@ -300,7 +340,6 @@ const CollectiveHome = () => {
                     </button>
                   )}
                 </div>
-
                 {/* POST CHANNELS Section */}
                 <div className="mb-4">
                   <button
@@ -320,11 +359,10 @@ const CollectiveHome = () => {
                           .map((channel) => (
                             <button
                               key={channel.channel_id}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                selectedChannel?.channel_id === channel.channel_id
-                                  ? 'bg-primary text-primary-content'
-                                  : 'hover:bg-base-300'
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                ? 'bg-primary text-primary-content'
+                                : 'hover:bg-base-300'
+                                }`}
                               onClick={() => handleChannelClick(channel)}
                             >
                               <span className="flex items-center gap-2">
@@ -373,11 +411,10 @@ const CollectiveHome = () => {
                           .map((channel) => (
                             <button
                               key={channel.channel_id}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                selectedChannel?.channel_id === channel.channel_id
-                                  ? 'bg-primary text-primary-content'
-                                  : 'hover:bg-base-300'
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                ? 'bg-primary text-primary-content'
+                                : 'hover:bg-base-300'
+                                }`}
                               onClick={() => handleChannelClick(channel)}
                             >
                               <span className="flex items-center gap-2">
@@ -417,11 +454,10 @@ const CollectiveHome = () => {
                           .map((channel) => (
                             <button
                               key={channel.channel_id}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                selectedChannel?.channel_id === channel.channel_id
-                                  ? 'bg-primary text-primary-content'
-                                  : 'hover:bg-base-300'
-                              }`}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                ? 'bg-primary text-primary-content'
+                                : 'hover:bg-base-300'
+                                }`}
                               onClick={() => handleChannelClick(channel)}
                             >
                               <span className="flex items-center gap-2">
@@ -429,7 +465,7 @@ const CollectiveHome = () => {
                                 {channel.title}
                               </span>
                               {selectedChannel?.channel_id === channel.channel_id && (
-                                <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
+                                <span className="badge badge-sm">88</span>
                               )}
                             </button>
                           ))
@@ -446,12 +482,10 @@ const CollectiveHome = () => {
               <SkeletonCollectiveSidebar className="sticky top-20" />
             )}
           </aside>
-
           {/* Mobile Sidebar - Slide-in drawer */}
           <aside
-            className={`fixed z-70 top-0 left-0 h-full w-72 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-              showMobileSidebar ? 'translate-x-0' : '-translate-x-full'
-            }`}
+            className={`fixed z-70 top-0 left-0 h-full w-72 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'
+              }`}
           >
             <div className="p-4">
               {loadingCollective ? (
@@ -526,11 +560,10 @@ const CollectiveHome = () => {
                             .map((channel) => (
                               <button
                                 key={channel.channel_id}
-                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                  selectedChannel?.channel_id === channel.channel_id
-                                    ? 'bg-primary text-primary-content'
-                                    : 'hover:bg-base-300'
-                                }`}
+                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                  ? 'bg-primary text-primary-content'
+                                  : 'hover:bg-base-300'
+                                  }`}
                                 onClick={() => {
                                   handleChannelClick(channel);
                                   setShowMobileSidebar(false);
@@ -585,11 +618,10 @@ const CollectiveHome = () => {
                             .map((channel) => (
                               <button
                                 key={channel.channel_id}
-                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                  selectedChannel?.channel_id === channel.channel_id
-                                    ? 'bg-primary text-primary-content'
-                                    : 'hover:bg-base-300'
-                                }`}
+                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                  ? 'bg-primary text-primary-content'
+                                  : 'hover:bg-base-300'
+                                  }`}
                                 onClick={() => {
                                   handleChannelClick(channel);
                                   setShowMobileSidebar(false);
@@ -632,11 +664,10 @@ const CollectiveHome = () => {
                             .map((channel) => (
                               <button
                                 key={channel.channel_id}
-                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
-                                  selectedChannel?.channel_id === channel.channel_id
-                                    ? 'bg-primary text-primary-content'
-                                    : 'hover:bg-base-300'
-                                }`}
+                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                                  ? 'bg-primary text-primary-content'
+                                  : 'hover:bg-base-300'
+                                  }`}
                                 onClick={() => {
                                   handleChannelClick(channel);
                                   setShowMobileSidebar(false);
@@ -685,12 +716,11 @@ const CollectiveHome = () => {
             ) : (
               <SkeletonHeroImage className="mb-6" />
             )}
-
             {/* Collective Info Section */}
             {collectiveData ? (
               <div className="bg-base-100 rounded-xl p-6 mb-6 shadow-md">
                 <h1 className="text-3xl font-bold mb-3">{collectiveData.title}</h1>
-                
+
                 <div className="flex items-center gap-4 mb-4 text-sm text-base-content/70">
                   <span className="flex items-center gap-1">
                     🔒 Private Group
@@ -747,7 +777,7 @@ const CollectiveHome = () => {
                       className="relative"
                       ref={joinedButtonRef}
                     >
-                      <button 
+                      <button
                         className="btn btn-success"
                         onClick={() => setShowJoinedDropdown(!showJoinedDropdown)}
                       >
@@ -862,7 +892,11 @@ const CollectiveHome = () => {
                 )}
 
                 {posts.map((postItem) => (
-                  <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
+                  <PostCard
+                    key={postItem.post_id}
+                    postItem={{ ...postItem, novel_post: postItem.novel_post || [] }}
+                    countsLoading={showCountsLoading}
+                  />
                 ))}
 
                 {posts.length === 0 && !arePostsLoading && (
@@ -900,7 +934,6 @@ const CollectiveHome = () => {
               </div>
             )}
           </main>
-
           {/* RIGHT SIDEBAR */}
           {collectiveData && (
             <>
@@ -1005,14 +1038,13 @@ const CollectiveHome = () => {
               {/* Mobile Right Sidebar - Slide-in drawer */}
               <aside
                 ref={rightSidebarRef}
-                className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-                  showRightSidebar ? 'translate-x-0' : 'translate-x-full'
-                }`}
+                className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${showRightSidebar ? 'translate-x-0' : 'translate-x-full'
+                  }`}
               >
                 <div className="p-4">
                   {/* Close button */}
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">{collectiveData ? collectiveData.title : "Collective Info" }</h2>
+                    <h2 className="text-xl font-bold">{collectiveData ? collectiveData.title : "Collective Info"}</h2>
                     <button
                       className="btn btn-ghost btn-sm btn-circle"
                       onClick={() => setShowRightSidebar(false)}

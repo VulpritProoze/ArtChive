@@ -1,5 +1,4 @@
 export { default as NovelRenderer } from './novel-renderer.component'
-export { default as CommentSection } from './comment-section.component'
 export { default as FirstCommentsSection } from './first-comments-section.component'
 export { default as DetailedCommentSection } from './detailed-comment-section.component'
 export { default as PostHeader } from './post-header'
