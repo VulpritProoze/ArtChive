@@ -1,10 +1,32 @@
-
 // Full-screen centered loading spinner (your original)
 export function LoadingSpinner({ text }: { text?: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-screen p-8">
       <span className="loading loading-spinner loading-lg text-primary"></span>
       {text && <p className="mt-4 text-sm opacity-70">{text}</p>}
+    </div>
+  );
+}
+
+// Simple loading spinner component - just spinner and text
+interface SimpleLoadingSpinnerProps {
+  text?: string;
+  spinnerSize?: 'xs' | 'sm' | 'md' | 'lg';
+  textSize?: 'xs' | 'sm' | 'base' | 'lg' | 'xl';
+}
+
+export function SimpleLoadingSpinner({ 
+  text, 
+  spinnerSize = 'lg',
+  textSize = 'sm'
+}: SimpleLoadingSpinnerProps) {
+  const spinnerSizeClass = `loading-${spinnerSize}`;
+  const textSizeClass = `text-${textSize}`;
+  
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <span className={`loading loading-spinner ${spinnerSizeClass} text-primary`}></span>
+      {text && <p className={`${textSizeClass} opacity-70`}>{text}</p>}
     </div>
   );
 }

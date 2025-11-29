@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@context/auth-context';
 import {
   PostFormModal,
@@ -11,16 +11,49 @@ import { MainLayout } from '@components/common/layout';
 import { SkeletonPostCard } from '@components/common/skeleton';
 import { usePosts } from '@hooks/queries/use-posts';
 import { usePostsMeta } from '@hooks/queries/use-post-meta';
-import { useMemo } from 'react';
+import { useUserProfile } from '@hooks/queries/use-user-profile';
 import { usePostUI } from '@context/post-ui-context';
 
 const Timeline: React.FC = () => {
-  const { user } = useAuth();
+  const { username: usernameParam } = useParams<{ username: string }>();
+  // Strip @ symbol if present (React Router includes it in the param)
+  const username = usernameParam?.startsWith('@') ? usernameParam.substring(1) : usernameParam;
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth(); // For comparison only
   const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();
+
+  // Early return if no username (invalid route)
+  if (!username) {
+    return (
+      <MainLayout showRightSidebar={false}>
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+          <h1 className="text-2xl font-bold text-error">Invalid Profile URL</h1>
+          <p className="text-base-content/70">Please check the URL and try again.</p>
+          <button
+            onClick={() => navigate('/home')}
+            className="btn btn-primary"
+          >
+            Go to Home
+          </button>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Fetch profile data by username
+  const {
+    data: profileUser,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useUserProfile(username);
+
+  // Determine if viewing own profile
+  const isOwnProfile = currentUser?.username === username;
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'works' | 'avatar' | 'collectives'>('timeline');
 
+  // Fetch posts using user ID from profile data
   const {
     data,
     fetchNextPage,
@@ -29,7 +62,10 @@ const Timeline: React.FC = () => {
     isLoading,
     isError,
     error,
-  } = usePosts({ userId: user?.id, enabled: Boolean(user?.id) });
+  } = usePosts({
+    userId: profileUser?.id,
+    enabled: Boolean(profileUser?.id),
+  });
 
   const postIds = useMemo(() => {
     if (!data) return [];
@@ -101,17 +137,117 @@ const Timeline: React.FC = () => {
     { id: 'collectives', label: 'Collectives', icon: '👥' },
   ] as const;
 
+  // Handle profile loading state with skeleton
+  if (profileLoading) {
+    return (
+      <MainLayout showRightSidebar={false}>
+        <div className="mb-6">
+          <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300">
+            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+              {/* Profile Picture Skeleton */}
+              <div className="avatar">
+                <div className="w-32 h-32 rounded-full bg-base-300 animate-pulse"></div>
+              </div>
+
+              <div className="flex-1 text-center lg:text-left w-full">
+                {/* Name and Username Skeleton */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
+                  <div className="flex-1">
+                    <div className="h-8 w-48 bg-base-300 rounded-lg animate-pulse mb-2 mx-auto lg:mx-0"></div>
+                    <div className="h-5 w-32 bg-base-300 rounded-lg animate-pulse mx-auto lg:mx-0"></div>
+                  </div>
+                  <div className="flex flex-wrap justify-center lg:justify-end gap-2">
+                    <div className="h-9 w-24 bg-base-300 rounded-lg animate-pulse"></div>
+                    <div className="h-9 w-24 bg-base-300 rounded-lg animate-pulse"></div>
+                  </div>
+                </div>
+
+                {/* Artist Types Skeleton */}
+                <div className="mb-4 max-w-2xl">
+                  <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+                    <div className="h-8 w-20 bg-base-300 rounded-full animate-pulse"></div>
+                    <div className="h-8 w-24 bg-base-300 rounded-full animate-pulse"></div>
+                    <div className="h-8 w-16 bg-base-300 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+
+                {/* Stats Skeleton */}
+                <div className="flex justify-center lg:justify-start gap-6 lg:gap-8">
+                  <div className="text-center">
+                    <div className="h-8 w-12 bg-base-300 rounded-lg animate-pulse mb-1 mx-auto"></div>
+                    <div className="h-4 w-12 bg-base-300 rounded animate-pulse mx-auto"></div>
+                  </div>
+                  <div className="text-center">
+                    <div className="h-8 w-12 bg-base-300 rounded-lg animate-pulse mb-1 mx-auto"></div>
+                    <div className="h-4 w-16 bg-base-300 rounded animate-pulse mx-auto"></div>
+                  </div>
+                  <div className="text-center">
+                    <div className="h-8 w-12 bg-base-300 rounded-lg animate-pulse mb-1 mx-auto"></div>
+                    <div className="h-4 w-16 bg-base-300 rounded animate-pulse mx-auto"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="mb-6">
+          <div className="bg-base-200/50 rounded-xl p-2">
+            <div className="flex flex-wrap gap-2">
+              <div className="h-10 w-24 bg-base-300 rounded-lg animate-pulse"></div>
+              <div className="h-10 w-20 bg-base-300 rounded-lg animate-pulse"></div>
+              <div className="h-10 w-20 bg-base-300 rounded-lg animate-pulse"></div>
+              <div className="h-10 w-28 bg-base-300 rounded-lg animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Posts Skeleton */}
+        <div className="mb-12">
+          <SkeletonPostCard
+            count={3}
+            containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
+          />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Handle profile error (user not found)
+  if (profileError || !profileUser) {
+    return (
+      <MainLayout showRightSidebar={false}>
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+          <h1 className="text-2xl font-bold text-error">User Not Found</h1>
+          <p className="text-base-content/70">
+            The user "{username}" does not exist.
+          </p>
+          <button
+            onClick={() => navigate('/home')}
+            className="btn btn-primary"
+          >
+            Go to Home
+          </button>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Handle posts error
   if (isError) {
     return (
-      <MainLayout>
-        <div className="text-center py-12 text-error">Error loading posts: {error?.message}</div>
+      <MainLayout showRightSidebar={false}>
+        <div className="text-center py-12 text-error">
+          Error loading posts: {error?.message}
+        </div>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout showRightSidebar={false}>
-      {showPostForm && <PostFormModal user_id={user?.id} />}
+      {showPostForm && <PostFormModal user_id={currentUser?.id} />}
       {showCommentForm && <CommentFormModal />}
 
       <div className="mb-6">
@@ -121,7 +257,7 @@ const Timeline: React.FC = () => {
               <div className="avatar">
                 <div className="w-32 h-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4 shadow-xl group-hover:ring-secondary transition-all duration-300">
                   <img
-                    src={user?.profile_picture || '/static_img/default-pic-min.jpg'}
+                    src={profileUser?.profile_picture || '/static_img/default-pic-min.jpg'}
                     alt="profile avatar"
                     className="object-cover"
                   />
@@ -134,29 +270,33 @@ const Timeline: React.FC = () => {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
                 <div>
                   <h2 className="text-3xl font-bold text-base-content mb-1">
-                    {user?.fullname || user?.username || 'User'}
+                    {profileUser?.fullname || `@${profileUser?.username}` || 'User'}
                   </h2>
-                  <p className="text-base-content/60 font-medium">@{user?.username || 'username'}</p>
+                  <p className="text-base-content/60 font-medium">@{profileUser?.username || 'username'}</p>
                 </div>
 
                 <div className="flex flex-wrap justify-center lg:justify-end gap-2">
-                  <Link to="/profile/me" className="btn btn-sm btn-outline gap-2">
-                    Edit Profile
-                  </Link>
+                  {isOwnProfile && (
+                    <>
+                      <Link to="/profile/me" className="btn btn-sm btn-outline gap-2">
+                        Edit Profile
+                      </Link>
+                      <button
+                        className="btn btn-sm btn-primary gap-2"
+                        onClick={() => setShowPostForm(true)}
+                      >
+                        Create Post
+                      </button>
+                    </>
+                  )}
                   <button className="btn btn-sm btn-outline gap-2">Share</button>
-                  <button
-                    className="btn btn-sm btn-primary gap-2"
-                    onClick={() => setShowPostForm(true)}
-                  >
-                    Create Post
-                  </button>
                 </div>
               </div>
 
-              {user?.artist_types && user.artist_types.length > 0 ? (
+              {profileUser?.artist_types && profileUser.artist_types.length > 0 ? (
                 <div className="mb-4 max-w-2xl">
                   <div className="flex flex-wrap gap-2">
-                    {user.artist_types.map((type, index) => (
+                    {profileUser.artist_types.map((type, index) => (
                       <span
                         key={index}
                         className="badge badge-primary badge-lg px-4 py-2 text-sm font-semibold shadow-md"
@@ -236,11 +376,15 @@ const Timeline: React.FC = () => {
                 <div className="text-8xl mb-4">📝</div>
                 <h3 className="text-2xl font-bold text-base-content mb-2">No Posts Yet</h3>
                 <p className="text-base-content/60 text-center max-w-md mb-6">
-                  Start sharing your amazing artwork with the community!
+                  {isOwnProfile
+                    ? 'Start sharing your amazing artwork with the community!'
+                    : `${profileUser?.username || 'This user'} hasn't shared any posts yet.`}
                 </p>
-                <button className="btn btn-primary gap-2" onClick={() => setShowPostForm(true)}>
-                  Create Your First Post
-                </button>
+                {isOwnProfile && (
+                  <button className="btn btn-primary gap-2" onClick={() => setShowPostForm(true)}>
+                    Create Your First Post
+                  </button>
+                )}
               </div>
             )}
 

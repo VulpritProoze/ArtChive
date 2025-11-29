@@ -43,6 +43,85 @@ class UserSerializer(ModelSerializer):
         full_name = ' '.join(part.strip() for part in parts if part and part.strip())
         return full_name if full_name else ''
 
+
+class UserProfilePublicSerializer(ModelSerializer):
+    """
+    Public user profile serializer - no sensitive information.
+    Used for viewing any user's profile by username.
+    """
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'artist_types',
+        ]
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types']
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        user = obj
+        parts = [user.first_name or "", user.last_name or ""]
+        full_name = " ".join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+
+class UserSummarySerializer(ModelSerializer):
+    """
+    Lightweight user summary serializer for hover modals.
+    Includes basic user info and brush drips count.
+    Placeholder for future statistics.
+    """
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+    brushdrips_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'artist_types',
+            'brushdrips_count',
+        ]
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'brushdrips_count']
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        user = obj
+        parts = [user.first_name or "", user.last_name or ""]
+        full_name = " ".join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+    def get_brushdrips_count(self, obj):
+        """Get user's brush drips count"""
+        try:
+            return obj.user_wallet.balance
+        except BrushDripWallet.DoesNotExist:
+            return 0
+
+
 class LoginSerializer(Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True)

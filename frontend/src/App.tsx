@@ -24,6 +24,7 @@ import {
   PostDetail,
   NotFound,
   MyGalleries,
+  NavigateToOwnProfile,
 } from "@components";
 import { PostUIProvider } from "@context/post-ui-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -74,12 +75,13 @@ function App() {
                   {/* Protected routes (with auth check) */}
                   <Route element={<ProtectedRoute />}>
                     <Route path="/profile/me" element={<Profile />} />
+                    <Route path="/profile" element={<NavigateToOwnProfile />} />
+                    <Route path="/profile/:username" element={<Timeline />} />
                     <Route path="/drips" element={<BrushDripsPage />} />
                     <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
                     <Route path="/notifications" element={<NotificationIndex />} />
 
                     <Route path="/home" element={<Home />} />
-                    <Route path="/profile" element={<Timeline />} />
 
                     {/* Collective Routes Layout */}
                     <Route

@@ -16,7 +16,7 @@ from rest_framework.generics import (
     RetrieveAPIView,
     UpdateAPIView,
 )
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -373,7 +373,9 @@ class PostBulkMetaView(APIView):
 
 class OwnPostsListView(generics.ListAPIView):
     """
-    Fetch user's list of posts
+    Fetch user's list of posts by user ID.
+    Optimized queryset matching PostDetailView pattern.
+    Lightweight - no count annotations (use PostBulkMetaView for counts).
     Example URLs:
     - /posts/me/1/ (first 10 posts)
     - /posts/me/1/?page=2 (next 10 posts)
@@ -388,15 +390,54 @@ class OwnPostsListView(generics.ListAPIView):
         user_id = self.kwargs["id"]
         user = get_object_or_404(User, id=user_id)
 
-        # Use get_active_objects() to filter out soft-deleted posts
+        # Optimized queryset matching PostDetailView pattern
         return (
             Post.objects.get_active_objects()
             .filter(author=user)
             .prefetch_related(
-                "novel_post",
+                "novel_post",  # Keep - needed for novel posts
+                "channel",
+                "channel__collective",  # For consistency with PostListView
             )
             .select_related(
                 "author",
+                "author__artist",  # Fetch artist info for post author
+            )
+            .order_by("-created_at")
+        )
+
+
+class UserPostsByUsernameListView(generics.ListAPIView):
+    """
+    Fetch user's posts by username.
+    Optimized queryset matching PostDetailView pattern.
+    Lightweight - no count annotations (use PostBulkMetaView for counts).
+    Public endpoint - anyone can view any user's posts.
+    Example URLs:
+    - /posts/by-username/johndoe/ (first 10 posts)
+    - /posts/by-username/johndoe/?page=2 (next 10 posts)
+    - /posts/by-username/johndoe/?page_size=20 (20 posts per page)
+    """
+    serializer_class = PostListViewSerializer
+    pagination_class = PostPagination
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        username = self.kwargs["username"]
+        user = get_object_or_404(User, username=username)
+
+        # Optimized queryset matching PostDetailView pattern
+        return (
+            Post.objects.get_active_objects()
+            .filter(author=user)
+            .prefetch_related(
+                "novel_post",  # Keep - needed for novel posts
+                "channel",
+                "channel__collective",  # For consistency with PostListView
+            )
+            .select_related(
+                "author",
+                "author__artist",  # Fetch artist info for post author
             )
             .order_by("-created_at")
         )

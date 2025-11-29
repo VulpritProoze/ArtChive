@@ -19,6 +19,7 @@ export { default as Home } from './home/index.component'
 // Profile
 export { default as Profile } from './profile/profile-section.component'
 export { default as Timeline } from './profile/timeline.component'
+export { default as NavigateToOwnProfile } from './profile/navigate-to-own-profile.component'
 
 // Collective
 export { default as Collective } from './collective/index.component'

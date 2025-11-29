@@ -46,6 +46,7 @@ from .views import (
     UserAwardedTrophiesListView,
     UserCritiquesListView,
     UserHeartedPostsListView,
+    UserPostsByUsernameListView,
     UserPraisedPostsListView,
 )
 
@@ -58,6 +59,7 @@ urlpatterns = [
     path("", PostListView.as_view(), name="post-list"),
     path("bulk-meta/", PostBulkMetaView.as_view(), name="post-bulk-meta"),
     path("me/<int:id>/", OwnPostsListView.as_view(), name="post-list-me"),
+    path("by-username/<str:username>/", UserPostsByUsernameListView.as_view(), name="posts-by-username"),
     path("<uuid:post_id>/", PostDetailView.as_view(), name="post-detail"),
     path("comment/", CommentListView.as_view(), name="comment-list"),
     path(

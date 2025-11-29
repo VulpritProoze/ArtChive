@@ -15,6 +15,8 @@ from .views import (
     ProfileRetrieveUpdateView,
     RegistrationView,
     UserInfoView,
+    UserProfileByUsernameView,
+    UserSummaryView,
 )
 
 urlpatterns = [
@@ -39,6 +41,16 @@ urlpatterns = [
         "profile/update/<int:id>/",
         ProfileRetrieveUpdateView.as_view(),
         name="profile-update",
+    ),
+    path(
+        "profile/by-username/<str:username>/",
+        UserProfileByUsernameView.as_view(),
+        name="profile-by-username",
+    ),
+    path(
+        "user/<int:user_id>/summary/",
+        UserSummaryView.as_view(),
+        name="user-summary",
     ),
     # Brush Drip Wallet endpoints
     path(

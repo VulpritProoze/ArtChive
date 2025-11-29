@@ -179,7 +179,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {user && (
                 <div className="hidden sm:flex items-center gap-3">
                   <Link
-                    to="/profile"
+                    to={user.username ? `/profile/@${user.username}` : "/profile"}
                     className="flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
                   >
                     <img
@@ -307,7 +307,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             {user && (
               <div className="sm:hidden mb-6 pb-6 border-b border-base-300">
                 <Link
-                  to="/profile"
+                  to={user.username ? `/profile/@${user.username}` : "/profile"}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
                   onClick={() => setIsSettingsOpen(false)}
                 >

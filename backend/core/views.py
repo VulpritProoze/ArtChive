@@ -36,7 +36,9 @@ from .serializers import (
     LoginSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
+    UserProfilePublicSerializer,
     UserSerializer,
+    UserSummarySerializer,
 )
 
 
@@ -335,6 +337,75 @@ class UserInfoView(RetrieveAPIView):
     @silk_profile(name="User/Me Get Object")
     def get_object(self):
         return self.get_queryset().get(pk=self.request.user.pk)
+
+
+@extend_schema(
+    tags=["Users"],
+    description="Get user profile by username (public endpoint)",
+    responses={
+        200: UserProfilePublicSerializer,
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserProfileByUsernameView(RetrieveAPIView):
+    """
+    Get user profile by username.
+    Public endpoint - anyone can view any user's profile.
+    Returns public profile information including user ID for fetching posts.
+    """
+    serializer_class = UserProfilePublicSerializer
+    lookup_field = "username"
+    lookup_url_kwarg = "username"
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        return User.objects.select_related(
+            "artist",
+        ).prefetch_related(
+            "collective_member"
+        ).only(
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "artist__artist_types",
+        )
+
+
+@extend_schema(
+    tags=["Users"],
+    description="Get lightweight user summary by user ID (for hover modals)",
+    responses={
+        200: UserSummarySerializer,
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserSummaryView(RetrieveAPIView):
+    """
+    Get lightweight user summary by user ID.
+    Public endpoint - used for hover modals in post cards.
+    Returns basic user info and brush drips count.
+    Placeholder for future statistics.
+    """
+    serializer_class = UserSummarySerializer
+    lookup_field = "id"
+    lookup_url_kwarg = "user_id"
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        return User.objects.select_related(
+            "artist",
+            "user_wallet",
+        ).only(
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "artist__artist_types",
+            "user_wallet__balance",
+        )
 
 
 @extend_schema(
