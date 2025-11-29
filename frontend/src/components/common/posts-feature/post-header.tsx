@@ -110,7 +110,7 @@ export default function PostHeader({
                         if (!window.confirm("Are you sure you want to delete this post?")) return;
                         try {
                           await deletePost({ postId: postItem.post_id });
-                          toast.success("Post deleted", "The post has been removed successfully");
+                          // Toast shown in mutation callback
                         } catch (error) {
                           const message = handleApiError(error, {}, true, true);
                           toast.error("Failed to delete post", formatErrorForToast(message));

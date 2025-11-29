@@ -32,13 +32,17 @@ interface PostCardPostItem extends Post {
   novel_post: NovelPost[];
 }
 
+interface PostCardProps {
+  postItem: PostCardPostItem;
+  highlightedItemId?: string | null;
+  countsLoading?: boolean; // NEW: Loading state for counts
+}
+
 export default function PostCard({
   postItem,
   highlightedItemId,
-}: {
-  postItem: PostCardPostItem;
-  highlightedItemId?: string | null;
-}) {
+  countsLoading = false, // Default to false
+}: PostCardProps) {
   const {
     showPraiseListModal,
     setShowPraiseListModal,
@@ -232,9 +236,8 @@ export default function PostCard({
 
               {/* Praise */}
               <button
-                className={`btn btn-ghost btn-sm btn-circle relative ${
-                  isPraised ? "text-warning" : ""
-                }`}
+                className={`btn btn-ghost btn-sm btn-circle relative ${isPraised ? "text-warning" : ""
+                  }`}
                 onClick={handlePraise}
                 disabled={praiseButtonDisabled}
                 title={
@@ -264,9 +267,9 @@ export default function PostCard({
                   className="text-xl hover:scale-110 transition-transform"
                 />
                 {userAwardedTrophies.length > 0 && (
-                    <span className="absolute -top-1 -right-1 badge badge-xs badge-warning">
+                  <span className="absolute -top-1 -right-1 badge badge-xs badge-warning">
                     {userAwardedTrophies.length}
-                    </span>
+                  </span>
                 )}
               </button>
 
@@ -279,7 +282,7 @@ export default function PostCard({
               </button>
             </div>
 
-              {/* Bookmark (no implementation yet) */}
+            {/* Bookmark (no implementation yet) */}
             <button className="btn btn-ghost btn-sm btn-circle" title="Bookmark post">
               <FontAwesomeIcon
                 icon={faBookmark}
@@ -290,55 +293,74 @@ export default function PostCard({
 
           {/* Likes Count */}
           <div className="mb-2 flex flex-row gap-3 items-center flex-wrap">
-            <button
-              onClick={handleOpenHeartList}
-              className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
-            >
-              {postItem.hearts_count || 0} likes
-            </button>
-
-            {/* Praise Count - Clickable */}
-            {praiseCount > 0 && (
-              <button
-                onClick={handleOpenPraiseList}
-                className="text-sm font-semibold text-warning hover:underline cursor-pointer transition-all hover:scale-105"
-              >
-                {praiseCount} praises
-              </button>
-            )}
-
-            {/* Trophy Count - Clickable */}
-            {hasTrophies && (
-              <button
-                onClick={handleOpenTrophyList}
-                className="flex gap-2 text-sm hover:opacity-80 transition-all cursor-pointer"
-              >
-                {(trophyCounts.bronze_stroke ?? 0) > 0 && (
-                  <span className="text-orange-700 font-semibold">
-                    🥉 {trophyCounts.bronze_stroke}
-                  </span>
+            {countsLoading ? (
+              <>
+                <div className="skeleton h-4 w-16"></div>
+                <div className="skeleton h-4 w-20"></div>
+                <div className="skeleton h-4 w-24"></div>
+              </>
+            ) : (
+              <>
+                {/* Heart Count - Clickable */}
+                {isHeartLoading ? (
+                  <div className="skeleton h-4 w-16"></div>
+                ) : (
+                  <button
+                    onClick={handleOpenHeartList}
+                    className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
+                  >
+                    {postItem.hearts_count || 0} likes
+                  </button>
                 )}
-                {(trophyCounts.golden_bristle ?? 0) > 0 && (
-                  <span className="text-yellow-600 font-semibold">
-                    🥈 {trophyCounts.golden_bristle}
-                  </span>
-                )}
-                {(trophyCounts.diamond_canvas ?? 0) > 0 && (
-                  <span className="text-blue-600 font-semibold">
-                    🥇 {trophyCounts.diamond_canvas}
-                  </span>
-                )}
-              </button>
-            )}
 
-            {/* Comment Count - Clickable (same as comment icon) */}
-            {(postItem.comment_count || 0) > 0 && (
-              <button
-                onClick={handleToggleComments}
-                className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
-              >
-                {postItem.comment_count || 0} {postItem.comment_count === 1 ? 'comment' : 'comments'}
-              </button>
+                {/* Praise Count - Clickable */}
+                {isPraising ? (
+                  <div className="skeleton h-4 w-16"></div>
+                ) : (
+                  praiseCount > 0 && (
+                    <button
+                      onClick={handleOpenPraiseList}
+                      className="text-sm font-semibold text-warning hover:underline cursor-pointer transition-all hover:scale-105"
+                    >
+                      {praiseCount} praises
+                    </button>
+                  )
+                )}
+
+                {/* Trophy Count - Clickable */}
+                {hasTrophies && (
+                  <button
+                    onClick={handleOpenTrophyList}
+                    className="flex gap-2 text-sm hover:opacity-80 transition-all cursor-pointer"
+                  >
+                    {(trophyCounts.bronze_stroke ?? 0) > 0 && (
+                      <span className="text-orange-700 font-semibold">
+                        🥉 {trophyCounts.bronze_stroke}
+                      </span>
+                    )}
+                    {(trophyCounts.golden_bristle ?? 0) > 0 && (
+                      <span className="text-yellow-600 font-semibold">
+                        🥈 {trophyCounts.golden_bristle}
+                      </span>
+                    )}
+                    {(trophyCounts.diamond_canvas ?? 0) > 0 && (
+                      <span className="text-blue-600 font-semibold">
+                        🥇 {trophyCounts.diamond_canvas}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Comment Count - Clickable (same as comment icon) */}
+                {(postItem.comment_count || 0) > 0 && (
+                  <button
+                    onClick={handleToggleComments}
+                    className="text-sm font-semibold text-base-content hover:underline cursor-pointer transition-all hover:scale-105"
+                  >
+                    {postItem.comment_count || 0} {postItem.comment_count === 1 ? 'comment' : 'comments'}
+                  </button>
+                )}
+              </>
             )}
 
             {/* Time Posted */}
@@ -364,8 +386,8 @@ export default function PostCard({
 
           {/* Comment Section - Toggleable, fetches when shown */}
           {showComments && (
-            <DetailedCommentSection 
-              postItem={postItem} 
+            <DetailedCommentSection
+              postItem={postItem}
               highlightedItemId={highlightedItemId}
               enableInitialFetch={true}
             />

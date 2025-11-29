@@ -11,9 +11,11 @@ import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
 import { SkeletonPostCard } from "@components/common/skeleton";
 import { usePosts } from "@hooks/queries/use-posts";
+import { usePostsMeta } from "@hooks/queries/use-post-meta";
 import { usePostUI } from "@context/post-ui-context";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { useQuery } from "@tanstack/react-query";
 
 const Index: React.FC = () => {
   const {
@@ -33,11 +35,58 @@ const Index: React.FC = () => {
     error,
   } = usePosts();
 
-  const posts = useMemo(
-    () => data?.pages.flatMap((page) => page.results || []) ?? [],
-    [data]
-  );
-  const totalCount = data?.pages?.[0]?.count ?? posts.length;
+  // Track post creation state for skeleton loader
+  // Use useQuery hook to subscribe to cache changes (matches working comment pattern)
+  const { data: isCreatingPost = false } = useQuery({
+    queryKey: ['post-creating'],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
+
+  // Extract all post IDs from all pages
+  const postIds = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(p => p.post_id)
+    );
+  }, [data]);
+
+  // Fetch bulk meta for all visible posts
+  const {
+    data: metaData,
+    isLoading: metaLoading
+  } = usePostsMeta(postIds, postIds.length > 0);
+
+  // Merge posts with meta
+  const enrichedPosts = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(post => ({
+        ...post,
+        ...(metaData?.[post.post_id] || {
+          hearts_count: 0,
+          praise_count: 0,
+          trophy_count: 0,
+          comment_count: 0,
+          user_trophies: [],
+          trophy_breakdown: {},
+          is_hearted: false,
+          is_praised: false,
+        }),
+        // Map trophy_breakdown to trophy_counts_by_type for PostCard compatibility
+        trophy_counts_by_type: metaData?.[post.post_id]?.trophy_breakdown || {},
+        user_awarded_trophies: metaData?.[post.post_id]?.user_trophies || [],
+        // Map is_hearted/is_praised from meta to Post interface fields
+        // Always default to false if meta data is not available
+        is_hearted_by_user: metaData?.[post.post_id]?.is_hearted ?? false,
+        is_praised_by_user: metaData?.[post.post_id]?.is_praised ?? false,
+      }))
+    );
+  }, [data, metaData]);
+
+  const totalCount = data?.pages?.[0]?.count ?? enrichedPosts.length;
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -65,7 +114,8 @@ const Index: React.FC = () => {
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const isInitialLoading = isLoading && posts.length === 0;
+  const isInitialLoading = isLoading && enrichedPosts.length === 0;
+  const showCountsLoading = metaLoading && !metaData;
 
   // Show error toast when there's an error
   useEffect(() => {
@@ -126,13 +176,20 @@ const Index: React.FC = () => {
 
         {/* Posts Grid */}
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
-          {posts.map((postItem) => (
-            <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
+          {/* Skeleton Loader for new post being created */}
+          {isCreatingPost && <SkeletonPostCard />}
+          
+          {enrichedPosts.map((postItem) => (
+            <PostCard
+              key={postItem.post_id}
+              postItem={{ ...postItem, novel_post: postItem.novel_post || [] }}
+              countsLoading={showCountsLoading}
+            />
           ))}
         </div>
 
         {/* Empty State */}
-        {posts.length === 0 && !isInitialLoading && !isError && (
+        {enrichedPosts.length === 0 && !isInitialLoading && !isError && (
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <div className="text-8xl mb-4">🎨</div>
             <h3 className="text-2xl font-bold text-base-content mb-2">
@@ -168,7 +225,7 @@ const Index: React.FC = () => {
           isFetchingMore={isFetchingNextPage}
           hasNextPage={!!hasNextPage}
           totalCount={totalCount}
-          itemCount={posts.length}
+          itemCount={enrichedPosts.length}
         />
       </div>
     </MainLayout>

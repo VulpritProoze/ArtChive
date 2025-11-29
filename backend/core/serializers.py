@@ -23,7 +23,11 @@ class UserSerializer(ModelSerializer):
         read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
-        # Return a list of collective_ids user has joined
+        # Use prefetched data instead of querying database (optimized)
+        if hasattr(obj, 'collective_member'):
+            # Prefetched data is available - use it (much faster, no extra query)
+            return list(obj.collective_member.values_list('collective_id', flat=True))
+        # Fallback if not prefetched (shouldn't happen, but safe guard)
         return list(CollectiveMember.objects.filter(member=obj).values_list('collective_id', flat=True))
 
     def get_artist_types(self, obj):

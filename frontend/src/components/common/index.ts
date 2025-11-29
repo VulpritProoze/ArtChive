@@ -1,7 +1,6 @@
 export { default as InfiniteScrolling } from './posts-feature/infinite-scrolling.loading'
 export { default as AddChapterRenderer } from './posts-feature/add-chapter-renderer.component'
 export { default as AddMediaRenderer } from './posts-feature/add-media-renderer.component'
-export { default as CommentSection } from './posts-feature/comment-section.component'
 export { default as FirstCommentsSection } from './posts-feature/first-comments-section.component'
 export { default as DetailedCommentSection } from './posts-feature/detailed-comment-section.component'
 export { default as ReplyComponent } from './posts-feature/reply.component'

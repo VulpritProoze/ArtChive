@@ -31,15 +31,15 @@ export interface Post {
   collective: string;
   novel_post?: NovelPost[];
   comments?: Comment[];
-  comment_count: number;
+  comment_count?: number; // Optional - fetched via bulk-meta endpoint
   channel_id?: string; 
-  hearts_count?: number
-  is_hearted_by_user: boolean
-  praise_count?: number
-  is_praised_by_user?: boolean
-  trophy_count?: number
-  user_awarded_trophies?: string[]
-  trophy_counts_by_type?: Record<string, number>
+  hearts_count?: number; // Optional - fetched via bulk-meta endpoint
+  is_hearted_by_user?: boolean; // Optional - not in bulk-meta
+  praise_count?: number; // Optional - fetched via bulk-meta endpoint
+  is_praised_by_user?: boolean; // Optional - not in bulk-meta
+  trophy_count?: number; // Optional - fetched via bulk-meta endpoint
+  user_awarded_trophies?: string[]; // Optional - fetched via bulk-meta endpoint
+  trophy_counts_by_type?: Record<string, number>; // Optional - fetched via bulk-meta endpoint (as trophy_breakdown)
 }
 
 export interface PostHeart {

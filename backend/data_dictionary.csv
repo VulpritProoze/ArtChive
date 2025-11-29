@@ -1,0 +1,179 @@
+Table,Field,DataType,Constraints,Description
+core_user,id,INT,PK,Unique identifier for the user
+core_user,username,VARCHAR(150),UNIQUE NOT NULL,Unique username for login and display
+core_user,email,VARCHAR(254),UNIQUE NOT NULL,User's email address (used for authentication)
+core_user,first_name,VARCHAR(255),,User's first name
+core_user,middle_name,VARCHAR(100),,User's middle name (optional)
+core_user,last_name,VARCHAR(100),,User's last name
+core_user,city,VARCHAR(100),DEFAULT 'N/A',User's city of residence
+core_user,country,VARCHAR(100),DEFAULT 'N/A',User's country of residence
+core_user,contact_no,VARCHAR(20),DEFAULT 'N/A',User's contact phone number
+core_user,birthday,DATE,,User's date of birth
+core_user,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the user account is soft-deleted
+core_user,profile_picture,VARCHAR(100),DEFAULT 'static/images/default-pic-min.jpg',Path to the user's profile picture
+core_user,password,VARCHAR(128),NOT NULL,Hashed password for authentication
+core_user,last_login,TIMESTAMP,,Timestamp of the last successful login
+core_user,is_superuser,BOOLEAN,DEFAULT FALSE,Grants all permissions without explicitly assigning them
+core_user,is_staff,BOOLEAN,DEFAULT FALSE,Designates whether the user can log into the admin site
+core_user,is_active,BOOLEAN,DEFAULT TRUE,Designates whether this user account should be treated as active
+core_user,date_joined,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the account was created
+,,,,
+core_artist,user_id_id,INT,PK FK,Link to the core_user table (One-to-One)
+core_artist,artist_types,TEXT[],,List of art forms the user practices (e.g. 'Visual', 'Literary')
+,,,,
+core_userfellow,id,INT,PK,Unique identifier for the follow relationship
+core_userfellow,user_id,INT,FK,The user who is following someone
+core_userfellow,fellow_user_id,INT,FK,The user being followed
+core_userfellow,status,VARCHAR(50),DEFAULT 'pending',Status of the follow request (pending/accepted)
+core_userfellow,fellowed_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the follow request was made
+,,,,
+core_brushdripwallet,id,INT,PK,Unique identifier for the wallet
+core_brushdripwallet,user_id,INT,FK UNIQUE,The user who owns this wallet
+core_brushdripwallet,balance,INT,DEFAULT 0,Current balance of Brush Drips (virtual currency)
+core_brushdripwallet,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp of the last balance update
+,,,,
+core_brushdriptransaction,drip_id,UUID,PK,Unique identifier for the transaction
+core_brushdriptransaction,amount,INT,DEFAULT 0,Amount of Brush Drips transferred
+core_brushdriptransaction,transaction_object_type,VARCHAR(500),NOT NULL,Type of object associated with transaction (e.g. 'post_praise')
+core_brushdriptransaction,transaction_object_id,VARCHAR(2000),NOT NULL,ID of the specific object associated with the transaction
+core_brushdriptransaction,transacted_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the transaction occurred
+core_brushdriptransaction,transacted_by_id,INT,FK,User who initiated the transaction (sender)
+core_brushdriptransaction,transacted_to_id,INT,FK,User who received the transaction (recipient)
+,,,,
+avatar_avatar,avatar_id,UUID,PK,Unique identifier for the avatar
+avatar_avatar,user_id,INT,FK,The user who owns this avatar
+avatar_avatar,name,VARCHAR(255),DEFAULT 'My Avatar',Display name for the avatar
+avatar_avatar,description,TEXT,,Optional description or backstory for the avatar
+avatar_avatar,status,VARCHAR(20),DEFAULT 'draft',Current state of the avatar (draft/active/archived)
+avatar_avatar,is_primary,BOOLEAN,DEFAULT FALSE,Indicates if this is the user's currently selected main avatar
+avatar_avatar,canvas_json,JSONB,,Raw JSON data representing the avatar's canvas elements
+avatar_avatar,rendered_image,VARCHAR(100),,Path to the final rendered image of the avatar
+avatar_avatar,thumbnail,VARCHAR(100),,Path to a smaller thumbnail version of the avatar
+avatar_avatar,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the avatar is soft-deleted
+avatar_avatar,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the avatar was created
+avatar_avatar,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the avatar was last modified
+,,,,
+collective_collective,collective_id,UUID,PK,Unique identifier for the collective
+collective_collective,title,VARCHAR(100),UNIQUE NOT NULL,Name of the collective
+collective_collective,description,VARCHAR(4096),NOT NULL,Detailed description of the collective's purpose
+collective_collective,rules,TEXT[],,List of rules for members of the collective
+collective_collective,artist_types,TEXT[],,Types of art focused on by this collective
+collective_collective,picture,VARCHAR(100),DEFAULT 'static/images/default_600x400.png',Cover image for the collective
+collective_collective,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the collective was created
+collective_collective,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the collective was last updated
+,,,,
+collective_collectivemember,id,INT,PK,Unique identifier for the membership record
+collective_collectivemember,collective_id_id,UUID,FK,The collective the user belongs to
+collective_collectivemember,member_id,INT,FK,The user who is a member
+collective_collectivemember,collective_role,VARCHAR(50),DEFAULT 'member',Role of the user within the collective (e.g. 'admin', 'member')
+collective_collectivemember,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the user joined
+collective_collectivemember,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp of last membership update
+,,,,
+collective_channel,channel_id,UUID,PK,Unique identifier for the channel
+collective_channel,title,VARCHAR(512),NOT NULL,Name of the channel
+collective_channel,channel_type,VARCHAR(50),DEFAULT 'post_channel',Type of content allowed in the channel
+collective_channel,description,VARCHAR(4096),NOT NULL,Description of the channel's topic
+collective_channel,collective_id,UUID,FK,The collective this channel belongs to
+collective_channel,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the channel was created
+collective_channel,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the channel was last updated
+,,,,
+collective_adminrequest,request_id,UUID,PK,Unique identifier for the admin request
+collective_adminrequest,collective_id,UUID,FK,The collective where admin status is requested
+collective_adminrequest,requester_id,INT,FK,The user requesting admin privileges
+collective_adminrequest,status,VARCHAR(20),DEFAULT 'pending',Current status of the request (pending/approved/rejected)
+collective_adminrequest,message,TEXT,,Optional message explaining why they want to be admin
+collective_adminrequest,reviewed_by_id,INT,FK,The existing admin who reviewed this request
+collective_adminrequest,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the request was made
+collective_adminrequest,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the request was processed
+,,,,
+post_post,post_id,UUID,PK,Unique identifier for the post
+post_post,description,TEXT,NOT NULL,Main text content or caption of the post
+post_post,image_url,VARCHAR(100),,Path to an uploaded image (if applicable)
+post_post,video_url,VARCHAR(100),,Path to an uploaded video (if applicable)
+post_post,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the post is soft-deleted
+post_post,post_type,VARCHAR(100),NOT NULL,Type of post (e.g. 'default', 'novel', 'image', 'video')
+post_post,author_id,INT,FK,The user who created the post
+post_post,channel_id,UUID,FK,The channel where this post is published
+post_post,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the post was created
+post_post,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the post was last edited
+,,,,
+post_novelpost,id,INT,PK,Unique identifier for the novel chapter
+post_novelpost,post_id_id,UUID,FK,Link to the parent post
+post_novelpost,chapter,INT,NOT NULL,Chapter number of the novel entry
+post_novelpost,content,TEXT,NOT NULL,Full text content of the novel chapter
+,,,,
+post_postheart,id,INT,PK,Unique identifier for the heart interaction
+post_postheart,post_id_id,UUID,FK,The post being hearted
+post_postheart,author_id,INT,FK,The user who hearted the post
+post_postheart,hearted_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the heart was given
+,,,,
+post_postpraise,id,INT,PK,Unique identifier for the praise interaction
+post_postpraise,post_id_id,UUID,FK,The post being praised
+post_postpraise,author_id,INT,FK,The user who praised the post
+post_postpraise,praised_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the praise was given
+,,,,
+post_trophytype,id,INT,PK,Unique identifier for the trophy type
+post_trophytype,trophy,VARCHAR(100),NOT NULL,Name/Identifier of the trophy (e.g. 'golden_brush')
+post_trophytype,brush_drip_value,INT,NOT NULL,Cost or value of this trophy in Brush Drips
+,,,,
+post_posttrophy,id,INT,PK,Unique identifier for the trophy award
+post_posttrophy,post_id_id,UUID,FK,The post receiving the trophy
+post_posttrophy,author_id,INT,FK,The user awarding the trophy
+post_posttrophy,post_trophy_type_id,INT,FK,The specific type of trophy awarded
+post_posttrophy,awarded_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the trophy was awarded
+,,,,
+post_critique,critique_id,UUID,PK,Unique identifier for the critique
+post_critique,text,TEXT,NOT NULL,The detailed critique text
+post_critique,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the critique is soft-deleted
+post_critique,impression,VARCHAR(100),NOT NULL,Overall impression (e.g. 'positive', 'constructive')
+post_critique,post_id,UUID,FK,The post being critiqued
+post_critique,author_id,INT,FK,The user writing the critique
+post_critique,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the critique was written
+post_critique,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the critique was last edited
+,,,,
+post_comment,comment_id,UUID,PK,Unique identifier for the comment
+post_comment,text,TEXT,NOT NULL,The comment text
+post_comment,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the comment is soft-deleted
+post_comment,post_id,UUID,FK,The post being commented on (if applicable)
+post_comment,is_critique_reply,BOOLEAN,DEFAULT FALSE,Flag indicating if this is a reply to a critique
+post_comment,critique_id_id,UUID,FK,The critique being replied to (if applicable)
+post_comment,author_id,INT,FK,The user writing the comment
+post_comment,replies_to_id,UUID,FK,The parent comment this is replying to (for nested threads)
+post_comment,gallery_id,UUID,FK,The gallery being commented on (if applicable)
+post_comment,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the comment was written
+post_comment,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the comment was last edited
+,,,,
+gallery_gallery,gallery_id,UUID,PK,Unique identifier for the gallery
+gallery_gallery,title,VARCHAR(512),NOT NULL,Title of the gallery
+gallery_gallery,description,VARCHAR(4096),NOT NULL,Description of the gallery's contents
+gallery_gallery,status,VARCHAR(50),DEFAULT 'draft',Current status (draft/published)
+gallery_gallery,picture,VARCHAR(100),DEFAULT 'static/images/default_600x400.png',Cover image for the gallery
+gallery_gallery,canvas_json,JSONB,,JSON data defining the 3D/2D gallery layout
+gallery_gallery,canvas_width,INT,DEFAULT 1920,Width of the gallery canvas
+gallery_gallery,canvas_height,INT,DEFAULT 1080,Height of the gallery canvas
+gallery_gallery,is_deleted,BOOLEAN,DEFAULT FALSE,Flag indicating if the gallery is soft-deleted
+gallery_gallery,creator_id,INT,FK,The user who created the gallery
+gallery_gallery,created_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the gallery was created
+gallery_gallery,updated_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the gallery was last modified
+,,,,
+gallery_awardtype,id,INT,PK,Unique identifier for the award type
+gallery_awardtype,award,VARCHAR(100),NOT NULL,Name of the award
+gallery_awardtype,brush_drip_value,INT,NOT NULL,Value of the award in Brush Drips
+,,,,
+gallery_galleryaward,id,INT,PK,Unique identifier for the gallery award
+gallery_galleryaward,gallery_id_id,UUID,FK,The gallery receiving the award
+gallery_galleryaward,author_id,INT,FK,The user giving the award
+gallery_galleryaward,gallery_award_type_id,INT,FK,The specific type of award given
+gallery_galleryaward,awarded_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the award was given
+,,,,
+notification_notification,notification_id,UUID,PK,Unique identifier for the notification
+notification_notification,message,TEXT,NOT NULL,The content of the notification message
+notification_notification,notification_object_type,VARCHAR(500),NOT NULL,The type of object triggering the notification (e.g. 'post')
+notification_notification,notification_object_id,VARCHAR(2000),NOT NULL,The ID of the object triggering the notification
+notification_notification,is_read,BOOLEAN,DEFAULT FALSE,Flag indicating if the user has read the notification
+notification_notification,notified_to_id,INT,FK,The user receiving the notification
+notification_notification,notified_at,TIMESTAMP,DEFAULT CURRENT_TIMESTAMP,Timestamp when the notification was created
+,,,,
+notification_notificationnotifier,id,INT,PK,Unique identifier for the notifier record
+notification_notificationnotifier,notification_id_id,UUID,FK,Link to the parent notification
+notification_notificationnotifier,notified_by_id,INT,FK,The user whose action triggered the notification

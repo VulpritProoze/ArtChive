@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useAuth } from "@context/auth-context";
 import { usePostUI } from "@context/post-ui-context";
 import { useCommentForm } from "@hooks/forms/use-comment-form";
-import { useCreateComment, useUpdateComment } from "@hooks/queries/use-comments";
+import { useCreateComment, useUpdateComment, useUpdateReply } from "@hooks/mutations/use-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 
@@ -42,7 +42,8 @@ export default function CommentFormModal() {
 
   const createComment = useCreateComment();
   const updateComment = useUpdateComment();
-  const isSubmitting = createComment.isPending || updateComment.isPending;
+  const updateReply = useUpdateReply();
+  const isSubmitting = createComment.isPending || updateComment.isPending || updateReply.isPending;
 
   const closeModal = () => {
     if (isSubmitting) return;
@@ -63,20 +64,29 @@ export default function CommentFormModal() {
 
     try {
       if (editingComment && selectedComment) {
-        await updateComment.mutateAsync({
-          commentId: selectedComment.comment_id,
-          text: form.text,
-          postId: commentTargetPostId,
-        });
-        toast.success('Comment updated', 'Your comment has been updated successfully');
+        if (selectedComment.replies_to) {
+          // It's a reply
+          await updateReply.mutateAsync({
+            replyId: selectedComment.comment_id,
+            text: form.text,
+            postId: commentTargetPostId,
+            parentCommentId: selectedComment.replies_to,
+          });
+        } else {
+          // It's a top-level comment
+          await updateComment.mutateAsync({
+            commentId: selectedComment.comment_id,
+            text: form.text,
+            postId: commentTargetPostId,
+          });
+        }
       } else {
         await createComment.mutateAsync({
           text: form.text,
           post_id: commentTargetPostId,
         });
-        toast.success('Comment posted', 'Your comment has been added successfully');
       }
-      closeModal();
+      // Form closes automatically via mutation callbacks (closeCommentForm)
     } catch (error) {
       const message = handleApiError(error, {}, true, true);
       toast.error('Failed to save comment', formatErrorForToast(message));
@@ -187,22 +197,20 @@ export default function CommentFormModal() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div
-                      className={`text-sm font-semibold transition-colors ${
-                        form.text.length > 900
-                          ? "text-warning"
-                          : form.text.length > 800
+                      className={`text-sm font-semibold transition-colors ${form.text.length > 900
+                        ? "text-warning"
+                        : form.text.length > 800
                           ? "text-info"
                           : "text-base-content/60"
-                      }`}
+                        }`}
                     >
                       {form.text.length}
                     </div>
                     <div className="text-xs text-base-content/40">/1,000</div>
                     {form.text.length > 800 && (
                       <div
-                        className={`radial-progress text-xs ${
-                          form.text.length > 900 ? "text-warning" : "text-info"
-                        }`}
+                        className={`radial-progress text-xs ${form.text.length > 900 ? "text-warning" : "text-info"
+                          }`}
                         style={{ "--value": (form.text.length / 1000) * 100, "--size": "1.5rem", "--thickness": "3px" } as React.CSSProperties}
                       ></div>
                     )}

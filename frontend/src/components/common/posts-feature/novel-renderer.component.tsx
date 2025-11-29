@@ -68,7 +68,7 @@ export default function NovelRenderer({ postItem }: { postItem: PostItem }) {
             )}
           </div>
         </div>
-        
+
         {/* Bottom fade overlay */}
         <div className="absolute bottom-0 left-0 right-0 h-32 flex justify-center items-end pb-0.5 bg-gradient-to-t from-base-100 to-transparent">
           <button className="btn btn-xs btn-primary text-xs" onClick={() => openPostModal(postItem)}>

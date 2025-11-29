@@ -10,6 +10,8 @@ import { PostCard } from '@components/common/posts-feature';
 import { MainLayout } from '@components/common/layout';
 import { SkeletonPostCard } from '@components/common/skeleton';
 import { usePosts } from '@hooks/queries/use-posts';
+import { usePostsMeta } from '@hooks/queries/use-post-meta';
+import { useMemo } from 'react';
 import { usePostUI } from '@context/post-ui-context';
 
 const Timeline: React.FC = () => {
@@ -29,7 +31,45 @@ const Timeline: React.FC = () => {
     error,
   } = usePosts({ userId: user?.id, enabled: Boolean(user?.id) });
 
-  const posts = data?.pages.flatMap((page) => page.results) || [];
+  const postIds = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(p => p.post_id)
+    );
+  }, [data]);
+
+  const {
+    data: metaData,
+    isLoading: metaLoading
+  } = usePostsMeta(postIds, postIds.length > 0);
+
+  const enrichedPosts = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(post => ({
+        ...post,
+        ...(metaData?.[post.post_id] || {
+          hearts_count: 0,
+          praise_count: 0,
+          trophy_count: 0,
+          comment_count: 0,
+          user_trophies: [],
+          trophy_breakdown: {},
+          is_hearted: false,
+          is_praised: false,
+        }),
+        trophy_counts_by_type: metaData?.[post.post_id]?.trophy_breakdown || {},
+        user_awarded_trophies: metaData?.[post.post_id]?.user_trophies || [],
+        // Map is_hearted/is_praised from meta to Post interface fields
+        // Always default to false if meta data is not available
+        is_hearted_by_user: metaData?.[post.post_id]?.is_hearted ?? false,
+        is_praised_by_user: metaData?.[post.post_id]?.is_praised ?? false,
+      }))
+    );
+  }, [data, metaData]);
+
+  const showCountsLoading = metaLoading && !metaData;
+  const posts = enrichedPosts;
   const totalPosts = data?.pages[0]?.count || 0;
 
   useEffect(() => {
@@ -158,11 +198,10 @@ const Timeline: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? 'bg-primary text-primary-content shadow-md scale-[1.02]'
-                    : 'hover:bg-base-300 text-base-content'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${activeTab === tab.id
+                  ? 'bg-primary text-primary-content shadow-md scale-[1.02]'
+                  : 'hover:bg-base-300 text-base-content'
+                  }`}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -184,7 +223,11 @@ const Timeline: React.FC = () => {
 
             <div className="flex flex-col gap-6 max-w-3xl mx-auto">
               {posts.map((postItem) => (
-                <PostCard key={postItem.post_id} postItem={{ ...postItem, novel_post: postItem.novel_post || [] }} />
+                <PostCard
+                  key={postItem.post_id}
+                  postItem={{ ...postItem, novel_post: postItem.novel_post || [] }}
+                  countsLoading={showCountsLoading}
+                />
               ))}
             </div>
 

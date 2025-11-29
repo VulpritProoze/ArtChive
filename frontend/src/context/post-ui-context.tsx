@@ -70,6 +70,7 @@ interface PostUIContextValue {
   closePostForm: () => void;
   openPostModal: (post: Post) => void;
   closePostModal: () => void;
+  closeCommentForm: () => void;
 }
 
 const PostUIContext = createContext<PostUIContextValue | undefined>(undefined);
@@ -118,6 +119,13 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
 
   const openPostModal = (post: Post) => setActivePost(post);
   const closePostModal = () => setActivePost(null);
+
+  const closeCommentForm = () => {
+    setShowCommentForm(false);
+    setSelectedComment(null);
+    setEditingComment(false);
+    setCommentTargetPostId(null);
+  };
 
   const value = useMemo<PostUIContextValue>(
     () => ({
@@ -173,6 +181,7 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
       closePostForm,
       openPostModal,
       closePostModal,
+      closeCommentForm,
     }),
     [
       showPostForm,

@@ -254,59 +254,40 @@ class InsideCollectiveView(RetrieveAPIView):
         ).all()
 
 class InsideCollectivePostsView(ListAPIView):
+    """
+    Paginated list of posts inside a collective channel.
+    Lightweight - matches PostListView pattern. Counts fetched via PostBulkMetaView.
+    """
     serializer_class = InsideCollectivePostsViewSerializer
     pagination_class = CollectivePostsPagination
     permission_classes = [IsAuthenticated, IsCollectiveMember]
 
-    # Filter out posts by channel and collective, only show active (non-deleted) posts
     def get_queryset(self):
-        from django.db.models import Count, Exists, OuterRef, Q
-        from django.contrib.postgres.aggregates import ArrayAgg
-        from post.models import PostHeart, PostPraise, PostTrophy
-        
+        """
+        Fetch core post data only - same lightweight pattern as PostListView.
+        Counts and user interactions are fetched separately via PostBulkMetaView.
+        """
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
-        user = self.request.user
-        
-        # Build queryset with COUNT annotations only (no prefetching)
-        queryset = Post.objects.get_active_objects().filter(channel=channel).annotate(
-            total_comment_count=Count(
-                'post_comment',
-                filter=Q(post_comment__is_deleted=False, post_comment__is_critique_reply=False)
-            ),
-            total_hearts_count=Count('post_heart', distinct=True),
-            total_praise_count=Count('post_praise', distinct=True),
-            total_trophy_count=Count('post_trophy', distinct=True),
-        ).prefetch_related(
-            'novel_post',  # Keep - needed for novel posts
-        ).select_related(
-            'author',
-            'author__artist',
-        )
-        
-        # If user is authenticated, annotate whether they hearted/praised/awarded each post
-        if user.is_authenticated:
-            queryset = queryset.annotate(
-                is_hearted_by_current_user=Exists(
-                    PostHeart.objects.filter(
-                        post_id=OuterRef('pk'),
-                        author=user
-                    )
-                ),
-                is_praised_by_current_user=Exists(
-                    PostPraise.objects.filter(
-                        post_id=OuterRef('pk'),
-                        author=user
-                    )
-                ),
-                user_trophies_for_post=ArrayAgg(
-                    'post_trophy__post_trophy_type__trophy',
-                    filter=Q(post_trophy__author=user),
-                    distinct=True
-                ),
+
+        # Build base queryset - only core post data, no annotations
+        # Matches PostListView pattern exactly
+        queryset = (
+            Post.objects.get_active_objects()
+            .filter(channel=channel)
+            .prefetch_related(
+                'novel_post',  # Keep - needed for novel posts
+                'channel',
+                'channel__collective',  # For consistency with PostListView
             )
-        
-        return queryset.order_by('-created_at')
+            .select_related(
+                'author',
+                'author__artist',  # Fetch artist info for post author
+            )
+            .order_by('-created_at')
+        )
+
+        return queryset
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]
@@ -461,9 +442,29 @@ class CollectiveMembershipsView(ListAPIView):
         return Response(serializer.data)
 
     def get_queryset(self):
+        """
+        Optimized queryset to minimize queries and data transfer.
+
+        Performance optimizations:
+        - select_related('collective_id') fetches Collective in same query (avoids N+1)
+        - only() limits fields fetched from database (reduces data transfer)
+        - Since serializer uses fields="__all__", ForeignKeys serialize as IDs
+        """
         return CollectiveMember.objects.filter(
             member=self.request.user
-        ).select_related('collective_id').all()
+        ).select_related(
+            'collective_id',  # Fetch collective data in same query (avoids separate query per membership)
+        ).only(
+            # CollectiveMember fields needed for serialization
+            'id',
+            'collective_role',
+            'created_at',
+            'updated_at',
+            'collective_id',  # FK field (will serialize as UUID)
+            'member',  # FK field (will serialize as user ID)
+            # Collective fields - only fetch primary key (needed for FK serialization)
+            'collective_id__collective_id',  # UUID primary key
+        )
 
 # ============================================================================
 # COLLECTIVE MEMBER MANAGEMENT VIEWS

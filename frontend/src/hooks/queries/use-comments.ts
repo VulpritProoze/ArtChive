@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { post } from '@lib/api';
 import type { Comment } from '@types';
 
@@ -32,7 +32,7 @@ export const useComments = (postId: string, options: UseCommentsOptions = {}) =>
   return useInfiniteQuery<CommentsResponse>({
     queryKey: ['comments', postId],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/comment/${postId}/`, {
+      const response = await post.get(`/posts/${postId}/comments/`, {
         params: { page: pageParam, page_size: pageSize },
       });
 
@@ -66,80 +66,3 @@ export const useReplies = (commentId: string, enabled = false) => {
     staleTime: Infinity,
   });
 };
-
-export const useCreateComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { text: string; post_id: string }) => {
-      await post.post('/comment/create/', data);
-      return data.post_id;
-    },
-    onSuccess: (postId) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useUpdateComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { commentId: string; text: string; postId: string }) => {
-      const { commentId, text } = input;
-      await post.put(`/comment/update/${commentId}/`, { text });
-      return input;
-    },
-    onSuccess: ({ postId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useDeleteComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { commentId: string; postId: string }) => {
-      const { commentId } = input;
-      await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
-      return input;
-    },
-    onSuccess: ({ postId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useCreateReply = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { text: string; replies_to: string; post_id: string }) => {
-      await post.post('/comment/reply/create/', data);
-      return { commentId: data.replies_to, postId: data.post_id };
-    },
-    onSuccess: ({ postId, commentId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-      queryClient.invalidateQueries({ queryKey: ['replies', commentId] });
-    },
-  });
-};
-
-export const useUpdateReply = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { replyId: string; text: string; postId: string }) => {
-      const { replyId, text } = input;
-      await post.put(`/comment/reply/update/${replyId}/`, { text });
-      return input;
-    },
-    onSuccess: ({ postId, replyId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-      queryClient.invalidateQueries({ queryKey: ['replies', replyId] });
-    },
-  });
-};
-
-
