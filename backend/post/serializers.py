@@ -852,37 +852,15 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
         if request and request.method == "POST":
             data["author"] = request.user
 
-        user = data.get("author")
-        post = data.get("post_id")
-
-        # Prevent post author from critiquing their own post
-        if post and post.author == user:
-            raise serializers.ValidationError(
-                "You cannot critique your own post"
-            )
-
         # Check if user already created a critique for this post
         if (
-            user and
             Critique.objects.get_active_objects()
-            .filter(post_id=post, author=user)
+            .filter(post_id=data["post_id"], author=data["author"])
             .exists()
         ):
             raise serializers.ValidationError(
                 "You have already created a critique for this post"
             )
-
-        # Check if user has sufficient Brush Drips (1 required)
-        if user:
-            try:
-                wallet = BrushDripWallet.objects.get(user=user)
-                if wallet.balance < 1:
-                    raise serializers.ValidationError(
-                        f"Insufficient Brush Drips. You need 1 Brush Drip to create a critique. "
-                        f"Current balance: {wallet.balance}"
-                    )
-            except BrushDripWallet.DoesNotExist:
-                raise serializers.ValidationError("Wallet not found for this user")
 
         return data
 
