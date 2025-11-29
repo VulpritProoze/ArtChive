@@ -1,5 +1,5 @@
 from django.core.validators import FileExtensionValidator
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
@@ -104,8 +104,8 @@ class PostCreateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification so Cloudinary can read it
             value.seek(0)
-        except Exception:
-            raise serializers.ValidationError("Invalid image file")
+        except (IOError, OSError, ValueError, UnidentifiedImageError) as e:
+            raise serializers.ValidationError("Invalid image file") from e
         return value
 
     def validate_post_type(self, value):
@@ -131,11 +131,11 @@ class PostCreateSerializer(ModelSerializer):
                 chapter_number = int(chapter_data["chapter"])
                 if chapter_number < 1:
                     raise serializers.ValidationError(
-                        "Chapter number must be a postive integer"
+                        "Chapter number must be a positive integer"
                     )
 
             except (ValueError, TypeError):
-                raise serializers.ValidationError(
+                raise serializers.ValidationError(  # noqa: B904
                     "Chapter number must be a valid integer"
                 )
 
@@ -283,8 +283,8 @@ class PostUpdateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification so Cloudinary can read it
             value.seek(0)
-        except Exception:
-            raise serializers.ValidationError("Invalid image file")
+        except (IOError, OSError, ValueError, UnidentifiedImageError) as e:
+            raise serializers.ValidationError("Invalid image file") from e
         return value
 
     def validate_chapters(self, value):
@@ -301,11 +301,11 @@ class PostUpdateSerializer(ModelSerializer):
                 chapter_number = int(chapter_data["chapter"])
                 if chapter_number < 1:
                     raise serializers.ValidationError(
-                        "Chapter number must be a postive integer"
+                        "Chapter number must be a positive integer"
                     )
 
             except (ValueError, TypeError):
-                raise serializers.ValidationError(
+                raise serializers.ValidationError(  # noqa: B904
                     "Chapter number must be a valid integer"
                 )
 
@@ -653,7 +653,6 @@ class CommentReplyCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        request = self.context["request"]
         replies_to = data["replies_to"]
 
         # Auto-set author and post_id from parent comment
@@ -852,15 +851,37 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
         if request and request.method == "POST":
             data["author"] = request.user
 
+        user = data.get("author")
+        post = data.get("post_id")
+
+        # Prevent post author from critiquing their own post
+        if post and post.author == user:
+            raise serializers.ValidationError(
+                "You cannot critique your own post"
+            )
+
         # Check if user already created a critique for this post
         if (
+            user and
             Critique.objects.get_active_objects()
-            .filter(post_id=data["post_id"], author=data["author"])
+            .filter(post_id=post, author=user)
             .exists()
         ):
             raise serializers.ValidationError(
                 "You have already created a critique for this post"
             )
+
+        # Check if user has sufficient Brush Drips (1 required)
+        if user:
+            try:
+                wallet = BrushDripWallet.objects.get(user=user)
+                if wallet.balance < 1:
+                    raise serializers.ValidationError(
+                        f"Insufficient Brush Drips. You need 1 Brush Drip to create a critique. "
+                        f"Current balance: {wallet.balance}"
+                    )
+            except BrushDripWallet.DoesNotExist as e:
+                raise serializers.ValidationError("Wallet not found for this user") from e
 
         return data
 
@@ -970,14 +991,14 @@ class PostPraiseCreateSerializer(serializers.ModelSerializer):
                     f"Insufficient Brush Drips. You need 1 Brush Drip to praise a post. "
                     f"Current balance: {wallet.balance}"
                 )
-        except BrushDripWallet.DoesNotExist:
-            raise serializers.ValidationError("Wallet not found for this user")
+        except BrushDripWallet.DoesNotExist as e:
+            raise serializers.ValidationError("Wallet not found for this user") from e
 
         # Check if post author has a wallet
         try:
             BrushDripWallet.objects.get(user=post.author)
-        except BrushDripWallet.DoesNotExist:
-            raise serializers.ValidationError("Post author does not have a wallet")
+        except BrushDripWallet.DoesNotExist as e:
+            raise serializers.ValidationError("Post author does not have a wallet") from e
 
         return data
 
@@ -1083,10 +1104,10 @@ class PostTrophyCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"You have already awarded a {trophy_type.replace('_', ' ').title()} to this post"
                 )
-        except TrophyType.DoesNotExist:
+        except TrophyType.DoesNotExist as e:
             raise serializers.ValidationError(
                 f"Trophy type '{trophy_type}' not found in database"
-            )
+            ) from e
 
         # Check if user has sufficient Brush Drips
         try:
@@ -1096,14 +1117,14 @@ class PostTrophyCreateSerializer(serializers.ModelSerializer):
                     f"Insufficient Brush Drips. You need {required_amount} Brush Drips to award a "
                     f"{trophy_type.replace('_', ' ').title()}. Current balance: {wallet.balance}"
                 )
-        except BrushDripWallet.DoesNotExist:
-            raise serializers.ValidationError("Wallet not found for this user")
+        except BrushDripWallet.DoesNotExist as e:
+            raise serializers.ValidationError("Wallet not found for this user") from e
 
         # Check if post author has a wallet
         try:
             BrushDripWallet.objects.get(user=post.author)
-        except BrushDripWallet.DoesNotExist:
-            raise serializers.ValidationError("Post author does not have a wallet")
+        except BrushDripWallet.DoesNotExist as e:
+            raise serializers.ValidationError("Post author does not have a wallet") from e
 
         return data
 
