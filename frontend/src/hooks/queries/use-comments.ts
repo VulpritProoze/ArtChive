@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { postService } from '@services/post.service';
 import type { Comment } from '@types';
 
 interface CommentsResponse {
@@ -32,13 +32,10 @@ export const useComments = (postId: string, options: UseCommentsOptions = {}) =>
   return useInfiniteQuery<CommentsResponse>({
     queryKey: ['comments', postId],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/posts/${postId}/comments/`, {
-        params: { page: pageParam, page_size: pageSize },
-      });
-
+      const data = await postService.getComments(postId, pageParam, pageSize);
       return {
-        ...response.data,
-        results: normalizeComments(response.data.results || []),
+        ...data,
+        results: normalizeComments(data.results || []),
       };
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
@@ -51,12 +48,10 @@ export const useReplies = (commentId: string, enabled = false) => {
   return useInfiniteQuery({
     queryKey: ['replies', commentId],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/comment/${commentId}/replies/`, {
-        params: { page: pageParam, page_size: 10 },
-      });
+      const data = await postService.getReplies(commentId, pageParam, 10);
       return {
-        ...response.data,
-        results: normalizeComments(response.data.results || []),
+        ...data,
+        results: normalizeComments(data.results || []),
         comment_id: commentId, // Include parent comment ID in response
       };
     },

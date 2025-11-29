@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { post, collective } from '@lib/api';
-import type { PostsResponse } from '@types';
+import { postService } from '@services/post.service';
+import { collectiveService } from '@services/collective.service';
 
 interface UsePostsOptions {
   channelId?: string;
@@ -15,24 +15,16 @@ export const buildPostsKey = (channelId?: string, userId?: number) =>
 export const usePosts = (options: UsePostsOptions = {}) => {
   const { channelId, userId, enabled = true, pageSize = 10 } = options;
 
-  return useInfiniteQuery<PostsResponse>({
+  return useInfiniteQuery({
     queryKey: buildPostsKey(channelId, userId),
-    queryFn: async ({ pageParam = 1 }) => {
-      let url = '/';
-      let client = post;
-
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
       if (channelId) {
-        url = `channel/${channelId}/posts/`;
-        client = collective;
+        return collectiveService.getChannelPosts(channelId, pageParam, pageSize);
       } else if (userId) {
-        url = `me/${userId}/`;
+        return postService.getUserPosts(userId, pageParam, pageSize);
+      } else {
+        return postService.getPosts(pageParam, pageSize);
       }
-
-      const response = await client.get(url, {
-        params: { page: pageParam, page_size: pageSize },
-      });
-
-      return response.data;
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,

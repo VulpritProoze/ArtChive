@@ -21,3 +21,4 @@ export type {
   DiamondObject,
 } from './gallery.type'
 export * from './gallery-list.type'
+export * from './fellow.types'

@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    AcceptFriendRequestView,
+    BlockUserView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
     BrushDripTransactionDetailView,
@@ -9,11 +11,19 @@ from .views import (
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
     CookieTokenRefreshView,
+    CreateFriendRequestView,
+    FellowsListView,
+    FriendRequestCountView,
     GetCSRFTokenView,
     LoginView,
     LogoutView,
+    PendingFriendRequestsListView,
     ProfileRetrieveUpdateView,
+    RejectFriendRequestView,
     RegistrationView,
+    SearchFellowsView,
+    UnfriendView,
+    UserFellowsListView,
     UserInfoView,
     UserProfileByUsernameView,
     UserSummaryView,
@@ -88,5 +98,56 @@ urlpatterns = [
         "brushdrips/transactions/stats/",
         BrushDripTransactionStatsView.as_view(),
         name="brushdrip-transaction-stats",
+    ),
+    # Fellows (Friends) endpoints
+    path(
+        "fellows/requests/count/",
+        FriendRequestCountView.as_view(),
+        name="fellow-request-count",
+    ),
+    path(
+        "fellows/requests/",
+        PendingFriendRequestsListView.as_view(),
+        name="pending-friend-requests-list",
+    ),
+    path(
+        "fellows/requests/<int:id>/accept/",
+        AcceptFriendRequestView.as_view(),
+        name="accept-friend-request",
+    ),
+    path(
+        "fellows/requests/<int:id>/reject/",
+        RejectFriendRequestView.as_view(),
+        name="reject-friend-request",
+    ),
+    path(
+        "fellows/",
+        FellowsListView.as_view(),
+        name="fellows-list",
+    ),
+    path(
+        "user/<int:user_id>/fellows/",
+        UserFellowsListView.as_view(),
+        name="user-fellows-list",
+    ),
+    path(
+        "fellows/search/",
+        SearchFellowsView.as_view(),
+        name="search-fellows",
+    ),
+    path(
+        "fellows/request/",
+        CreateFriendRequestView.as_view(),
+        name="create-friend-request",
+    ),
+    path(
+        "fellows/<int:id>/",
+        UnfriendView.as_view(),
+        name="unfriend",
+    ),
+    path(
+        "fellows/<int:id>/block/",
+        BlockUserView.as_view(),
+        name="block-user",
     ),
 ]

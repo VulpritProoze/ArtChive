@@ -1,4 +1,4 @@
-import { collective } from "@lib/api";
+import { collectiveService } from "@services/collective.service";
 import { useAuth } from "@context/auth-context";
 import { toast } from "@utils/toast.util";
 import { defaultErrors } from "@errors";
@@ -13,9 +13,7 @@ const useCollective = () => {
     );
     if (userConfirmed) {
       try {
-        await collective.delete(`${collectiveId}/leave/`, {
-          withCredentials: true,
-        });
+        await collectiveService.leaveCollective(collectiveId);
         await fetchCollectiveMemberDetails();
         toast.success("Collective left", "You have successfully left the collective");
       } catch (err) {
@@ -31,11 +29,7 @@ const useCollective = () => {
     );
     if (userConfirmed) {
       try {
-        await collective.post(
-          `${collectiveId}/admin/request/`,
-          {},
-          { withCredentials: true }
-        );
+        await collectiveService.requestAdmin(collectiveId);
         await fetchCollectiveMemberDetails();
         toast.success("Admin request submitted", "Your request to become an admin has been submitted");
       } catch (err) {

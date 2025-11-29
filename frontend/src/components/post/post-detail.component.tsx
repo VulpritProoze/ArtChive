@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { post as postApi } from "@lib/api";
 import type { Post, NovelPost } from "@types";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
@@ -37,16 +36,16 @@ export default function PostDetail() {
       try {
         setLoading(true);
         setError(null);
-        const response = await postApi.get(`/${postId}/`);
-        setPost(response.data);
+        const postData = await postService.getPost(postId);
+        setPost(postData);
       } catch (err: unknown) {
         console.error("Error fetching post:", err);
         const message = handleApiError(err, {}, true, true);
         setError(Array.isArray(message) ? message[0] : message);
 
-        // If post not found (404), redirect to 404 page
+        // If post not found (404), redirect to home (post was likely deleted)
         if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 404) {
-          navigate("/404", { replace: true });
+          navigate("/home", { replace: true });
         } else {
           toast.error('Failed to load post', formatErrorForToast(message));
         }
@@ -56,6 +55,25 @@ export default function PostDetail() {
     };
 
     fetchPost();
+  }, [postId, navigate]);
+
+  // Listen for post deletion event - navigate to home when current post is deleted
+  useEffect(() => {
+    if (!postId) return;
+
+    const handlePostDeleted = (event: Event) => {
+      const customEvent = event as CustomEvent<{ postId: string }>;
+      // Check if the deleted post matches the current post
+      if (customEvent.detail?.postId === postId) {
+        navigate('/home', { replace: true });
+      }
+    };
+
+    window.addEventListener('postDeleted', handlePostDeleted);
+
+    return () => {
+      window.removeEventListener('postDeleted', handlePostDeleted);
+    };
   }, [postId, navigate]);
 
   const { data: metaData } = usePostMeta(postId);

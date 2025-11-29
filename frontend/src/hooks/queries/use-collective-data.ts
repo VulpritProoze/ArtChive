@@ -1,16 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { collective } from '@lib/api';
-import type { Collective } from '@types';
+import { collectiveService } from '@services/collective.service';
+import type { Collective } from '@services/collective.service';
+
+export type { Collective };
 
 export const useCollectiveData = (collectiveId: string | undefined) => {
   return useQuery<Collective>({
     queryKey: ['collective-data', collectiveId],
-    queryFn: async () => {
+    queryFn: () => {
       if (!collectiveId) {
         throw new Error('Collective ID is required');
       }
-      const response = await collective.get(`${collectiveId}/`);
-      return response.data;
+      return collectiveService.getCollective(collectiveId);
     },
     enabled: Boolean(collectiveId),
     staleTime: 5 * 60 * 1000, // 5 minutes

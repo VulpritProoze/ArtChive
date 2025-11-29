@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import type { Comment } from "@types";
 import formatArtistTypesArrToString from "@utils/format-artisttypes-arr-to-string";
 import { useAuth } from "@context/auth-context";
@@ -12,6 +13,7 @@ import {
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { SkeletonComment } from "@components/common/skeleton/skeleton-comment.component";
+import UserHoverModal from "@components/post/user-hover-modal.component";
 
 interface ReplyComponentProps {
   comment: Comment;
@@ -38,6 +40,8 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   const [isReplying, setIsReplying] = useState(comment.is_replying ?? false);
   const [showReplies, setShowReplies] = useState(depth > 0 ? true : Boolean(comment.show_replies));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showHoverModal, setShowHoverModal] = useState(false);
+  const userInfoRef = useRef<HTMLDivElement>(null);
 
   const replyCount = comment.reply_count || 0;
   const hasReplies = replyCount > 0 || (comment.replies?.length ?? 0) > 0;
@@ -95,6 +99,14 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   const commentId = `comment-${comment.comment_id}`;
   const replyId = `reply-${comment.comment_id}`;
   const isHighlighted = highlightedItemId === commentId || highlightedItemId === replyId;
+
+  const handleMouseEnter = () => {
+    setShowHoverModal(true);
+  };
+
+  const handleMouseLeave = () => {
+    setShowHoverModal(false);
+  };
 
   useEffect(() => {
     if (highlightedItemId && highlightedItemId.startsWith("reply-") && depth === 0) {
@@ -168,13 +180,39 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
           {/* Username and Text */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-sm">
-                  {comment.author_username}
-                </span>
-                <p className="text-xs">
-                  {formatArtistTypesArrToString(comment.author_artist_types)}
-                </p>
+              <div
+                ref={userInfoRef}
+                className="relative"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Link
+                  to={comment.author_username ? `/profile/@${comment.author_username}` : '#'}   // Do not modify the "@"!
+                  className="flex items-center gap-2 mb-1 hover:opacity-80 transition-opacity"
+                  onClick={(e) => {
+                    if (!comment.author_username) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  <span className="font-semibold text-sm">
+                    {comment.author_username}
+                  </span>
+                  <p className="text-xs">
+                    {formatArtistTypesArrToString(comment.author_artist_types)}
+                  </p>
+                </Link>
+                {comment.author && (
+                  <div
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    <UserHoverModal
+                      userId={comment.author}
+                      isVisible={showHoverModal}
+                    />
+                  </div>
+                )}
               </div>
               {(isUpdatingComment || isUpdatingReply) ? (
                 <div className="text-sm">

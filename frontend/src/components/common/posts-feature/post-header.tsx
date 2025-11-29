@@ -8,7 +8,7 @@ import {
 import type { Post } from "@types";
 import { formatArtistTypesToString } from "@utils";
 import { useAuth } from "@context/auth-context";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { usePostUI } from "@context/post-ui-context";
 import { useDeletePost } from "@hooks/mutations/use-post-mutations";
 import { toast } from "@utils/toast.util";
@@ -25,6 +25,7 @@ export default function PostHeader({
 }) {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { dropdownOpen, setDropdownOpen, openPostForm } = usePostUI();
   const { mutateAsync: deletePost, isPending: isDeletingPost } = useDeletePost();
   const [showHoverModal, setShowHoverModal] = useState(false);
@@ -148,6 +149,10 @@ export default function PostHeader({
                         if (!window.confirm("Are you sure you want to delete this post?")) return;
                         try {
                           await deletePost({ postId: postItem.post_id });
+                          // Dispatch custom event for post-detail component to listen to
+                          if (isOnPostDetailPage) {
+                            window.dispatchEvent(new CustomEvent('postDeleted', { detail: { postId: postItem.post_id } }));
+                          }
                           // Toast shown in mutation callback
                         } catch (error) {
                           const message = handleApiError(error, {}, true, true);

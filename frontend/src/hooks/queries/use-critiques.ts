@@ -1,13 +1,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { postService, type CritiqueResponse } from '@services/post.service';
 import type { Critique, Comment } from '@types';
 
-interface CritiqueResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Critique[];
-}
+export type { CritiqueResponse };
 
 interface UseCritiquesOptions {
   enabled?: boolean;
@@ -19,11 +14,8 @@ export const useCritiques = (postId: string, options: UseCritiquesOptions = {}) 
 
   return useInfiniteQuery<CritiqueResponse>({
     queryKey: ['critiques', postId],
-    queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/${postId}/critiques/`, {
-        params: { page: pageParam, page_size: pageSize },
-      });
-      return response.data;
+    queryFn: ({ pageParam = 1 }) => {
+      return postService.getCritiques(postId, pageParam, pageSize);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
@@ -36,7 +28,7 @@ export const useCreateCritique = () => {
 
   return useMutation({
     mutationFn: async (payload: { text: string; impression: string; post_id: string }) => {
-      await post.post('/critique/create/', payload);
+      await postService.createCritique(payload);
       return payload.post_id;
     },
     onSuccess: (postId) => {
@@ -51,7 +43,7 @@ export const useUpdateCritique = () => {
   return useMutation({
     mutationFn: async (input: { critiqueId: string; text: string; postId: string }) => {
       const { critiqueId, text } = input;
-      await post.put(`/critique/${critiqueId}/update/`, { text });
+      await postService.updateCritique(critiqueId, { text });
       return input;
     },
     onSuccess: ({ postId }) => {
@@ -66,9 +58,7 @@ export const useDeleteCritique = () => {
   return useMutation({
     mutationFn: async (input: { critiqueId: string; postId: string }) => {
       const { critiqueId } = input;
-      await post.delete(`/critique/${critiqueId}/delete/`, {
-        data: { confirm: true },
-      });
+      await postService.deleteCritique(critiqueId);
       return input;
     },
     onSuccess: ({ postId }) => {
@@ -86,9 +76,8 @@ export const useCritiqueReplies = (critiqueId: string, options: UseCritiqueRepli
 
   return useQuery<Comment[]>({
     queryKey: ['critiqueReplies', critiqueId],
-    queryFn: async () => {
-      const response = await post.get(`/critique/${critiqueId}/replies/`);
-      return response.data.results || [];
+    queryFn: () => {
+      return postService.getCritiqueReplies(critiqueId);
     },
     enabled: enabled && Boolean(critiqueId),
     staleTime: 5 * 60 * 1000,
@@ -101,10 +90,7 @@ export const useCreateCritiqueReply = () => {
   return useMutation({
     mutationFn: async (input: { critiqueId: string; postId: string; text: string }) => {
       const { critiqueId, text } = input;
-      await post.post('/critique/reply/create/', {
-        critique_id: critiqueId,
-        text,
-      });
+      await postService.createCritiqueReply({ critique_id: critiqueId, text });
       return input;
     },
     onSuccess: ({ critiqueId, postId }) => {
@@ -120,7 +106,7 @@ export const useUpdateCritiqueReply = () => {
   return useMutation({
     mutationFn: async (input: { replyId: string; critiqueId: string; postId: string; text: string }) => {
       const { replyId, text } = input;
-      await post.put(`/critique/reply/${replyId}/update/`, { text });
+      await postService.updateCritiqueReply(replyId, { text });
       return input;
     },
     onSuccess: ({ critiqueId, postId }) => {
@@ -136,9 +122,7 @@ export const useDeleteCritiqueReply = () => {
   return useMutation({
     mutationFn: async (input: { replyId: string; critiqueId: string; postId: string }) => {
       const { replyId } = input;
-      await post.delete(`/comment/delete/${replyId}/`, {
-        data: { confirm: true },
-      });
+      await postService.deleteCritiqueReply(replyId);
       return input;
     },
     onSuccess: ({ critiqueId, postId }) => {

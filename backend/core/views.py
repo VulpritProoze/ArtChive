@@ -5,6 +5,7 @@ from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import (
@@ -22,10 +23,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from silk.profiling.profiler import silk_profile
+
+from common.utils.profiling import silk_profile
 
 from .cache_utils import get_user_info_cache_key
-from .models import Artist, BrushDripTransaction, BrushDripWallet, User
+from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 from .pagination import BrushDripsTransactionPagination
 from .serializers import (
     BrushDripTransactionCreateSerializer,
@@ -33,9 +35,12 @@ from .serializers import (
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    CreateFriendRequestSerializer,
+    FriendRequestCountSerializer,
     LoginSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
+    UserFellowSerializer,
     UserProfilePublicSerializer,
     UserSerializer,
     UserSummarySerializer,
@@ -1021,3 +1026,401 @@ class BrushDripTransactionStatsView(APIView):
 
         serializer = BrushDripTransactionStatsSerializer(stats)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# User Fellows (Friends) Views
+# ============================================================================
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Get pending friend request counts (received and sent)",
+    responses={
+        200: FriendRequestCountSerializer,
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class FriendRequestCountView(APIView):
+    """
+    Get count of pending friend requests.
+    Returns received_count, sent_count, and total_count.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Count received requests (where user is the recipient)
+        received_count = UserFellow.objects.filter(
+            fellow_user=user,
+            status='pending'
+        ).count()
+
+        # Count sent requests (where user is the requester)
+        sent_count = UserFellow.objects.filter(
+            user=user,
+            status='pending'
+        ).count()
+
+        data = {
+            'received_count': received_count,
+            'sent_count': sent_count,
+            'total_count': received_count + sent_count,
+        }
+
+        serializer = FriendRequestCountSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all pending friend requests (received and sent)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class PendingFriendRequestsListView(generics.ListAPIView):
+    """
+    List all pending friend requests for the current user.
+    Includes both received and sent requests.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserFellow.objects.filter(
+            Q(fellow_user=user, status='pending') | Q(user=user, status='pending')
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all accepted fellows (friends)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class FellowsListView(generics.ListAPIView):
+    """
+    List all accepted fellows (friends) for the current user.
+    Includes relationships where user is either the requester or recipient.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserFellow.objects.filter(
+            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all accepted fellows (friends) for a specific user by user ID (public endpoint)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserFellowsListView(generics.ListAPIView):
+    """
+    List all accepted fellows (friends) for a specific user by user ID.
+    Public endpoint - anyone can view any user's fellows list.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        user = get_object_or_404(User, id=user_id)
+        return UserFellow.objects.filter(
+            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Search within user's fellows (accepted relationships)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query",
+            type=str,
+        ),
+        OpenApiParameter(
+            name="filter_by",
+            description="Filter by: username, name, or artist_type",
+            type=str,
+        ),
+    ],
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class SearchFellowsView(generics.ListAPIView):
+    """
+    Search within user's existing fellows (accepted relationships only).
+    Can filter by username, fullname, or artist_type.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        query = self.request.query_params.get('q', '').strip()
+        filter_by = self.request.query_params.get('filter_by', 'username').strip()
+
+        # Base queryset: all accepted fellows
+        queryset = UserFellow.objects.filter(
+            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        )
+
+        if not query:
+            return queryset.order_by('-fellowed_at')
+
+        # Build filter conditions for the other user in the relationship
+        if filter_by == 'username':
+            # Filter by username of the other user
+            queryset = queryset.filter(
+                Q(user__username__icontains=query, fellow_user=user) |
+                Q(fellow_user__username__icontains=query, user=user)
+            )
+        elif filter_by == 'name':
+            # Filter by fullname (first_name + last_name) of the other user
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=query, fellow_user=user) |
+                Q(user__last_name__icontains=query, fellow_user=user) |
+                Q(fellow_user__first_name__icontains=query, user=user) |
+                Q(fellow_user__last_name__icontains=query, user=user)
+            )
+        elif filter_by == 'artist_type':
+            # Filter by artist_types array contains query
+            queryset = queryset.filter(
+                Q(user__artist__artist_types__icontains=query, fellow_user=user) |
+                Q(fellow_user__artist__artist_types__icontains=query, user=user)
+            )
+
+        return queryset.order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Send a friend request",
+    request=CreateFriendRequestSerializer,
+    responses={
+        201: UserFellowSerializer,
+        400: OpenApiResponse(description="Invalid data or relationship already exists"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class CreateFriendRequestView(generics.CreateAPIView):
+    """
+    Create a new friend request.
+    Validates that relationship doesn't already exist (both directions).
+    """
+    serializer_class = CreateFriendRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        fellow_user_id = serializer.validated_data['fellow_user_id']
+        fellow_user = get_object_or_404(User, id=fellow_user_id)
+
+        # Check if relationship already exists (both directions)
+        existing = UserFellow.objects.filter(
+            Q(user=user, fellow_user=fellow_user) |
+            Q(user=fellow_user, fellow_user=user)
+        ).first()
+
+        if existing:
+            if existing.status == 'pending':
+                return Response(
+                    {'error': 'Friend request already exists'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif existing.status == 'accepted':
+                return Response(
+                    {'error': 'You are already friends'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif existing.status == 'blocked':
+                return Response(
+                    {'error': 'This user is blocked'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Create new friend request
+        fellow_relationship = UserFellow.objects.create(
+            user=user,
+            fellow_user=fellow_user,
+            status='pending'
+        )
+
+        # Serialize with related user info
+        response_serializer = UserFellowSerializer(fellow_relationship)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Accept a friend request",
+    responses={
+        200: UserFellowSerializer,
+        400: OpenApiResponse(description="Request cannot be accepted"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class AcceptFriendRequestView(APIView):
+    """
+    Accept a friend request.
+    Only the recipient (fellow_user) can accept.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the recipient
+        fellow_request = get_object_or_404(
+            UserFellow,
+            id=id,
+            fellow_user=user,
+            status='pending'
+        )
+
+        # Update status to accepted
+        fellow_request.status = 'accepted'
+        fellow_request.save()
+
+        serializer = UserFellowSerializer(fellow_request)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Reject a friend request",
+    responses={
+        204: OpenApiResponse(description="Request rejected successfully"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class RejectFriendRequestView(APIView):
+    """
+    Reject a friend request.
+    Only the recipient (fellow_user) can reject.
+    Deletes the UserFellow record.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the recipient
+        fellow_request = get_object_or_404(
+            UserFellow,
+            id=id,
+            fellow_user=user,
+            status='pending'
+        )
+
+        # Delete the request
+        fellow_request.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Unfriend a user (remove friend relationship)",
+    responses={
+        204: OpenApiResponse(description="Unfriended successfully"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Relationship not found"),
+    },
+)
+class UnfriendView(APIView):
+    """
+    Unfriend a user by deleting the UserFellow relationship.
+    Checks both directions to find the relationship.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, id):
+        user = request.user
+
+        # Find relationship in either direction
+        fellow_relationship = UserFellow.objects.filter(
+            Q(id=id, user=user, status='accepted') |
+            Q(id=id, fellow_user=user, status='accepted')
+        ).first()
+
+        if not fellow_relationship:
+            return Response(
+                {'error': 'Friend relationship not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Delete the relationship
+        fellow_relationship.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Block a user (placeholder - disabled)",
+    responses={
+        501: OpenApiResponse(description="Not implemented"),
+    },
+)
+class BlockUserView(APIView):
+    """
+    Block a user (placeholder - not implemented yet).
+    This endpoint is disabled and returns 501 Not Implemented.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        # Placeholder - not implemented
+        return Response(
+            {'error': 'Block feature is not yet implemented'},
+            status=status.HTTP_501_NOT_IMPLEMENTED
+        )

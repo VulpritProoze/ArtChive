@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { postService } from '@services/post.service';
 
 export interface PostMeta {
   hearts_count: number;
@@ -28,10 +28,9 @@ export const usePostsMeta = (postIds: string[], enabled = true) => {
   
   return useQuery<PostMetaMap>({
     queryKey: ['posts-meta', sortedIds],
-    queryFn: async () => {
-      if (!sortedIds.length) return {};
-      const response = await post.post('/bulk-meta/', { post_ids: sortedIds });
-      return response.data;
+    queryFn: () => {
+      if (!sortedIds.length) return Promise.resolve({});
+      return postService.getBulkMeta(sortedIds);
     },
     enabled: enabled && sortedIds.length > 0,
     staleTime: 1 * 60 * 1000, // 1 minute (counts change more frequently than posts)

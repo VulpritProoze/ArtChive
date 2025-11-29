@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { postService } from '@services/post.service';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
 import type { Post } from '@types';
@@ -87,10 +87,8 @@ export const useCreatePost = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { formData: FormData }) => {
-      await post.post('/create/', input.formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+    mutationFn: (input: { formData: FormData }) => {
+      return postService.createPost(input);
     },
     onMutate: () => {
       // Set loading state for skeleton loader
@@ -116,9 +114,7 @@ export const useUpdatePost = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string; formData: FormData }) => {
-      await post.put(`/update/${input.postId}/`, input.formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await postService.updatePost(input);
       return { postId: input.postId };
     },
     onSuccess: ({ postId }) => {
@@ -138,7 +134,7 @@ export const useDeletePost = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string }) => {
-      await post.delete(`/delete/${input.postId}/`, { data: { confirm: true } });
+      await postService.deletePost(input);
       return { postId: input.postId };
     },
     onSuccess: ({ postId }) => {
@@ -158,7 +154,7 @@ export const useHeartPost = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string }) => {
-      await post.post('heart/react/', { post_id: input.postId });
+      await postService.heartPost(input.postId);
       return input;
     },
     onSuccess: async ({ postId }) => {
@@ -171,9 +167,7 @@ export const useHeartPost = () => {
 
       // 2. Refetch specific count endpoint to get authoritative data
       try {
-        const { data } = await post.get<{ hearts_count: number; is_hearted_by_user: boolean }>(
-          `${postId}/hearts/count/`
-        );
+        const data = await postService.getHeartCount(postId);
         
         // 3. Update cache with authoritative data
         updatePostMetaInCache(queryClient, postId, (meta) => ({
@@ -209,7 +203,7 @@ export const useUnheartPost = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string }) => {
-      await post.delete(`${input.postId}/unheart/`);
+      await postService.unheartPost(input.postId);
       return input;
     },
     onSuccess: async ({ postId }) => {
@@ -222,9 +216,7 @@ export const useUnheartPost = () => {
 
       // 2. Refetch specific count endpoint to get authoritative data
       try {
-        const { data } = await post.get<{ hearts_count: number; is_hearted_by_user: boolean }>(
-          `${postId}/hearts/count/`
-        );
+        const data = await postService.getHeartCount(postId);
         
         // 3. Update cache with authoritative data
         updatePostMetaInCache(queryClient, postId, (meta) => ({
@@ -260,7 +252,7 @@ export const usePraisePost = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string }) => {
-      await post.post('praise/create/', { post_id: input.postId });
+      await postService.praisePost(input.postId);
       return input;
     },
     onSuccess: async ({ postId }) => {
@@ -273,9 +265,7 @@ export const usePraisePost = () => {
 
       // 2. Refetch specific count endpoint to get authoritative data
       try {
-        const { data } = await post.get<{ praise_count: number; is_praised_by_user: boolean }>(
-          `${postId}/praises/count/`
-        );
+        const data = await postService.getPraiseCount(postId);
         
         // 3. Update cache with authoritative data
         updatePostMetaInCache(queryClient, postId, (meta) => ({
@@ -311,10 +301,7 @@ export const useAwardTrophy = () => {
 
   return useMutation({
     mutationFn: async (input: { postId: string; trophyType: string }) => {
-      await post.post('trophy/create/', {
-        post_id: input.postId,
-        trophy_type: input.trophyType,
-      });
+      await postService.awardTrophy({ post_id: input.postId, trophy_type: input.trophyType });
       return input;
     },
     onSuccess: async ({ postId, trophyType }) => {
@@ -331,20 +318,17 @@ export const useAwardTrophy = () => {
 
       // 2. Refetch specific count endpoint to get authoritative data
       try {
-        const { data } = await post.get<{ 
-          total_trophy_count: number; 
-          user_awarded_trophies: string[];
-          trophy_counts: Record<string, number>;
-        }>(
-          `${postId}/trophies/count/`
-        );
+        const data = await postService.getTrophyCount(postId);
         
         // 3. Update cache with authoritative data
         updatePostMetaInCache(queryClient, postId, (meta) => ({
           ...meta,
-          trophy_count: data.total_trophy_count,
-          user_trophies: data.user_awarded_trophies,
-          trophy_breakdown: data.trophy_counts,
+          trophy_count: data.trophy_count,
+          user_trophies: data.user_trophies,
+          trophy_breakdown: {
+            ...meta.trophy_breakdown,
+            [trophyType]: (meta.trophy_breakdown[trophyType] || 0) + 1,
+          },
         }));
       } catch (error) {
         console.error('Failed to refetch trophy count', error);

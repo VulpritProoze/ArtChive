@@ -8,7 +8,7 @@ from rest_framework.serializers import ModelSerializer, Serializer
 
 from collective.models import CollectiveMember
 
-from .models import Artist, BrushDripTransaction, BrushDripWallet, User
+from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 
 
 class UserSerializer(ModelSerializer):
@@ -446,3 +446,34 @@ class BrushDripTransactionStatsSerializer(serializers.Serializer):
     transaction_count_sent = serializers.IntegerField()
     transaction_count_received = serializers.IntegerField()
     total_transaction_count = serializers.IntegerField()
+
+
+class UserFellowSerializer(ModelSerializer):
+    """Serializer for UserFellow relationships"""
+    user_info = UserSummarySerializer(source='user', read_only=True)
+    fellow_user_info = UserSummarySerializer(source='fellow_user', read_only=True)
+    
+    class Meta:
+        model = UserFellow
+        fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info', 
+                  'status', 'fellowed_at']
+        read_only_fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info', 
+                           'status', 'fellowed_at']
+
+
+class FriendRequestCountSerializer(serializers.Serializer):
+    """Serializer for friend request counts"""
+    received_count = serializers.IntegerField()
+    sent_count = serializers.IntegerField()
+    total_count = serializers.IntegerField()
+
+
+class CreateFriendRequestSerializer(serializers.Serializer):
+    """Serializer for creating a friend request"""
+    fellow_user_id = serializers.IntegerField(required=True)
+    
+    def validate_fellow_user_id(self, value):
+        """Validate that user is not trying to friend themselves"""
+        if value == self.context['request'].user.id:
+            raise serializers.ValidationError("You cannot send a friend request to yourself.")
+        return value

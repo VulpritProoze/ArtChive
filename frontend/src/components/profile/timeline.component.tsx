@@ -14,6 +14,10 @@ import { usePostsMeta } from '@hooks/queries/use-post-meta';
 import { useUserProfile } from '@hooks/queries/use-user-profile';
 import { usePostUI } from '@context/post-ui-context';
 import { extractUsernameFromUrl } from '@utils';
+import AddFellowButton from '@components/fellows/add-fellow-button.component';
+import FellowsListTab from '@components/fellows/fellows-list-tab.component';
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@services/user.service';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
@@ -51,8 +55,40 @@ const Timeline: React.FC = () => {
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.username === username;
 
+  // Fetch fellows count for the profile user
+  const { data: profileUserFellows } = useQuery({
+    queryKey: ['user-fellows', profileUser?.id],
+    queryFn: () => {
+      if (!profileUser?.id) throw new Error('User ID is required');
+      return userService.getUserFellows(profileUser.id);
+    },
+    enabled: Boolean(profileUser?.id),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const fellowsCount = profileUserFellows?.length || 0;
+
   const observerTarget = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'works' | 'avatar' | 'collectives'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'works' | 'avatar' | 'collectives' | 'fellows'>('timeline');
+  const [otherTabsDropdownOpen, setOtherTabsDropdownOpen] = useState(false);
+  const otherTabsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (otherTabsDropdownRef.current && !otherTabsDropdownRef.current.contains(event.target as Node)) {
+        setOtherTabsDropdownOpen(false);
+      }
+    }
+
+    if (otherTabsDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [otherTabsDropdownOpen]);
 
   // Fetch posts using user ID from profile data
   const {
@@ -131,11 +167,15 @@ const Timeline: React.FC = () => {
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isLoading]);
 
-  const tabs = [
+  const mainTabs = [
     { id: 'timeline', label: 'Timeline', icon: '📝' },
     { id: 'works', label: 'Works', icon: '🎨' },
     { id: 'avatar', label: 'Avatar', icon: '👤' },
     { id: 'collectives', label: 'Collectives', icon: '👥' },
+  ] as const;
+
+  const otherTabs = [
+    { id: 'fellows', label: 'Fellows', icon: '👫' },
   ] as const;
 
   // Handle profile loading state with skeleton
@@ -207,7 +247,7 @@ const Timeline: React.FC = () => {
         {/* Posts Skeleton */}
         <div className="mb-12">
           <SkeletonPostCard
-            count={3}
+            count={1}
             containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
           />
         </div>
@@ -290,6 +330,7 @@ const Timeline: React.FC = () => {
                       </button>
                     </>
                   )}
+                  {!isOwnProfile && <AddFellowButton profileUser={profileUser} />}
                   <button className="btn btn-sm btn-outline gap-2">Share</button>
                 </div>
               </div>
@@ -318,14 +359,13 @@ const Timeline: React.FC = () => {
                   <h4 className="text-2xl font-bold text-base-content">{posts.length}</h4>
                   <p className="text-base-content/60 text-sm">Posts</p>
                 </div>
-                <div className="text-center">
-                  <h4 className="text-2xl font-bold text-base-content">0</h4>
-                  <p className="text-base-content/60 text-sm">Followers</p>
-                </div>
-                <div className="text-center">
-                  <h4 className="text-2xl font-bold text-base-content">0</h4>
-                  <p className="text-base-content/60 text-sm">Following</p>
-                </div>
+                <button
+                  onClick={() => setActiveTab('fellows')}
+                  className="text-center hover:opacity-80 transition-opacity cursor-pointer"
+                >
+                  <h4 className="text-2xl font-bold text-base-content">{fellowsCount}</h4>
+                  <p className="text-base-content/60 text-sm">Fellows</p>
+                </button>
               </div>
             </div>
           </div>
@@ -334,8 +374,8 @@ const Timeline: React.FC = () => {
 
       <div className="mb-6">
         <div className="bg-base-200/50 rounded-xl p-2">
-          <nav className="flex flex-wrap gap-2">
-            {tabs.map((tab) => (
+          <nav className="flex flex-wrap gap-2 items-center">
+            {mainTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -348,6 +388,45 @@ const Timeline: React.FC = () => {
                 <span>{tab.label}</span>
               </button>
             ))}
+            {/* Other Tabs Dropdown */}
+            <div className="dropdown dropdown-end" ref={otherTabsDropdownRef}>
+              <button
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+                  otherTabs.some(tab => activeTab === tab.id)
+                    ? 'bg-primary text-primary-content shadow-md scale-[1.02]'
+                    : 'hover:bg-base-300 text-base-content'
+                }`}
+                onClick={() => setOtherTabsDropdownOpen(!otherTabsDropdownOpen)}
+              >
+                <span>More</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${otherTabsDropdownOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {otherTabsDropdownOpen && (
+                <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-300 z-50 mt-2">
+                  {otherTabs.map((tab) => (
+                    <li key={tab.id}>
+                      <button
+                        onClick={() => {
+                          setActiveTab(tab.id);
+                          setOtherTabsDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-2 ${activeTab === tab.id ? 'bg-primary text-primary-content' : ''}`}
+                      >
+                        <span>{tab.icon}</span>
+                        <span>{tab.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </nav>
         </div>
       </div>
@@ -357,7 +436,7 @@ const Timeline: React.FC = () => {
           <>
             {isLoading && posts.length === 0 && (
               <SkeletonPostCard
-                count={3}
+                count={1}
                 containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
               />
             )}
@@ -399,7 +478,14 @@ const Timeline: React.FC = () => {
           </>
         )}
 
-        {activeTab !== 'timeline' && (
+        {activeTab === 'fellows' && (
+          <FellowsListTab 
+            profileUserId={profileUser?.id}
+            isOwnProfile={isOwnProfile}
+          />
+        )}
+
+        {activeTab !== 'timeline' && activeTab !== 'fellows' && (
           <div className="text-center py-16 text-base-content/60">
             <div className="text-6xl mb-4">🚧</div>
             <p>Coming soon...</p>

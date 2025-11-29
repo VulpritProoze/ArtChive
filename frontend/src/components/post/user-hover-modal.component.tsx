@@ -29,7 +29,7 @@ export default function UserHoverModal({
         </div>
       ) : userSummary ? (
         <Link
-          to={`/profile/@${userSummary.username}`}
+          to={`/profile/@${userSummary.id}`} // Do not modify the "@"!
           className="block hover:opacity-90 transition-opacity"
         >
           <div className="flex flex-col gap-3">

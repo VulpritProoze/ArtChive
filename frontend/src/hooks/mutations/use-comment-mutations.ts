@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { postService } from '@services/post.service';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
 import { useAuth } from '@context/auth-context';
@@ -53,9 +53,8 @@ export const useCreateComment = () => {
   const { closeCommentForm } = usePostUI();
 
   return useMutation({
-    mutationFn: async (data: { text: string; post_id: string }) => {
-      const response = await post.post<Comment>('/comment/create/', data);
-      return response.data;
+    mutationFn: (data: { text: string; post_id: string }) => {
+      return postService.createComment(data);
     },
     onMutate: async (variables) => {
       // Set loading state for skeleton
@@ -93,8 +92,8 @@ export const useUpdateComment = () => {
   return useMutation({
     mutationFn: async (input: { commentId: string; text: string; postId: string }) => {
       const { commentId, text } = input;
-      const response = await post.put<Comment>(`/comment/update/${commentId}/`, { text });
-      return { ...input, updatedComment: response.data };
+      const updatedComment = await postService.updateComment(commentId, text);
+      return { ...input, updatedComment };
     },
     onMutate: async ({ commentId }) => {
       // Set loading state for skeleton loader on comment text
@@ -130,7 +129,7 @@ export const useDeleteComment = () => {
   return useMutation({
     mutationFn: async (input: { commentId: string; postId: string }) => {
       const { commentId } = input;
-      await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
+      await postService.deleteComment(commentId);
       return input;
     },
     onSuccess: ({ postId, commentId }) => {
@@ -153,8 +152,8 @@ export const useCreateReply = () => {
 
   return useMutation({
     mutationFn: async (data: { text: string; replies_to: string; post_id: string }) => {
-      const response = await post.post<Comment>('/comment/reply/create/', data);
-      return { newReply: response.data, commentId: data.replies_to, postId: data.post_id };
+      const newReply = await postService.createReply(data);
+      return { newReply, commentId: data.replies_to, postId: data.post_id };
     },
     onSuccess: async ({ commentId, postId }) => {
       // Show toast immediately after reply is created (before refetch)
@@ -188,8 +187,8 @@ export const useUpdateReply = () => {
   return useMutation({
     mutationFn: async (input: { replyId: string; text: string; postId: string; parentCommentId: string }) => {
       const { replyId, text } = input;
-      const response = await post.put<Comment>(`/comment/reply/update/${replyId}/`, { text });
-      return { ...input, updatedReply: response.data };
+      const updatedReply = await postService.updateReply(replyId, text);
+      return { ...input, updatedReply };
     },
     onMutate: async ({ replyId }) => {
       // Set loading state for skeleton loader on reply text

@@ -1,37 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { post } from '@lib/api';
-import type { PostTrophy, PostPraise, PostHeart } from '@types';
+import { postService, type TrophiesResponse, type PraisesResponse, type HeartsResponse } from '@services/post.service';
 
-interface TrophiesResponse {
-  results: PostTrophy[];
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
-
-interface PraisesResponse {
-  results: PostPraise[];
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
-
-interface HeartsResponse {
-  results: PostHeart[];
-  count: number;
-  next: string | null;
-  previous: string | null;
-}
+export type { TrophiesResponse, PraisesResponse, HeartsResponse };
 
 export const usePostTrophies = (postId: string | undefined, enabled = true) => {
   return useInfiniteQuery<TrophiesResponse>({
     queryKey: ['post-trophies', postId],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      const response = await post.get(`/${postId}/trophies/`, {
-        params: { page: pageParam, page_size: 20 },
-      });
-      return response.data;
+      return postService.getPostTrophies(postId, pageParam, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
@@ -43,12 +20,9 @@ export const usePostTrophies = (postId: string | undefined, enabled = true) => {
 export const usePostPraises = (postId: string | undefined, enabled = true) => {
   return useInfiniteQuery<PraisesResponse>({
     queryKey: ['post-praises', postId],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      const response = await post.get(`/${postId}/praises/`, {
-        params: { page: pageParam, page_size: 20 },
-      });
-      return response.data;
+      return postService.getPostPraises(postId, pageParam, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
@@ -60,12 +34,9 @@ export const usePostPraises = (postId: string | undefined, enabled = true) => {
 export const usePostHearts = (postId: string | undefined, enabled = true) => {
   return useInfiniteQuery<HeartsResponse>({
     queryKey: ['post-hearts', postId],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      const response = await post.get(`/${postId}/hearts/`, {
-        params: { page: pageParam, page_size: 20 },
-      });
-      return response.data;
+      return postService.getPostHearts(postId, pageParam, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,

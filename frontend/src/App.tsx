@@ -25,6 +25,7 @@ import {
   NotFound,
   MyGalleries,
   NavigateToOwnProfile,
+  PendingFriendRequestsPage,
 } from "@components";
 import { PostUIProvider } from "@context/post-ui-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -82,6 +83,7 @@ function App() {
                     <Route path="/drips" element={<BrushDripsPage />} />
                     <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
                     <Route path="/notifications" element={<NotificationIndex />} />
+                    <Route path="/fellows/requests" element={<PendingFriendRequestsPage />} />
 
                     <Route path="/home" element={<Home />} />
 

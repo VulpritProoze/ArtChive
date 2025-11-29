@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { core } from '@lib/api';
+import { userService } from '@services/user.service';
 
 export const useUserProfile = (username: string | undefined) => {
   return useQuery({
     queryKey: ['user-profile', username],
-    queryFn: async () => {
-      const response = await core.get(`profile/by-username/${username}/`);
-      return response.data;
+    queryFn: () => {
+      if (!username) throw new Error('Username is required');
+      return userService.getUserProfileByUsername(username);
     },
     enabled: Boolean(username),
     staleTime: 5 * 60 * 1000, // 5 minutes
