@@ -22,3 +22,4 @@ export type {
 } from './gallery.type'
 export * from './gallery-list.type'
 export * from './fellow.types'
+export type { PostMetaMap } from '@hooks/queries/use-post-meta'

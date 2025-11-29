@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { UserPlus2, Check, X as XIcon, Clock, Users } from 'lucide-react';
+import { UserPlus2, Check, X as XIcon, Users } from 'lucide-react';
 import { useFriendRequestCount, usePendingFriendRequests } from '@hooks/queries/use-fellows';
 import { useAcceptFriendRequest, useRejectFriendRequest } from '@hooks/mutations/use-fellow-mutations';
 import { useAuth } from '@context/auth-context';
@@ -42,9 +42,6 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
   // Separate received and sent requests
   const receivedRequests = requests?.filter(
     (req) => req.fellow_user === user?.id && req.status === 'pending'
-  ) || [];
-  const sentRequests = requests?.filter(
-    (req) => req.user === user?.id && req.status === 'pending'
   ) || [];
 
   const handleAccept = async (e: React.MouseEvent, requestId: number) => {

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { postService, type CritiqueResponse } from '@services/post.service';
-import type { Critique, Comment } from '@types';
+import type { Comment } from '@types';
 
 export type { CritiqueResponse };
 
@@ -15,7 +15,7 @@ export const useCritiques = (postId: string, options: UseCritiquesOptions = {}) 
   return useInfiniteQuery<CritiqueResponse>({
     queryKey: ['critiques', postId],
     queryFn: ({ pageParam = 1 }) => {
-      return postService.getCritiques(postId, pageParam, pageSize);
+      return postService.getCritiques(postId, pageParam as number, pageSize);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,

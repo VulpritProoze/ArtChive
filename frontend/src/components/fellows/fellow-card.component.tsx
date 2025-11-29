@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisH, faUserMinus, faBan } from '@fortawesome/free-solid-svg-icons';
 import type { UserFellow } from '@types';
-import { useAuth } from '@context/auth-context';
 import { useUnfriend, useBlockUser } from '@hooks/mutations/use-fellow-mutations';
 import { usePostUI } from '@context/post-ui-context';
 
@@ -14,7 +12,6 @@ interface FellowCardProps {
 }
 
 export default function FellowCard({ fellow, currentUserId, showActions = true }: FellowCardProps) {
-  const { user } = useAuth();
   const { dropdownOpen, setDropdownOpen } = usePostUI();
   const { mutateAsync: unfriend, isPending: isUnfriending } = useUnfriend();
   const { mutateAsync: blockUser } = useBlockUser();

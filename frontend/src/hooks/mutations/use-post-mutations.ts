@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postService } from '@services/post.service';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
-import type { Post } from '@types';
 import type { PostMetaMap, PostMeta } from '@hooks/queries/use-post-meta';
 
 interface PostMutationContext {
@@ -11,21 +10,6 @@ interface PostMutationContext {
 
 const invalidatePosts = (queryClient: ReturnType<typeof useQueryClient>) => {
   queryClient.invalidateQueries({ queryKey: ['posts'] });
-};
-
-// NEW: Invalidate only a single post's meta (not entire bulk query)
-// Kept for compatibility, but we prefer direct cache updates now
-const invalidatePostMeta = (
-  queryClient: ReturnType<typeof useQueryClient>,
-  postId: string
-) => {
-  queryClient.invalidateQueries({
-    queryKey: ['posts-meta'],
-    predicate: (query) => {
-      const postIds = query.queryKey[1] as string[] | undefined;
-      return postIds?.includes(postId) ?? false;
-    },
-  });
 };
 
 // Helper to update a specific post's meta in the bulk cache
@@ -47,27 +31,6 @@ const updatePostMetaInCache = (
       return {
         ...oldData,
         [postId]: updater(oldData[postId]),
-      };
-    }
-  );
-};
-
-// Optimistically update post in all post list caches without refetching
-const updatePostInCache = (
-  queryClient: ReturnType<typeof useQueryClient>,
-  postId: string,
-  updater: (post: Post) => Post
-) => {
-  queryClient.setQueriesData<{ pages: Array<{ results: Post[] }> }>(
-    { queryKey: ['posts'] },
-    (oldData) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page) => ({
-          ...page,
-          results: page.results.map((p) => (p.post_id === postId ? updater(p) : p)),
-        })),
       };
     }
   );

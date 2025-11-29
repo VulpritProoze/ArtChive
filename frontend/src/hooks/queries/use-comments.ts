@@ -32,7 +32,7 @@ export const useComments = (postId: string, options: UseCommentsOptions = {}) =>
   return useInfiniteQuery<CommentsResponse>({
     queryKey: ['comments', postId],
     queryFn: async ({ pageParam = 1 }) => {
-      const data = await postService.getComments(postId, pageParam, pageSize);
+      const data = await postService.getComments(postId, pageParam as number, pageSize);
       return {
         ...data,
         results: normalizeComments(data.results || []),

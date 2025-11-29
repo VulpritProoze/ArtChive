@@ -8,7 +8,7 @@ import {
 import type { Post } from "@types";
 import { formatArtistTypesToString } from "@utils";
 import { useAuth } from "@context/auth-context";
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { usePostUI } from "@context/post-ui-context";
 import { useDeletePost } from "@hooks/mutations/use-post-mutations";
 import { toast } from "@utils/toast.util";
@@ -25,7 +25,6 @@ export default function PostHeader({
 }) {
   const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const { dropdownOpen, setDropdownOpen, openPostForm } = usePostUI();
   const { mutateAsync: deletePost, isPending: isDeletingPost } = useDeletePost();
   const [showHoverModal, setShowHoverModal] = useState(false);

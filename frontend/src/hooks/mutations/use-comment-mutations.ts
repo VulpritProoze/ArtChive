@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postService } from '@services/post.service';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
-import { useAuth } from '@context/auth-context';
 import { usePostUI } from '@context/post-ui-context';
 import type { Comment } from '@types';
 
@@ -14,27 +13,6 @@ const updateCommentInCache = (
 ) => {
   queryClient.setQueriesData<{ pages: Array<{ results: Comment[] }> }>(
     { queryKey: ['comments', postId] },
-    (oldData) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page) => ({
-          ...page,
-          results: updater(page.results),
-        })),
-      };
-    }
-  );
-};
-
-// Helper to update reply in infinite query cache
-const updateReplyInCache = (
-  queryClient: ReturnType<typeof useQueryClient>,
-  commentId: string,
-  updater: (replies: Comment[]) => Comment[]
-) => {
-  queryClient.setQueriesData<{ pages: Array<{ results: Comment[] }> }>(
-    { queryKey: ['replies', commentId] },
     (oldData) => {
       if (!oldData) return oldData;
       return {

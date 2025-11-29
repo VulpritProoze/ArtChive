@@ -8,7 +8,7 @@ export const usePostTrophies = (postId: string | undefined, enabled = true) => {
     queryKey: ['post-trophies', postId],
     queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      return postService.getPostTrophies(postId, pageParam, 20);
+      return postService.getPostTrophies(postId, pageParam as number, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
@@ -22,7 +22,7 @@ export const usePostPraises = (postId: string | undefined, enabled = true) => {
     queryKey: ['post-praises', postId],
     queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      return postService.getPostPraises(postId, pageParam, 20);
+      return postService.getPostPraises(postId, pageParam as number, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
@@ -36,7 +36,7 @@ export const usePostHearts = (postId: string | undefined, enabled = true) => {
     queryKey: ['post-hearts', postId],
     queryFn: ({ pageParam = 1 }) => {
       if (!postId) throw new Error('Post ID is required');
-      return postService.getPostHearts(postId, pageParam, 20);
+      return postService.getPostHearts(postId, pageParam as number, 20);
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,

@@ -37,7 +37,12 @@ export default function PostDetail() {
         setLoading(true);
         setError(null);
         const postData = await postService.getPost(postId);
-        setPost(postData);
+        // Ensure novel_post is always an array (never undefined)
+        const postWithNovel: PostCardPostItem = {
+          ...postData,
+          novel_post: postData.novel_post || [],
+        };
+        setPost(postWithNovel);
       } catch (err: unknown) {
         console.error("Error fetching post:", err);
         const message = handleApiError(err, {}, true, true);
