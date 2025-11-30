@@ -43,6 +43,7 @@ class User(AbstractUser):
 
         # Soft delete directly related models
         # Post - soft delete all posts by this user
+        # These imports are here to avoid circular imports
         from post.models import Post
         Post.objects.filter(author=self).update(is_deleted=True)
 

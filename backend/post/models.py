@@ -28,7 +28,7 @@ class Post(models.Model):
     def __str__(self):
         desc = self.description or ""
         desc = desc[:15] + '...' if len(desc) > 15 else desc
-        return f'[{self.post_id}] by {self.author} - "{desc}"'
+        return f'"{desc}" by {self.author}'
 
     def delete(self, *_args, **_kwargs):
         """Override delete to perform soft deletion"""

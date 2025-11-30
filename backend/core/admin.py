@@ -185,7 +185,26 @@ class ActiveUserAdmin(BaseUserAdmin):
     def get_queryset(self, request):
         return User.objects.get_active_users()
 
-    # Optional: visually indicate these are active
+    def has_add_permission(self, request):
+        """Disable adding new users via admin"""
+        return False
+
+    def user_change_password(self, request, id, form_url=''):
+        """Override to ensure password change is accessible even if change permission is restricted"""
+        from django.http import Http404
+        user = self.get_object(request, id)
+        if user is None:
+            raise Http404
+        # Allow password change even if regular change permission is restricted
+        return super().user_change_password(request, id, form_url)
+
+    def get_urls(self):
+        """Ensure password change URLs are included"""
+        urls = super().get_urls()
+        # BaseUserAdmin already includes password change URLs at /password/
+        # This ensures they're accessible
+        return urls
+
     def get_list_display(self, request):
         list_display = list(super().get_list_display(request))
         # Remove is_staff from list display
@@ -206,12 +225,30 @@ class ActiveUserAdmin(BaseUserAdmin):
             list_display.append("is_deleted")
         return list_display
 
+    def get_list_filter(self, request):
+        """Remove is_staff from list filters"""
+        list_filter = list(super().get_list_filter(request))
+        # Remove is_staff from filters
+        if "is_staff" in list_filter:
+            list_filter.remove("is_staff")
+        return tuple(list_filter)
+
     def get_fieldsets(self, request, obj=None):
         """Override fieldsets to hide Groups and Staff status, and add all personal info fields"""
         fieldsets = super().get_fieldsets(request, obj)
         new_fieldsets = []
         for name, fieldset in fieldsets:
-            if name == 'Personal info':
+            # Handle password fieldset (usually has no name or empty name)
+            if name is None or name == '':
+                fields = list(fieldset.get('fields', []))
+                # Add password_change_link to the password fieldset if editing existing user
+                if obj and obj.pk and 'password_change_link' not in fields:
+                    fields.append('password_change_link')
+                new_fieldsets.append((name, {
+                    **fieldset,
+                    'fields': tuple(fields)
+                }))
+            elif name == 'Personal info':
                 # Add all personal info fields: first_name, middle_name, last_name, city, country, contact_no, birthday, profile_picture
                 fields = list(fieldset.get('fields', []))
                 # Ensure all personal info fields are included
@@ -275,7 +312,61 @@ class ActiveUserAdmin(BaseUserAdmin):
         # Remove is_active if present (we use is_deleted instead)
         if 'is_active' in form.base_fields:
             del form.base_fields['is_active']
+
+        # Make username readonly for existing users
+        if obj and obj.pk and 'username' in form.base_fields:
+            form.base_fields['username'].disabled = True
+            form.base_fields['username'].help_text = 'Username cannot be changed after creation.'
+
+        # Prevent admin from removing their own superuser status
+        if obj and obj.pk == request.user.pk and 'is_superuser' in form.base_fields:
+            # Make is_superuser readonly for own account
+            form.base_fields['is_superuser'].disabled = True
+            form.base_fields['is_superuser'].help_text = 'You cannot remove your own superuser status.'
+
         return form
+
+    def get_readonly_fields(self, request, obj=None):
+        """Add password change link and make is_superuser readonly for own account"""
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+
+        # Make username readonly (not editable)
+        if 'username' not in readonly_fields:
+            readonly_fields.append('username')
+
+        # Add password change link as a readonly field
+        if obj and obj.pk:
+            readonly_fields.append('password_change_link')
+
+        # Make is_superuser readonly if editing own account
+        if obj and obj.pk == request.user.pk:
+            if 'is_superuser' not in readonly_fields:
+                readonly_fields.append('is_superuser')
+
+        return readonly_fields
+
+    def password_change_link(self, obj):
+        """Display a clickable link to change password"""
+        if obj and obj.pk:
+            # Construct the password change URL directly
+            # Django's UserAdmin uses the pattern: {app_label}/{model_name}/{id}/password/
+            url = f'/admin/core/user/{obj.pk}/password/'
+            return format_html('<a href="{}" class="button">Change Password</a>', url)
+        return '-'
+    password_change_link.short_description = 'Password'
+
+    def save_model(self, request, obj, form, change):
+        """Prevent admin from removing their own superuser status"""
+        if change and obj.pk == request.user.pk:
+            # Ensure the current admin cannot remove their own superuser status
+            if not obj.is_superuser:
+                obj.is_superuser = True
+                self.message_user(
+                    request,
+                    'You cannot remove your own superuser status. It has been restored.',
+                    level='WARNING'
+                )
+        super().save_model(request, obj, form, change)
 
 
 # Admin for INACTIVE users
@@ -311,12 +402,49 @@ class InactiveUserAdmin(BaseUserAdmin):
             list_filter.remove("is_staff")
         return tuple(list_filter)
 
-    # Optional: disable add/delete for inactive users
+    # Disable add/change/delete for inactive users (view-only)
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make all fields readonly for inactive users"""
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        # Get all field names from the form
+        if obj:
+            form = self.get_form(request, obj)
+            all_fields = list(form.base_fields.keys())
+            # Add all fields to readonly_fields
+            for field in all_fields:
+                if field not in readonly_fields:
+                    readonly_fields.append(field)
+        return readonly_fields
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Remove groups and is_staff from the form, and make all fields readonly for inactive users"""
+        form = super().get_form(request, obj, **kwargs)
+        # Remove fields from the form
+        if 'groups' in form.base_fields:
+            del form.base_fields['groups']
+        if 'user_permissions' in form.base_fields:
+            del form.base_fields['user_permissions']
+        if 'is_staff' in form.base_fields:
+            del form.base_fields['is_staff']
+        # Remove is_active if present (we use is_deleted instead)
+        if 'is_active' in form.base_fields:
+            del form.base_fields['is_active']
+
+        # Make all fields disabled/readonly for inactive users
+        for field in form.base_fields.values():
+            field.disabled = True
+            field.widget.attrs['readonly'] = True
+
+        return form
 
     def get_fieldsets(self, request, obj=None):
         """Override fieldsets to hide Groups and Staff status, and add all personal info fields"""
@@ -373,21 +501,6 @@ class InactiveUserAdmin(BaseUserAdmin):
             else:
                 new_fieldsets.append((name, fieldset))
         return new_fieldsets
-
-    def get_form(self, request, obj=None, **kwargs):
-        """Remove groups and is_staff from the form, and ensure is_deleted is available"""
-        form = super().get_form(request, obj, **kwargs)
-        # Remove fields from the form
-        if 'groups' in form.base_fields:
-            del form.base_fields['groups']
-        if 'user_permissions' in form.base_fields:
-            del form.base_fields['user_permissions']
-        if 'is_staff' in form.base_fields:
-            del form.base_fields['is_staff']
-        # Remove is_active if present (we use is_deleted instead)
-        if 'is_active' in form.base_fields:
-            del form.base_fields['is_active']
-        return form
 
 
 # Admin for Artist - read-only, no adding

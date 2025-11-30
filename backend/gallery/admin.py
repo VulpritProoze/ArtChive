@@ -65,3 +65,7 @@ class InactiveGalleryAdmin(BaseGalleryAdmin):
 
     def get_queryset(self, request):
         return Gallery.objects.get_inactive_objects().select_related('creator')
+
+    def has_delete_permission(self, request, obj=None):
+        """Disable deleting inactive galleries via admin"""
+        return False
