@@ -1,8 +1,14 @@
+import json
 import os
 import uuid
+from datetime import timedelta
 
 import cloudinary.uploader
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib import admin
+from django.utils import timezone
+from django.views.generic import TemplateView
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -357,3 +363,70 @@ class GalleryStatusUpdateView(APIView):
 
         serializer = GallerySerializer(gallery)
         return Response(serializer.data)
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class GalleryDashboardView(UserPassesTestMixin, TemplateView):
+    """Gallery app dashboard with gallery statistics"""
+    template_name = 'gallery/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        time_range_start = self.get_time_range()
+        now = timezone.now()
+
+        # Gallery Statistics
+        total_galleries = Gallery.objects.count()
+        published_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.active).count()
+        draft_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.draft).count()
+        archived_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.archived).count()
+
+        galleries_24h = Gallery.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        galleries_1w = Gallery.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        galleries_1m = Gallery.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        galleries_1y = Gallery.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        gallery_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Gallery.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            gallery_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        context.update({
+            'total_galleries': total_galleries,
+            'published_galleries': published_galleries,
+            'draft_galleries': draft_galleries,
+            'archived_galleries': archived_galleries,
+            'galleries_24h': galleries_24h, 'galleries_1w': galleries_1w, 'galleries_1m': galleries_1m, 'galleries_1y': galleries_1y,
+            'gallery_growth_data': json.dumps(gallery_growth_data),
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
