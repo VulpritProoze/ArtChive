@@ -1,8 +1,16 @@
+import uuid
+
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import (
     CreateAPIView,
     ListAPIView,
@@ -16,7 +24,7 @@ from rest_framework.views import APIView
 
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from common.utils.file_utils import rename_image_file
-from core.permissions import IsCollectiveAdmin, IsCollectiveMember
+from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
 from .cache_utils import get_collective_memberships_cache_key
@@ -36,6 +44,7 @@ from .serializers import (
     CollectiveDetailsSerializer,
     CollectiveMemberDetailSerializer,
     CollectiveMemberSerializer,
+    CollectiveSearchSerializer,
     CollectiveUpdateSerializer,
     DemoteAdminSerializer,
     InsideCollectivePostsViewSerializer,
@@ -674,3 +683,57 @@ class AcceptAdminRequestView(APIView):
             'message': message,
             'request': response_serializer.data
         }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Search collectives by title or ID (case-insensitive, partial matches)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query for collective title or ID",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: CollectiveSearchSerializer(many=True),
+        400: OpenApiResponse(description="Bad Request"),
+    },
+)
+class CollectiveSearchView(ListAPIView):
+    """
+    Search collectives by title or ID.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = CollectiveSearchSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return Collective.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(title__icontains=query)
+
+        # If query is a valid UUID, also try exact ID match
+        try:
+            collective_id = uuid.UUID(query)
+            q_objects |= Q(collective_id=collective_id)
+        except (ValueError, TypeError):
+            pass  # Not a valid UUID, skip ID search
+
+        return Collective.objects.filter(q_objects).order_by('title')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })

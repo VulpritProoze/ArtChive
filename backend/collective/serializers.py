@@ -403,6 +403,15 @@ class InsideCollectiveViewSerializer(ModelSerializer):
         return len(obj.collective_member.all())
 
 
+class CollectiveSearchSerializer(ModelSerializer):
+    """Serializer for searching collectives by title or ID."""
+
+    class Meta:
+        model = Collective
+        fields = ['collective_id', 'title', 'description', 'picture']
+        read_only_fields = ['collective_id', 'title', 'description', 'picture']
+
+
 class InsideCollectivePostsViewSerializer(PostListViewSerializer):
     """
     Serializer for posts inside a collective channel.

@@ -1,5 +1,4 @@
 import logging
-import uuid
 
 from decouple import config
 from django.core.cache import cache
@@ -28,8 +27,6 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from common.utils.profiling import silk_profile
 
-from collective.models import Collective
-
 from .cache_utils import get_user_info_cache_key
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 from .pagination import BrushDripsTransactionPagination
@@ -40,7 +37,6 @@ from .serializers import (
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
-    CollectiveSearchSerializer,
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
@@ -1488,55 +1484,3 @@ class UserSearchView(generics.ListAPIView):
         })
 
 
-@extend_schema(
-    tags=["Collectives"],
-    description="Search collectives by title or ID (case-insensitive, partial matches)",
-    parameters=[
-        OpenApiParameter(
-            name="q",
-            description="Search query for collective title or ID",
-            type=str,
-            required=True,
-        ),
-    ],
-    responses={
-        200: CollectiveSearchSerializer(many=True),
-        400: OpenApiResponse(description="Bad Request"),
-    },
-)
-class CollectiveSearchView(generics.ListAPIView):
-    """
-    Search collectives by title or ID.
-    Admin-only endpoint for use in Django admin filters.
-    Returns paginated results (max 50).
-    Uses Django session authentication (for admin users).
-    """
-    serializer_class = CollectiveSearchSerializer
-    authentication_classes = [SessionAuthentication]  # Use Django session auth
-    permission_classes = [IsAdminUser]  # Require admin user (staff or superuser)
-
-    def get_queryset(self):
-        query = self.request.query_params.get('q', '').strip()
-
-        if not query:
-            return Collective.objects.none()
-
-        # Build Q objects for case-insensitive partial matches
-        q_objects = Q(title__icontains=query)
-
-        # If query is a valid UUID, also try exact ID match
-        try:
-            collective_id = uuid.UUID(query)
-            q_objects |= Q(collective_id=collective_id)
-        except (ValueError, TypeError):
-            pass  # Not a valid UUID, skip ID search
-
-        return Collective.objects.filter(q_objects).order_by('title')[:50]
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'results': serializer.data,
-            'count': len(serializer.data)
-        })

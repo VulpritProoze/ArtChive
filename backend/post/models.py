@@ -1,4 +1,5 @@
 import uuid
+from collections import deque
 
 from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 from django.db import models
@@ -94,9 +95,29 @@ class Comment(models.Model):
     objects = SoftDeleteManager()
 
     def delete(self, *_args, **_kwargs):
-        """Override delete to perform soft deletion"""
-        self.is_deleted = True
-        self.save()
+        """Override delete to perform soft deletion and cascade to all replies"""
+        # Only process if not already deleted
+        if self.is_deleted:
+            return
+
+        # Collect all comments to delete (including replies)
+        comments_to_delete = []
+        queue = deque([self])
+
+        while queue:
+            current = queue.popleft()
+            if not current.is_deleted:
+                comments_to_delete.append(current)
+                # Get direct replies that are not deleted
+                replies = Comment.objects.get_active_objects().filter(
+                    replies_to=current
+                )
+                queue.extend(replies)
+
+        # Soft delete all comments in the chain
+        for comment in comments_to_delete:
+            comment.is_deleted = True
+            comment.save()
 
     def __str__(self):
         text = self.text or ""

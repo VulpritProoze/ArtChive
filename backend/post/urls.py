@@ -20,6 +20,7 @@ from .views import (
     CritiqueReplyDetailView,
     CritiqueReplyListView,
     CritiqueReplyUpdateView,
+    CritiqueSearchView,
     CritiqueUpdateView,
     OwnPostsListView,
     PostBulkMetaView,
@@ -38,6 +39,7 @@ from .views import (
     PostPraiseCountView,
     PostPraiseCreateView,
     PostPraiseListView,
+    PostSearchView,
     PostTrophyCheckView,
     PostTrophyCountView,
     PostTrophyCreateView,
@@ -57,6 +59,7 @@ Some notes:
 """
 urlpatterns = [
     path("", PostListView.as_view(), name="post-list"),
+    path("search/", PostSearchView.as_view(), name="post-search"),
     path("bulk-meta/", PostBulkMetaView.as_view(), name="post-bulk-meta"),
     path("me/<int:id>/", OwnPostsListView.as_view(), name="post-list-me"),
     path("by-username/<str:username>/", UserPostsByUsernameListView.as_view(), name="posts-by-username"),
@@ -86,6 +89,7 @@ urlpatterns = [
         name="comment-reply-update",
     ),
     path("<uuid:post_id>/critiques/", CritiqueListView.as_view(), name="critique-list"),
+    path("critiques/search/", CritiqueSearchView.as_view(), name="critique-search"),
     path("critique/create/", CritiqueCreateView.as_view(), name="critique-create"),
     path(
         "critique/<uuid:critique_id>/",

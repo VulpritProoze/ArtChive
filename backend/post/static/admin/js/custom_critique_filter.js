@@ -1,39 +1,22 @@
 (function() {
     'use strict';
     
-    // Filter configurations
-    const filterConfigs = [
-        {
-            paramName: 'author_id',
-            title: 'post author',
-            searchTerms: ['author', 'post author'],
-            apiUrl: '/api/core/users/search/',
-            modalTitle: 'Search User',
-            placeholder: 'Search by username, email, or ID...',
-            emptyText: 'Enter a search query to find users',
-            noResultsText: 'No users found',
-            errorText: 'Error searching users. Please try again.',
-            resultIdField: 'id',
-            resultDisplayField: 'username',
-            resultSecondaryField: 'email',
-            resultTertiaryField: 'fullname'
-        },
-        {
-            paramName: 'collective_id',
-            title: 'collective',
-            searchTerms: ['collective'],
-            apiUrl: '/api/collective/search/',
-            modalTitle: 'Search Collective',
-            placeholder: 'Search by title or ID...',
-            emptyText: 'Enter a search query to find collectives',
-            noResultsText: 'No collectives found',
-            errorText: 'Error searching collectives. Please try again.',
-            resultIdField: 'collective_id',
-            resultDisplayField: 'title',
-            resultSecondaryField: 'description',
-            resultTertiaryField: null
-        }
-    ];
+    // Filter configuration for post search
+    const filterConfig = {
+        paramName: 'post_id',
+        title: 'post',
+        searchTerms: ['post'],
+        apiUrl: '/api/post/search/',
+        modalTitle: 'Search Post',
+        placeholder: 'Search by description, author username, author email, or post ID...',
+        emptyText: 'Enter a search query to find posts',
+        noResultsText: 'No posts found',
+        errorText: 'Error searching posts. Please try again.',
+        resultIdField: 'post_id',
+        resultDisplayField: 'description',
+        resultSecondaryField: 'author_username',
+        resultTertiaryField: 'author_email'
+    };
     
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
@@ -48,10 +31,8 @@
             
             const container = filterSidebar || document.body;
             
-            // Initialize all filters
-            filterConfigs.forEach(function(config) {
-                initializeFilter(container, config);
-            });
+            // Initialize filter
+            initializeFilter(container, filterConfig);
         }, 200);
     });
     

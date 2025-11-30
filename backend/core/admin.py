@@ -546,7 +546,7 @@ class BrushDripWalletAdmin(ModelAdmin):
 
 # Admin for BrushDripTransaction - read-only, can add
 class BrushDripTransactionAdmin(ModelAdmin):
-    list_display = ('drip_id', 'amount', 'transacted_by', 'transacted_to', 'transaction_object_type', 'transacted_at')
+    list_display = ('drip_id', 'amount', 'transacted_by_link', 'transacted_to_link', 'transaction_object_type', 'transacted_at')
     list_filter = ('transaction_object_type', 'transacted_at')
     search_fields = ('transacted_by__username', 'transacted_to__username', 'transaction_object_id')
     readonly_fields = ('drip_id', 'transaction_object_type', 'transaction_object_id', 'transacted_at', 'transacted_by')
@@ -562,6 +562,24 @@ class BrushDripTransactionAdmin(ModelAdmin):
             'description': 'Transacted by is automatically set to the logged-in admin. Transaction object type and ID are automatically set to admin_override and 0000 respectively.'
         }),
     )
+
+    def transacted_by_link(self, obj):
+        """Display transacted_by as a clickable link to the user admin page"""
+        if obj.transacted_by:
+            url = reverse('admin:core_user_change', args=[obj.transacted_by.pk])
+            return format_html('<a href="{}" class="viewlink">{}</a>', url, obj.transacted_by.username)
+        return '-'
+    transacted_by_link.short_description = 'Transacted By'
+    transacted_by_link.admin_order_field = 'transacted_by__username'
+
+    def transacted_to_link(self, obj):
+        """Display transacted_to as a clickable link to the user admin page"""
+        if obj.transacted_to:
+            url = reverse('admin:core_user_change', args=[obj.transacted_to.pk])
+            return format_html('<a href="{}" class="viewlink">{}</a>', url, obj.transacted_to.username)
+        return '-'
+    transacted_to_link.short_description = 'Transacted To'
+    transacted_to_link.admin_order_field = 'transacted_to__username'
 
     def save_model(self, request, obj, form, change):
         """Automatically set transacted_by, transaction_object_type, and transaction_object_id, and update wallet"""
@@ -657,7 +675,7 @@ class LogEntryAdmin(ModelAdmin):
 
 # Register models with Unfold admin
 admin.site.register(Artist, ArtistAdmin)
-admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
+# admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
 admin.site.register(BrushDripTransaction, BrushDripTransactionAdmin)
 admin.site.register(User, ActiveUserAdmin)
 admin.site.register(InactiveUser, InactiveUserAdmin)

@@ -9,7 +9,13 @@ from django.db.models import (
     Q,
 )
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import generics, permissions, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import (
     DestroyAPIView,
     ListAPIView,
@@ -24,7 +30,7 @@ from collective.models import Channel, CollectiveMember
 from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
 from common.utils.profiling import silk_profile
 from core.models import BrushDripTransaction, BrushDripWallet, User
-from core.permissions import IsAuthorOrSuperUser
+from core.permissions import IsAdminUser, IsAuthorOrSuperUser
 from notification.utils import (
     create_comment_notification,
     create_comment_reply_notification,
@@ -67,6 +73,7 @@ from .serializers import (
     CritiqueReplyCreateSerializer,
     CritiqueReplySerializer,
     CritiqueReplyUpdateSerializer,
+    CritiqueSearchSerializer,
     CritiqueSerializer,
     CritiqueUpdateSerializer,
     PostCreateSerializer,
@@ -77,6 +84,7 @@ from .serializers import (
     PostListViewSerializer,
     PostPraiseCreateSerializer,
     PostPraiseSerializer,
+    PostSearchSerializer,
     PostTrophyCreateSerializer,
     PostTrophySerializer,
     PostUpdateSerializer,
@@ -1742,3 +1750,116 @@ class CritiqueDetailWithContextView(generics.RetrieveAPIView):
                 "replies": replies_data,
             }
         )
+
+
+@extend_schema(
+    tags=["Posts"],
+    description="Search posts by description or author (case-insensitive, partial matches)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query for post description, author username, author email, or post ID",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: "PostSearchSerializer(many=True)",
+        400: OpenApiResponse(description="Bad Request"),
+    },
+)
+class PostSearchView(ListAPIView):
+    """
+    Search posts by description or author.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = PostSearchSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return Post.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(description__icontains=query) | \
+                   Q(author__username__icontains=query) | \
+                   Q(author__email__icontains=query)
+
+        # If query is a valid UUID, also try exact ID match
+        try:
+            post_id = uuid.UUID(query)
+            q_objects |= Q(post_id=post_id)
+        except (ValueError, TypeError):
+            pass  # Not a valid UUID, skip ID search
+
+        return Post.objects.filter(q_objects).select_related('author').order_by('-created_at')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
+
+
+@extend_schema(
+    tags=["Critiques"],
+    description="Search critiques by text, impression, or author (case-insensitive, partial matches)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query for critique text, impression, author username, author email, or critique ID",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: "CritiqueSearchSerializer(many=True)",
+        400: OpenApiResponse(description="Bad Request"),
+    },
+)
+class CritiqueSearchView(ListAPIView):
+    """
+    Search critiques by text, impression, or author.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = CritiqueSearchSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return Critique.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(text__icontains=query) | \
+                   Q(impression__icontains=query) | \
+                   Q(author__username__icontains=query) | \
+                   Q(author__email__icontains=query)
+
+        # If query is a valid UUID, also try exact ID match
+        try:
+            critique_id = uuid.UUID(query)
+            q_objects |= Q(critique_id=critique_id)
+        except (ValueError, TypeError):
+            pass  # Not a valid UUID, skip ID search
+
+        return Critique.objects.filter(q_objects).select_related('author').order_by('-created_at')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })

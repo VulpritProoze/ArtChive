@@ -1131,3 +1131,25 @@ class PostTrophyCreateSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Return detailed PostTrophy info after creation"""
         return PostTrophySerializer(instance, context=self.context).data
+
+
+class PostSearchSerializer(ModelSerializer):
+    """Serializer for searching posts by description or author."""
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_email = serializers.CharField(source='author.email', read_only=True)
+
+    class Meta:
+        model = Post
+        fields = ['post_id', 'description', 'author_username', 'author_email']
+        read_only_fields = ['post_id', 'description', 'author_username', 'author_email']
+
+
+class CritiqueSearchSerializer(ModelSerializer):
+    """Serializer for searching critiques by text, impression, or author."""
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    author_email = serializers.CharField(source='author.email', read_only=True)
+
+    class Meta:
+        model = Critique
+        fields = ['critique_id', 'text', 'impression', 'author_username', 'author_email']
+        read_only_fields = ['critique_id', 'text', 'impression', 'author_username', 'author_email']

@@ -4,34 +4,34 @@
     // Filter configurations
     const filterConfigs = [
         {
-            paramName: 'author_id',
-            title: 'post author',
-            searchTerms: ['author', 'post author'],
-            apiUrl: '/api/core/users/search/',
-            modalTitle: 'Search User',
-            placeholder: 'Search by username, email, or ID...',
-            emptyText: 'Enter a search query to find users',
-            noResultsText: 'No users found',
-            errorText: 'Error searching users. Please try again.',
-            resultIdField: 'id',
-            resultDisplayField: 'username',
-            resultSecondaryField: 'email',
-            resultTertiaryField: 'fullname'
+            paramName: 'post_id',
+            title: 'post',
+            searchTerms: ['post'],
+            apiUrl: '/api/post/search/',
+            modalTitle: 'Search Post',
+            placeholder: 'Search by description, author username, author email, or post ID...',
+            emptyText: 'Enter a search query to find posts',
+            noResultsText: 'No posts found',
+            errorText: 'Error searching posts. Please try again.',
+            resultIdField: 'post_id',
+            resultDisplayField: 'description',
+            resultSecondaryField: 'author_username',
+            resultTertiaryField: 'author_email'
         },
         {
-            paramName: 'collective_id',
-            title: 'collective',
-            searchTerms: ['collective'],
-            apiUrl: '/api/collective/search/',
-            modalTitle: 'Search Collective',
-            placeholder: 'Search by title or ID...',
-            emptyText: 'Enter a search query to find collectives',
-            noResultsText: 'No collectives found',
-            errorText: 'Error searching collectives. Please try again.',
-            resultIdField: 'collective_id',
-            resultDisplayField: 'title',
-            resultSecondaryField: 'description',
-            resultTertiaryField: null
+            paramName: 'critique_id',
+            title: 'critique',
+            searchTerms: ['critique'],
+            apiUrl: '/api/post/critiques/search/',
+            modalTitle: 'Search Critique',
+            placeholder: 'Search by text, impression, author username, author email, or critique ID...',
+            emptyText: 'Enter a search query to find critiques',
+            noResultsText: 'No critiques found',
+            errorText: 'Error searching critiques. Please try again.',
+            resultIdField: 'critique_id',
+            resultDisplayField: 'text',
+            resultSecondaryField: 'impression',
+            resultTertiaryField: 'author_username'
         }
     ];
     
@@ -423,4 +423,3 @@
         }
     }
 })();
-

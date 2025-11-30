@@ -6,7 +6,7 @@ from django.core.validators import FileExtensionValidator
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
 
-from collective.models import Collective, CollectiveMember
+from collective.models import CollectiveMember
 
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 
@@ -481,14 +481,6 @@ class UserSearchSerializer(ModelSerializer):
         parts = [obj.first_name or '', obj.last_name or '']
         full_name = ' '.join(part.strip() for part in parts if part and part.strip())
         return full_name if full_name else ''
-
-
-class CollectiveSearchSerializer(ModelSerializer):
-    """Serializer for searching collectives by title or ID."""
-    
-    class Meta:
-        model = Collective
-        fields = ['collective_id', 'title', 'description']
 
 
 class CreateFriendRequestSerializer(serializers.Serializer):

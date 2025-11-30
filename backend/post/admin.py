@@ -141,6 +141,68 @@ class CollectiveSearchFilter(admin.SimpleListFilter):
         return queryset
 
 
+class PostSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching posts by description or author with modal interface"""
+    title = 'post'
+    parameter_name = 'post_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        return (('__custom__', 'Search Post'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        value = self.value() or ''
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Post',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter comments/critiques by selected post ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                post_id = uuid.UUID(value)
+                return queryset.filter(post_id__post_id=post_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
+class CritiqueSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching critiques by text, impression, or author with modal interface"""
+    title = 'critique'
+    parameter_name = 'critique_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        return (('__custom__', 'Search Critique'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        value = self.value() or ''
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Critique',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter comments by selected critique ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                critique_id = uuid.UUID(value)
+                return queryset.filter(critique_id__critique_id=critique_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
 class CritiqueHasRepliesFilter(admin.SimpleListFilter):
     """Filter critiques by whether they have replies"""
     title = 'has replies'
@@ -423,9 +485,11 @@ class BaseCommentAdmin(ModelAdmin):
         'created_at'
     )
     list_filter = (
-        'is_critique_reply',
+        PostSearchFilter,
+        CritiqueSearchFilter,
         CommentTypeFilter,
         HasRepliesFilter,
+        # 'is_critique_reply',
         'created_at',
     )
     search_fields = (
@@ -442,6 +506,12 @@ class BaseCommentAdmin(ModelAdmin):
     inlines = [CommentReplyInline]
     actions = ['delete_selected_with_replies']
 
+    class Media:
+        js = ('admin/js/custom_comment_filter.js',)
+        css = {
+            'all': ('admin/css/custom_comment_filter.css',)
+        }
+
     # Make read-only: disable add, edit, delete (but allow admin actions)
     def has_add_permission(self, request):  # noqa: ARG002
         return False
@@ -450,11 +520,7 @@ class BaseCommentAdmin(ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):  # noqa: ARG002
-        # Allow delete permission for bulk actions, but not for individual objects
-        if obj is not None:
-            # Viewing a specific comment - disable delete button
-            return False
-        # In the list view (obj is None) - allow actions
+        # Allow delete permission for both bulk actions and individual objects
         return True
 
     def delete_selected_with_replies(self, request, queryset):
@@ -612,7 +678,7 @@ class BaseCritiqueAdmin(ModelAdmin):
         'reply_count_display',
         'created_at'
     )
-    list_filter = ('impression', CritiqueHasRepliesFilter, 'created_at')
+    list_filter = (PostSearchFilter, 'impression', CritiqueHasRepliesFilter, 'created_at')
     search_fields = (
         'text',
         'author__username',
@@ -626,6 +692,12 @@ class BaseCritiqueAdmin(ModelAdmin):
     list_per_page = 50
     inlines = [CritiqueReplyInline]
     actions = ['delete_selected_with_replies']
+
+    class Media:
+        js = ('admin/js/custom_critique_filter.js',)
+        css = {
+            'all': ('admin/css/custom_critique_filter.css',)
+        }
 
     # Make read-only: disable add, edit
     def has_add_permission(self, request):  # noqa: ARG002
