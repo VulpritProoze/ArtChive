@@ -6,7 +6,7 @@ from django.core.validators import FileExtensionValidator
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, Serializer
 
-from collective.models import CollectiveMember
+from collective.models import Collective, CollectiveMember
 
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 
@@ -466,6 +466,29 @@ class FriendRequestCountSerializer(serializers.Serializer):
     received_count = serializers.IntegerField()
     sent_count = serializers.IntegerField()
     total_count = serializers.IntegerField()
+
+
+class UserSearchSerializer(ModelSerializer):
+    """Serializer for user search results in admin"""
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'fullname', 'profile_picture']
+        read_only_fields = ['id', 'username', 'email', 'fullname', 'profile_picture']
+
+    def get_fullname(self, obj):
+        parts = [obj.first_name or '', obj.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else ''
+
+
+class CollectiveSearchSerializer(ModelSerializer):
+    """Serializer for searching collectives by title or ID."""
+    
+    class Meta:
+        model = Collective
+        fields = ['collective_id', 'title', 'description']
 
 
 class CreateFriendRequestSerializer(serializers.Serializer):

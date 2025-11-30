@@ -2,7 +2,9 @@ from uuid import UUID
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin, TabularInline
+from unfold.decorators import display
 
 from collective.models import Channel, Collective, CollectiveMember
 
@@ -64,8 +66,10 @@ class CollectiveAdmin(ModelAdmin):
         'created_at',
         'updated_at',
     )
+    exclude = ('rules', 'artist_types')  # Exclude raw fields, use display methods instead
     inlines = (CollectiveMemberInline, ChannelInline)
 
+    @display(description='Rules')
     def display_rules(self, obj):
         """Display rules as styled badges."""
         if not obj.rules:
@@ -80,9 +84,10 @@ class CollectiveAdmin(ModelAdmin):
             )
             for rule in obj.rules
         ])
-        return format_html('<div style="line-height: 2;">{}</div>', badges_html)
-    display_rules.short_description = 'Rules'
+        # Mark the joined HTML as safe
+        return mark_safe(f'<div style="line-height: 2;">{badges_html}</div>')
 
+    @display(description='Artist Types')
     def display_artist_types(self, obj):
         """Display artist types as styled badges."""
         if not obj.artist_types:
@@ -97,8 +102,8 @@ class CollectiveAdmin(ModelAdmin):
             )
             for artist_type in obj.artist_types
         ])
-        return format_html('<div style="line-height: 2;">{}</div>', badges_html)
-    display_artist_types.short_description = 'Artist Types'
+        # Mark the joined HTML as safe
+        return mark_safe(f'<div style="line-height: 2;">{badges_html}</div>')
 
     def has_add_permission(self, request):
         """Prevent creating collectives via admin."""

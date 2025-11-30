@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from decouple import config
 from django.core.cache import cache
@@ -15,6 +16,7 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import generics, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -26,15 +28,19 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from common.utils.profiling import silk_profile
 
+from collective.models import Collective
+
 from .cache_utils import get_user_info_cache_key
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 from .pagination import BrushDripsTransactionPagination
+from .permissions import IsAdminUser
 from .serializers import (
     BrushDripTransactionCreateSerializer,
     BrushDripTransactionDetailSerializer,
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    CollectiveSearchSerializer,
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
@@ -42,6 +48,7 @@ from .serializers import (
     RegistrationSerializer,
     UserFellowSerializer,
     UserProfilePublicSerializer,
+    UserSearchSerializer,
     UserSerializer,
     UserSummarySerializer,
 )
@@ -1424,3 +1431,112 @@ class BlockUserView(APIView):
             {'error': 'Block feature is not yet implemented'},
             status=status.HTTP_501_NOT_IMPLEMENTED
         )
+
+
+@extend_schema(
+    tags=["Users"],
+    description="Search users by username, email, or ID (admin-only)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query (username, email, or ID)",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: UserSearchSerializer(many=True),
+        400: OpenApiResponse(description="Invalid query parameter"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class UserSearchView(generics.ListAPIView):
+    """
+    Search users by username, email, or ID.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = UserSearchSerializer
+    authentication_classes = [SessionAuthentication]  # Use Django session auth
+    permission_classes = [IsAdminUser]  # Require admin user (staff or superuser)
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return User.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(username__icontains=query) | Q(email__icontains=query)
+
+        # If query is numeric, also try exact ID match
+        try:
+            user_id = int(query)
+            q_objects |= Q(id=user_id)
+        except ValueError:
+            pass  # Not numeric, skip ID search
+
+        return User.objects.filter(q_objects).order_by('username')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Search collectives by title or ID (case-insensitive, partial matches)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query for collective title or ID",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: CollectiveSearchSerializer(many=True),
+        400: OpenApiResponse(description="Bad Request"),
+    },
+)
+class CollectiveSearchView(generics.ListAPIView):
+    """
+    Search collectives by title or ID.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = CollectiveSearchSerializer
+    authentication_classes = [SessionAuthentication]  # Use Django session auth
+    permission_classes = [IsAdminUser]  # Require admin user (staff or superuser)
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return Collective.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(title__icontains=query)
+
+        # If query is a valid UUID, also try exact ID match
+        try:
+            collective_id = uuid.UUID(query)
+            q_objects |= Q(collective_id=collective_id)
+        except (ValueError, TypeError):
+            pass  # Not a valid UUID, skip ID search
+
+        return Collective.objects.filter(q_objects).order_by('title')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })

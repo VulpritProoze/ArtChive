@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.models import LogEntry
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group, Permission
 from django.urls import reverse
@@ -631,10 +632,34 @@ except admin.sites.NotRegistered:
 #
 # admin.site.register(Permission, CustomPermissionAdmin)
 
+# Admin for LogEntry (Admin Action History)
+class LogEntryAdmin(ModelAdmin):
+    """Admin for viewing Django admin action history"""
+    list_display = ('action_time', 'user', 'content_type', 'object_repr', 'action_flag', 'change_message')
+    list_filter = ('action_time', 'action_flag', 'content_type')
+    search_fields = ('user__username', 'object_repr', 'change_message')
+    readonly_fields = ('action_time', 'user', 'content_type', 'object_id', 'object_repr', 'action_flag', 'change_message')
+    date_hierarchy = 'action_time'
+    list_per_page = 50
+
+    def has_add_permission(self, request):
+        """Cannot create log entries manually"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Cannot edit log entries"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Cannot delete log entries"""
+        return False
+
+
 # Register models with Unfold admin
 admin.site.register(Artist, ArtistAdmin)
 admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
 admin.site.register(BrushDripTransaction, BrushDripTransactionAdmin)
 admin.site.register(User, ActiveUserAdmin)
 admin.site.register(InactiveUser, InactiveUserAdmin)
+admin.site.register(LogEntry, LogEntryAdmin)
 # UserFellow is now shown as inline in User admin, not as separate admin

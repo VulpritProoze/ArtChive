@@ -1,9 +1,10 @@
+import uuid
+
 from django.contrib import admin
 from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils.html import format_html
-from unfold.admin import ModelAdmin, TabularInline, StackedInline
-from unfold.decorators import display
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 
 from .models import (
     Comment,
@@ -70,22 +71,73 @@ class CommentTypeFilter(admin.SimpleListFilter):
         return queryset
 
 
-class PostAuthorFilter(admin.SimpleListFilter):
-    """Filter by post author - shows manageable list of authors who have posts"""
+class UserSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching users by username, email, or ID with modal interface"""
     title = 'post author'
-    parameter_name = 'post_author'
+    parameter_name = 'author_id'
 
     def lookups(self, request, model_admin):
-        # Get unique authors who have posts
-        from core.models import User
-        authors = User.objects.filter(
-            post__isnull=False
-        ).distinct().order_by('username')[:50]  # Limit to 50 most recent
-        return [(author.id, author.username) for author in authors]
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        # Return a dummy lookup - the actual UI is handled by our custom template
+        return (('__custom__', 'Search User'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        # Get the current value
+        value = self.value() or ''
+        # Return a single choice that will be used by our custom template
+        # This ensures the filter appears even with empty lookups
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search User',
+            'value': value,
+        }
 
     def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(post_id__author__id=self.value())
+        """Filter posts by selected user ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                user_id = int(value)
+                return queryset.filter(author__id=user_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
+class CollectiveSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching collectives by title or ID with modal interface"""
+    title = 'collective'
+    parameter_name = 'collective_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        # Return a dummy lookup - the actual UI is handled by our custom template
+        return (('__custom__', 'Search Collective'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        # Get the current value
+        value = self.value() or ''
+        # Return a single choice that will be used by our custom template
+        # This ensures the filter appears even with empty lookups
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Collective',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter posts by selected collective ID (via channel)"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                collective_id = uuid.UUID(value)
+                return queryset.filter(channel__collective__collective_id=collective_id)
+            except (ValueError, TypeError):
+                return queryset
         return queryset
 
 
@@ -117,10 +169,25 @@ class CritiqueHasRepliesFilter(admin.SimpleListFilter):
 # ============================================================================
 
 class NovelPostInline(StackedInline):
-    """Inline for NovelPost - shown when post_type is 'novel'"""
+    """Inline for NovelPost - shown when post has associated NovelPost"""
     model = NovelPost
     extra = 0
     fields = ('chapter', 'content')
+    readonly_fields = ('chapter', 'content')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding novel posts via admin"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing novel posts via admin"""
+        return False
+
+    def get_queryset(self, request):
+        """Only show NovelPost if it exists for the post"""
+        qs = super().get_queryset(request)
+        return qs
 
 
 class CommentReplyInline(TabularInline):
@@ -180,12 +247,19 @@ class BasePostAdmin(ModelAdmin):
         'created_at',
         'is_deleted'
     )
-    list_filter = ('post_type', 'created_at')
+    list_filter = (UserSearchFilter, CollectiveSearchFilter, 'created_at')  # Custom filters and date filter
     search_fields = ('description', 'author__username', 'author__email', 'post_id')
     date_hierarchy = 'created_at'
-    readonly_fields = ('post_id', 'created_at', 'updated_at', 'heart_count', 'praise_count', 'trophy_count')
+    readonly_fields = ('post_id', 'created_at', 'updated_at', 'heart_count', 'praise_count', 'trophy_count', 'novel_post_display')
     list_select_related = ('author', 'channel')
     list_per_page = 50
+    inlines = [NovelPostInline]
+
+    class Media:
+        js = ('admin/js/custom_post_filter.js',)
+        css = {
+            'all': ('admin/css/custom_post_filter.css',)
+        }
 
     # Make read-only: disable add, edit, delete
     def has_add_permission(self, request):  # noqa: ARG002
@@ -202,7 +276,7 @@ class BasePostAdmin(ModelAdmin):
             'fields': ('post_id', 'description', 'post_type')
         }),
         ('Media', {
-            'fields': ('image_url', 'video_url')
+            'fields': ('image_url', 'video_url', 'novel_post_display')
         }),
         ('Relationships', {
             'fields': ('author', 'channel')
@@ -282,6 +356,25 @@ class BasePostAdmin(ModelAdmin):
         """Count of trophies on this post"""
         return obj.post_trophy.count()
     trophy_count.short_description = 'Trophies'
+
+    def novel_post_display(self, obj):
+        """Display NovelPost information if it exists"""
+        try:
+            novel_post = obj.novel_post.first()  # Get first NovelPost (there should only be one)
+            if novel_post:
+                return format_html(
+                    '<div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-left: 4px solid #007bff; border-radius: 4px;">'
+                    '<strong>Novel Chapter:</strong> {}<br>'
+                    '<strong>Content Preview:</strong> {}<br>'
+                    '<em style="color: #6c757d; font-size: 0.9em;">More information below</em>'
+                    '</div>',
+                    novel_post.chapter,
+                    novel_post.content[:200] + '...' if len(novel_post.content) > 200 else novel_post.content
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        return format_html('<span style="color: #6c757d;">No novel post associated with this post.</span>')
+    novel_post_display.short_description = 'Novel Post'
 
 
 @admin.register(Post)

@@ -11,6 +11,7 @@ from .views import (
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
     CookieTokenRefreshView,
+    CollectiveSearchView,
     CreateFriendRequestView,
     FellowsListView,
     FriendRequestCountView,
@@ -26,6 +27,7 @@ from .views import (
     UserFellowsListView,
     UserInfoView,
     UserProfileByUsernameView,
+    UserSearchView,
     UserSummaryView,
 )
 
@@ -61,6 +63,16 @@ urlpatterns = [
         "user/<int:user_id>/summary/",
         UserSummaryView.as_view(),
         name="user-summary",
+    ),
+    path(
+        "users/search/",
+        UserSearchView.as_view(),
+        name="user-search",
+    ),
+    path(
+        "collectives/search/",
+        CollectiveSearchView.as_view(),
+        name="collective-search",
     ),
     # Brush Drip Wallet endpoints
     path(
