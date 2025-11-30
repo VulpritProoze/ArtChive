@@ -6,19 +6,8 @@ from .base import *  # noqa: F403
 ALLOWED_HOSTS = ["*"]
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
 
-# CSRF Settings for cookie-based JWT with cross-origin requests
-CSRF_COOKIE_SAMESITE = "None"  # Allow cross-origin CSRF cookies
-CSRF_COOKIE_SECURE = False  # Set to True in production (HTTPS required)
-CSRF_COOKIE_HTTPONLY = False  # Must be False so JavaScript can read the token
-CSRF_USE_SESSIONS = False  # Don't tie CSRF to sessions
-CSRF_COOKIE_NAME = "csrftoken"  # Standard Django CSRF cookie name
+# No CSRF configuration in development
 
 # Application definition
 INSTALLED_APPS = [
@@ -51,7 +40,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
