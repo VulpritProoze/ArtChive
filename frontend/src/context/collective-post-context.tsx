@@ -1,17 +1,16 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useContext } from 'react'
-import type { CollectivePostContextType, Collective, Channel, ChannelCreateForm, ChannelCreateRequest } from '@types'
+import type { CollectivePostContextType, Channel, ChannelCreateForm, ChannelCreateRequest } from '@types'
 import { collective } from '@lib/api'
-import { usePostContext } from './post-context'
 import { toast } from '@utils/toast.util'
 import { channelCreateErrors, defaultErrors } from '@errors'
 import { handleApiError, formatErrorForToast } from '@utils'
 import { convertChannelTypeToSnakeCase } from '@utils/convert-channel-type'
+import { useInvalidateCollectiveData } from '@hooks/queries/use-collective-data'
 
 export const CollectivePostContext = createContext<CollectivePostContextType | undefined>(undefined)
 
 export const CollectivePostProvider = ({ children }) => {
-    const [collectiveData, setCollectiveData] = useState<Collective | null>(null);
-    const [loading, setLoading] = useState(false); // Start as false, only set true when actually fetching
     const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
     const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
     const [createChannelForm, setCreateChannelForm] = useState<ChannelCreateForm>({ title: '', description: '', collective: '', channel_type: undefined });
@@ -19,41 +18,12 @@ export const CollectivePostProvider = ({ children }) => {
     const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
     const [updatingChannel, setUpdatingChannel] = useState(false);
     const [deletingChannel, setDeletingChannel] = useState(false);
+    
+    // Use React Query hook for invalidating collective data cache
+    const invalidateCollectiveData = useInvalidateCollectiveData();
 
-    const { fetchPosts, setPostForm } = usePostContext()
-
-    // useEffect(() => {
-    //   console.log('collectiveData', collectiveData);
-    // }, [collectiveData]);
-
-    const fetchCollectiveData = async (collectiveId: string) => {
-      if (!collectiveId) return;
-
-      try {
-        setLoading(true);
-        // Fetch collective data
-        const collectiveResponse = await collective.get(`${collectiveId}/`);
-        setCollectiveData(collectiveResponse.data);
-
-        // Set first channel as selected by default
-        if (collectiveResponse.data.channels.length > 0) {
-          let firstChannel = collectiveResponse.data.channels[0];
-          firstChannel.collective_id = collectiveResponse.data.collective_id
-          setSelectedChannel(firstChannel);
-          setPostForm(prev => ({ ...prev, channel_id: firstChannel.channel_id }));
-          await fetchPosts(1, false, firstChannel.channel_id);
-        }
-      } catch (err) {
-        console.error('Collective data fetching error:', err)
-        const message = handleApiError(err, defaultErrors, true, true)
-        toast.error('Failed to fetch collective data', formatErrorForToast(message));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const handleCreateChannel = async () => {
-      if (!collectiveData || !createChannelForm?.title.trim()) return;
+    const handleCreateChannel = async (collectiveId: string) => {
+      if (!collectiveId || !createChannelForm?.title.trim()) return;
     
       setCreatingChannel(true);
     
@@ -62,16 +32,16 @@ export const CollectivePostProvider = ({ children }) => {
         const requestData: ChannelCreateRequest = {
           title: createChannelForm.title,
           description: createChannelForm.description,
-          collective: collectiveData.collective_id,
+          collective: collectiveId,
           channel_type: createChannelForm.channel_type 
             ? convertChannelTypeToSnakeCase(createChannelForm.channel_type)
             : 'post_channel', // Default to post_channel if not provided
         };
         
-        await collective.post(`${collectiveData.collective_id}/channel/create/`, requestData)
+        await collective.post(`${collectiveId}/channel/create/`, requestData)
 
-        // Refetch collective data to include the new channel
-        await fetchCollectiveData(collectiveData.collective_id);
+        // Invalidate React Query cache to refetch collective data
+        invalidateCollectiveData(collectiveId);
     
         // Close modal and reset form
         setShowCreateChannelModal(false);
@@ -87,19 +57,19 @@ export const CollectivePostProvider = ({ children }) => {
       }
     };
 
-    const handleUpdateChannel = async (updatedData: { title: string; description: string }) => {
-      if (!collectiveData || !editingChannel) return;
+    const handleUpdateChannel = async (collectiveId: string, updatedData: { title: string; description: string }) => {
+      if (!collectiveId || !editingChannel) return;
     
       setUpdatingChannel(true);
     
       try {
-        await collective.patch(`${collectiveData.collective_id}/channel/update/`, {
+        await collective.patch(`${collectiveId}/channel/update/`, {
           channel_id: editingChannel.channel_id,
           ...updatedData,
         });
     
-        // Refetch to reflect changes
-        await fetchCollectiveData(collectiveData.collective_id);
+        // Invalidate React Query cache to refetch collective data
+        invalidateCollectiveData(collectiveId);
         setEditingChannel(null);
         toast.success('Channel updated', 'Your channel has been updated successfully');
       } catch (error) {
@@ -111,18 +81,18 @@ export const CollectivePostProvider = ({ children }) => {
       }
     };
 
-    const handleDeleteChannel = async (channelId: string) => {
-      if (!collectiveData) return;
+    const handleDeleteChannel = async (collectiveId: string, channelId: string) => {
+      if (!collectiveId) return;
     
       setDeletingChannel(true);
     
       try {
-        await collective.delete(`${collectiveData.collective_id}/channel/delete/`, {
+        await collective.delete(`${collectiveId}/channel/delete/`, {
           data: { channel_id: channelId }, // Send in body if needed
         });
     
-        // Refetch collective data
-        await fetchCollectiveData(collectiveData.collective_id);
+        // Invalidate React Query cache to refetch collective data
+        invalidateCollectiveData(collectiveId);
         toast.success('Channel deleted', 'Your channel has been deleted successfully');
       } catch (error) {
         console.error('Channel delete error:', error);
@@ -134,11 +104,8 @@ export const CollectivePostProvider = ({ children }) => {
     };
 
     const contextValue: CollectivePostContextType = {
-      collectiveData,
-      loading,
       selectedChannel,
       setSelectedChannel,
-      fetchCollectiveData,
       handleCreateChannel,
       showCreateChannelModal,
       setShowCreateChannelModal,

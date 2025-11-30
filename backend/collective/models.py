@@ -39,6 +39,9 @@ class Collective(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.title
+
 
 class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(
@@ -74,6 +77,10 @@ class Channel(models.Model):
     collective = models.ForeignKey(
         Collective, on_delete=models.CASCADE, related_name="collective_channel"
     )
+
+    def __str__(self):
+        collective_title = getattr(self.collective, "title", str(self.collective))
+        return f"{self.title} ({collective_title})"
 
 
 class AdminRequest(models.Model):

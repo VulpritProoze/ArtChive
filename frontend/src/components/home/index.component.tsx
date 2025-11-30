@@ -1,86 +1,133 @@
 // artchive/frontend/src/home/index.component.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   CommentFormModal,
   PostFormModal,
-  PostViewModal,
   CritiqueFormModal,
   TrophySelectionModal,
 } from "@components/common/posts-feature/modal";
-import { PostLoadingIndicator } from "@components/common";
-import { usePostContext } from "@context/post-context";
+import { InfiniteScrolling } from "@components/common";
 import { PostCard } from "@components/common/posts-feature";
 import { MainLayout } from "@components/common/layout/MainLayout";
 import { SkeletonPostCard } from "@components/common/skeleton";
+import { usePosts } from "@hooks/queries/use-posts";
+import { usePostsMeta } from "@hooks/queries/use-post-meta";
+import { usePostUI } from "@context/post-ui-context";
+import { toast } from "@utils/toast.util";
+import { handleApiError, formatErrorForToast } from "@utils";
+import { useQuery } from "@tanstack/react-query";
 
 const Index: React.FC = () => {
   const {
     showCommentForm,
-    posts,
-    pagination,
     showPostForm,
     setShowPostForm,
-    loading,
-    setLoading,
-    loadingMore,
-    setLoadingMore,
-    fetchPosts,
-    activePost,
     showCritiqueForm,
-  } = usePostContext();
+  } = usePostUI();
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
+    error,
+  } = usePosts();
+
+  // Track post creation state for skeleton loader
+  // Use useQuery hook to subscribe to cache changes (matches working comment pattern)
+  const { data: isCreatingPost = false } = useQuery({
+    queryKey: ['post-creating'],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
+
+  // Extract all post IDs from all pages
+  const postIds = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(p => p.post_id)
+    );
+  }, [data]);
+
+  // Fetch bulk meta for all visible posts
+  const {
+    data: metaData,
+    isLoading: metaLoading
+  } = usePostsMeta(postIds, postIds.length > 0);
+
+  // Merge posts with meta
+  const enrichedPosts = useMemo(() => {
+    if (!data) return [];
+    return data.pages.flatMap(page =>
+      page.results.map(post => ({
+        ...post,
+        ...(metaData?.[post.post_id] || {
+          hearts_count: 0,
+          praise_count: 0,
+          trophy_count: 0,
+          comment_count: 0,
+          user_trophies: [],
+          trophy_breakdown: {},
+          is_hearted: false,
+          is_praised: false,
+        }),
+        // Map trophy_breakdown to trophy_counts_by_type for PostCard compatibility
+        trophy_counts_by_type: metaData?.[post.post_id]?.trophy_breakdown || {},
+        user_awarded_trophies: metaData?.[post.post_id]?.user_trophies || [],
+        // Map is_hearted/is_praised from meta to Post interface fields
+        // Always default to false if meta data is not available
+        is_hearted_by_user: metaData?.[post.post_id]?.is_hearted ?? false,
+        is_praised_by_user: metaData?.[post.post_id]?.is_praised ?? false,
+      }))
+    );
+  }, [data, metaData]);
+
+  const totalCount = data?.pages?.[0]?.count ?? enrichedPosts.length;
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  // Infinite scrolling behavior
   useEffect(() => {
-    let isFetching = false;
+    const target = observerTarget.current;
+    if (!target) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          pagination.hasNext &&
-          !loadingMore &&
-          !loading &&
-          !isFetching
+          hasNextPage &&
+          !isFetchingNextPage
         ) {
-          isFetching = true;
-          fetchPosts(pagination.currentPage + 1, true).finally(() => {
-            isFetching = false;
-          });
+          fetchNextPage();
         }
       },
       { threshold: 0.5 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
+    observer.observe(target);
     return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
+      observer.unobserve(target);
       observer.disconnect();
     };
-  }, [
-    pagination.hasNext,
-    loadingMore,
-    loading,
-    fetchPosts,
-    pagination.currentPage,
-  ]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  const isInitialLoading = isLoading && enrichedPosts.length === 0;
+  const showCountsLoading = metaLoading && !metaData;
+
+  // Show error toast when there's an error
   useEffect(() => {
-    // Only fetch posts once on mount
-    fetchPosts(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // fetchPosts is stable (memoized with empty deps)
+    if (isError && error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to load posts', formatErrorForToast(message));
+    }
+  }, [isError, error]);
 
   return (
     <MainLayout>
       {/* Modals */}
-      {activePost && <PostViewModal />}
       {showPostForm && <PostFormModal />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
@@ -120,7 +167,7 @@ const Index: React.FC = () => {
         </div>
 
         {/* Loading State */}
-        {loading && posts.length === 0 && (
+        {isInitialLoading && (
           <SkeletonPostCard
             count={3}
             containerClassName="flex flex-col gap-6 max-w-3xl mx-auto"
@@ -129,13 +176,20 @@ const Index: React.FC = () => {
 
         {/* Posts Grid */}
         <div className="flex flex-col gap-6 max-w-3xl mx-auto">
-          {posts.map((postItem) => (
-            <PostCard key={postItem.id} postItem={postItem} />
+          {/* Skeleton Loader for new post being created */}
+          {isCreatingPost && <SkeletonPostCard />}
+          
+          {enrichedPosts.map((postItem) => (
+            <PostCard
+              key={postItem.post_id}
+              postItem={{ ...postItem, novel_post: postItem.novel_post || [] }}
+              countsLoading={showCountsLoading}
+            />
           ))}
         </div>
 
         {/* Empty State */}
-        {posts.length === 0 && !loading && (
+        {enrichedPosts.length === 0 && !isInitialLoading && !isError && (
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <div className="text-8xl mb-4">🎨</div>
             <h3 className="text-2xl font-bold text-base-content mb-2">
@@ -166,7 +220,13 @@ const Index: React.FC = () => {
           </div>
         )}
 
-        <PostLoadingIndicator observerTarget={observerTarget} />
+        <InfiniteScrolling
+          observerTarget={observerTarget}
+          isFetchingMore={isFetchingNextPage}
+          hasNextPage={!!hasNextPage}
+          totalCount={totalCount}
+          itemCount={enrichedPosts.length}
+        />
       </div>
     </MainLayout>
   );

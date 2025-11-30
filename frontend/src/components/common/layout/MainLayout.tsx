@@ -5,6 +5,7 @@ import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
 import useToggleTheme from "@hooks/use-theme";
 import NotificationDropdown from "@components/notifications/notification-dropdown.component";
+import PendingFriendRequestsButton from "@components/fellows/pending-requests-button.component";
 import {
   Home,
   Images as GalleryIcon,
@@ -179,7 +180,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               {user && (
                 <div className="hidden sm:flex items-center gap-3">
                   <Link
-                    to="/profile"
+                    to={user.username ? `/profile/@${user.username}` : "/profile"}
                     className="flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
                   >
                     <img
@@ -245,9 +246,29 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <span className="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
                 </button>
 
-                <NotificationDropdown />
+                {/* Mobile: Navigate directly, Desktop: Show dropdown */}
+                <div className="md:hidden">
+                  <PendingFriendRequestsButton isMobile={true} />
+                </div>
+                <div className="hidden md:block">
+                  <PendingFriendRequestsButton />
+                </div>
 
-                <button
+                {/* Mobile: Navigate directly, Desktop: Show dropdown */}
+                <div className="md:hidden">
+                  <button
+                    className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 relative"
+                    title="Notifications"
+                    onClick={() => navigate('/notifications')}
+                  >
+                    <Bell className="w-5 h-5 flex-shrink-0" />
+                  </button>
+                </div>
+                <div className="hidden md:block">
+                  <NotificationDropdown />
+                </div>
+
+                       <button
                   className="btn btn-ghost btn-circle btn-sm hover:bg-base-200"
                   title="Settings"
                   onClick={() => setIsSettingsOpen(true)}
@@ -307,7 +328,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             {user && (
               <div className="sm:hidden mb-6 pb-6 border-b border-base-300">
                 <Link
-                  to="/profile"
+                  to={user.username ? `/profile/@${user.username}` : "/profile"}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-base-200 transition-colors"
                   onClick={() => setIsSettingsOpen(false)}
                 >

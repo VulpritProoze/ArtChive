@@ -1,8 +1,16 @@
+import uuid
+
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import (
     CreateAPIView,
     ListAPIView,
@@ -16,7 +24,7 @@ from rest_framework.views import APIView
 
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from common.utils.file_utils import rename_image_file
-from core.permissions import IsCollectiveAdmin, IsCollectiveMember
+from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
 from .cache_utils import get_collective_memberships_cache_key
@@ -36,6 +44,7 @@ from .serializers import (
     CollectiveDetailsSerializer,
     CollectiveMemberDetailSerializer,
     CollectiveMemberSerializer,
+    CollectiveSearchSerializer,
     CollectiveUpdateSerializer,
     DemoteAdminSerializer,
     InsideCollectivePostsViewSerializer,
@@ -254,16 +263,40 @@ class InsideCollectiveView(RetrieveAPIView):
         ).all()
 
 class InsideCollectivePostsView(ListAPIView):
+    """
+    Paginated list of posts inside a collective channel.
+    Lightweight - matches PostListView pattern. Counts fetched via PostBulkMetaView.
+    """
     serializer_class = InsideCollectivePostsViewSerializer
     pagination_class = CollectivePostsPagination
     permission_classes = [IsAuthenticated, IsCollectiveMember]
 
-    # Filter out posts by channel and collective, only show active (non-deleted) posts
     def get_queryset(self):
+        """
+        Fetch core post data only - same lightweight pattern as PostListView.
+        Counts and user interactions are fetched separately via PostBulkMetaView.
+        """
         channel_id = self.kwargs['channel_id']
         channel = get_object_or_404(Channel, channel_id=channel_id)
-        # Use get_active_objects() to filter out soft-deleted posts
-        return Post.objects.get_active_objects().filter(channel=channel).select_related('author').order_by('-created_at')
+
+        # Build base queryset - only core post data, no annotations
+        # Matches PostListView pattern exactly
+        queryset = (
+            Post.objects.get_active_objects()
+            .filter(channel=channel)
+            .prefetch_related(
+                'novel_post',  # Keep - needed for novel posts
+                'channel',
+                'channel__collective',  # For consistency with PostListView
+            )
+            .select_related(
+                'author',
+                'author__artist',  # Fetch artist info for post author
+            )
+            .order_by('-created_at')
+        )
+
+        return queryset
 
 class JoinCollectiveView(APIView):
     permission_classes = [IsAuthenticated]
@@ -418,9 +451,29 @@ class CollectiveMembershipsView(ListAPIView):
         return Response(serializer.data)
 
     def get_queryset(self):
+        """
+        Optimized queryset to minimize queries and data transfer.
+
+        Performance optimizations:
+        - select_related('collective_id') fetches Collective in same query (avoids N+1)
+        - only() limits fields fetched from database (reduces data transfer)
+        - Since serializer uses fields="__all__", ForeignKeys serialize as IDs
+        """
         return CollectiveMember.objects.filter(
             member=self.request.user
-        ).select_related('collective_id').all()
+        ).select_related(
+            'collective_id',  # Fetch collective data in same query (avoids separate query per membership)
+        ).only(
+            # CollectiveMember fields needed for serialization
+            'id',
+            'collective_role',
+            'created_at',
+            'updated_at',
+            'collective_id',  # FK field (will serialize as UUID)
+            'member',  # FK field (will serialize as user ID)
+            # Collective fields - only fetch primary key (needed for FK serialization)
+            'collective_id__collective_id',  # UUID primary key
+        )
 
 # ============================================================================
 # COLLECTIVE MEMBER MANAGEMENT VIEWS
@@ -630,3 +683,57 @@ class AcceptAdminRequestView(APIView):
             'message': message,
             'request': response_serializer.data
         }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Search collectives by title or ID (case-insensitive, partial matches)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query for collective title or ID",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: CollectiveSearchSerializer(many=True),
+        400: OpenApiResponse(description="Bad Request"),
+    },
+)
+class CollectiveSearchView(ListAPIView):
+    """
+    Search collectives by title or ID.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = CollectiveSearchSerializer
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return Collective.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(title__icontains=query)
+
+        # If query is a valid UUID, also try exact ID match
+        try:
+            collective_id = uuid.UUID(query)
+            q_objects |= Q(collective_id=collective_id)
+        except (ValueError, TypeError):
+            pass  # Not a valid UUID, skip ID search
+
+        return Collective.objects.filter(q_objects).order_by('title')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })

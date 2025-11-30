@@ -1,11 +1,15 @@
 import { useEffect } from "react";
 import { useCollectivePostContext } from "@context/collective-post-context";
+import { useParams } from "react-router-dom";
+import { useCollectiveData } from "@hooks/queries/use-collective-data";
 
 interface ChannelCreateModalProps {
   channel_type?: 'Post Channel' | 'Media Channel' | 'Event Channel';
 }
 
 export default function ChannelCreateModal({ channel_type }: ChannelCreateModalProps) {
+  const { collectiveId } = useParams<{ collectiveId: string }>();
+  const { data: collectiveData } = useCollectiveData(collectiveId);
   const {
     setShowCreateChannelModal,
     handleCreateChannel,
@@ -17,9 +21,13 @@ export default function ChannelCreateModal({ channel_type }: ChannelCreateModalP
   // Set channel_type when modal opens or channel_type prop changes
   useEffect(() => {
     if (channel_type) {
-      setCreateChannelForm(prev => ({ ...prev, channel_type }));
+      setCreateChannelForm({
+        ...createChannelForm,
+        channel_type,
+      });
     }
-  }, [channel_type, setCreateChannelForm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel_type]);
 
   return (
     <>
@@ -30,7 +38,9 @@ export default function ChannelCreateModal({ channel_type }: ChannelCreateModalP
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleCreateChannel();
+              if (collectiveData) {
+                handleCreateChannel(collectiveData.collective_id);
+              }
             }}
           >
             <div className="form-control mb-4">

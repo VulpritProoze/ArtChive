@@ -1,4 +1,5 @@
 import uuid
+from collections import deque
 
 from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 from django.db import models
@@ -19,7 +20,11 @@ class Post(models.Model):
     image_url = models.ImageField(upload_to='posts/images/', blank=True, null=True)
     video_url = models.FileField(upload_to='posts/videos/', blank=True, null=True, storage=VideoMediaCloudinaryStorage())
     is_deleted = models.BooleanField(default=False)
-    post_type = models.CharField(max_length=100, choices=choices.POST_TYPE_CHOICES)
+    post_type = models.CharField(
+        max_length=100,
+        choices=choices.POST_TYPE_CHOICES,
+        help_text='Type of post: "default" for standard posts, "novel" for novel chapters (requires NovelPost), "image" for image galleries, "video" for video content.'
+    )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
 
@@ -28,7 +33,7 @@ class Post(models.Model):
     def __str__(self):
         desc = self.description or ""
         desc = desc[:15] + '...' if len(desc) > 15 else desc
-        return f'[{self.post_id}] by {self.author} - "{desc}"'
+        return f'"{desc}" by {self.author}'
 
     def delete(self, *_args, **_kwargs):
         """Override delete to perform soft deletion"""
@@ -39,6 +44,11 @@ class NovelPost(models.Model):
     chapter = models.PositiveIntegerField()
     content = models.TextField()
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='novel_post')
+
+    def __str__(self):
+        desc = self.post_id.description or ""
+        desc = desc[:15] + '...' if len(desc) > 15 else desc
+        return f'NovelPost Chapter {self.chapter} of "{desc}"'
 
 class PostHeart(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_heart')
@@ -85,9 +95,34 @@ class Comment(models.Model):
     objects = SoftDeleteManager()
 
     def delete(self, *_args, **_kwargs):
-        """Override delete to perform soft deletion"""
-        self.is_deleted = True
-        self.save()
+        """Override delete to perform soft deletion and cascade to all replies"""
+        # Only process if not already deleted
+        if self.is_deleted:
+            return
+
+        # Collect all comments to delete (including replies)
+        comments_to_delete = []
+        queue = deque([self])
+
+        while queue:
+            current = queue.popleft()
+            if not current.is_deleted:
+                comments_to_delete.append(current)
+                # Get direct replies that are not deleted
+                replies = Comment.objects.get_active_objects().filter(
+                    replies_to=current
+                )
+                queue.extend(replies)
+
+        # Soft delete all comments in the chain
+        for comment in comments_to_delete:
+            comment.is_deleted = True
+            comment.save()
+
+    def __str__(self):
+        text = self.text or ""
+        text = text[:15] + '...' if len(text) > 15 else text
+        return f'"{text}" by {self.author}'
 
 class Critique(models.Model):
     critique_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -102,9 +137,9 @@ class Critique(models.Model):
     objects = SoftDeleteManager()
 
     def __str__(self):
-        imp = self.impression or ""
-        imp = imp[:15] + '...' if len(imp) > 15 else imp
-        return f'[{self.critique_id}] by {self.author} - "{imp}"'
+        text = self.text or ""
+        text = text[:15] + '...' if len(text) > 15 else text
+        return f'"{text}" by {self.author} - {self.impression}'
 
     def delete(self, *_args, **_kwargs):
         """Override delete to perform soft deletion"""

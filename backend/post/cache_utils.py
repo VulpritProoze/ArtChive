@@ -59,6 +59,11 @@ def invalidate_post_list_cache():
         cache.clear()
 
 
+def invalidate_post_meta_counts_cache(post_id):
+    """Invalidate the bulk meta counts cache for a post."""
+    cache.delete(f"post_meta_counts:{post_id}")
+
+
 def invalidate_post_cache(post_id):
     """
     Invalidate cache for a specific post.
@@ -67,6 +72,7 @@ def invalidate_post_cache(post_id):
         post_id: The UUID of the post to invalidate
     """
     cache.delete(f"post_detail:{post_id}")
+    invalidate_post_meta_counts_cache(post_id)
     # Also invalidate the list cache since post details may have changed
     invalidate_post_list_cache()
 
@@ -132,6 +138,16 @@ def invalidate_cache_on_comment_delete(sender, instance, **kwargs):
         invalidate_post_cache(instance.post_id.post_id)
 
 
+def get_post_heart_count_cache_key(post_id, user_id):
+    user_key = f"user_{user_id}" if user_id else "anon"
+    return f"post_heart_count:{post_id}:{user_key}"
+
+
+def invalidate_post_heart_cache(post_id=None):
+    pattern = f"post_heart_count:{post_id}:*" if post_id else "post_heart_count:*"
+    _delete_pattern_or_clear(pattern)
+
+
 @receiver(post_save, sender=PostHeart)
 def invalidate_cache_on_heart_change(sender, instance, **kwargs):
     """Invalidate cache when a heart is added."""
@@ -139,6 +155,7 @@ def invalidate_cache_on_heart_change(sender, instance, **kwargs):
     invalidate_post_list_cache()
     if instance.post_id:
         invalidate_post_cache(instance.post_id.post_id)
+        invalidate_post_heart_cache(instance.post_id.post_id)
 
 
 @receiver(post_delete, sender=PostHeart)
@@ -147,6 +164,7 @@ def invalidate_cache_on_heart_delete(sender, instance, **kwargs):
     invalidate_post_list_cache()
     if instance.post_id:
         invalidate_post_cache(instance.post_id.post_id)
+        invalidate_post_heart_cache(instance.post_id.post_id)
 
 
 @receiver(post_save, sender=PostPraise)
@@ -155,6 +173,7 @@ def invalidate_cache_on_praise_change(sender, instance, **kwargs):
     """Invalidate cached praise counts when praises change."""
     if instance.post_id:
         invalidate_post_praise_cache(instance.post_id.post_id)
+        invalidate_post_meta_counts_cache(instance.post_id.post_id)
 
 
 @receiver(post_save, sender=PostTrophy)
@@ -163,3 +182,4 @@ def invalidate_cache_on_trophy_change(sender, instance, **kwargs):
     """Invalidate cached trophy counts when trophies change."""
     if instance.post_id:
         invalidate_post_trophy_cache(instance.post_id.post_id)
+        invalidate_post_meta_counts_cache(instance.post_id.post_id)

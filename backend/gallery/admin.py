@@ -1,10 +1,11 @@
 from django.contrib import admin, messages
+from unfold.admin import ModelAdmin
 
 from common.utils import choices
 from gallery.models import ActiveGallery, Gallery, InactiveGallery
 
 
-class BaseGalleryAdmin(admin.ModelAdmin):
+class BaseGalleryAdmin(ModelAdmin):
     list_display = ('title', 'status', 'creator', 'created_at', 'updated_at')
     list_filter = ('status', 'created_at', 'updated_at')
     search_fields = ('title', 'creator__username', 'creator__email')
@@ -64,3 +65,7 @@ class InactiveGalleryAdmin(BaseGalleryAdmin):
 
     def get_queryset(self, request):
         return Gallery.objects.get_inactive_objects().select_related('creator')
+
+    def has_delete_permission(self, request, obj=None):
+        """Disable deleting inactive galleries via admin"""
+        return False

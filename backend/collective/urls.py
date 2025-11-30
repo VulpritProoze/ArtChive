@@ -14,6 +14,7 @@ from .views import (
     CollectiveDetailsView,
     CollectiveMembershipsView,
     CollectiveMembersListView,
+    CollectiveSearchView,
     CollectiveUpdateView,
     DemoteAdminView,
     InsideCollectivePostsView,
@@ -28,6 +29,7 @@ urlpatterns = [
     # Collective management
     path('join/', JoinCollectiveView.as_view(), name='collective-join'),
     path('details/', CollectiveDetailsView.as_view(), name='collective-list'),
+    path('search/', CollectiveSearchView.as_view(), name='collective-search'),
     path('<uuid:collective_id>/', InsideCollectiveView.as_view(), name='collective-main'),
     path('<uuid:collective_id>/leave/', LeaveCollectiveView.as_view(), name='collective-leave'),
     path('<uuid:collective_id>/update/', CollectiveUpdateView.as_view(), name='collective-update'),

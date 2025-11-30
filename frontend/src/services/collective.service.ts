@@ -33,6 +33,26 @@ export interface Collective {
 
 export const collectiveService = {
   /**
+   * Get collective data by ID
+   * GET /api/collective/<collective_id>/
+   */
+  async getCollective(collectiveId: string): Promise<Collective> {
+    const response = await collective.get(`${collectiveId}/`);
+    return response.data;
+  },
+
+  /**
+   * Get posts for a channel (paginated)
+   * GET /api/collective/channel/<channelId>/posts/?page=<page>&page_size=<pageSize>
+   */
+  async getChannelPosts(channelId: string, page: number = 1, pageSize: number = 10): Promise<any> {
+    const response = await collective.get(`channel/${channelId}/posts/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
    * Change a member's role to admin
    * PATCH /api/collective/<collective_id>/members/<member_id>/role/
    */
@@ -109,6 +129,28 @@ export const collectiveService = {
       });
       return response.data;
     }
+  },
+
+  /**
+   * Leave a collective
+   * DELETE /api/collective/<collective_id>/leave/
+   */
+  async leaveCollective(collectiveId: string): Promise<void> {
+    await collective.delete(`${collectiveId}/leave/`, {
+      withCredentials: true,
+    });
+  },
+
+  /**
+   * Request to become an admin of a collective
+   * POST /api/collective/<collective_id>/admin/request/
+   */
+  async requestAdmin(collectiveId: string): Promise<void> {
+    await collective.post(
+      `${collectiveId}/admin/request/`,
+      {},
+      { withCredentials: true }
+    );
   },
 };
 

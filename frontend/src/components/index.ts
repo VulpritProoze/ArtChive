@@ -19,6 +19,7 @@ export { default as Home } from './home/index.component'
 // Profile
 export { default as Profile } from './profile/profile-section.component'
 export { default as Timeline } from './profile/timeline.component'
+export { default as NavigateToOwnProfile } from './profile/navigate-to-own-profile.component'
 
 // Collective
 export { default as Collective } from './collective/index.component'
@@ -42,6 +43,9 @@ export { default as NotificationIndex } from './notifications/index.component'
 
 // Post
 export { default as PostDetail } from './post/post-detail.component'
+
+// Fellows
+export { default as PendingFriendRequestsPage } from './fellows/pending-requests-page.component'
 
 // Error pages
 export { default as NotFound } from './error/not-found.component'

@@ -12,7 +12,7 @@ from common.utils.constants import (
 )
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from post.models import Post
-from post.serializers import PostViewSerializer
+from post.serializers import PostListViewSerializer
 
 from .models import AdminRequest, Channel, Collective, CollectiveMember
 
@@ -407,10 +407,30 @@ class InsideCollectiveViewSerializer(ModelSerializer):
         return len(obj.collective_member.all())
 
 
-class InsideCollectivePostsViewSerializer(PostViewSerializer):
+class CollectiveSearchSerializer(ModelSerializer):
+    """Serializer for searching collectives by title or ID."""
+
     class Meta:
-        model = Post
-        fields = "__all__"
+        model = Collective
+        fields = ['collective_id', 'title', 'description', 'picture']
+        read_only_fields = ['collective_id', 'title', 'description', 'picture']
+
+
+class InsideCollectivePostsViewSerializer(PostListViewSerializer):
+    """
+    Serializer for posts inside a collective channel.
+    Uses lightweight PostListViewSerializer as base.
+    The view annotates counts in the queryset, so serializer methods will use those annotations.
+    """
+    # Inherits from PostListViewSerializer (lightweight)
+    # The view's queryset includes annotations:
+    # - total_comment_count, total_hearts_count, total_praise_count, total_trophy_count
+    # - is_hearted_by_current_user, is_praised_by_current_user
+    # - user_trophies_for_post
+    # 
+    # However, PostListViewSerializer doesn't include count fields (per Phase 2 optimization).
+    # If counts are needed, they should come from PostBulkMetaView like PostListView.
+    # For now, keeping this lightweight to match PostListView pattern.
 
 
 class JoinCollectiveSerializer(Serializer):
