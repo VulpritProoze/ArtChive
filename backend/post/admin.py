@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils.html import format_html
+from unfold.admin import ModelAdmin, TabularInline, StackedInline
+from unfold.decorators import display
 
 from .models import (
     Comment,
@@ -114,14 +116,14 @@ class CritiqueHasRepliesFilter(admin.SimpleListFilter):
 # INLINE ADMINS
 # ============================================================================
 
-class NovelPostInline(admin.StackedInline):
+class NovelPostInline(StackedInline):
     """Inline for NovelPost - shown when post_type is 'novel'"""
     model = NovelPost
     extra = 0
     fields = ('chapter', 'content')
 
 
-class CommentReplyInline(admin.TabularInline):
+class CommentReplyInline(TabularInline):
     """Inline to show direct replies to a comment"""
     model = Comment
     fk_name = 'replies_to'
@@ -141,7 +143,7 @@ class CommentReplyInline(admin.TabularInline):
         return False
 
 
-class CritiqueReplyInline(admin.TabularInline):
+class CritiqueReplyInline(TabularInline):
     """Inline to show replies to a critique"""
     model = Comment
     fk_name = 'critique_id'
@@ -165,7 +167,7 @@ class CritiqueReplyInline(admin.TabularInline):
 # POST ADMINS
 # ============================================================================
 
-class BasePostAdmin(admin.ModelAdmin):
+class BasePostAdmin(ModelAdmin):
     """Base admin for Post with common configurations"""
     list_display = (
         'short_post_id',
@@ -314,7 +316,7 @@ class InactivePostAdmin(BasePostAdmin):
 # COMMENT ADMINS
 # ============================================================================
 
-class BaseCommentAdmin(admin.ModelAdmin):
+class BaseCommentAdmin(ModelAdmin):
     """Base admin for Comment with common configurations"""
     list_display = (
         'short_comment_id',
@@ -506,7 +508,7 @@ class InactiveCommentAdmin(BaseCommentAdmin):
 # CRITIQUE ADMINS
 # ============================================================================
 
-class BaseCritiqueAdmin(admin.ModelAdmin):
+class BaseCritiqueAdmin(ModelAdmin):
     """Base admin for Critique with common configurations"""
     list_display = (
         'short_critique_id',

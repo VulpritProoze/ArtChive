@@ -169,3 +169,14 @@ SIMPLE_JWT = {
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django Unfold Configuration
+UNFOLD = {
+    "SITE_TITLE": "ArtChive Admin",
+    "SITE_HEADER": "ArtChive Administration",
+    "SITE_URL": config('REACT_CLIENT_URL', default='/'),
+    "SITE_ICON": "/static/favicon/favicon.ico",  # Header icon
+    "SITE_SYMBOL": "palette",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+}

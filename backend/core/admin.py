@@ -1,6 +1,9 @@
-from decouple import config
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import Group, Permission
+from django.urls import reverse
+from django.utils.html import format_html
+from unfold.admin import ModelAdmin, TabularInline
 
 from core.models import (
     Artist,
@@ -8,23 +11,271 @@ from core.models import (
     BrushDripWallet,
     InactiveUser,
     User,
+    UserFellow,
 )
 
-# Set the "View site" URL to the React app URL
-admin.site.site_url = config('REACT_CLIENT_URL', default='/')
+
+# Inline for UserFellow - shows all accepted fellow relationships (excludes pending)
+class UserFellowInline(TabularInline):
+    """Inline to show all UserFellow relationships for a user (both sent and received, excluding pending)"""
+    model = UserFellow
+    fk_name = 'user'  # Primary FK, but we'll override queryset to include both directions
+    extra = 0
+    fields = ('other_user', 'other_user_link', 'status')
+    readonly_fields = ('other_user', 'other_user_link', 'status')
+    can_delete = False
+    verbose_name = 'Fellow'
+    verbose_name_plural = 'Fellows'
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Override to provide custom queryset that includes both directions, excluding pending"""
+        if obj and obj.pk:
+            # Get relationships where user is the requester OR the requested user, excluding pending
+            from django.db.models import Q
+            queryset = UserFellow.objects.filter(
+                (Q(user=obj) | Q(fellow_user=obj)) & ~Q(status='pending')
+            ).order_by('-fellowed_at')
+        else:
+            queryset = UserFellow.objects.none()
+
+        # Store parent object for use in other_user method
+        self._parent_obj = obj
+
+        # Get the formset class
+        formset = super().get_formset(request, obj, **kwargs)
+
+        # Override the queryset in the formset
+        class CustomFormset(formset):
+            def __init__(self, *args, **kwargs):
+                kwargs['queryset'] = queryset
+                super().__init__(*args, **kwargs)
+
+        return CustomFormset
+
+    def other_user(self, obj):
+        """Display the other user in the relationship"""
+        parent_obj = getattr(self, '_parent_obj', None)
+        if not parent_obj:
+            return '-'
+        if obj.user == parent_obj:
+            # Current user is the requester, show the requested user
+            return str(obj.fellow_user)
+        else:
+            # Current user is the requested user, show the requester
+            return str(obj.user)
+    other_user.short_description = 'Fellow User'
+
+    def other_user_link(self, obj):
+        """Display clickable link to the other user with username and name"""
+        parent_obj = getattr(self, '_parent_obj', None)
+        if not parent_obj:
+            return '-'
+        if obj.user == parent_obj:
+            # Current user is the requester, show the requested user
+            other_user = obj.fellow_user
+        else:
+            # Current user is the requested user, show the requester
+            other_user = obj.user
+        if other_user:
+            url = reverse('admin:core_user_change', args=[other_user.id])
+            # Display username and name if available
+            name_parts = []
+            if other_user.first_name:
+                name_parts.append(other_user.first_name)
+            if other_user.last_name:
+                name_parts.append(other_user.last_name)
+            name_display = ' '.join(name_parts) if name_parts else 'No name'
+            display_text = f"{other_user.username} ({name_display})"
+            return format_html('<a href="{}">{}</a>', url, display_text)
+        return '-'
+    other_user_link.short_description = 'Username (Name)'
+
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding fellow relationships via admin"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing fellow relationships via admin"""
+        return False
+
+
+# Inline for pending UserFellow requests where user is the requested user
+class UserFellowPendingInline(TabularInline):
+    """Inline to show pending friend requests where user is the requested user"""
+    model = UserFellow
+    fk_name = 'fellow_user'  # Show relationships where this user is the requested user
+    extra = 0
+    fields = ('other_user', 'other_user_link', 'status')
+    readonly_fields = ('other_user', 'other_user_link', 'status')
+    can_delete = False
+    verbose_name = 'Pending Friend Request'
+    verbose_name_plural = 'Pending Friend Requests'
+
+    def get_formset(self, request, obj=None, **kwargs):
+        """Override to show only pending requests where user is the requested user"""
+        if obj and obj.pk:
+            # Get only pending relationships where user is the requested user
+            queryset = UserFellow.objects.filter(
+                fellow_user=obj,
+                status='pending'
+            ).order_by('-fellowed_at')
+        else:
+            queryset = UserFellow.objects.none()
+
+        # Store parent object for use in other_user methods
+        self._parent_obj = obj
+
+        # Get the formset class
+        formset = super().get_formset(request, obj, **kwargs)
+
+        # Override the queryset in the formset
+        class CustomFormset(formset):
+            def __init__(self, *args, **kwargs):
+                kwargs['queryset'] = queryset
+                super().__init__(*args, **kwargs)
+
+        return CustomFormset
+
+    def other_user(self, obj):
+        """Display the other user in the relationship"""
+        parent_obj = getattr(self, '_parent_obj', None)
+        if not parent_obj:
+            return '-'
+        # In pending inline, current user is always the requested user (fellow_user)
+        # So we always show the requester (user)
+        return str(obj.user)
+    other_user.short_description = 'Fellow User'
+
+    def other_user_link(self, obj):
+        """Display clickable link to the other user with username and name"""
+        parent_obj = getattr(self, '_parent_obj', None)
+        if not parent_obj:
+            return '-'
+        # In pending inline, current user is always the requested user (fellow_user)
+        # So we always show the requester (user)
+        other_user = obj.user
+        if other_user:
+            url = reverse('admin:core_user_change', args=[other_user.id])
+            # Display username and name if available
+            name_parts = []
+            if other_user.first_name:
+                name_parts.append(other_user.first_name)
+            if other_user.last_name:
+                name_parts.append(other_user.last_name)
+            name_display = ' '.join(name_parts) if name_parts else 'No name'
+            display_text = f"{other_user.username} ({name_display})"
+            return format_html('<a href="{}">{}</a>', url, display_text)
+        return '-'
+    other_user_link.short_description = 'Username (Name)'
+
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding fellow relationships via admin"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing fellow relationships via admin"""
+        return False
 
 
 # Admin for ACTIVE users (default User admin)
 class ActiveUserAdmin(BaseUserAdmin):
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+    inlines = [UserFellowInline, UserFellowPendingInline]
+
     def get_queryset(self, request):
         return User.objects.get_active_users()
 
     # Optional: visually indicate these are active
     def get_list_display(self, request):
         list_display = list(super().get_list_display(request))
+        # Remove is_staff from list display
+        if "is_staff" in list_display:
+            list_display.remove("is_staff")
+        # Add middle_name after first_name if it exists, otherwise add it
+        if "middle_name" not in list_display:
+            # Try to insert after first_name, or append if first_name not found
+            try:
+                first_name_idx = list_display.index("first_name")
+                list_display.insert(first_name_idx + 1, "middle_name")
+            except ValueError:
+                list_display.append("middle_name")
+        # Add is_superuser to list display if not already present
+        if "is_superuser" not in list_display:
+            list_display.append("is_superuser")
         if "is_deleted" not in list_display:
             list_display.append("is_deleted")
         return list_display
+
+    def get_fieldsets(self, request, obj=None):
+        """Override fieldsets to hide Groups and Staff status, and add all personal info fields"""
+        fieldsets = super().get_fieldsets(request, obj)
+        new_fieldsets = []
+        for name, fieldset in fieldsets:
+            if name == 'Personal info':
+                # Add all personal info fields: first_name, middle_name, last_name, city, country, contact_no, birthday, profile_picture
+                fields = list(fieldset.get('fields', []))
+                # Ensure all personal info fields are included
+                personal_info_fields = ['first_name', 'middle_name', 'last_name', 'city', 'country', 'contact_no', 'birthday', 'profile_picture']
+                for field in personal_info_fields:
+                    if field not in fields:
+                        # Insert in order if possible, otherwise append
+                        if field == 'middle_name' and 'first_name' in fields:
+                            first_name_idx = fields.index('first_name')
+                            fields.insert(first_name_idx + 1, field)
+                        elif field == 'last_name' and 'middle_name' in fields:
+                            middle_name_idx = fields.index('middle_name')
+                            fields.insert(middle_name_idx + 1, field)
+                        elif field == 'last_name' and 'first_name' in fields:
+                            first_name_idx = fields.index('first_name')
+                            fields.insert(first_name_idx + 1, field)
+                        else:
+                            fields.append(field)
+                new_fieldsets.append((name, {
+                    **fieldset,
+                    'fields': tuple(fields)
+                }))
+            elif name == 'Permissions':
+                # Customize the Permissions fieldset to exclude groups and staff status, replace is_active with is_deleted
+                fields = list(fieldset.get('fields', []))
+                # Remove groups, user_permissions, is_staff
+                filtered_fields = [
+                    f for f in fields
+                    if f not in ('groups', 'user_permissions', 'is_staff', 'is_active')
+                ]
+                # Replace is_active with is_deleted if is_active was present
+                if 'is_active' in fields:
+                    if 'is_deleted' not in filtered_fields:
+                        # Insert is_deleted where is_active was
+                        try:
+                            is_active_idx = fields.index('is_active')
+                            filtered_fields.insert(is_active_idx, 'is_deleted')
+                        except ValueError:
+                            filtered_fields.append('is_deleted')
+                elif 'is_deleted' not in filtered_fields:
+                    filtered_fields.append('is_deleted')
+                if filtered_fields:  # Only add if there are fields left
+                    new_fieldsets.append((name, {
+                        **fieldset,
+                        'fields': tuple(filtered_fields)
+                    }))
+            else:
+                new_fieldsets.append((name, fieldset))
+        return new_fieldsets
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Remove groups and is_staff from the form, and ensure is_deleted is available"""
+        form = super().get_form(request, obj, **kwargs)
+        # Remove fields from the form
+        if 'groups' in form.base_fields:
+            del form.base_fields['groups']
+        if 'user_permissions' in form.base_fields:
+            del form.base_fields['user_permissions']
+        if 'is_staff' in form.base_fields:
+            del form.base_fields['is_staff']
+        # Remove is_active if present (we use is_deleted instead)
+        if 'is_active' in form.base_fields:
+            del form.base_fields['is_active']
+        return form
 
 
 # Admin for INACTIVE users
@@ -34,9 +285,31 @@ class InactiveUserAdmin(BaseUserAdmin):
 
     def get_list_display(self, request):
         list_display = list(super().get_list_display(request))
+        # Remove is_staff from list display
+        if "is_staff" in list_display:
+            list_display.remove("is_staff")
+        # Add middle_name after first_name if it exists, otherwise add it
+        if "middle_name" not in list_display:
+            # Try to insert after first_name, or append if first_name not found
+            try:
+                first_name_idx = list_display.index("first_name")
+                list_display.insert(first_name_idx + 1, "middle_name")
+            except ValueError:
+                list_display.append("middle_name")
+        # Add is_superuser to list display if not already present
+        if "is_superuser" not in list_display:
+            list_display.append("is_superuser")
         if "is_deleted" not in list_display:
             list_display.append("is_deleted")
         return list_display
+
+    def get_list_filter(self, request):
+        """Remove is_staff from list filters"""
+        list_filter = list(super().get_list_filter(request))
+        # Remove is_staff from filters
+        if "is_staff" in list_filter:
+            list_filter.remove("is_staff")
+        return tuple(list_filter)
 
     # Optional: disable add/delete for inactive users
     def has_add_permission(self, request):
@@ -45,9 +318,80 @@ class InactiveUserAdmin(BaseUserAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def get_fieldsets(self, request, obj=None):
+        """Override fieldsets to hide Groups and Staff status, and add all personal info fields"""
+        fieldsets = super().get_fieldsets(request, obj)
+        new_fieldsets = []
+        for name, fieldset in fieldsets:
+            if name == 'Personal info':
+                # Add all personal info fields: first_name, middle_name, last_name, city, country, contact_no, birthday, profile_picture
+                fields = list(fieldset.get('fields', []))
+                # Ensure all personal info fields are included
+                personal_info_fields = ['first_name', 'middle_name', 'last_name', 'city', 'country', 'contact_no', 'birthday', 'profile_picture']
+                for field in personal_info_fields:
+                    if field not in fields:
+                        # Insert in order if possible, otherwise append
+                        if field == 'middle_name' and 'first_name' in fields:
+                            first_name_idx = fields.index('first_name')
+                            fields.insert(first_name_idx + 1, field)
+                        elif field == 'last_name' and 'middle_name' in fields:
+                            middle_name_idx = fields.index('middle_name')
+                            fields.insert(middle_name_idx + 1, field)
+                        elif field == 'last_name' and 'first_name' in fields:
+                            first_name_idx = fields.index('first_name')
+                            fields.insert(first_name_idx + 1, field)
+                        else:
+                            fields.append(field)
+                new_fieldsets.append((name, {
+                    **fieldset,
+                    'fields': tuple(fields)
+                }))
+            elif name == 'Permissions':
+                # Customize the Permissions fieldset to exclude groups and staff status, replace is_active with is_deleted
+                fields = list(fieldset.get('fields', []))
+                # Remove groups, user_permissions, is_staff
+                filtered_fields = [
+                    f for f in fields
+                    if f not in ('groups', 'user_permissions', 'is_staff', 'is_active')
+                ]
+                # Replace is_active with is_deleted if is_active was present
+                if 'is_active' in fields:
+                    if 'is_deleted' not in filtered_fields:
+                        # Insert is_deleted where is_active was
+                        try:
+                            is_active_idx = fields.index('is_active')
+                            filtered_fields.insert(is_active_idx, 'is_deleted')
+                        except ValueError:
+                            filtered_fields.append('is_deleted')
+                elif 'is_deleted' not in filtered_fields:
+                    filtered_fields.append('is_deleted')
+                if filtered_fields:  # Only add if there are fields left
+                    new_fieldsets.append((name, {
+                        **fieldset,
+                        'fields': tuple(filtered_fields)
+                    }))
+            else:
+                new_fieldsets.append((name, fieldset))
+        return new_fieldsets
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Remove groups and is_staff from the form, and ensure is_deleted is available"""
+        form = super().get_form(request, obj, **kwargs)
+        # Remove fields from the form
+        if 'groups' in form.base_fields:
+            del form.base_fields['groups']
+        if 'user_permissions' in form.base_fields:
+            del form.base_fields['user_permissions']
+        if 'is_staff' in form.base_fields:
+            del form.base_fields['is_staff']
+        # Remove is_active if present (we use is_deleted instead)
+        if 'is_active' in form.base_fields:
+            del form.base_fields['is_active']
+        return form
+
 
 # Admin for Artist - read-only, no adding
-class ArtistAdmin(admin.ModelAdmin):
+class ArtistAdmin(ModelAdmin):
     list_display = ('user_id', 'get_artist_types')
     search_fields = ('user_id__username', 'user_id__email')
     readonly_fields = ('user_id', 'artist_types')
@@ -70,7 +414,7 @@ class ArtistAdmin(admin.ModelAdmin):
 
 
 # Admin for BrushDripWallet - read-only, no adding
-class BrushDripWalletAdmin(admin.ModelAdmin):
+class BrushDripWalletAdmin(ModelAdmin):
     list_display = ('user', 'balance', 'updated_at')
     search_fields = ('user__username', 'user__email')
     readonly_fields = ('user', 'balance', 'updated_at')
@@ -87,7 +431,7 @@ class BrushDripWalletAdmin(admin.ModelAdmin):
 
 
 # Admin for BrushDripTransaction - read-only, can add
-class BrushDripTransactionAdmin(admin.ModelAdmin):
+class BrushDripTransactionAdmin(ModelAdmin):
     list_display = ('drip_id', 'amount', 'transacted_by', 'transacted_to', 'transaction_object_type', 'transacted_at')
     list_filter = ('transaction_object_type', 'transacted_at')
     search_fields = ('transacted_by__username', 'transacted_to__username', 'transaction_object_id')
@@ -140,8 +484,44 @@ class BrushDripTransactionAdmin(admin.ModelAdmin):
         return False
 
 
+# Hide Groups and Permissions from Django admin
+# Unregister Group and Permission models to hide them from admin interface
+try:
+    admin.site.unregister(Group)
+except admin.sites.NotRegistered:
+    pass  # Group might not be registered yet
+
+try:
+    admin.site.unregister(Permission)
+except admin.sites.NotRegistered:
+    pass  # Permission might not be registered yet
+
+# Custom Permission Admin to hide specific permissions (commented out - not needed if hiding entirely)
+# class CustomPermissionAdmin(ModelAdmin):
+#     """Hide specific permissions from the permissions list"""
+#     list_display = ('name', 'content_type', 'codename')
+#     search_fields = ('name', 'codename', 'content_type__model')
+#     list_filter = ('content_type',)
+#
+#     def get_queryset(self, request):
+#         """Filter out specific permissions"""
+#         qs = super().get_queryset(request)
+#         # Example: Hide LogEntry permissions (uncomment to enable)
+#         # from django.contrib.contenttypes.models import ContentType
+#         # log_entry_ct = ContentType.objects.get(app_label='admin', model='logentry')
+#         # qs = qs.exclude(content_type=log_entry_ct)
+#
+#         # Example: Hide specific permission codenames (uncomment to enable)
+#         # qs = qs.exclude(codename__in=['add_logentry', 'change_logentry', 'delete_logentry', 'view_logentry'])
+#
+#         return qs
+#
+# admin.site.register(Permission, CustomPermissionAdmin)
+
+# Register models with Unfold admin
 admin.site.register(Artist, ArtistAdmin)
 admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
 admin.site.register(BrushDripTransaction, BrushDripTransactionAdmin)
 admin.site.register(User, ActiveUserAdmin)
 admin.site.register(InactiveUser, InactiveUserAdmin)
+# UserFellow is now shown as inline in User admin, not as separate admin

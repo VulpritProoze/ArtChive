@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     "daphne",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "core",  # Moved before unfold so our templates override Unfold's
+    "unfold",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -67,7 +69,6 @@ INSTALLED_APPS = [
     "cloudinary",
     "cloudinary_storage",
     "corsheaders",
-    "core",
     "notification",
     "post",
     "collective",
