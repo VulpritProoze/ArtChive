@@ -277,21 +277,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, [isAuthenticated, user, fetchNotifications, disconnectWebSocket]);
 
-  // Separate effect for WebSocket - deferred to avoid blocking
+  // Separate effect for WebSocket - deferred to avoid blocking initial load
+  // Only connect after a delay to prioritize initial page load
   useEffect(() => {
     if (!isAuthenticated || !user) {
       return;
     }
 
-    // Defer WebSocket connection by 1 second to allow critical data fetching first
+    // Defer WebSocket connection by 2 seconds to allow page to load first
     // This prevents WebSocket handshake from blocking API calls
-    const deferredConnectionTimeout = setTimeout(() => {
-      // console.log('🔌 Initiating deferred WebSocket connection...');
+    const connectTimeout = setTimeout(() => {
       connectWebSocket();
-    }, 1000); // 1 second delay
+    }, 2000);
 
     return () => {
-      clearTimeout(deferredConnectionTimeout);
+      clearTimeout(connectTimeout);
     };
   }, [isAuthenticated, user, connectWebSocket]);
 

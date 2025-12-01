@@ -60,6 +60,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     { path: "/home", label: "Home", icon: Home },
     { path: "/gallery", label: "Gallery", icon: GalleryIcon },
     { path: "/collective", label: "Collective", icon: Users },
+    { path: "/avatar", label: "Avatar", icon: Palette },
     { path: "/profile", label: "Profile", icon: User },
   ];
 

@@ -112,3 +112,15 @@ NOTIFICATION_TYPES = SimpleNamespace(
     post_praise='Post Praise',
     post_trophy='Post Trophy',
 )
+
+AVATAR_STATUS_CHOICES = (
+    ('draft', 'draft'),
+    ('active', 'active'),
+    ('archived', 'archived')
+)
+
+AVATAR_STATUS = SimpleNamespace(
+    draft='draft',
+    active='active',
+    archived='archived'
+)

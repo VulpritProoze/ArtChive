@@ -52,6 +52,16 @@ class GallerySerializer(ModelSerializer):
                 raise serializers.ValidationError("canvas_json.objects must be an array")
 
         return value
+    
+    def validate_picture(self, value):
+        """Process gallery picture: resize and compress."""
+        if value:
+            from common.utils.image_processing import process_gallery_picture
+            try:
+                return process_gallery_picture(value)
+            except Exception as e:
+                raise serializers.ValidationError(f"Failed to process image: {str(e)}")
+        return value
 
     def validate_status(self, value):
         """Validate that only one gallery can be active at a time per user"""

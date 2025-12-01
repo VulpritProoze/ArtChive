@@ -16,6 +16,7 @@ import { usePostUI } from '@context/post-ui-context';
 import { extractUsernameFromUrl } from '@utils';
 import AddFellowButton from '@components/fellows/add-fellow-button.component';
 import FellowsListTab from '@components/fellows/fellows-list-tab.component';
+import AvatarTabContent from '@components/avatar/avatar-tab-content.component';
 import { useQuery } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
 
@@ -485,7 +486,14 @@ const Timeline: React.FC = () => {
           />
         )}
 
-        {activeTab !== 'timeline' && activeTab !== 'fellows' && (
+        {activeTab === 'avatar' && (
+          <AvatarTabContent 
+            userId={profileUser?.id}
+            isOwnProfile={isOwnProfile}
+          />
+        )}
+
+        {activeTab !== 'timeline' && activeTab !== 'fellows' && activeTab !== 'avatar' && (
           <div className="text-center py-16 text-base-content/60">
             <div className="text-6xl mb-4">🚧</div>
             <p>Coming soon...</p>
@@ -497,5 +505,3 @@ const Timeline: React.FC = () => {
 };
 
 export default Timeline;
-
-
