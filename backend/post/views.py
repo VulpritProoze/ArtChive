@@ -1,14 +1,21 @@
+import json
 import uuid
 from collections import deque
+from datetime import timedelta
 
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import (
+    Avg,
     Count,
     Prefetch,
     Q,
 )
 from django.shortcuts import get_object_or_404
+from django.contrib import admin
+from django.utils import timezone
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -1863,3 +1870,137 @@ class CritiqueSearchView(ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class PostDashboardView(UserPassesTestMixin, TemplateView):
+    """Post app dashboard with post, engagement, comment, critique, and novel post statistics"""
+    template_name = 'post/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        time_range_start = self.get_time_range()
+        now = timezone.now()
+
+        # Post Statistics
+        total_posts = Post.objects.count()
+        active_posts = Post.objects.filter(is_deleted=False).count()
+        deleted_posts = Post.objects.filter(is_deleted=True).count()
+        posts_24h = Post.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        posts_1w = Post.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        posts_1m = Post.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        posts_1y = Post.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        post_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Post.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            post_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        posts_by_type = Post.objects.values('post_type').annotate(count=Count('post_type')).order_by('-count')
+        posts_by_type_data = [{'x': item['post_type'], 'y': item['count']} for item in posts_by_type]
+
+        posts_per_channel = Post.objects.values('channel__title').annotate(count=Count('channel__title')).order_by('-count')[:10]
+        posts_per_channel_data = [{'x': item['channel__title'], 'y': item['count']} for item in posts_per_channel]
+
+        # Engagement Statistics
+        from .models import PostHeart, PostPraise, PostTrophy
+        total_hearts = PostHeart.objects.count()
+        total_praises = PostPraise.objects.count()
+        total_trophies = PostTrophy.objects.count()
+
+        # Comment Statistics
+        total_comments = Comment.objects.count()
+        active_comments = Comment.objects.filter(is_deleted=False).count()
+        deleted_comments = Comment.objects.filter(is_deleted=True).count()
+        comments_24h = Comment.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        comments_1w = Comment.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        comments_1m = Comment.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        comments_1y = Comment.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        comment_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Comment.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            comment_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        comments_by_type = Comment.objects.values('is_critique_reply').annotate(count=Count('is_critique_reply')).order_by('-count')
+        comments_by_type_data = [{'x': 'Critique Reply' if item['is_critique_reply'] else 'Regular Comment', 'y': item['count']} for item in comments_by_type]
+
+        # Critique Statistics
+        total_critiques = Critique.objects.count()
+        critiques_24h = Critique.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        critiques_1w = Critique.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        critiques_1m = Critique.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        critiques_1y = Critique.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        critique_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Critique.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            critique_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        critiques_by_impression = Critique.objects.values('impression').annotate(count=Count('impression')).order_by('-count')
+        critiques_by_impression_data = [{'x': item['impression'], 'y': item['count']} for item in critiques_by_impression]
+
+        # NovelPost Statistics
+        from .models import NovelPost
+        total_novel_posts = NovelPost.objects.count()
+        average_chapters_per_novel = NovelPost.objects.values('post_id').annotate(count=Count('post_id')).aggregate(avg=Avg('count'))['avg'] or 0
+
+        context.update({
+            'total_posts': total_posts, 'active_posts': active_posts, 'deleted_posts': deleted_posts,
+            'posts_24h': posts_24h, 'posts_1w': posts_1w, 'posts_1m': posts_1m, 'posts_1y': posts_1y,
+            'post_growth_data': json.dumps(post_growth_data),
+            'posts_by_type_data': json.dumps(posts_by_type_data),
+            'posts_per_channel_data': json.dumps(posts_per_channel_data),
+
+            'total_hearts': total_hearts, 'total_praises': total_praises, 'total_trophies': total_trophies,
+
+            'total_comments': total_comments, 'active_comments': active_comments, 'deleted_comments': deleted_comments,
+            'comments_24h': comments_24h, 'comments_1w': comments_1w, 'comments_1m': comments_1m, 'comments_1y': comments_1y,
+            'comment_growth_data': json.dumps(comment_growth_data),
+            'comments_by_type_data': json.dumps(comments_by_type_data),
+
+            'total_critiques': total_critiques,
+            'critiques_24h': critiques_24h, 'critiques_1w': critiques_1w, 'critiques_1m': critiques_1m, 'critiques_1y': critiques_1y,
+            'critique_growth_data': json.dumps(critique_growth_data),
+            'critiques_by_impression_data': json.dumps(critiques_by_impression_data),
+
+            'total_novel_posts': total_novel_posts,
+            'average_chapters_per_novel': round(average_chapters_per_novel, 2),
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context

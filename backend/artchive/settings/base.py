@@ -179,4 +179,20 @@ UNFOLD = {
     "SITE_SYMBOL": "palette",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": "Statistics",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Statistics Dashboard",
+                        "icon": "bar_chart",
+                        "link": "/admin/admin-dashboard/",
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                ],
+            },
+        ],
+    },
 }

@@ -1,0 +1,222 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Core Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-2xl font-bold mb-2">Core App Statistics</h2>
+    <p class="text-font-muted-light dark:text-font-muted-dark">User, artist, and transaction statistics</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- User Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">User Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Users</p>
+            <p class="stat-card-value">{{ total_users }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Active Users</p>
+            <p class="stat-card-value">{{ active_users }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Inactive Users</p>
+            <p class="stat-card-value">{{ inactive_users }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">New Users (24h)</p>
+            <p class="stat-card-value">{{ users_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Users (1 Week)</p>
+            <p class="stat-card-value">{{ users_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Users (1 Month)</p>
+            <p class="stat-card-value">{{ users_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Users (1 Year)</p>
+            <p class="stat-card-value">{{ users_1y }}</p>
+        </div>
+    </div>
+    <div class="chart-container">
+        <h4 class="text-lg font-medium mb-4">User Growth Over Time</h4>
+        <div id="user-growth-chart"></div>
+    </div>
+</div>
+
+<!-- Artist Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Artist Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Artists</p>
+            <p class="stat-card-value">{{ total_artists }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Active Artists</p>
+            <p class="stat-card-value">{{ active_artists }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Deleted Artists</p>
+            <p class="stat-card-value">{{ deleted_artists }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">New Artists (24h)</p>
+            <p class="stat-card-value">{{ artists_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Artists (1 Week)</p>
+            <p class="stat-card-value">{{ artists_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Artists (1 Month)</p>
+            <p class="stat-card-value">{{ artists_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Artists (1 Year)</p>
+            <p class="stat-card-value">{{ artists_1y }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid-full mb-6">
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Artists by Type</h4>
+            <div id="artist-type-chart"></div>
+        </div>
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Artist Growth Over Time</h4>
+            <div id="artist-growth-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Transaction Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Transactions</p>
+            <p class="stat-card-value">{{ total_transactions }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Transactions (24h)</p>
+            <p class="stat-card-value">{{ transactions_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Transactions (1 Week)</p>
+            <p class="stat-card-value">{{ transactions_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Transactions (1 Month)</p>
+            <p class="stat-card-value">{{ transactions_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Transactions (1 Year)</p>
+            <p class="stat-card-value">{{ transactions_1y }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid-full mb-6">
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Transactions by Type</h4>
+            <div id="transaction-type-chart"></div>
+        </div>
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Transaction Volume Over Time</h4>
+            <div id="transaction-volume-chart"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // User Growth Chart
+    const userGrowthData = {{ user_growth_data|safe }};
+    createDashboardChart('user-growth-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'New Users',
+            data: userGrowthData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: userGrowthData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Users' } },
+        title: { text: 'User Growth', align: 'left' }
+    });
+
+    // Artist Type Chart
+    const artistTypeData = {{ artist_type_counts|safe }};
+    createDashboardChart('artist-type-chart', {
+        chart: { type: 'pie' },
+        series: artistTypeData.map(item => item.y),
+        labels: artistTypeData.map(item => item.x),
+        title: { text: 'Artists by Type', align: 'left' }
+    });
+
+    // Artist Growth Chart
+    const artistGrowthData = {{ artist_growth_data|safe }};
+    createDashboardChart('artist-growth-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'New Artists',
+            data: artistGrowthData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: artistGrowthData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Artists' } },
+        title: { text: 'Artist Growth', align: 'left' }
+    });
+
+    // Transaction Type Chart
+    const transactionTypeData = {{ transaction_type_bar_data|safe }};
+    createDashboardChart('transaction-type-chart', {
+        chart: { type: 'bar' },
+        series: [{
+            name: 'Transactions',
+            data: transactionTypeData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: transactionTypeData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Transactions' } },
+        title: { text: 'Transactions by Type', align: 'left' }
+    });
+
+    // Transaction Volume Chart
+    const transactionVolumeData = {{ transaction_volume_data|safe }};
+    createDashboardChart('transaction-volume-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'Volume',
+            data: transactionVolumeData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: transactionVolumeData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Brush Drips' } },
+        title: { text: 'Transaction Volume', align: 'left' }
+    });
+</script>
+{% endblock %}
+

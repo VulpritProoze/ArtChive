@@ -1,13 +1,19 @@
+import json
 import logging
+from datetime import timedelta
 
 from decouple import config
+from django.contrib import admin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
@@ -1482,5 +1488,133 @@ class UserSearchView(generics.ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class DashboardIndexView(UserPassesTestMixin, TemplateView):
+    """Index page for admin dashboard navigation"""
+    template_name = 'admin-dashboard/index.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+class CoreDashboardView(UserPassesTestMixin, TemplateView):
+    """Core app dashboard with user, artist, and transaction statistics"""
+    template_name = 'core/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        time_range_start = self.get_time_range()
+        now = timezone.now()
+
+        # User Statistics
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_deleted=False).count()
+        inactive_users = User.objects.filter(is_deleted=True).count()
+        users_24h = User.objects.filter(date_joined__gte=now - timedelta(hours=24)).count()
+        users_1w = User.objects.filter(date_joined__gte=now - timedelta(weeks=1)).count()
+        users_1m = User.objects.filter(date_joined__gte=now - timedelta(days=30)).count()
+        users_1y = User.objects.filter(date_joined__gte=now - timedelta(days=365)).count()
+
+        user_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = User.objects.filter(date_joined__gte=current_date, date_joined__lt=next_date).count()
+            user_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        # Artist Statistics
+        total_artists = Artist.objects.count()
+        active_artists = Artist.objects.filter(is_deleted=False).count()
+        deleted_artists = Artist.objects.filter(is_deleted=True).count()
+        artist_type_counts = {}
+        artists = Artist.objects.filter(is_deleted=False)
+        for artist in artists:
+            for artist_type in artist.artist_types:
+                artist_type_counts[artist_type] = artist_type_counts.get(artist_type, 0) + 1
+        artists_24h = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(hours=24)).count()
+        artists_1w = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(weeks=1)).count()
+        artists_1m = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=30)).count()
+        artists_1y = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=365)).count()
+
+        artist_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Artist.objects.filter(user_id__date_joined__gte=current_date, user_id__date_joined__lt=next_date).count()
+            artist_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        # Transaction Statistics
+        total_transactions = BrushDripTransaction.objects.count()
+        transaction_type_counts = BrushDripTransaction.objects.values('transaction_object_type').annotate(count=Count('transaction_object_type')).order_by('-count')
+        transactions_24h = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(hours=24)).count()
+        transactions_1w = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(weeks=1)).count()
+        transactions_1m = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=30)).count()
+        transactions_1y = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=365)).count()
+
+        transaction_volume_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            volume = BrushDripTransaction.objects.filter(transacted_at__gte=current_date, transacted_at__lt=next_date).aggregate(total=Sum('amount'))['total'] or 0
+            transaction_volume_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': volume})
+            current_date = next_date
+
+        transaction_type_bar_data = [{'x': item['transaction_object_type'], 'y': item['count']} for item in transaction_type_counts]
+
+        context.update({
+            'total_users': total_users, 'active_users': active_users, 'inactive_users': inactive_users,
+            'users_24h': users_24h, 'users_1w': users_1w, 'users_1m': users_1m, 'users_1y': users_1y,
+            'user_growth_data': json.dumps(user_growth_data),
+            'total_artists': total_artists, 'active_artists': active_artists, 'deleted_artists': deleted_artists,
+            'artist_type_counts': json.dumps([{'x': k, 'y': v} for k, v in artist_type_counts.items()]),
+            'artists_24h': artists_24h, 'artists_1w': artists_1w, 'artists_1m': artists_1m, 'artists_1y': artists_1y,
+            'artist_growth_data': json.dumps(artist_growth_data),
+            'total_transactions': total_transactions,
+            'transactions_24h': transactions_24h, 'transactions_1w': transactions_1w, 'transactions_1m': transactions_1m, 'transactions_1y': transactions_1y,
+            'transaction_volume_data': json.dumps(transaction_volume_data),
+            'transaction_type_bar_data': json.dumps(transaction_type_bar_data),
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
 
 

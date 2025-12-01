@@ -1,0 +1,284 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Post Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-2xl font-bold mb-2">Post App Statistics</h2>
+    <p class="text-font-muted-light dark:text-font-muted-dark">Post, engagement, comment, critique, and novel post statistics</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- Post Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Post Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Posts</p>
+            <p class="stat-card-value">{{ total_posts }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Active Posts</p>
+            <p class="stat-card-value">{{ active_posts }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Deleted Posts</p>
+            <p class="stat-card-value">{{ deleted_posts }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">New Posts (24h)</p>
+            <p class="stat-card-value">{{ posts_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Posts (1 Week)</p>
+            <p class="stat-card-value">{{ posts_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Posts (1 Month)</p>
+            <p class="stat-card-value">{{ posts_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Posts (1 Year)</p>
+            <p class="stat-card-value">{{ posts_1y }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid-full mb-6">
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Posts by Type</h4>
+            <div id="posts-by-type-chart"></div>
+        </div>
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Post Growth Over Time</h4>
+            <div id="post-growth-chart"></div>
+        </div>
+    </div>
+    <div class="chart-container mb-6">
+        <h4 class="text-lg font-medium mb-4">Posts per Channel (Top 10)</h4>
+        <div id="posts-per-channel-chart"></div>
+    </div>
+</div>
+
+<!-- Engagement Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Engagement Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Hearts</p>
+            <p class="stat-card-value">{{ total_hearts }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Total Praises</p>
+            <p class="stat-card-value">{{ total_praises }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Total Trophies</p>
+            <p class="stat-card-value">{{ total_trophies }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Comment Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Comment Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Comments</p>
+            <p class="stat-card-value">{{ total_comments }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Active Comments</p>
+            <p class="stat-card-value">{{ active_comments }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Deleted Comments</p>
+            <p class="stat-card-value">{{ deleted_comments }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">New Comments (24h)</p>
+            <p class="stat-card-value">{{ comments_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Comments (1 Week)</p>
+            <p class="stat-card-value">{{ comments_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Comments (1 Month)</p>
+            <p class="stat-card-value">{{ comments_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Comments (1 Year)</p>
+            <p class="stat-card-value">{{ comments_1y }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid-full mb-6">
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Comments by Type</h4>
+            <div id="comments-by-type-chart"></div>
+        </div>
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Comment Growth Over Time</h4>
+            <div id="comment-growth-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Critique Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Critique Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Critiques</p>
+            <p class="stat-card-value">{{ total_critiques }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Critiques (24h)</p>
+            <p class="stat-card-value">{{ critiques_24h }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Critiques (1 Week)</p>
+            <p class="stat-card-value">{{ critiques_1w }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Critiques (1 Month)</p>
+            <p class="stat-card-value">{{ critiques_1m }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">New Critiques (1 Year)</p>
+            <p class="stat-card-value">{{ critiques_1y }}</p>
+        </div>
+    </div>
+    <div class="dashboard-grid-full mb-6">
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Critiques by Impression</h4>
+            <div id="critiques-by-impression-chart"></div>
+        </div>
+        <div class="chart-container">
+            <h4 class="text-lg font-medium mb-4">Critique Growth Over Time</h4>
+            <div id="critique-growth-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Novel Post Statistics -->
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Novel Post Statistics</h3>
+    <div class="dashboard-grid mb-6">
+        <div class="stat-card">
+            <p class="stat-card-title">Total Novel Posts</p>
+            <p class="stat-card-value">{{ total_novel_posts }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-card-title">Average Chapters per Novel</p>
+            <p class="stat-card-value">{{ average_chapters_per_novel }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Post Growth Chart
+    const postGrowthData = {{ post_growth_data|safe }};
+    createDashboardChart('post-growth-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'New Posts',
+            data: postGrowthData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: postGrowthData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Posts' } },
+        title: { text: 'Post Growth', align: 'left' }
+    });
+
+    // Posts by Type Chart
+    const postsByTypeData = {{ posts_by_type_data|safe }};
+    createDashboardChart('posts-by-type-chart', {
+        chart: { type: 'pie' },
+        series: postsByTypeData.map(item => item.y),
+        labels: postsByTypeData.map(item => item.x),
+        title: { text: 'Posts by Type', align: 'left' }
+    });
+
+    // Posts per Channel Chart
+    const postsPerChannelData = {{ posts_per_channel_data|safe }};
+    createDashboardChart('posts-per-channel-chart', {
+        chart: { type: 'bar' },
+        series: [{
+            name: 'Posts',
+            data: postsPerChannelData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: postsPerChannelData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Posts' } },
+        title: { text: 'Posts per Channel', align: 'left' }
+    });
+
+    // Comment Growth Chart
+    const commentGrowthData = {{ comment_growth_data|safe }};
+    createDashboardChart('comment-growth-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'New Comments',
+            data: commentGrowthData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: commentGrowthData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Comments' } },
+        title: { text: 'Comment Growth', align: 'left' }
+    });
+
+    // Comments by Type Chart
+    const commentsByTypeData = {{ comments_by_type_data|safe }};
+    createDashboardChart('comments-by-type-chart', {
+        chart: { type: 'pie' },
+        series: commentsByTypeData.map(item => item.y),
+        labels: commentsByTypeData.map(item => item.x),
+        title: { text: 'Comments by Type', align: 'left' }
+    });
+
+    // Critique Growth Chart
+    const critiqueGrowthData = {{ critique_growth_data|safe }};
+    createDashboardChart('critique-growth-chart', {
+        chart: { type: 'line' },
+        series: [{
+            name: 'New Critiques',
+            data: critiqueGrowthData.map(item => item.y)
+        }],
+        xaxis: {
+            categories: critiqueGrowthData.map(item => item.x),
+            labels: { rotate: -45 }
+        },
+        yaxis: { title: { text: 'Number of Critiques' } },
+        title: { text: 'Critique Growth', align: 'left' }
+    });
+
+    // Critiques by Impression Chart
+    const critiquesByImpressionData = {{ critiques_by_impression_data|safe }};
+    createDashboardChart('critiques-by-impression-chart', {
+        chart: { type: 'pie' },
+        series: critiquesByImpressionData.map(item => item.y),
+        labels: critiquesByImpressionData.map(item => item.x),
+        title: { text: 'Critiques by Impression', align: 'left' }
+    });
+</script>
+{% endblock %}
+

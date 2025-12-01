@@ -1,9 +1,15 @@
+import json
 import uuid
+from datetime import timedelta
 
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.contrib import admin
+from django.utils import timezone
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -737,3 +743,92 @@ class CollectiveSearchView(ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
+    """Collective app dashboard with collective and channel statistics"""
+    template_name = 'collective/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        time_range_start = self.get_time_range()
+        now = timezone.now()
+
+        # Collective Statistics
+        total_collectives = Collective.objects.count()
+        collectives_24h = Collective.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        collectives_1w = Collective.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        collectives_1m = Collective.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        collectives_1y = Collective.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        collective_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Collective.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            collective_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        # Collectives by artist type
+        collective_artist_type_counts = {}
+        collectives = Collective.objects.all()
+        for collective in collectives:
+            for artist_type in collective.artist_types:
+                collective_artist_type_counts[artist_type] = collective_artist_type_counts.get(artist_type, 0) + 1
+
+        # Channel Statistics
+        total_channels = Channel.objects.count()
+        channels_24h = Channel.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
+        channels_1w = Channel.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
+        channels_1m = Channel.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        channels_1y = Channel.objects.filter(created_at__gte=now - timedelta(days=365)).count()
+
+        channel_growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Channel.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            channel_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        channels_per_collective = Channel.objects.values('collective__title').annotate(count=Count('collective__title')).order_by('-count')
+
+        context.update({
+            'total_collectives': total_collectives,
+            'collectives_24h': collectives_24h, 'collectives_1w': collectives_1w, 'collectives_1m': collectives_1m, 'collectives_1y': collectives_1y,
+            'collective_growth_data': json.dumps(collective_growth_data),
+            'collective_artist_type_counts': json.dumps([{'x': k, 'y': v} for k, v in collective_artist_type_counts.items()]),
+            'total_channels': total_channels,
+            'channels_24h': channels_24h, 'channels_1w': channels_1w, 'channels_1m': channels_1m, 'channels_1y': channels_1y,
+            'channel_growth_data': json.dumps(channel_growth_data),
+            'channels_per_collective': json.dumps([{'x': item['collective__title'], 'y': item['count']} for item in channels_per_collective]),
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context

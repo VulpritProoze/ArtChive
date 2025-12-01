@@ -1,0 +1,155 @@
+{% load static unfold %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Dashboard{% endblock %} - Artchive Admin</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon/favicon.ico' %}">
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon/favicon.ico' %}">
+    
+    <!-- Unfold CSS -->
+    <link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/fonts/material-symbols/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/css/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/css/simplebar/simplebar.css' %}" rel="stylesheet">
+    
+    <!-- Unfold Alpine.js -->
+    <script src="{% static 'unfold/js/alpine/alpine.anchor.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.persist.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.sort.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.resize.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.js' %}" defer></script>
+    
+    <!-- Unfold app.js - Commented out to avoid conflict with our manual theme manager -->
+    <!-- <script src="{% static 'unfold/js/app.js' %}"></script> -->
+
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'admin-dashboard/dashboard.css' %}">
+    
+    <!-- Inject Unfold theme colors (same as Unfold's skeleton template) -->
+    {% if colors %}
+        <style id="unfold-theme-colors">
+            :root {
+                {% if border_radius %}
+                    --border-radius: {{ border_radius }};
+                {% endif %}
+
+                {% for name, weights in colors.items %}
+                    {% for weight, value in weights.items %}
+                        --color-{{ name }}-{{ weight }}: {{ value }};
+                    {% endfor %}
+                {% endfor %}
+            }
+        </style>
+    {% endif %}
+    
+    <!-- Inline script to apply theme immediately (prevents FOUC) -->
+    <script>
+        (function() {
+            // Get theme from localStorage (matching $persist behavior)
+            function getTheme() {
+                try {
+                    return localStorage.getItem('adminTheme') || 'auto';
+                } catch (e) {
+                    return 'auto';
+                }
+            }
+            
+            // Apply theme immediately
+            const theme = getTheme();
+            const html = document.documentElement;
+            const body = document.body;
+            
+            let shouldBeDark = false;
+            if (theme === 'dark') {
+                shouldBeDark = true;
+            } else if (theme === 'light') {
+                shouldBeDark = false;
+            } else {
+                // 'auto' mode - check system preference
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    shouldBeDark = true;
+                }
+            }
+            
+            if (shouldBeDark) {
+                html.classList.add('dark');
+                if (body) body.classList.add('dark');
+            } else {
+                html.classList.remove('dark');
+                if (body) body.classList.remove('dark');
+            }
+        })();
+    </script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="antialiased bg-base-50 font-sans text-font-default-light text-sm dark:bg-base-900 dark:text-font-default-dark" id="dashboard-body">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-base-100 dark:bg-base-800 border-b border-base-300 dark:border-base-700 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <img src="{% static 'favicon/favicon.ico' %}" alt="Artchive Logo" class="h-8 w-8">
+                        <h1 class="text-xl font-semibold text-font-default-light dark:text-font-default-dark">Statistics Dashboard</h1>
+                        <nav class="flex space-x-2">
+                            <a href="{% url 'dashboard:dashboard-index' %}" class="px-3 py-1 rounded text-sm hover:bg-base-200 dark:hover:bg-base-800 {% if request.resolver_match.url_name == 'dashboard-index' %}bg-base-200 dark:bg-base-800{% endif %} text-font-default-light dark:text-font-default-dark">Overview</a>
+                            <a href="{% url 'dashboard:core-dashboard' %}" class="px-3 py-1 rounded text-sm hover:bg-base-200 dark:hover:bg-base-800 {% if request.resolver_match.url_name == 'core-dashboard' %}bg-base-200 dark:bg-base-800{% endif %} text-font-default-light dark:text-font-default-dark">Core</a>
+                            <a href="{% url 'dashboard:post-dashboard' %}" class="px-3 py-1 rounded text-sm hover:bg-base-200 dark:hover:bg-base-800 {% if request.resolver_match.url_name == 'post-dashboard' %}bg-base-200 dark:bg-base-800{% endif %} text-font-default-light dark:text-font-default-dark">Post</a>
+                            <a href="{% url 'dashboard:collective-dashboard' %}" class="px-3 py-1 rounded text-sm hover:bg-base-200 dark:hover:bg-base-800 {% if request.resolver_match.url_name == 'collective-dashboard' %}bg-base-200 dark:bg-base-800{% endif %} text-font-default-light dark:text-font-default-dark">Collective</a>
+                            <a href="{% url 'dashboard:gallery-dashboard' %}" class="px-3 py-1 rounded text-sm hover:bg-base-200 dark:hover:bg-base-800 {% if request.resolver_match.url_name == 'gallery-dashboard' %}bg-base-200 dark:bg-base-800{% endif %} text-font-default-light dark:text-font-default-dark">Gallery</a>
+                        </nav>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/admin/" class="text-sm text-font-muted-light dark:text-font-muted-dark hover:text-font-default-light dark:hover:text-font-default-dark">Back to Admin</a>
+                        <button id="theme-toggle-btn" 
+                                class="p-2 rounded-full w-10 h-10 flex items-center justify-center bg-base-200 dark:bg-base-800 hover:bg-base-300 dark:hover:bg-base-700 transition-colors text-font-default-light dark:text-font-default-dark">
+                            <svg id="theme-icon-dark" 
+                                 style="display: none;" 
+                                 class="w-5 h-5" 
+                                 fill="currentColor" 
+                                 viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <svg id="theme-icon-light" 
+                                 style="display: none;" 
+                                 class="w-5 h-5" 
+                                 fill="currentColor" 
+                                 viewBox="0 0 20 20">
+                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                            </svg>
+                            <svg id="theme-icon-system" 
+                                 style="display: block;" 
+                                 class="w-5 h-5" 
+                                 fill="none" 
+                                 stroke="currentColor" 
+                                 viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="{% static 'admin-dashboard/dashboard.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
+

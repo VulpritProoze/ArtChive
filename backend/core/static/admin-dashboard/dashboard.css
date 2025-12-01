@@ -1,0 +1,239 @@
+/* Dashboard Custom Styles using Unfold's color system */
+
+/* Ensure dark mode works - force repaint on theme change */
+html.dark,
+html.dark body {
+    color-scheme: dark;
+}
+
+html:not(.dark),
+html:not(.dark) body {
+    color-scheme: light;
+}
+
+/* Stat Card Styles - Theme Responsive */
+.stat-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    border-width: 1px;
+    border-style: solid;
+    background-color: var(--color-base-100, #ffffff);
+    border-color: var(--color-base-300, #e5e7eb);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .stat-card {
+    background-color: var(--color-base-800, #1f2937);
+    border-color: var(--color-base-700, #374151);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.stat-card-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+    color: var(--color-font-muted-light, #6b7280);
+    transition: color 0.2s ease;
+}
+
+.dark .stat-card-title {
+    color: var(--color-font-muted-dark, #9ca3af);
+}
+
+.stat-card-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+    color: var(--color-font-default-light, #111827);
+    transition: color 0.2s ease;
+}
+
+.dark .stat-card-value {
+    color: var(--color-font-default-dark, #f3f4f6);
+}
+
+.stat-card-change {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    color: var(--color-font-muted-light, #6b7280);
+    transition: color 0.2s ease;
+}
+
+.dark .stat-card-change {
+    color: var(--color-font-muted-dark, #9ca3af);
+}
+
+/* Chart Container - Theme Responsive */
+.chart-container {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+    border-width: 1px;
+    border-style: solid;
+    width: 100%;
+    overflow: hidden;
+    background-color: var(--color-base-100, #ffffff);
+    border-color: var(--color-base-300, #e5e7eb);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .chart-container {
+    background-color: var(--color-base-800, #1f2937);
+    border-color: var(--color-base-700, #374151);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.chart-container > div {
+    width: 100% !important;
+    min-height: 400px;
+}
+
+/* Ensure ApexCharts canvas has fixed height */
+.chart-container .apexcharts-canvas {
+    min-height: 400px;
+}
+
+/* Ensure ApexCharts inherits theme colors */
+.chart-container .apexcharts-canvas {
+    background: transparent !important;
+}
+
+.chart-container h4 {
+    color: var(--color-font-default-light, #111827);
+    transition: color 0.2s ease;
+}
+
+.dark .chart-container h4 {
+    color: var(--color-font-default-dark, #f3f4f6);
+}
+
+/* Responsive chart containers */
+@media (max-width: 1024px) {
+    .chart-container {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        padding: 0.75rem;
+    }
+}
+
+/* Time Range Selector - Theme Responsive */
+.time-range-selector {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.time-range-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+    background-color: var(--color-base-200, #f9fafb);
+    color: var(--color-font-default-light, #111827);
+    border: 1px solid var(--color-base-300, #e5e7eb);
+}
+
+.dark .time-range-btn {
+    background-color: var(--color-base-800, #1f2937);
+    color: var(--color-font-default-dark, #f3f4f6);
+    border-color: var(--color-base-700, #374151);
+}
+
+.time-range-btn:hover {
+    background-color: var(--color-base-300, #e5e7eb);
+}
+
+.dark .time-range-btn:hover {
+    background-color: var(--color-base-700, #374151);
+}
+
+.time-range-btn.active {
+    background-color: var(--color-base-200, #f3f4f6);
+    border-color: var(--color-base-400, #d1d5db);
+    font-weight: 600;
+}
+
+.dark .time-range-btn.active {
+    background-color: var(--color-base-800, #1f2937);
+    border-color: var(--color-base-600, #4b5563);
+}
+
+/* Grid Layout */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.dashboard-grid-full {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .dashboard-grid-full {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Main Content Padding */
+main {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Icon Colors - using hardcoded colors since CSS variables aren't available */
+.dashboard-icon-blue {
+    color: rgb(37, 99, 235); /* blue-600 */
+}
+
+.dark .dashboard-icon-blue {
+    color: rgb(59, 130, 246); /* blue-500 */
+}
+
+.dashboard-icon-green {
+    color: #10b981; /* green-500 */
+}
+
+.dark .dashboard-icon-green {
+    color: #34d399; /* green-400 */
+}
+
+.dashboard-icon-purple {
+    color: #8b5cf6; /* purple-500 */
+}
+
+.dark .dashboard-icon-purple {
+    color: #a78bfa; /* purple-400 */
+}
+
+.dashboard-icon-orange {
+    color: #f97316; /* orange-500 */
+}
+
+.dark .dashboard-icon-orange {
+    color: #fb923c; /* orange-400 */
+}
