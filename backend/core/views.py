@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import timedelta
 
@@ -33,7 +32,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from common.utils.profiling import silk_profile
 
-from .cache_utils import get_user_info_cache_key
+from .cache_utils import get_dashboard_cache_key, get_user_info_cache_key
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 from .pagination import BrushDripsTransactionPagination
 from .permissions import IsAdminUser
@@ -1535,78 +1534,8 @@ class CoreDashboardView(UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        time_range_start = self.get_time_range()
-        now = timezone.now()
-
-        # User Statistics
-        total_users = User.objects.count()
-        active_users = User.objects.filter(is_deleted=False).count()
-        inactive_users = User.objects.filter(is_deleted=True).count()
-        users_24h = User.objects.filter(date_joined__gte=now - timedelta(hours=24)).count()
-        users_1w = User.objects.filter(date_joined__gte=now - timedelta(weeks=1)).count()
-        users_1m = User.objects.filter(date_joined__gte=now - timedelta(days=30)).count()
-        users_1y = User.objects.filter(date_joined__gte=now - timedelta(days=365)).count()
-
-        user_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = User.objects.filter(date_joined__gte=current_date, date_joined__lt=next_date).count()
-            user_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        # Artist Statistics
-        total_artists = Artist.objects.count()
-        active_artists = Artist.objects.filter(is_deleted=False).count()
-        deleted_artists = Artist.objects.filter(is_deleted=True).count()
-        artist_type_counts = {}
-        artists = Artist.objects.filter(is_deleted=False)
-        for artist in artists:
-            for artist_type in artist.artist_types:
-                artist_type_counts[artist_type] = artist_type_counts.get(artist_type, 0) + 1
-        artists_24h = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(hours=24)).count()
-        artists_1w = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(weeks=1)).count()
-        artists_1m = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=30)).count()
-        artists_1y = Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=365)).count()
-
-        artist_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Artist.objects.filter(user_id__date_joined__gte=current_date, user_id__date_joined__lt=next_date).count()
-            artist_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        # Transaction Statistics
-        total_transactions = BrushDripTransaction.objects.count()
-        transaction_type_counts = BrushDripTransaction.objects.values('transaction_object_type').annotate(count=Count('transaction_object_type')).order_by('-count')
-        transactions_24h = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(hours=24)).count()
-        transactions_1w = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(weeks=1)).count()
-        transactions_1m = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=30)).count()
-        transactions_1y = BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=365)).count()
-
-        transaction_volume_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            volume = BrushDripTransaction.objects.filter(transacted_at__gte=current_date, transacted_at__lt=next_date).aggregate(total=Sum('amount'))['total'] or 0
-            transaction_volume_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': volume})
-            current_date = next_date
-
-        transaction_type_bar_data = [{'x': item['transaction_object_type'], 'y': item['count']} for item in transaction_type_counts]
-
+        # Only return minimal context - statistics will be loaded via API
         context.update({
-            'total_users': total_users, 'active_users': active_users, 'inactive_users': inactive_users,
-            'users_24h': users_24h, 'users_1w': users_1w, 'users_1m': users_1m, 'users_1y': users_1y,
-            'user_growth_data': json.dumps(user_growth_data),
-            'total_artists': total_artists, 'active_artists': active_artists, 'deleted_artists': deleted_artists,
-            'artist_type_counts': json.dumps([{'x': k, 'y': v} for k, v in artist_type_counts.items()]),
-            'artists_24h': artists_24h, 'artists_1w': artists_1w, 'artists_1m': artists_1m, 'artists_1y': artists_1y,
-            'artist_growth_data': json.dumps(artist_growth_data),
-            'total_transactions': total_transactions,
-            'transactions_24h': transactions_24h, 'transactions_1w': transactions_1w, 'transactions_1m': transactions_1m, 'transactions_1y': transactions_1y,
-            'transaction_volume_data': json.dumps(transaction_volume_data),
-            'transaction_type_bar_data': json.dumps(transaction_type_bar_data),
             'current_range': self.request.GET.get('range', '1m'),
         })
         # Get Unfold's colors and border_radius from AdminSite's each_context
@@ -1616,5 +1545,333 @@ class CoreDashboardView(UserPassesTestMixin, TemplateView):
             'border_radius': admin_context.get('border_radius'),
         })
         return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="User counts data")},
+)
+class UserCountsAPIView(APIView):
+    """API endpoint for user counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'users', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': User.objects.count(),
+            'active': User.objects.filter(is_deleted=False).count(),
+            'inactive': User.objects.filter(is_deleted=True).count(),
+            '24h': User.objects.filter(date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': User.objects.filter(date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': User.objects.filter(date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': User.objects.filter(date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="User growth data")},
+)
+class UserGrowthAPIView(APIView):
+    """API endpoint for user growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'users', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = User.objects.filter(date_joined__gte=current_date, date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Artist counts data")},
+)
+class ArtistCountsAPIView(APIView):
+    """API endpoint for artist counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Artist.objects.count(),
+            'active': Artist.objects.filter(is_deleted=False).count(),
+            'deleted': Artist.objects.filter(is_deleted=True).count(),
+            '24h': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Artist growth data")},
+)
+class ArtistGrowthAPIView(APIView):
+    """API endpoint for artist growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'artists', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Artist.objects.filter(user_id__date_joined__gte=current_date, user_id__date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist type counts (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Artist type counts data")},
+)
+class ArtistTypesAPIView(APIView):
+    """API endpoint for artist type counts (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate artist type counts
+        artist_type_counts = {}
+        artists = Artist.objects.filter(is_deleted=False)
+        for artist in artists:
+            for artist_type in artist.artist_types:
+                artist_type_counts[artist_type] = artist_type_counts.get(artist_type, 0) + 1
+
+        data = {'data': [{'x': k, 'y': v} for k, v in artist_type_counts.items()]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Transaction counts data")},
+)
+class TransactionCountsAPIView(APIView):
+    """API endpoint for transaction counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': BrushDripTransaction.objects.count(),
+            '24h': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(hours=24)).count(),
+            '1w': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=30)).count(),
+            '1y': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction types data (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Transaction types data")},
+)
+class TransactionTypesAPIView(APIView):
+    """API endpoint for transaction types (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate transaction type counts
+        transaction_type_counts = BrushDripTransaction.objects.values('transaction_object_type').annotate(count=Count('transaction_object_type')).order_by('-count')
+        data = {'data': [{'x': item['transaction_object_type'], 'y': item['count']} for item in transaction_type_counts]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction volume over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Transaction volume data")},
+)
+class TransactionVolumeAPIView(APIView):
+    """API endpoint for transaction volume over time (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'transactions', f'volume:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate volume data
+        volume_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            volume = BrushDripTransaction.objects.filter(transacted_at__gte=current_date, transacted_at__lt=next_date).aggregate(total=Sum('amount'))['total'] or 0
+            volume_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': volume})
+            current_date = next_date
+
+        data = {'volume_data': volume_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
 
 

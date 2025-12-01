@@ -1,21 +1,28 @@
-import json
 import os
 import uuid
 from datetime import timedelta
 
 import cloudinary.uploader
-from django.contrib.auth.mixins import UserPassesTestMixin
-from django.core.exceptions import ObjectDoesNotExist
 from django.contrib import admin
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from django.views.generic import TemplateView
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
+from core.cache_utils import get_dashboard_cache_key
 from core.models import User
 
 from .models import Gallery
@@ -392,35 +399,8 @@ class GalleryDashboardView(UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        time_range_start = self.get_time_range()
-        now = timezone.now()
-
-        # Gallery Statistics
-        total_galleries = Gallery.objects.count()
-        published_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.active).count()
-        draft_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.draft).count()
-        archived_galleries = Gallery.objects.filter(status=choices.GALLERY_STATUS.archived).count()
-
-        galleries_24h = Gallery.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        galleries_1w = Gallery.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        galleries_1m = Gallery.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        galleries_1y = Gallery.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        gallery_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Gallery.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            gallery_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
+        # Only return minimal context - statistics will be loaded via API
         context.update({
-            'total_galleries': total_galleries,
-            'published_galleries': published_galleries,
-            'draft_galleries': draft_galleries,
-            'archived_galleries': archived_galleries,
-            'galleries_24h': galleries_24h, 'galleries_1w': galleries_1w, 'galleries_1m': galleries_1m, 'galleries_1y': galleries_1y,
-            'gallery_growth_data': json.dumps(gallery_growth_data),
             'current_range': self.request.GET.get('range', '1m'),
         })
         # Get Unfold's colors and border_radius from AdminSite's each_context
@@ -430,3 +410,98 @@ class GalleryDashboardView(UserPassesTestMixin, TemplateView):
             'border_radius': admin_context.get('border_radius'),
         })
         return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get gallery counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Gallery counts data")},
+)
+class GalleryCountsAPIView(APIView):
+    """API endpoint for gallery counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('gallery', 'galleries', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Gallery.objects.count(),
+            'published': Gallery.objects.filter(status=choices.GALLERY_STATUS.active).count(),
+            'draft': Gallery.objects.filter(status=choices.GALLERY_STATUS.draft).count(),
+            'archived': Gallery.objects.filter(status=choices.GALLERY_STATUS.archived).count(),
+            '24h': Gallery.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Gallery.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Gallery.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Gallery.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get gallery growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Gallery growth data")},
+)
+class GalleryGrowthAPIView(APIView):
+    """API endpoint for gallery growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('gallery', 'galleries', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Gallery.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+

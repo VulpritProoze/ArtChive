@@ -4,9 +4,9 @@
 {% block title %}Post Dashboard{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-2xl font-bold mb-2">Post App Statistics</h2>
-    <p class="text-font-muted-light dark:text-font-muted-dark">Post, engagement, comment, critique, and novel post statistics</p>
+<div class="dashboard-section" data-dashboard="post">
+    <h2 class="dashboard-page-title">Post App Statistics</h2>
+    <p class="dashboard-page-subtitle">Post, engagement, comment, critique, and novel post statistics</p>
 </div>
 
 <!-- Time Range Selector -->
@@ -18,170 +18,428 @@
 </div>
 
 <!-- Post Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Post Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Posts</p>
-            <p class="stat-card-value">{{ total_posts }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Post Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="posts-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">article</span>
+                </div>
+                <p class="stat-card-title">Total Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Active Posts</p>
-            <p class="stat-card-value">{{ active_posts }}</p>
+        <div class="stat-card" data-stat-id="posts-active">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <p class="stat-card-title">Active Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-active"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Deleted Posts</p>
-            <p class="stat-card-value">{{ deleted_posts }}</p>
+        <div class="stat-card" data-stat-id="posts-deleted">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-deleted"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">New Posts (24h)</p>
-            <p class="stat-card-value">{{ posts_24h }}</p>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="posts-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Posts (24h)</p>
+                <p class="stat-card-value"><span data-value-id="posts-24h"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Posts (1 Week)</p>
-            <p class="stat-card-value">{{ posts_1w }}</p>
+        <div class="stat-card" data-stat-id="posts-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1w"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Posts (1 Month)</p>
-            <p class="stat-card-value">{{ posts_1m }}</p>
+        <div class="stat-card" data-stat-id="posts-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1m"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Posts (1 Year)</p>
-            <p class="stat-card-value">{{ posts_1y }}</p>
+        <div class="stat-card" data-stat-id="posts-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1y"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Posts by Type</h4>
-            <div id="posts-by-type-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="posts-by-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Posts by Type</h4>
+                <div id="posts-by-type-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Post Growth Over Time</h4>
-            <div id="post-growth-chart"></div>
+        <div class="chart-container" id="post-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Post Growth Over Time</h4>
+                <div id="post-growth-chart"></div>
+            </div>
         </div>
     </div>
-    <div class="chart-container mb-6">
-        <h4 class="text-lg font-medium mb-4">Posts per Channel (Top 10)</h4>
-        <div id="posts-per-channel-chart"></div>
+    <div class="chart-container dashboard-section-spacing" id="posts-per-channel-chart-container">
+        <div class="chart-loading-spinner">
+            <div class="spinner"></div>
+            <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+        </div>
+        <div class="chart-content" style="display: none;">
+            <h4 class="dashboard-chart-title">Posts per Channel (Top 10)</h4>
+            <div id="posts-per-channel-chart"></div>
+        </div>
     </div>
 </div>
 
 <!-- Engagement Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Engagement Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Hearts</p>
-            <p class="stat-card-value">{{ total_hearts }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Engagement Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="engagement-hearts">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">favorite</span>
+                </div>
+                <p class="stat-card-title">Total Hearts</p>
+                <p class="stat-card-value"><span data-value-id="engagement-hearts"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Total Praises</p>
-            <p class="stat-card-value">{{ total_praises }}</p>
+        <div class="stat-card" data-stat-id="engagement-praises">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">thumb_up</span>
+                </div>
+                <p class="stat-card-title">Total Praises</p>
+                <p class="stat-card-value"><span data-value-id="engagement-praises"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Total Trophies</p>
-            <p class="stat-card-value">{{ total_trophies }}</p>
+        <div class="stat-card" data-stat-id="engagement-trophies">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">emoji_events</span>
+                </div>
+                <p class="stat-card-title">Total Trophies</p>
+                <p class="stat-card-value"><span data-value-id="engagement-trophies"></span></p>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Comment Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Comment Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Comments</p>
-            <p class="stat-card-value">{{ total_comments }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Comment Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="comments-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">comment</span>
+                </div>
+                <p class="stat-card-title">Total Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Active Comments</p>
-            <p class="stat-card-value">{{ active_comments }}</p>
+        <div class="stat-card" data-stat-id="comments-active">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <p class="stat-card-title">Active Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-active"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Deleted Comments</p>
-            <p class="stat-card-value">{{ deleted_comments }}</p>
+        <div class="stat-card" data-stat-id="comments-deleted">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-deleted"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">New Comments (24h)</p>
-            <p class="stat-card-value">{{ comments_24h }}</p>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="comments-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Comments (24h)</p>
+                <p class="stat-card-value"><span data-value-id="comments-24h"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Comments (1 Week)</p>
-            <p class="stat-card-value">{{ comments_1w }}</p>
+        <div class="stat-card" data-stat-id="comments-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1w"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Comments (1 Month)</p>
-            <p class="stat-card-value">{{ comments_1m }}</p>
+        <div class="stat-card" data-stat-id="comments-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1m"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Comments (1 Year)</p>
-            <p class="stat-card-value">{{ comments_1y }}</p>
+        <div class="stat-card" data-stat-id="comments-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1y"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Comments by Type</h4>
-            <div id="comments-by-type-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="comments-by-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Comments by Type</h4>
+                <div id="comments-by-type-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Comment Growth Over Time</h4>
-            <div id="comment-growth-chart"></div>
+        <div class="chart-container" id="comment-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Comment Growth Over Time</h4>
+                <div id="comment-growth-chart"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Critique Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Critique Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Critiques</p>
-            <p class="stat-card-value">{{ total_critiques }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Critique Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="critiques-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">rate_review</span>
+                </div>
+                <p class="stat-card-title">Total Critiques</p>
+                <p class="stat-card-value"><span data-value-id="critiques-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Critiques (24h)</p>
-            <p class="stat-card-value">{{ critiques_24h }}</p>
+        <div class="stat-card" data-stat-id="critiques-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Critiques (24h)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-24h"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Critiques (1 Week)</p>
-            <p class="stat-card-value">{{ critiques_1w }}</p>
+        <div class="stat-card" data-stat-id="critiques-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1w"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Critiques (1 Month)</p>
-            <p class="stat-card-value">{{ critiques_1m }}</p>
+        <div class="stat-card" data-stat-id="critiques-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1m"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Critiques (1 Year)</p>
-            <p class="stat-card-value">{{ critiques_1y }}</p>
+        <div class="stat-card" data-stat-id="critiques-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1y"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Critiques by Impression</h4>
-            <div id="critiques-by-impression-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="critiques-by-impression-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Critiques by Impression</h4>
+                <div id="critiques-by-impression-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Critique Growth Over Time</h4>
-            <div id="critique-growth-chart"></div>
+        <div class="chart-container" id="critique-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Critique Growth Over Time</h4>
+                <div id="critique-growth-chart"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Novel Post Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Novel Post Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Novel Posts</p>
-            <p class="stat-card-value">{{ total_novel_posts }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Novel Post Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="novels-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">menu_book</span>
+                </div>
+                <p class="stat-card-title">Total Novel Posts</p>
+                <p class="stat-card-value"><span data-value-id="novels-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Average Chapters per Novel</p>
-            <p class="stat-card-value">{{ average_chapters_per_novel }}</p>
+        <div class="stat-card" data-stat-id="novels-avg-chapters">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_stories</span>
+                </div>
+                <p class="stat-card-title">Average Chapters per Novel</p>
+                <p class="stat-card-value"><span data-value-id="novels-avg-chapters"></span></p>
+            </div>
         </div>
     </div>
 </div>
@@ -189,96 +447,8 @@
 
 {% block extra_js %}
 <script>
-    // Post Growth Chart
-    const postGrowthData = {{ post_growth_data|safe }};
-    createDashboardChart('post-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Posts',
-            data: postGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: postGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Posts' } },
-        title: { text: 'Post Growth', align: 'left' }
-    });
-
-    // Posts by Type Chart
-    const postsByTypeData = {{ posts_by_type_data|safe }};
-    createDashboardChart('posts-by-type-chart', {
-        chart: { type: 'pie' },
-        series: postsByTypeData.map(item => item.y),
-        labels: postsByTypeData.map(item => item.x),
-        title: { text: 'Posts by Type', align: 'left' }
-    });
-
-    // Posts per Channel Chart
-    const postsPerChannelData = {{ posts_per_channel_data|safe }};
-    createDashboardChart('posts-per-channel-chart', {
-        chart: { type: 'bar' },
-        series: [{
-            name: 'Posts',
-            data: postsPerChannelData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: postsPerChannelData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Posts' } },
-        title: { text: 'Posts per Channel', align: 'left' }
-    });
-
-    // Comment Growth Chart
-    const commentGrowthData = {{ comment_growth_data|safe }};
-    createDashboardChart('comment-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Comments',
-            data: commentGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: commentGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Comments' } },
-        title: { text: 'Comment Growth', align: 'left' }
-    });
-
-    // Comments by Type Chart
-    const commentsByTypeData = {{ comments_by_type_data|safe }};
-    createDashboardChart('comments-by-type-chart', {
-        chart: { type: 'pie' },
-        series: commentsByTypeData.map(item => item.y),
-        labels: commentsByTypeData.map(item => item.x),
-        title: { text: 'Comments by Type', align: 'left' }
-    });
-
-    // Critique Growth Chart
-    const critiqueGrowthData = {{ critique_growth_data|safe }};
-    createDashboardChart('critique-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Critiques',
-            data: critiqueGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: critiqueGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Critiques' } },
-        title: { text: 'Critique Growth', align: 'left' }
-    });
-
-    // Critiques by Impression Chart
-    const critiquesByImpressionData = {{ critiques_by_impression_data|safe }};
-    createDashboardChart('critiques-by-impression-chart', {
-        chart: { type: 'pie' },
-        series: critiquesByImpressionData.map(item => item.y),
-        labels: critiquesByImpressionData.map(item => item.x),
-        title: { text: 'Critiques by Impression', align: 'left' }
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadPostDashboardStats();
     });
 </script>
 {% endblock %}
-

@@ -4,9 +4,9 @@
 {% block title %}Core Dashboard{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-2xl font-bold mb-2">Core App Statistics</h2>
-    <p class="text-font-muted-light dark:text-font-muted-dark">User, artist, and transaction statistics</p>
+<div data-dashboard="core" class="dashboard-section">
+    <h2 class="dashboard-page-title">Core App Statistics</h2>
+    <p class="dashboard-page-subtitle">User, artist, and transaction statistics</p>
 </div>
 
 <!-- Time Range Selector -->
@@ -18,126 +18,327 @@
 </div>
 
 <!-- User Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">User Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Users</p>
-            <p class="stat-card-value">{{ total_users }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">User Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="users-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">people</span>
+                </div>
+                <p class="stat-card-title">Total Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Active Users</p>
-            <p class="stat-card-value">{{ active_users }}</p>
+        <div class="stat-card" data-stat-id="users-active">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_check</span>
+                </div>
+                <p class="stat-card-title">Active Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Inactive Users</p>
-            <p class="stat-card-value">{{ inactive_users }}</p>
+        <div class="stat-card" data-stat-id="users-inactive">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_off</span>
+                </div>
+                <p class="stat-card-title">Inactive Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">New Users (24h)</p>
-            <p class="stat-card-value">{{ users_24h }}</p>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="users-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Users (1 Week)</p>
-            <p class="stat-card-value">{{ users_1w }}</p>
+        <div class="stat-card" data-stat-id="users-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Users (1 Month)</p>
-            <p class="stat-card-value">{{ users_1m }}</p>
+        <div class="stat-card" data-stat-id="users-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Users (1 Year)</p>
-            <p class="stat-card-value">{{ users_1y }}</p>
+        <div class="stat-card" data-stat-id="users-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
     </div>
-    <div class="chart-container">
-        <h4 class="text-lg font-medium mb-4">User Growth Over Time</h4>
-        <div id="user-growth-chart"></div>
+    <div class="chart-container" id="user-growth-chart-container">
+        <div class="chart-loading-spinner">
+            <div class="spinner"></div>
+            <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+        </div>
+        <div class="chart-content" style="display: none;">
+            <h4 class="dashboard-chart-title">User Growth Over Time</h4>
+            <div id="user-growth-chart"></div>
+        </div>
     </div>
 </div>
 
 <!-- Artist Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Artist Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Artists</p>
-            <p class="stat-card-value">{{ total_artists }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Artist Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="artists-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">palette</span>
+                </div>
+                <p class="stat-card-title">Total Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Active Artists</p>
-            <p class="stat-card-value">{{ active_artists }}</p>
+        <div class="stat-card" data-stat-id="artists-active">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">brush</span>
+                </div>
+                <p class="stat-card-title">Active Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Deleted Artists</p>
-            <p class="stat-card-value">{{ deleted_artists }}</p>
+        <div class="stat-card" data-stat-id="artists-deleted">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">New Artists (24h)</p>
-            <p class="stat-card-value">{{ artists_24h }}</p>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="artists-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Artists (1 Week)</p>
-            <p class="stat-card-value">{{ artists_1w }}</p>
+        <div class="stat-card" data-stat-id="artists-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Artists (1 Month)</p>
-            <p class="stat-card-value">{{ artists_1m }}</p>
+        <div class="stat-card" data-stat-id="artists-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Artists (1 Year)</p>
-            <p class="stat-card-value">{{ artists_1y }}</p>
+        <div class="stat-card" data-stat-id="artists-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Artists by Type</h4>
-            <div id="artist-type-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="artist-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Artists by Type</h4>
+                <div id="artist-type-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Artist Growth Over Time</h4>
-            <div id="artist-growth-chart"></div>
+        <div class="chart-container" id="artist-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Artist Growth Over Time</h4>
+                <div id="artist-growth-chart"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Transaction Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Transaction Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Transactions</p>
-            <p class="stat-card-value">{{ total_transactions }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Transaction Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="transactions-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">payments</span>
+                </div>
+                <p class="stat-card-title">Total Transactions</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Transactions (24h)</p>
-            <p class="stat-card-value">{{ transactions_24h }}</p>
+        <div class="stat-card" data-stat-id="transactions-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Transactions (1 Week)</p>
-            <p class="stat-card-value">{{ transactions_1w }}</p>
+        <div class="stat-card" data-stat-id="transactions-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Transactions (1 Month)</p>
-            <p class="stat-card-value">{{ transactions_1m }}</p>
+        <div class="stat-card" data-stat-id="transactions-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">Transactions (1 Year)</p>
-            <p class="stat-card-value">{{ transactions_1y }}</p>
+        <div class="stat-card" data-stat-id="transactions-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Transactions by Type</h4>
-            <div id="transaction-type-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="transaction-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Transactions by Type</h4>
+                <div id="transaction-type-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Transaction Volume Over Time</h4>
-            <div id="transaction-volume-chart"></div>
+        <div class="chart-container" id="transaction-volume-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Transaction Volume Over Time</h4>
+                <div id="transaction-volume-chart"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -145,78 +346,9 @@
 
 {% block extra_js %}
 <script>
-    // User Growth Chart
-    const userGrowthData = {{ user_growth_data|safe }};
-    createDashboardChart('user-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Users',
-            data: userGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: userGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Users' } },
-        title: { text: 'User Growth', align: 'left' }
-    });
-
-    // Artist Type Chart
-    const artistTypeData = {{ artist_type_counts|safe }};
-    createDashboardChart('artist-type-chart', {
-        chart: { type: 'pie' },
-        series: artistTypeData.map(item => item.y),
-        labels: artistTypeData.map(item => item.x),
-        title: { text: 'Artists by Type', align: 'left' }
-    });
-
-    // Artist Growth Chart
-    const artistGrowthData = {{ artist_growth_data|safe }};
-    createDashboardChart('artist-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Artists',
-            data: artistGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: artistGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Artists' } },
-        title: { text: 'Artist Growth', align: 'left' }
-    });
-
-    // Transaction Type Chart
-    const transactionTypeData = {{ transaction_type_bar_data|safe }};
-    createDashboardChart('transaction-type-chart', {
-        chart: { type: 'bar' },
-        series: [{
-            name: 'Transactions',
-            data: transactionTypeData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: transactionTypeData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Transactions' } },
-        title: { text: 'Transactions by Type', align: 'left' }
-    });
-
-    // Transaction Volume Chart
-    const transactionVolumeData = {{ transaction_volume_data|safe }};
-    createDashboardChart('transaction-volume-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'Volume',
-            data: transactionVolumeData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: transactionVolumeData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Brush Drips' } },
-        title: { text: 'Transaction Volume', align: 'left' }
-    });
+    // Load dashboard statistics when page loads
+    if (typeof loadCoreDashboardStats === 'function') {
+        loadCoreDashboardStats();
+    }
 </script>
 {% endblock %}
-

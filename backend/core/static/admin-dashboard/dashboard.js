@@ -11,20 +11,28 @@
         currentTheme: 'auto',
         systemPrefersDark: false,
         
-        // Get theme from localStorage (matching $persist behavior)
+        // Get theme from localStorage (matching $persist behavior - JSON format)
         getTheme() {
             try {
                 const stored = localStorage.getItem(this.STORAGE_KEY);
-                return stored || 'auto';
+                if (!stored) return 'auto';
+                // Try to parse as JSON (Alpine.js persist format)
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {
+                    // If not JSON, treat as plain string (backward compatibility)
+                    return stored;
+                }
             } catch (e) {
                 return 'auto';
             }
         },
         
-        // Set theme in localStorage
+        // Set theme in localStorage (as JSON to match Alpine.js persist format)
         setTheme(theme) {
             try {
-                localStorage.setItem(this.STORAGE_KEY, theme);
+                // Store as JSON to match Alpine.js persist behavior
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(theme));
                 this.currentTheme = theme;
                 this.applyTheme();
             } catch (e) {
@@ -421,10 +429,9 @@
         }
     }
 
-    // Helper function to create ApexCharts with theme support and fixed height
+    // Helper function to create ApexCharts - SIMPLIFIED, let ApexCharts handle everything
     window.createDashboardChart = function(elementId, options) {
-        // Detect theme more reliably on initial load
-        // Check DOM directly first, then ThemeManager
+        // Detect theme
         let currentTheme = 'light';
         const htmlHasDark = htmlElement.classList.contains('dark');
         const bodyHasDark = document.body && document.body.classList.contains('dark');
@@ -432,10 +439,8 @@
         if (htmlHasDark || bodyHasDark) {
             currentTheme = 'dark';
         } else if (window.ThemeManager && window.ThemeManager.shouldBeDark) {
-            // Use ThemeManager if available and DOM doesn't have dark class
             currentTheme = window.ThemeManager.shouldBeDark() ? 'dark' : 'light';
         } else {
-            // Final fallback: check system preference
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                 currentTheme = 'dark';
             }
@@ -443,20 +448,18 @@
         
         const themeConfig = getApexChartsTheme(currentTheme);
         
-        // Get the chart container
+        // Get the chart element
         const chartElement = document.querySelector('#' + elementId);
         if (!chartElement) {
             console.error('Chart element not found:', elementId);
             return null;
         }
         
-        // Fixed height - default 400px, can be overridden in options
-        const fixedHeight = options.chart?.height || 400;
-        
+        // Simple, clean options - ApexCharts handles responsive natively
         const defaultOptions = {
             chart: {
                 type: 'line',
-                height: fixedHeight,
+                height: 400,
                 toolbar: {
                     show: false
                 },
@@ -469,18 +472,23 @@
             legend: themeConfig.legend,
             xaxis: {
                 ...themeConfig.xaxis,
+                labels: {
+                    ...themeConfig.xaxis?.labels,
+                    rotate: -45,
+                    ...(options.xaxis?.labels || {})
+                },
                 ...(options.xaxis || {})
             },
             yaxis: {
                 ...themeConfig.yaxis,
                 ...(options.yaxis || {})
             },
-            // Keep responsive breakpoints but with fixed heights
+            // Simple responsive breakpoints - ApexCharts handles the rest
             responsive: [{
-                breakpoint: 1024,
+                breakpoint: 1000,
                 options: {
                     chart: {
-                        height: fixedHeight
+                        height: 500
                     },
                     legend: {
                         position: 'bottom'
@@ -490,7 +498,7 @@
                 breakpoint: 768,
                 options: {
                     chart: {
-                        height: fixedHeight
+                        height: 300
                     },
                     legend: {
                         position: 'bottom',
@@ -499,32 +507,6 @@
                     xaxis: {
                         labels: {
                             rotate: -45,
-                            style: {
-                                fontSize: '10px'
-                            }
-                        }
-                    }
-                }
-            }, {
-                breakpoint: 640,
-                options: {
-                    chart: {
-                        height: fixedHeight
-                    },
-                    legend: {
-                        position: 'bottom',
-                        fontSize: '10px'
-                    },
-                    xaxis: {
-                        labels: {
-                            rotate: -45,
-                            style: {
-                                fontSize: '9px'
-                            }
-                        }
-                    },
-                    yaxis: {
-                        labels: {
                             style: {
                                 fontSize: '10px'
                             }
@@ -541,7 +523,6 @@
         // Store chart instance globally for theme updates
         window[elementId + '_chart'] = chart;
         
-        // Also add to global charts array for easier theme updates
         if (!window._dashboardCharts) {
             window._dashboardCharts = [];
         }
@@ -620,6 +601,938 @@
             const currentTheme = getCurrentTheme();
             updateApexChartsTheme(currentTheme);
         }, 300);
+    });
+
+    // ============================================================================
+    // Skeleton Loader Utility
+    // ============================================================================
+    const SkeletonLoader = {
+        // Show skeleton for a stat card
+        showCardSkeleton(cardId) {
+            const card = document.querySelector(`[data-stat-id="${cardId}"]`);
+            if (card) {
+                const skeleton = card.querySelector('.skeleton-card');
+                const content = card.querySelector('.stat-card-content');
+                
+                if (skeleton) {
+                    skeleton.classList.add('loading');
+                    skeleton.style.display = 'block';
+                }
+                if (content) {
+                    content.style.display = 'none';
+                }
+            }
+        },
+        
+        // Hide skeleton and show content for a stat card
+        hideCardSkeleton(cardId) {
+            const card = document.querySelector(`[data-stat-id="${cardId}"]`);
+            if (card) {
+                const skeleton = card.querySelector('.skeleton-card');
+                const content = card.querySelector('.stat-card-content');
+                
+                if (skeleton) {
+                    skeleton.classList.remove('loading');
+                    skeleton.style.display = 'none';
+                }
+                if (content) {
+                    content.style.display = 'block';
+                }
+            }
+        },
+        
+        // Show loading spinner for heavy computation charts
+        showChartSpinner(chartId) {
+            const chartContainer = document.getElementById(`${chartId}-container`) || document.querySelector(`#${chartId}`);
+            if (chartContainer) {
+                // Show existing spinner (already in HTML)
+                const spinnerContainer = chartContainer.querySelector('.chart-loading-spinner');
+                if (spinnerContainer) {
+                    spinnerContainer.classList.remove('hidden');
+                    spinnerContainer.style.display = 'flex';
+                } else {
+                    // Fallback: create spinner if not in HTML
+                    const spinner = document.createElement('div');
+                    spinner.className = 'chart-loading-spinner';
+                    spinner.innerHTML = `
+                        <div class="spinner"></div>
+                        <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+                    `;
+                    chartContainer.appendChild(spinner);
+                }
+                
+                // Hide chart content
+                const chartContent = chartContainer.querySelector('.chart-content');
+                if (chartContent) {
+                    chartContent.style.display = 'none';
+                }
+            }
+        },
+        
+        // Hide spinner and show chart
+        hideChartSpinner(chartId) {
+            const chartContainer = document.getElementById(`${chartId}-container`) || document.querySelector(`#${chartId}`);
+            if (chartContainer) {
+                const spinner = chartContainer.querySelector('.chart-loading-spinner');
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                    spinner.style.display = 'none';
+                }
+                
+                // Show chart content
+                const chartContent = chartContainer.querySelector('.chart-content');
+                if (chartContent) {
+                    chartContent.style.display = 'block';
+                }
+            }
+        }
+    };
+
+    // Expose SkeletonLoader globally
+    window.SkeletonLoader = SkeletonLoader;
+
+    // ============================================================================
+    // Dashboard API Loading Functions
+    // ============================================================================
+    
+    // Helper function to get current range from URL
+    function getCurrentRange() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('range') || '1m';
+    }
+
+    // Helper function to update stat card value
+    function updateStatCardValue(cardId, value) {
+        const card = document.querySelector(`[data-stat-id="${cardId}"]`);
+        if (card) {
+            const valueElement = card.querySelector('.stat-card-value');
+            if (valueElement) {
+                valueElement.textContent = value.toLocaleString();
+            }
+        }
+    }
+
+    // Load Core Dashboard Statistics
+    window.loadCoreDashboardStats = async function(range = null) {
+        if (!range) {
+            range = getCurrentRange();
+        }
+        const baseUrl = '/api/core/dashboard/core';
+        
+        // Phase 1: Load lightweight counts first (fast feedback)
+        const lightweightStats = [
+            { 
+                id: 'users', 
+                url: `${baseUrl}/users/counts/`, 
+                updateFn: function(data) {
+                    // Update all user stat cards
+                    updateStatCardValue('users-total', data.total);
+                    updateStatCardValue('users-active', data.active);
+                    updateStatCardValue('users-inactive', data.inactive);
+                    updateStatCardValue('users-24h', data['24h']);
+                    updateStatCardValue('users-1w', data['1w']);
+                    updateStatCardValue('users-1m', data['1m']);
+                    updateStatCardValue('users-1y', data['1y']);
+                    // Hide skeletons for all user cards
+                    ['users-total', 'users-active', 'users-inactive', 'users-24h', 'users-1w', 'users-1m', 'users-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'artists', 
+                url: `${baseUrl}/artists/counts/`, 
+                updateFn: function(data) {
+                    // Update all artist stat cards
+                    updateStatCardValue('artists-total', data.total);
+                    updateStatCardValue('artists-active', data.active);
+                    updateStatCardValue('artists-deleted', data.deleted);
+                    updateStatCardValue('artists-24h', data['24h']);
+                    updateStatCardValue('artists-1w', data['1w']);
+                    updateStatCardValue('artists-1m', data['1m']);
+                    updateStatCardValue('artists-1y', data['1y']);
+                    // Hide skeletons for all artist cards
+                    ['artists-total', 'artists-active', 'artists-deleted', 'artists-24h', 'artists-1w', 'artists-1m', 'artists-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'transactions', 
+                url: `${baseUrl}/transactions/counts/`, 
+                updateFn: function(data) {
+                    // Update all transaction stat cards
+                    updateStatCardValue('transactions-total', data.total);
+                    updateStatCardValue('transactions-24h', data['24h']);
+                    updateStatCardValue('transactions-1w', data['1w']);
+                    updateStatCardValue('transactions-1m', data['1m']);
+                    updateStatCardValue('transactions-1y', data['1y']);
+                    // Hide skeletons for all transaction cards
+                    ['transactions-total', 'transactions-24h', 'transactions-1w', 'transactions-1m', 'transactions-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        ];
+        
+        // Phase 2: Load heavy computations after counts are shown
+        const heavyStats = [
+            { 
+                id: 'user-growth-chart', 
+                url: `${baseUrl}/users/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        // Remove spinner before creating chart
+                        SkeletonLoader.hideChartSpinner('user-growth-chart');
+                        createDashboardChart('user-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Users',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Users' } },
+                            title: { text: 'User Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'artist-growth-chart', 
+                url: `${baseUrl}/artists/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('artist-growth-chart');
+                        createDashboardChart('artist-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Artists',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Artists' } },
+                            title: { text: 'Artist Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'artist-type-chart', 
+                url: `${baseUrl}/artists/types/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('artist-type-chart');
+                        createDashboardChart('artist-type-chart', {
+                            chart: { type: 'pie' },
+                            series: data.data.map(item => item.y),
+                            labels: data.data.map(item => item.x),
+                            title: { text: 'Artists by Type', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'transaction-type-chart', 
+                url: `${baseUrl}/transactions/types/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('transaction-type-chart');
+                        createDashboardChart('transaction-type-chart', {
+                            chart: { type: 'bar' },
+                            series: [{
+                                name: 'Transactions',
+                                data: data.data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Transactions' } },
+                            title: { text: 'Transactions by Type', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'transaction-volume-chart', 
+                url: `${baseUrl}/transactions/volume/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.volume_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('transaction-volume-chart');
+                        createDashboardChart('transaction-volume-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'Volume',
+                                data: data.volume_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.volume_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Brush Drips' } },
+                            title: { text: 'Transaction Volume', align: 'left' }
+                        });
+                    }
+                }
+            }
+        ];
+        
+        // Load lightweight stats first
+        for (const stat of lightweightStats) {
+            try {
+                // Show skeleton loaders for all related cards
+                if (stat.id === 'users') {
+                    ['users-total', 'users-active', 'users-inactive', 'users-24h', 'users-1w', 'users-1m', 'users-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'artists') {
+                    ['artists-total', 'artists-active', 'artists-deleted', 'artists-24h', 'artists-1w', 'artists-1m', 'artists-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'transactions') {
+                    ['transactions-total', 'transactions-24h', 'transactions-1w', 'transactions-1m', 'transactions-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                }
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Update DOM with data (this will also hide skeletons)
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                // Hide skeletons on error
+                if (stat.id === 'users') {
+                    ['users-total', 'users-active', 'users-inactive', 'users-24h', 'users-1w', 'users-1m', 'users-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'artists') {
+                    ['artists-total', 'artists-active', 'artists-deleted', 'artists-24h', 'artists-1w', 'artists-1m', 'artists-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'transactions') {
+                    ['transactions-total', 'transactions-24h', 'transactions-1w', 'transactions-1m', 'transactions-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        }
+        
+        // Then load heavy stats
+        for (const stat of heavyStats) {
+            try {
+                // Spinner is already visible in HTML, no need to show it
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Update chart with data (updateFn will hide spinner)
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                SkeletonLoader.hideChartSpinner(stat.id);
+                // Could show error message here
+            }
+        }
+    };
+
+    // Load Post Dashboard Statistics
+    window.loadPostDashboardStats = async function(range = null) {
+        if (!range) {
+            range = getCurrentRange();
+        }
+        const baseUrl = '/api/post/dashboard/post';
+        
+        // Phase 1: Load lightweight counts first
+        const lightweightStats = [
+            { 
+                id: 'posts', 
+                url: `${baseUrl}/posts/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('posts-total', data.total);
+                    updateStatCardValue('posts-active', data.active);
+                    updateStatCardValue('posts-deleted', data.deleted);
+                    updateStatCardValue('posts-24h', data['24h']);
+                    updateStatCardValue('posts-1w', data['1w']);
+                    updateStatCardValue('posts-1m', data['1m']);
+                    updateStatCardValue('posts-1y', data['1y']);
+                    ['posts-total', 'posts-active', 'posts-deleted', 'posts-24h', 'posts-1w', 'posts-1m', 'posts-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'engagement', 
+                url: `${baseUrl}/engagement/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('engagement-hearts', data.total_hearts);
+                    updateStatCardValue('engagement-praises', data.total_praises);
+                    updateStatCardValue('engagement-trophies', data.total_trophies);
+                    ['engagement-hearts', 'engagement-praises', 'engagement-trophies'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'comments', 
+                url: `${baseUrl}/comments/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('comments-total', data.total);
+                    updateStatCardValue('comments-active', data.active);
+                    updateStatCardValue('comments-deleted', data.deleted);
+                    updateStatCardValue('comments-24h', data['24h']);
+                    updateStatCardValue('comments-1w', data['1w']);
+                    updateStatCardValue('comments-1m', data['1m']);
+                    updateStatCardValue('comments-1y', data['1y']);
+                    ['comments-total', 'comments-active', 'comments-deleted', 'comments-24h', 'comments-1w', 'comments-1m', 'comments-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'critiques', 
+                url: `${baseUrl}/critiques/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('critiques-total', data.total);
+                    updateStatCardValue('critiques-24h', data['24h']);
+                    updateStatCardValue('critiques-1w', data['1w']);
+                    updateStatCardValue('critiques-1m', data['1m']);
+                    updateStatCardValue('critiques-1y', data['1y']);
+                    ['critiques-total', 'critiques-24h', 'critiques-1w', 'critiques-1m', 'critiques-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'novels', 
+                url: `${baseUrl}/novels/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('novels-total', data.total);
+                    updateStatCardValue('novels-avg-chapters', data.average_chapters);
+                    ['novels-total', 'novels-avg-chapters'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        ];
+        
+        // Phase 2: Load heavy computations
+        const heavyStats = [
+            { 
+                id: 'post-growth-chart', 
+                url: `${baseUrl}/posts/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('post-growth-chart');
+                        createDashboardChart('post-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Posts',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Posts' } },
+                            title: { text: 'Post Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'posts-by-type-chart', 
+                url: `${baseUrl}/posts/types/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('posts-by-type-chart');
+                        createDashboardChart('posts-by-type-chart', {
+                            chart: { type: 'pie' },
+                            series: data.data.map(item => item.y),
+                            labels: data.data.map(item => item.x),
+                            title: { text: 'Posts by Type', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'posts-per-channel-chart', 
+                url: `${baseUrl}/posts/channels/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('posts-per-channel-chart');
+                        createDashboardChart('posts-per-channel-chart', {
+                            chart: { type: 'bar' },
+                            series: [{
+                                name: 'Posts',
+                                data: data.data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Posts' } },
+                            title: { text: 'Posts per Channel', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'comment-growth-chart', 
+                url: `${baseUrl}/comments/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('comment-growth-chart');
+                        createDashboardChart('comment-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Comments',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Comments' } },
+                            title: { text: 'Comment Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'comments-by-type-chart', 
+                url: `${baseUrl}/comments/types/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('comments-by-type-chart');
+                        createDashboardChart('comments-by-type-chart', {
+                            chart: { type: 'pie' },
+                            series: data.data.map(item => item.y),
+                            labels: data.data.map(item => item.x),
+                            title: { text: 'Comments by Type', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'critique-growth-chart', 
+                url: `${baseUrl}/critiques/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('critique-growth-chart');
+                        createDashboardChart('critique-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Critiques',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Critiques' } },
+                            title: { text: 'Critique Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'critiques-by-impression-chart', 
+                url: `${baseUrl}/critiques/impressions/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('critiques-by-impression-chart');
+                        createDashboardChart('critiques-by-impression-chart', {
+                            chart: { type: 'pie' },
+                            series: data.data.map(item => item.y),
+                            labels: data.data.map(item => item.x),
+                            title: { text: 'Critiques by Impression', align: 'left' }
+                        });
+                    }
+                }
+            }
+        ];
+        
+        // Load lightweight stats first
+        for (const stat of lightweightStats) {
+            try {
+                // Show skeleton loaders
+                if (stat.id === 'posts') {
+                    ['posts-total', 'posts-active', 'posts-deleted', 'posts-24h', 'posts-1w', 'posts-1m', 'posts-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'engagement') {
+                    ['engagement-hearts', 'engagement-praises', 'engagement-trophies'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'comments') {
+                    ['comments-total', 'comments-active', 'comments-deleted', 'comments-24h', 'comments-1w', 'comments-1m', 'comments-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'critiques') {
+                    ['critiques-total', 'critiques-24h', 'critiques-1w', 'critiques-1m', 'critiques-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'novels') {
+                    ['novels-total', 'novels-avg-chapters'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                }
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                // Hide skeletons on error
+                if (stat.id === 'posts') {
+                    ['posts-total', 'posts-active', 'posts-deleted', 'posts-24h', 'posts-1w', 'posts-1m', 'posts-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'engagement') {
+                    ['engagement-hearts', 'engagement-praises', 'engagement-trophies'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'comments') {
+                    ['comments-total', 'comments-active', 'comments-deleted', 'comments-24h', 'comments-1w', 'comments-1m', 'comments-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'critiques') {
+                    ['critiques-total', 'critiques-24h', 'critiques-1w', 'critiques-1m', 'critiques-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'novels') {
+                    ['novels-total', 'novels-avg-chapters'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        }
+        
+        // Then load heavy stats
+        for (const stat of heavyStats) {
+            try {
+                // Spinner is already visible in HTML, no need to show it
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                SkeletonLoader.hideChartSpinner(stat.id);
+            }
+        }
+    };
+
+    // Load Collective Dashboard Statistics
+    window.loadCollectiveDashboardStats = async function(range = null) {
+        if (!range) {
+            range = getCurrentRange();
+        }
+        const baseUrl = '/api/collective/dashboard/collective';
+        
+        // Phase 1: Load lightweight counts first
+        const lightweightStats = [
+            { 
+                id: 'collectives', 
+                url: `${baseUrl}/collectives/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('collectives-total', data.total);
+                    updateStatCardValue('collectives-24h', data['24h']);
+                    updateStatCardValue('collectives-1w', data['1w']);
+                    updateStatCardValue('collectives-1m', data['1m']);
+                    updateStatCardValue('collectives-1y', data['1y']);
+                    ['collectives-total', 'collectives-24h', 'collectives-1w', 'collectives-1m', 'collectives-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            },
+            { 
+                id: 'channels', 
+                url: `${baseUrl}/channels/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('channels-total', data.total);
+                    updateStatCardValue('channels-24h', data['24h']);
+                    updateStatCardValue('channels-1w', data['1w']);
+                    updateStatCardValue('channels-1m', data['1m']);
+                    updateStatCardValue('channels-1y', data['1y']);
+                    ['channels-total', 'channels-24h', 'channels-1w', 'channels-1m', 'channels-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        ];
+        
+        // Phase 2: Load heavy computations (spinners already visible in HTML)
+        const heavyStats = [
+            { 
+                id: 'collective-growth-chart', 
+                url: `${baseUrl}/collectives/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('collective-growth-chart');
+                        createDashboardChart('collective-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Collectives',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Collectives' } },
+                            title: { text: 'Collective Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'collective-artist-type-chart', 
+                url: `${baseUrl}/collectives/types/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('collective-artist-type-chart');
+                        createDashboardChart('collective-artist-type-chart', {
+                            chart: { type: 'pie' },
+                            series: data.data.map(item => item.y),
+                            labels: data.data.map(item => item.x),
+                            title: { text: 'Collectives by Artist Type', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'channel-growth-chart', 
+                url: `${baseUrl}/channels/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('channel-growth-chart');
+                        createDashboardChart('channel-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Channels',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Channels' } },
+                            title: { text: 'Channel Growth', align: 'left' }
+                        });
+                    }
+                }
+            },
+            { 
+                id: 'channels-per-collective-chart', 
+                url: `${baseUrl}/channels/per-collective/`, 
+                updateFn: function(data) {
+                    if (data.data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('channels-per-collective-chart');
+                        createDashboardChart('channels-per-collective-chart', {
+                            chart: { type: 'bar' },
+                            series: [{
+                                name: 'Channels',
+                                data: data.data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Channels' } },
+                            title: { text: 'Channels per Collective', align: 'left' }
+                        });
+                    }
+                }
+            }
+        ];
+        
+        // Load lightweight stats first
+        for (const stat of lightweightStats) {
+            try {
+                // Show skeleton loaders
+                if (stat.id === 'collectives') {
+                    ['collectives-total', 'collectives-24h', 'collectives-1w', 'collectives-1m', 'collectives-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                } else if (stat.id === 'channels') {
+                    ['channels-total', 'channels-24h', 'channels-1w', 'channels-1m', 'channels-1y'].forEach(id => {
+                        SkeletonLoader.showCardSkeleton(id);
+                    });
+                }
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                // Hide skeletons on error
+                if (stat.id === 'collectives') {
+                    ['collectives-total', 'collectives-24h', 'collectives-1w', 'collectives-1m', 'collectives-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                } else if (stat.id === 'channels') {
+                    ['channels-total', 'channels-24h', 'channels-1w', 'channels-1m', 'channels-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        }
+        
+        // Then load heavy stats (spinners already visible in HTML)
+        for (const stat of heavyStats) {
+            try {
+                // Spinner is already visible in HTML, no need to show it
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                // Hide spinner on error
+                SkeletonLoader.hideChartSpinner(stat.id);
+            }
+        }
+    };
+
+    // Load Gallery Dashboard Statistics
+    window.loadGalleryDashboardStats = async function(range = null) {
+        if (!range) {
+            range = getCurrentRange();
+        }
+        const baseUrl = '/api/gallery/dashboard/gallery';
+        
+        // Phase 1: Load lightweight counts first
+        const lightweightStats = [
+            { 
+                id: 'galleries', 
+                url: `${baseUrl}/galleries/counts/`, 
+                updateFn: function(data) {
+                    updateStatCardValue('galleries-total', data.total);
+                    updateStatCardValue('galleries-published', data.published);
+                    updateStatCardValue('galleries-draft', data.draft);
+                    updateStatCardValue('galleries-archived', data.archived);
+                    updateStatCardValue('galleries-24h', data['24h']);
+                    updateStatCardValue('galleries-1w', data['1w']);
+                    updateStatCardValue('galleries-1m', data['1m']);
+                    updateStatCardValue('galleries-1y', data['1y']);
+                    ['galleries-total', 'galleries-published', 'galleries-draft', 'galleries-archived', 'galleries-24h', 'galleries-1w', 'galleries-1m', 'galleries-1y'].forEach(id => {
+                        SkeletonLoader.hideCardSkeleton(id);
+                    });
+                }
+            }
+        ];
+        
+        // Phase 2: Load heavy computations
+        const heavyStats = [
+            { 
+                id: 'gallery-growth-chart', 
+                url: `${baseUrl}/galleries/growth/?range=${range}`, 
+                updateFn: function(data) {
+                    if (data.growth_data && window.createDashboardChart) {
+                        SkeletonLoader.hideChartSpinner('gallery-growth-chart');
+                        createDashboardChart('gallery-growth-chart', {
+                            chart: { type: 'line' },
+                            series: [{
+                                name: 'New Galleries',
+                                data: data.growth_data.map(item => item.y)
+                            }],
+                            xaxis: {
+                                categories: data.growth_data.map(item => item.x),
+                                labels: { rotate: -45 }
+                            },
+                            yaxis: { title: { text: 'Number of Galleries' } },
+                            title: { text: 'Gallery Growth', align: 'left' }
+                        });
+                    }
+                }
+            }
+        ];
+        
+        // Load lightweight stats first
+        for (const stat of lightweightStats) {
+            try {
+                // Show skeleton loaders
+                ['galleries-total', 'galleries-published', 'galleries-draft', 'galleries-archived', 'galleries-24h', 'galleries-1w', 'galleries-1m', 'galleries-1y'].forEach(id => {
+                    SkeletonLoader.showCardSkeleton(id);
+                });
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                // Hide skeletons on error
+                ['galleries-total', 'galleries-published', 'galleries-draft', 'galleries-archived', 'galleries-24h', 'galleries-1w', 'galleries-1m', 'galleries-1y'].forEach(id => {
+                    SkeletonLoader.hideCardSkeleton(id);
+                });
+            }
+        }
+        
+        // Then load heavy stats
+        for (const stat of heavyStats) {
+            try {
+                // Spinner is already visible in HTML, no need to show it
+                
+                const response = await fetch(stat.url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                stat.updateFn(data);
+            } catch (error) {
+                console.error(`Error loading ${stat.id}:`, error);
+                SkeletonLoader.hideChartSpinner(stat.id);
+            }
+        }
+    };
+
+    // Auto-load dashboard stats when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if we're on the core dashboard page
+        if (document.querySelector('[data-dashboard="core"]')) {
+            loadCoreDashboardStats();
+        }
+        // Check if we're on the post dashboard page
+        if (document.querySelector('[data-dashboard="post"]')) {
+            loadPostDashboardStats();
+        }
+        // Check if we're on the collective dashboard page
+        if (document.querySelector('[data-dashboard="collective"]')) {
+            loadCollectiveDashboardStats();
+        }
+        // Check if we're on the gallery dashboard page
+        if (document.querySelector('[data-dashboard="gallery"]')) {
+            loadGalleryDashboardStats();
+        }
     });
 })();
 

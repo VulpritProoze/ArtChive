@@ -1,4 +1,3 @@
-import json
 import uuid
 from collections import deque
 from datetime import timedelta
@@ -7,8 +6,6 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import (
-    Avg,
-    Count,
     Prefetch,
     Q,
 )
@@ -1899,102 +1896,8 @@ class PostDashboardView(UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        time_range_start = self.get_time_range()
-        now = timezone.now()
-
-        # Post Statistics
-        total_posts = Post.objects.count()
-        active_posts = Post.objects.filter(is_deleted=False).count()
-        deleted_posts = Post.objects.filter(is_deleted=True).count()
-        posts_24h = Post.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        posts_1w = Post.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        posts_1m = Post.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        posts_1y = Post.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        post_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Post.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            post_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        posts_by_type = Post.objects.values('post_type').annotate(count=Count('post_type')).order_by('-count')
-        posts_by_type_data = [{'x': item['post_type'], 'y': item['count']} for item in posts_by_type]
-
-        posts_per_channel = Post.objects.values('channel__title').annotate(count=Count('channel__title')).order_by('-count')[:10]
-        posts_per_channel_data = [{'x': item['channel__title'], 'y': item['count']} for item in posts_per_channel]
-
-        # Engagement Statistics
-        from .models import PostHeart, PostPraise, PostTrophy
-        total_hearts = PostHeart.objects.count()
-        total_praises = PostPraise.objects.count()
-        total_trophies = PostTrophy.objects.count()
-
-        # Comment Statistics
-        total_comments = Comment.objects.count()
-        active_comments = Comment.objects.filter(is_deleted=False).count()
-        deleted_comments = Comment.objects.filter(is_deleted=True).count()
-        comments_24h = Comment.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        comments_1w = Comment.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        comments_1m = Comment.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        comments_1y = Comment.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        comment_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Comment.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            comment_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        comments_by_type = Comment.objects.values('is_critique_reply').annotate(count=Count('is_critique_reply')).order_by('-count')
-        comments_by_type_data = [{'x': 'Critique Reply' if item['is_critique_reply'] else 'Regular Comment', 'y': item['count']} for item in comments_by_type]
-
-        # Critique Statistics
-        total_critiques = Critique.objects.count()
-        critiques_24h = Critique.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        critiques_1w = Critique.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        critiques_1m = Critique.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        critiques_1y = Critique.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        critique_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Critique.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            critique_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        critiques_by_impression = Critique.objects.values('impression').annotate(count=Count('impression')).order_by('-count')
-        critiques_by_impression_data = [{'x': item['impression'], 'y': item['count']} for item in critiques_by_impression]
-
-        # NovelPost Statistics
-        from .models import NovelPost
-        total_novel_posts = NovelPost.objects.count()
-        average_chapters_per_novel = NovelPost.objects.values('post_id').annotate(count=Count('post_id')).aggregate(avg=Avg('count'))['avg'] or 0
-
+        # Only return minimal context - statistics will be loaded via API
         context.update({
-            'total_posts': total_posts, 'active_posts': active_posts, 'deleted_posts': deleted_posts,
-            'posts_24h': posts_24h, 'posts_1w': posts_1w, 'posts_1m': posts_1m, 'posts_1y': posts_1y,
-            'post_growth_data': json.dumps(post_growth_data),
-            'posts_by_type_data': json.dumps(posts_by_type_data),
-            'posts_per_channel_data': json.dumps(posts_per_channel_data),
-
-            'total_hearts': total_hearts, 'total_praises': total_praises, 'total_trophies': total_trophies,
-
-            'total_comments': total_comments, 'active_comments': active_comments, 'deleted_comments': deleted_comments,
-            'comments_24h': comments_24h, 'comments_1w': comments_1w, 'comments_1m': comments_1m, 'comments_1y': comments_1y,
-            'comment_growth_data': json.dumps(comment_growth_data),
-            'comments_by_type_data': json.dumps(comments_by_type_data),
-
-            'total_critiques': total_critiques,
-            'critiques_24h': critiques_24h, 'critiques_1w': critiques_1w, 'critiques_1m': critiques_1m, 'critiques_1y': critiques_1y,
-            'critique_growth_data': json.dumps(critique_growth_data),
-            'critiques_by_impression_data': json.dumps(critiques_by_impression_data),
-
-            'total_novel_posts': total_novel_posts,
-            'average_chapters_per_novel': round(average_chapters_per_novel, 2),
             'current_range': self.request.GET.get('range', '1m'),
         })
         # Get Unfold's colors and border_radius from AdminSite's each_context
@@ -2004,3 +1907,457 @@ class PostDashboardView(UserPassesTestMixin, TemplateView):
             'border_radius': admin_context.get('border_radius'),
         })
         return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+from django.db.models import Avg, Count
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+
+from core.cache_utils import get_dashboard_cache_key
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get post counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Post counts data")},
+)
+class PostCountsAPIView(APIView):
+    """API endpoint for post counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'posts', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Post.objects.count(),
+            'active': Post.objects.filter(is_deleted=False).count(),
+            'deleted': Post.objects.filter(is_deleted=True).count(),
+            '24h': Post.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Post.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Post.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Post.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get post growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Post growth data")},
+)
+class PostGrowthAPIView(APIView):
+    """API endpoint for post growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('post', 'posts', f'growth:{range_param}')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+        
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Post.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+        
+        data = {'growth_data': growth_data}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get posts by type (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Posts by type data")},
+)
+class PostTypesAPIView(APIView):
+    """API endpoint for posts by type (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'posts', 'types')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate posts by type
+        posts_by_type = Post.objects.values('post_type').annotate(count=Count('post_type')).order_by('-count')
+        data = {'data': [{'x': item['post_type'], 'y': item['count']} for item in posts_by_type]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get posts per channel (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Posts per channel data")},
+)
+class PostChannelsAPIView(APIView):
+    """API endpoint for posts per channel (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'posts', 'channels')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate posts per channel (top 10)
+        posts_per_channel = Post.objects.values('channel__title').annotate(count=Count('channel__title')).order_by('-count')[:10]
+        data = {'data': [{'x': item['channel__title'] or 'No Channel', 'y': item['count']} for item in posts_per_channel]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get engagement counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Engagement counts data")},
+)
+class EngagementCountsAPIView(APIView):
+    """API endpoint for engagement counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'engagement', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        data = {
+            'total_hearts': PostHeart.objects.count(),
+            'total_praises': PostPraise.objects.count(),
+            'total_trophies': PostTrophy.objects.count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get comment counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Comment counts data")},
+)
+class CommentCountsAPIView(APIView):
+    """API endpoint for comment counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'comments', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Comment.objects.count(),
+            'active': Comment.objects.filter(is_deleted=False).count(),
+            'deleted': Comment.objects.filter(is_deleted=True).count(),
+            '24h': Comment.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Comment.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Comment.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Comment.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get comment growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Comment growth data")},
+)
+class CommentGrowthAPIView(APIView):
+    """API endpoint for comment growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('post', 'comments', f'growth:{range_param}')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+        
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Comment.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+        
+        data = {'growth_data': growth_data}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get comments by type (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Comments by type data")},
+)
+class CommentTypesAPIView(APIView):
+    """API endpoint for comments by type (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'comments', 'types')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate comments by type
+        comments_by_type = Comment.objects.values('is_critique_reply').annotate(count=Count('is_critique_reply')).order_by('-count')
+        data = {'data': [{'x': 'Critique Reply' if item['is_critique_reply'] else 'Regular Comment', 'y': item['count']} for item in comments_by_type]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get critique counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Critique counts data")},
+)
+class CritiqueCountsAPIView(APIView):
+    """API endpoint for critique counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'critiques', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Critique.objects.count(),
+            '24h': Critique.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Critique.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Critique.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Critique.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get critique growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Critique growth data")},
+)
+class CritiqueGrowthAPIView(APIView):
+    """API endpoint for critique growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('post', 'critiques', f'growth:{range_param}')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+        
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Critique.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+        
+        data = {'growth_data': growth_data}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get critiques by impression (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Critiques by impression data")},
+)
+class CritiqueImpressionsAPIView(APIView):
+    """API endpoint for critiques by impression (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'critiques', 'impressions')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate critiques by impression
+        critiques_by_impression = Critique.objects.values('impression').annotate(count=Count('impression')).order_by('-count')
+        data = {'data': [{'x': item['impression'], 'y': item['count']} for item in critiques_by_impression]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get novel post counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Novel post counts data")},
+)
+class NovelCountsAPIView(APIView):
+    """API endpoint for novel post counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('post', 'novels', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        total_novel_posts = NovelPost.objects.count()
+        average_chapters_per_novel = NovelPost.objects.values('post_id').annotate(count=Count('post_id')).aggregate(avg=Avg('count'))['avg'] or 0
+        
+        data = {
+            'total': total_novel_posts,
+            'average_chapters': round(average_chapters_per_novel, 2),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+

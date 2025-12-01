@@ -1,6 +1,12 @@
 from django.urls import path
 
 from .views import (
+    ChannelCountsAPIView,
+    ChannelGrowthAPIView,
+    ChannelsPerCollectiveAPIView,
+    CollectiveCountsAPIView,
+    CollectiveGrowthAPIView,
+    CollectiveTypesAPIView,
     AcceptAdminRequestView,
     AdminRequestCreateView,
     AdminRequestListView,
@@ -57,4 +63,36 @@ urlpatterns = [
     path('<uuid:collective_id>/admin/request/', AdminRequestCreateView.as_view(), name='admin-request-create'),
     path('<uuid:collective_id>/admin/requests/', AdminRequestListView.as_view(), name='admin-requests-list'),
     path('admin/requests/<uuid:request_id>/process/', AcceptAdminRequestView.as_view(), name='admin-request-process'),
+    
+    # Dashboard API endpoints
+    path(
+        "dashboard/collective/collectives/counts/",
+        CollectiveCountsAPIView.as_view(),
+        name="dashboard-collective-collectives-counts",
+    ),
+    path(
+        "dashboard/collective/collectives/growth/",
+        CollectiveGrowthAPIView.as_view(),
+        name="dashboard-collective-collectives-growth",
+    ),
+    path(
+        "dashboard/collective/collectives/types/",
+        CollectiveTypesAPIView.as_view(),
+        name="dashboard-collective-collectives-types",
+    ),
+    path(
+        "dashboard/collective/channels/counts/",
+        ChannelCountsAPIView.as_view(),
+        name="dashboard-collective-channels-counts",
+    ),
+    path(
+        "dashboard/collective/channels/growth/",
+        ChannelGrowthAPIView.as_view(),
+        name="dashboard-collective-channels-growth",
+    ),
+    path(
+        "dashboard/collective/channels/per-collective/",
+        ChannelsPerCollectiveAPIView.as_view(),
+        name="dashboard-collective-channels-per-collective",
+    ),
 ]

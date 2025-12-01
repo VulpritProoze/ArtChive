@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    GalleryCountsAPIView,
+    GalleryGrowthAPIView,
     GalleryActiveView,
     GalleryDetailView,
     GalleryListCreateView,
@@ -21,4 +23,16 @@ urlpatterns = [
 
     # Media upload
     path('media/upload/', MediaUploadView.as_view(), name='media-upload'),
+    
+    # Dashboard API endpoints
+    path(
+        "dashboard/gallery/galleries/counts/",
+        GalleryCountsAPIView.as_view(),
+        name="dashboard-gallery-galleries-counts",
+    ),
+    path(
+        "dashboard/gallery/galleries/growth/",
+        GalleryGrowthAPIView.as_view(),
+        name="dashboard-gallery-galleries-growth",
+    ),
 ]

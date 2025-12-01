@@ -4,9 +4,9 @@
 {% block title %}Collective Dashboard{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-2xl font-bold mb-2">Collective App Statistics</h2>
-    <p class="text-font-muted-light dark:text-font-muted-dark">Collective and channel statistics</p>
+<div class="dashboard-section" data-dashboard="collective">
+    <h2 class="dashboard-page-title">Collective App Statistics</h2>
+    <p class="dashboard-page-subtitle">Collective and channel statistics</p>
 </div>
 
 <!-- Time Range Selector -->
@@ -18,75 +18,189 @@
 </div>
 
 <!-- Collective Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Collective Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Collectives</p>
-            <p class="stat-card-value">{{ total_collectives }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Collective Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="collectives-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">groups</span>
+                </div>
+                <p class="stat-card-title">Total Collectives</p>
+                <p class="stat-card-value"><span data-value-id="collectives-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Collectives (24h)</p>
-            <p class="stat-card-value">{{ collectives_24h }}</p>
+        <div class="stat-card" data-stat-id="collectives-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Collectives (24h)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-24h"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Collectives (1 Week)</p>
-            <p class="stat-card-value">{{ collectives_1w }}</p>
+        <div class="stat-card" data-stat-id="collectives-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1w"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Collectives (1 Month)</p>
-            <p class="stat-card-value">{{ collectives_1m }}</p>
+        <div class="stat-card" data-stat-id="collectives-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1m"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Collectives (1 Year)</p>
-            <p class="stat-card-value">{{ collectives_1y }}</p>
+        <div class="stat-card" data-stat-id="collectives-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1y"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Collectives by Artist Type</h4>
-            <div id="collective-artist-type-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="collective-artist-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Collectives by Artist Type</h4>
+                <div id="collective-artist-type-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Collective Growth Over Time</h4>
-            <div id="collective-growth-chart"></div>
+        <div class="chart-container" id="collective-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Collective Growth Over Time</h4>
+                <div id="collective-growth-chart"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Channel Statistics -->
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Channel Statistics</h3>
-    <div class="dashboard-grid mb-6">
-        <div class="stat-card">
-            <p class="stat-card-title">Total Channels</p>
-            <p class="stat-card-value">{{ total_channels }}</p>
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Channel Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="channels-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">forum</span>
+                </div>
+                <p class="stat-card-title">Total Channels</p>
+                <p class="stat-card-value"><span data-value-id="channels-total"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Channels (24h)</p>
-            <p class="stat-card-value">{{ channels_24h }}</p>
+        <div class="stat-card" data-stat-id="channels-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Channels (24h)</p>
+                <p class="stat-card-value"><span data-value-id="channels-24h"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Channels (1 Week)</p>
-            <p class="stat-card-value">{{ channels_1w }}</p>
+        <div class="stat-card" data-stat-id="channels-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1w"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Channels (1 Month)</p>
-            <p class="stat-card-value">{{ channels_1m }}</p>
+        <div class="stat-card" data-stat-id="channels-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1m"></span></p>
+            </div>
         </div>
-        <div class="stat-card">
-            <p class="stat-card-title">New Channels (1 Year)</p>
-            <p class="stat-card-value">{{ channels_1y }}</p>
+        <div class="stat-card" data-stat-id="channels-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1y"></span></p>
+            </div>
         </div>
     </div>
-    <div class="dashboard-grid-full mb-6">
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Channels per Collective</h4>
-            <div id="channels-per-collective-chart"></div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="channels-per-collective-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Channels per Collective</h4>
+                <div id="channels-per-collective-chart"></div>
+            </div>
         </div>
-        <div class="chart-container">
-            <h4 class="text-lg font-medium mb-4">Channel Growth Over Time</h4>
-            <div id="channel-growth-chart"></div>
+        <div class="chart-container" id="channel-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Channel Growth Over Time</h4>
+                <div id="channel-growth-chart"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -94,62 +208,8 @@
 
 {% block extra_js %}
 <script>
-    // Collective Growth Chart
-    const collectiveGrowthData = {{ collective_growth_data|safe }};
-    createDashboardChart('collective-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Collectives',
-            data: collectiveGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: collectiveGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Collectives' } },
-        title: { text: 'Collective Growth', align: 'left' }
-    });
-
-    // Collective Artist Type Chart
-    const collectiveArtistTypeData = {{ collective_artist_type_counts|safe }};
-    createDashboardChart('collective-artist-type-chart', {
-        chart: { type: 'pie' },
-        series: collectiveArtistTypeData.map(item => item.y),
-        labels: collectiveArtistTypeData.map(item => item.x),
-        title: { text: 'Collectives by Artist Type', align: 'left' }
-    });
-
-    // Channel Growth Chart
-    const channelGrowthData = {{ channel_growth_data|safe }};
-    createDashboardChart('channel-growth-chart', {
-        chart: { type: 'line' },
-        series: [{
-            name: 'New Channels',
-            data: channelGrowthData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: channelGrowthData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Channels' } },
-        title: { text: 'Channel Growth', align: 'left' }
-    });
-
-    // Channels per Collective Chart
-    const channelsPerCollectiveData = {{ channels_per_collective|safe }};
-    createDashboardChart('channels-per-collective-chart', {
-        chart: { type: 'bar' },
-        series: [{
-            name: 'Channels',
-            data: channelsPerCollectiveData.map(item => item.y)
-        }],
-        xaxis: {
-            categories: channelsPerCollectiveData.map(item => item.x),
-            labels: { rotate: -45 }
-        },
-        yaxis: { title: { text: 'Number of Channels' } },
-        title: { text: 'Channels per Collective', align: 'left' }
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadCollectiveDashboardStats();
     });
 </script>
 {% endblock %}
-

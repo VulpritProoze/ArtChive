@@ -82,3 +82,42 @@ if CollectiveMember:
     def invalidate_cache_on_collective_membership_delete(sender, instance, **kwargs):
         """Invalidate cache when user leaves a collective."""
         invalidate_user_info_cache(instance.member.id)
+
+
+# Dashboard statistics cache utilities
+def get_dashboard_cache_key(app, stat_type, range_param=None):
+    """
+    Generate standardized cache key for dashboard statistics.
+    
+    All dashboard statistics are cached for 5 minutes (300 seconds) to reduce
+    database load. Cache keys follow a consistent naming pattern.
+    
+    Args:
+        app: Dashboard app name (e.g., 'core', 'post', 'collective', 'gallery')
+        stat_type: Statistic type (e.g., 'users', 'counts', 'growth', 'types')
+        range_param: Optional range parameter for time-based queries (e.g., '1m', '1w', '24h', '1y')
+    
+    Returns:
+        Cache key string following pattern: dashboard:{app}:{stat_type}[:{range_param}]
+    
+    Examples:
+        >>> get_dashboard_cache_key('core', 'users', 'counts')
+        'dashboard:core:users:counts'
+        >>> get_dashboard_cache_key('core', 'users', 'growth')
+        'dashboard:core:users:growth'
+        >>> get_dashboard_cache_key('core', 'users', 'growth', '1m')
+        'dashboard:core:users:growth:1m'
+        >>> get_dashboard_cache_key('post', 'posts', 'counts')
+        'dashboard:post:posts:counts'
+        >>> get_dashboard_cache_key('collective', 'collectives', 'growth', '1w')
+        'dashboard:collective:collectives:growth:1w'
+    
+    Note:
+        Cache duration is 5 minutes (300 seconds) for all dashboard statistics.
+        This provides a good balance between data freshness and performance.
+        No manual cache invalidation is performed - cache expires automatically.
+    """
+    key = f"dashboard:{app}:{stat_type}"
+    if range_param:
+        key += f":{range_param}"
+    return key

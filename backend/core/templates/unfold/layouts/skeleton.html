@@ -35,6 +35,33 @@
         <link href="{% static 'unfold/css/styles.css' %}" rel="stylesheet">
         <link href="{% static 'unfold/css/simplebar/simplebar.css' %}" rel="stylesheet">
 
+        <!-- Fix for Alpine.js persist: Normalize localStorage value to JSON format -->
+        <script>
+            (function() {
+                try {
+                    const key = 'adminTheme';
+                    const value = localStorage.getItem(key);
+                    if (value !== null) {
+                        // Check if value is already valid JSON
+                        try {
+                            JSON.parse(value);
+                        } catch (e) {
+                            // Value is not JSON, convert it to JSON format
+                            // Valid theme values: 'dark', 'light', 'auto'
+                            if (value === 'dark' || value === 'light' || value === 'auto') {
+                                localStorage.setItem(key, JSON.stringify(value));
+                            } else {
+                                // Invalid value, reset to default
+                                localStorage.setItem(key, JSON.stringify('auto'));
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignore localStorage errors
+                }
+            })();
+        </script>
+
         <script src="{% static 'unfold/js/alpine/alpine.anchor.js' %}" defer></script>
         <script src="{% static 'unfold/js/alpine/alpine.persist.js' %}" defer></script>
         <script src="{% static 'unfold/js/alpine/alpine.sort.js' %}" defer></script>

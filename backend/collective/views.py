@@ -1,11 +1,10 @@
-import json
 import uuid
 from datetime import timedelta
 
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.contrib import admin
 from django.utils import timezone
@@ -31,6 +30,7 @@ from rest_framework.views import APIView
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from common.utils.file_utils import rename_image_file
 from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
+from core.cache_utils import get_dashboard_cache_key
 from post.models import Post
 
 from .cache_utils import get_collective_memberships_cache_key
@@ -772,57 +772,8 @@ class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        time_range_start = self.get_time_range()
-        now = timezone.now()
-
-        # Collective Statistics
-        total_collectives = Collective.objects.count()
-        collectives_24h = Collective.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        collectives_1w = Collective.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        collectives_1m = Collective.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        collectives_1y = Collective.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        collective_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Collective.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            collective_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        # Collectives by artist type
-        collective_artist_type_counts = {}
-        collectives = Collective.objects.all()
-        for collective in collectives:
-            for artist_type in collective.artist_types:
-                collective_artist_type_counts[artist_type] = collective_artist_type_counts.get(artist_type, 0) + 1
-
-        # Channel Statistics
-        total_channels = Channel.objects.count()
-        channels_24h = Channel.objects.filter(created_at__gte=now - timedelta(hours=24)).count()
-        channels_1w = Channel.objects.filter(created_at__gte=now - timedelta(weeks=1)).count()
-        channels_1m = Channel.objects.filter(created_at__gte=now - timedelta(days=30)).count()
-        channels_1y = Channel.objects.filter(created_at__gte=now - timedelta(days=365)).count()
-
-        channel_growth_data = []
-        current_date = time_range_start
-        while current_date <= now:
-            next_date = current_date + timedelta(days=1)
-            count = Channel.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
-            channel_growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
-            current_date = next_date
-
-        channels_per_collective = Channel.objects.values('collective__title').annotate(count=Count('collective__title')).order_by('-count')
-
+        # Only return minimal context - statistics will be loaded via API
         context.update({
-            'total_collectives': total_collectives,
-            'collectives_24h': collectives_24h, 'collectives_1w': collectives_1w, 'collectives_1m': collectives_1m, 'collectives_1y': collectives_1y,
-            'collective_growth_data': json.dumps(collective_growth_data),
-            'collective_artist_type_counts': json.dumps([{'x': k, 'y': v} for k, v in collective_artist_type_counts.items()]),
-            'total_channels': total_channels,
-            'channels_24h': channels_24h, 'channels_1w': channels_1w, 'channels_1m': channels_1m, 'channels_1y': channels_1y,
-            'channel_growth_data': json.dumps(channel_growth_data),
-            'channels_per_collective': json.dumps([{'x': item['collective__title'], 'y': item['count']} for item in channels_per_collective]),
             'current_range': self.request.GET.get('range', '1m'),
         })
         # Get Unfold's colors and border_radius from AdminSite's each_context
@@ -832,3 +783,250 @@ class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
             'border_radius': admin_context.get('border_radius'),
         })
         return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+from django.db.models import Count
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collective counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Collective counts data")},
+)
+class CollectiveCountsAPIView(APIView):
+    """API endpoint for collective counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'collectives', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Collective.objects.count(),
+            '24h': Collective.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Collective.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Collective.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Collective.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collective growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Collective growth data")},
+)
+class CollectiveGrowthAPIView(APIView):
+    """API endpoint for collective growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('collective', 'collectives', f'growth:{range_param}')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+        
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Collective.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+        
+        data = {'growth_data': growth_data}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collectives by artist type (heavy computation)",
+    responses={200: OpenApiResponse(description="Collectives by artist type data")},
+)
+class CollectiveTypesAPIView(APIView):
+    """API endpoint for collectives by artist type (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'collectives', 'types')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate collectives by artist type
+        collective_artist_type_counts = {}
+        collectives = Collective.objects.all()
+        for collective in collectives:
+            for artist_type in collective.artist_types:
+                collective_artist_type_counts[artist_type] = collective_artist_type_counts.get(artist_type, 0) + 1
+        
+        data = {'data': [{'x': k, 'y': v} for k, v in collective_artist_type_counts.items()]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channel counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Channel counts data")},
+)
+class ChannelCountsAPIView(APIView):
+    """API endpoint for channel counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'channels', 'counts')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Channel.objects.count(),
+            '24h': Channel.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Channel.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Channel.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Channel.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channel growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Channel growth data")},
+)
+class ChannelGrowthAPIView(APIView):
+    """API endpoint for channel growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('collective', 'channels', f'growth:{range_param}')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+        
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Channel.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+        
+        data = {'growth_data': growth_data}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channels per collective (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Channels per collective data")},
+)
+class ChannelsPerCollectiveAPIView(APIView):
+    """API endpoint for channels per collective (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'channels', 'per-collective')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+        
+        # Calculate channels per collective
+        channels_per_collective = Channel.objects.values('collective__title').annotate(count=Count('collective__title')).order_by('-count')
+        data = {'data': [{'x': item['collective__title'] or 'No Collective', 'y': item['count']} for item in channels_per_collective]}
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
+
+
