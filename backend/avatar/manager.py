@@ -1,4 +1,4 @@
-'''
+from django.db import models
 
 class AvatarManager(models.Manager):
     """Custom manager for Avatar model with common queries"""
@@ -22,5 +22,3 @@ class AvatarManager(models.Manager):
     def by_status(self, status):
         """Get avatars by status (draft/active/archived)"""
         return self.active().filter(status=status)
-
-'''

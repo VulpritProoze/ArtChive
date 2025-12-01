@@ -34,6 +34,9 @@ export { default as MyGalleries } from './gallery/galleries.component'
 export { default as GalleryEditor } from './gallery/editor.component'
 export { default as PublishedGalleryView } from './gallery/published-gallery.view'
 
+// Avatar
+export { AvatarListPage, AvatarEditorPage } from './avatar'
+
 // Brush Drips
 export { default as BrushDripsPage } from './brush-drips/index.component'
 export { default as BrushDripsTransactions } from './brush-drips/transactions.component'

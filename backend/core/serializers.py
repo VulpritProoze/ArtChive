@@ -185,6 +185,16 @@ class ProfileViewUpdateSerializer(ModelSerializer):
     profilePicture = serializers.ImageField(source='profile_picture',required=False, validators=[FileExtensionValidator(allowed_extensions=[
         'jpg', 'jpeg', 'png', 'gif'
     ])])
+    
+    def validate_profilePicture(self, value):
+        """Process profile picture: resize and compress."""
+        if value:
+            from common.utils.image_processing import process_profile_picture
+            try:
+                return process_profile_picture(value)
+            except Exception as e:
+                raise serializers.ValidationError(f"Failed to process image: {str(e)}")
+        return value
 
     class Meta:
         model = User

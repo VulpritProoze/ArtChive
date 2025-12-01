@@ -11,10 +11,7 @@ import {
   CollectiveCreate,
   CollectiveHome,
   CollectiveMembers,
-  CollectiveAdmin,
   Home,
-  GalleryIndex,
-  GalleryEditor,
   PublishedGalleryView,
   Profile,
   Timeline,
@@ -23,10 +20,18 @@ import {
   NotificationIndex,
   PostDetail,
   NotFound,
-  MyGalleries,
   NavigateToOwnProfile,
   PendingFriendRequestsPage,
 } from "@components";
+
+// Lazy load heavy components
+const CollectiveAdmin = lazy(() => import("@components/collective/collective-admin.component"));
+const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
+const GalleryEditor = lazy(() => import("@components/gallery/editor.component"));
+const MyGalleries = lazy(() => import("@components/gallery/galleries.component"));
+const AvatarListPage = lazy(() => import("@components/avatar/avatar-list.component"));
+const AvatarEditorPage = lazy(() => import("@components/avatar/avatar-editor.component"));
+
 import { PostUIProvider } from "@context/post-ui-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
@@ -119,6 +124,11 @@ function App() {
                     <Route path="/gallery/me" element={<MyGalleries />} />
                     <Route path="/gallery/:userId" element={<PublishedGalleryView />} />
                     <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
+
+                    {/* Avatar Routes */}
+                    <Route path="/avatar" element={<AvatarListPage />} />
+                    <Route path="/avatar/create" element={<AvatarEditorPage />} />
+                    <Route path="/avatar/:avatarId/edit" element={<AvatarEditorPage />} />
 
                     {/* Individual Post Route */}
                     <Route path="/post/:postId" element={<PostDetail />} />

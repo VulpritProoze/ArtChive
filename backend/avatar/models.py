@@ -1,17 +1,9 @@
 import uuid
-
 from django.db import models
-
 from core.models import User
+from common.utils import choices
+from .manager import AvatarManager
 
-
-class Avatar(models.Model):
-    avatar_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    image_url = models.ImageField(upload_to="avatar/")
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-
-
-'''
 class Avatar(models.Model):
     """
     User avatar model with canvas-based editing support.
@@ -138,13 +130,7 @@ class Avatar(models.Model):
             'width': self.CANVAS_WIDTH,
             'height': self.CANVAS_HEIGHT
         }
-```
 
-### Proxy Models for Admin
-
-**File**: `backend/avatar/models.py`
-
-```python
 class ActiveAvatar(Avatar):
     """Proxy model for viewing only active (non-deleted) avatars in admin"""
     class Meta:
@@ -159,5 +145,3 @@ class InactiveAvatar(Avatar):
         proxy = True
         verbose_name = 'Inactive Avatar'
         verbose_name_plural = 'Inactive Avatars'
-```
-'''
