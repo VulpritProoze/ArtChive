@@ -78,10 +78,6 @@ function App() {
                     <Route path="/register" element={<Register />} />
                   </Route>
 
-                  {/* Public profile route - accessible to everyone */}
-                  <Route path="/profile/:username" element={<Timeline />} />
-                  <Route path="/profile" element={<NavigateToOwnProfile />} />
-
                   {/* Protected routes (with auth check) */}
                   <Route element={<ProtectedRoute />}>
                     <Route path="/profile/me" element={<Profile />} />
@@ -89,6 +85,10 @@ function App() {
                     <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
                     <Route path="/notifications" element={<NotificationIndex />} />
                     <Route path="/fellows/requests" element={<PendingFriendRequestsPage />} />
+
+      
+                    <Route path="/profile/:username" element={<Timeline />} />
+                    <Route path="/profile" element={<NavigateToOwnProfile />} />
 
                     <Route path="/home" element={<Home />} />
 
@@ -132,11 +132,12 @@ function App() {
 
                     {/* Individual Post Route */}
                     <Route path="/post/:postId" element={<PostDetail />} />
-                  </Route>
 
-                  {/* 404 Not Found - Must be last */}
-                  <Route path="/404" element={<NotFound />} />
-                  <Route path="*" element={<NotFound />} />
+
+                    {/* 404 Not Found - Must be last */}
+                    <Route path="/404" element={<NotFound />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
                 </Routes>
               </Suspense>
               <ThemedToastContainer />

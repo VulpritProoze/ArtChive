@@ -18,6 +18,8 @@ from .views import (
     BrushDripTransactionStatsView,
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
+    CancelFriendRequestView,
+    CheckFriendRequestStatusView,
     CookieTokenRefreshView,
     CreateFriendRequestView,
     FellowsListView,
@@ -133,6 +135,16 @@ urlpatterns = [
         "fellows/requests/<int:id>/reject/",
         RejectFriendRequestView.as_view(),
         name="reject-friend-request",
+    ),
+    path(
+        "fellows/requests/<int:id>/cancel/",
+        CancelFriendRequestView.as_view(),
+        name="cancel-friend-request",
+    ),
+    path(
+        "fellows/check-status/",
+        CheckFriendRequestStatusView.as_view(),
+        name="check-friend-request-status",
     ),
     path(
         "fellows/",

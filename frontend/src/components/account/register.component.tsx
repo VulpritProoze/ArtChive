@@ -179,20 +179,21 @@ export default function Register() {
   );
 
   return (
-    <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-200 to-base-300 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-base-100 rounded-2xl shadow-xl overflow-hidden">
-          {/* Purple Header */}
-          <div className="bg-primary text-primary-content py-6 px-6 text-center">
-            <div className="flex justify-center mb-2">
+        <div className="bg-base-100 rounded-2xl shadow-2xl overflow-hidden border border-base-300">
+
+          <div className="bg-gradient-to-r from-primary to-secondary text-primary-content py-6 px-6 text-center relative">
+        
+            <div className="flex justify-center mb-3">
               <img
-                src="public/logo/Artchive_logo.png"
+                src="/logo/ArtChive_logo.png"
                 alt="ArtChive"
-                className="w-12 h-12"
+                className="w-16 h-16"
               />
             </div>
-            <h1 className="text-2xl font-bold">ArtChive</h1>
-            <p className="text-sm mt-1 opacity-90">
+            <h1 className="text-3xl font-bold mb-1">ArtChive</h1>
+            <p className="text-sm mt-2 opacity-95 font-medium">
               {currentStep === 1 && "Create your account"}
               {currentStep === 2 && "Personal Information"}
               {currentStep === 3 && "Select your artist types"}
@@ -200,26 +201,32 @@ export default function Register() {
             </p>
           </div>
 
-          {/* Progress Indicator - CENTERED & SMALLER */}
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-center gap-3">
+          {/* Progress Indicator - Enhanced */}
+          <div className="px-6 py-5 bg-base-50 border-b border-base-200">
+            <div className="flex items-center justify-center gap-2">
               {[1, 2, 3, 4].map((step, idx) => (
                 <div key={step} className="flex items-center">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base transition-all ${
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 shadow-md ${
                       currentStep === step
-                        ? "bg-primary text-primary-content scale-110"
+                        ? "bg-primary text-primary-content scale-110 ring-4 ring-primary/20"
                         : currentStep > step
-                        ? "bg-success text-success-content"
-                        : "bg-base-300 text-base-content"
+                        ? "bg-success text-success-content scale-100"
+                        : "bg-base-300 text-base-content/60 scale-100"
                     }`}
                   >
-                    {currentStep > step ? "✓" : step}
+                    {currentStep > step ? (
+                      <i className="fas fa-check text-xs"></i>
+                    ) : (
+                      step
+                    )}
                   </div>
                   {idx < 3 && (
                     <div
-                      className={`h-1 w-10 mx-2 rounded transition-all ${
-                        currentStep > step ? "bg-success" : "bg-base-300"
+                      className={`h-1.5 w-12 mx-2 rounded-full transition-all duration-300 ${
+                        currentStep > step 
+                          ? "bg-success shadow-sm" 
+                          : "bg-base-300"
                       }`}
                     />
                   )}
@@ -502,14 +509,24 @@ export default function Register() {
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between mt-6 pt-4">
-              {currentStep > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-base-200">
+              {currentStep > 1 ? (
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="btn btn-sm btn-ghost gap-1"
+                  className="btn btn-ghost gap-2 hover:bg-base-200 transition-colors"
                 >
-                  <i className="fas fa-arrow-left"></i> BACK
+                  <i className="fas fa-arrow-left"></i>
+                  <span>Back</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="btn btn-ghost gap-2 hover:bg-base-200 transition-colors text-base-content/70"
+                >
+                  <i className="fas fa-arrow-left"></i>
+                  <span>Back to Login</span>
                 </button>
               )}
 
@@ -517,9 +534,10 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={(e) => nextStep(e)}
-                  className="btn btn-sm btn-primary gap-1 ml-auto"
+                  className="btn btn-primary gap-2 ml-auto shadow-md hover:shadow-lg transition-all"
                 >
-                  NEXT <i className="fas fa-arrow-right"></i>
+                  <span>Next</span>
+                  <i className="fas fa-arrow-right"></i>
                 </button>
               ) : (
                 <button
@@ -531,23 +549,38 @@ export default function Register() {
                     // Trigger form submission manually
                     handleSubmit(onSubmit)();
                   }}
-                  className="btn btn-sm btn-success gap-1 ml-auto"
+                  className="btn btn-success gap-2 ml-auto shadow-md hover:shadow-lg transition-all"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
-                      <span className="loading loading-spinner loading-xs"></span>
-                      CREATING...
+                      <span className="loading loading-spinner loading-sm"></span>
+                      <span>Creating Account...</span>
                     </>
                   ) : (
                     <>
-                      COMPLETE REGISTRATION
+                      <i className="fas fa-check-circle"></i>
+                      <span>Complete Registration</span>
                     </>
                   )}
                 </button>
               )}
             </div>
           </form>
+          
+          {/* Footer with Login Link */}
+          <div className="px-6 py-4 bg-base-50 border-t border-base-200 text-center">
+            <p className="text-sm text-base-content/70">
+              Already have an account?{" "}
+              <button
+                onClick={() => navigate('/login')}
+                className="link link-primary font-semibold hover:underline"
+                type="button"
+              >
+                Sign in here
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

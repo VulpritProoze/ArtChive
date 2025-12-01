@@ -364,7 +364,7 @@ const Timeline: React.FC = () => {
                   onClick={() => setActiveTab('fellows')}
                   className="text-center hover:opacity-80 transition-opacity cursor-pointer"
                 >
-                  <h4 className="text-2xl font-bold text-base-content">{fellowsCount}</h4>
+                  <h4 className="text-2xl font-bold text-base-content">{fellowsCount ?? "-"}</h4>
                   <p className="text-base-content/60 text-sm">Fellows</p>
                 </button>
               </div>

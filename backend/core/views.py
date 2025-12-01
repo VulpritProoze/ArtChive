@@ -1061,13 +1061,15 @@ class FriendRequestCountView(APIView):
         # Count received requests (where user is the recipient)
         received_count = UserFellow.objects.filter(
             fellow_user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         ).count()
 
         # Count sent requests (where user is the requester)
         sent_count = UserFellow.objects.filter(
             user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         ).count()
 
         data = {
@@ -1099,7 +1101,8 @@ class PendingFriendRequestsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return UserFellow.objects.filter(
-            Q(fellow_user=user, status='pending') | Q(user=user, status='pending')
+            (Q(fellow_user=user, status='pending') | Q(user=user, status='pending')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1129,7 +1132,8 @@ class FellowsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return UserFellow.objects.filter(
-            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1159,7 +1163,7 @@ class UserFellowsListView(generics.ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
         user = get_object_or_404(User, id=user_id)
-        return UserFellow.objects.filter(
+        return UserFellow.objects.get_active_objects().filter(
             Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
         ).select_related(
             'user',
@@ -1205,8 +1209,9 @@ class SearchFellowsView(generics.ListAPIView):
         filter_by = self.request.query_params.get('filter_by', 'username').strip()
 
         # Base queryset: all accepted fellows
-        queryset = UserFellow.objects.filter(
-            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        queryset = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1270,10 +1275,11 @@ class CreateFriendRequestView(generics.CreateAPIView):
         fellow_user_id = serializer.validated_data['fellow_user_id']
         fellow_user = get_object_or_404(User, id=fellow_user_id)
 
-        # Check if relationship already exists (both directions)
-        existing = UserFellow.objects.filter(
-            Q(user=user, fellow_user=fellow_user) |
-            Q(user=fellow_user, fellow_user=user)
+        # Check if relationship already exists (both directions) - only check non-deleted
+        existing = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=fellow_user) |
+             Q(user=fellow_user, fellow_user=user)),
+            is_deleted=False
         ).first()
 
         if existing:
@@ -1330,7 +1336,8 @@ class AcceptFriendRequestView(APIView):
             UserFellow,
             id=id,
             fellow_user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         )
 
         # Update status to accepted
@@ -1339,6 +1346,162 @@ class AcceptFriendRequestView(APIView):
 
         serializer = UserFellowSerializer(fellow_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Cancel a friend request (requester cancels their own sent request)",
+    responses={
+        204: OpenApiResponse(description="Request cancelled successfully"),
+        400: OpenApiResponse(description="Request is already deleted"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class CancelFriendRequestView(APIView):
+    """
+    Cancel a friend request.
+    Only the requester (user) can cancel their own sent request.
+    Deletes the UserFellow record.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the requester
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                user=user,
+                status='pending',
+            ).first()
+
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Soft delete the request
+        fellow_request.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Check friend request status between current user and another user",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            description="ID of the user to check relationship with",
+            type=int,
+            required=True,
+        ),
+    ],
+    responses={
+        200: OpenApiResponse(
+            description="Relationship status",
+            response={
+                "type": "object",
+                "properties": {
+                    "has_pending_sent": {"type": "boolean"},
+                    "has_pending_received": {"type": "boolean"},
+                    "is_friends": {"type": "boolean"},
+                    "request_id": {"type": "integer", "nullable": True},
+                    "relationship_id": {"type": "integer", "nullable": True},
+                },
+            },
+        ),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class CheckFriendRequestStatusView(APIView):
+    """
+    Lightweight endpoint to check friend request status between current user and another user.
+    Returns:
+    - has_pending_sent: True if current user has sent a pending request to the other user
+    - has_pending_received: True if current user has received a pending request from the other user
+    - is_friends: True if users are already friends
+    - request_id: ID of the pending request (if any)
+    - relationship_id: ID of the accepted relationship (if users are friends)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        other_user_id = request.query_params.get('user_id')
+
+        if not other_user_id:
+            return Response(
+                {'error': 'user_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            other_user = User.objects.get(id=other_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check for pending request sent by current user
+        pending_sent = UserFellow.objects.get_active_objects().filter(
+            user=user,
+            fellow_user=other_user,
+            status='pending'
+        ).first()
+
+        # Check for pending request received by current user
+        pending_received = UserFellow.objects.get_active_objects().filter(
+            user=other_user,
+            fellow_user=user,
+            status='pending'
+        ).first()
+
+        # Check if already friends and get relationship ID
+        accepted_relationship = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=other_user) | Q(user=other_user, fellow_user=user)),
+            status='accepted'
+        ).first()
+
+        is_friends = accepted_relationship is not None
+
+        # Determine request_id (prioritize received over sent for UI purposes)
+        # Also include relationship_id for accepted friends
+        request_id = None
+        relationship_id = None
+        if pending_received:
+            request_id = pending_received.id
+        elif pending_sent:
+            request_id = pending_sent.id
+        elif accepted_relationship:
+            relationship_id = accepted_relationship.id
+
+        data = {
+            'has_pending_sent': pending_sent is not None,
+            'has_pending_received': pending_received is not None,
+            'is_friends': is_friends,
+            'request_id': request_id,
+            'relationship_id': relationship_id,
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -1362,14 +1525,33 @@ class RejectFriendRequestView(APIView):
         user = request.user
 
         # Get the request where user is the recipient
-        fellow_request = get_object_or_404(
-            UserFellow,
-            id=id,
-            fellow_user=user,
-            status='pending'
-        )
+        # Filter out already deleted fellows
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            ).first()
 
-        # Delete the request
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Soft delete the request
         fellow_request.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1394,19 +1576,33 @@ class UnfriendView(APIView):
     def delete(self, request, id):
         user = request.user
 
-        # Find relationship in either direction
+        # Find relationship in either direction (only non-deleted)
         fellow_relationship = UserFellow.objects.filter(
-            Q(id=id, user=user, status='accepted') |
-            Q(id=id, fellow_user=user, status='accepted')
+            (Q(id=id, user=user, status='accepted') |
+             Q(id=id, fellow_user=user, status='accepted')),
+            is_deleted=False
         ).first()
 
         if not fellow_relationship:
-            return Response(
-                {'error': 'Friend relationship not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            # Check if it exists but is already deleted
+            deleted_relationship = UserFellow.objects.filter(
+                (Q(id=id, user=user, status='accepted') |
+                 Q(id=id, fellow_user=user, status='accepted')),
+                is_deleted=True
+            ).first()
 
-        # Delete the relationship
+            if deleted_relationship:
+                return Response(
+                    {'error': 'Friend relationship is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend relationship not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Soft delete the relationship
         fellow_relationship.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)

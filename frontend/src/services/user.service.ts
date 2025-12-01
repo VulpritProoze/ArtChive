@@ -108,9 +108,37 @@ export const userService = {
   /**
    * Reject a friend request
    * POST /api/core/fellows/requests/<id>/reject/
+   * Returns 204 No Content on success
    */
   async rejectFriendRequest(requestId: number): Promise<void> {
-    await core.post(`fellows/requests/${requestId}/reject/`);
+    await core.post(`fellows/requests/${requestId}/reject/`, {});
+  },
+
+  /**
+   * Cancel a friend request (requester cancels their own sent request)
+   * POST /api/core/fellows/requests/<id>/cancel/
+   * Returns 204 No Content on success
+   */
+  async cancelFriendRequest(requestId: number): Promise<void> {
+    await core.post(`fellows/requests/${requestId}/cancel/`, {});
+  },
+
+  /**
+   * Check friend request status between current user and another user
+   * GET /api/core/fellows/check-status/?user_id=<id>
+   * Returns lightweight status information
+   */
+  async checkFriendRequestStatus(userId: number): Promise<{
+    has_pending_sent: boolean;
+    has_pending_received: boolean;
+    is_friends: boolean;
+    request_id: number | null;
+    relationship_id: number | null;
+  }> {
+    const response = await core.get(`fellows/check-status/`, {
+      params: { user_id: userId },
+    });
+    return response.data;
   },
 
   /**

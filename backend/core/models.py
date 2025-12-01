@@ -7,7 +7,7 @@ from django.db import models
 from common.utils import choices
 from common.utils.choices import TRANSACTION_OBJECT_CHOICES
 
-from .manager import CustomUserManager
+from .manager import CustomUserManager, SoftDeleteManager
 
 
 class User(AbstractUser):
@@ -78,6 +78,8 @@ class UserFellow(models.Model):
     status = models.CharField(choices=choices.FELLOW_STATUS, default='pending')
     fellowed_at = models.DateTimeField(auto_now_add=True)
     is_deleted = models.BooleanField(default=False, help_text='Designates whether this relationship should be treated as deleted.')
+
+    objects = SoftDeleteManager()
 
     def delete(self, *args, **kwargs):
         """Override delete to perform soft deletion"""

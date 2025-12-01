@@ -12,6 +12,7 @@ interface PendingFriendRequestsButtonProps {
 
 export default function PendingFriendRequestsButton({ isMobile = false }: PendingFriendRequestsButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,30 +49,56 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
     e.stopPropagation();
     e.preventDefault();
     
-    // Find the request to get the requester's name
+    // Find the request to get the requester's name and user ID
     const request = receivedRequests.find(r => r.id === requestId);
     const requesterName = request?.user_info?.fullname || request?.user_info?.username || 'this user';
+    const requesterUserId = request?.user;
     
     if (!window.confirm(`Are you sure you want to accept the friend request from ${requesterName}?`)) {
       return;
     }
     
+    if (!requesterUserId) {
+      console.error('Could not find requester user ID for request:', requestId);
+      return;
+    }
+    
+    setProcessingRequestId(requestId);
     try {
-      await acceptRequest(requestId);
+      await acceptRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
   const handleReject = async (e: React.MouseEvent, requestId: number) => {
     e.stopPropagation();
     e.preventDefault();
+    setProcessingRequestId(requestId);
     try {
-      await rejectRequest(requestId);
+      // Find the request to get the requester's user ID
+      const request = receivedRequests.find(r => r.id === requestId);
+      const requesterUserId = request?.user;
+      if (!requesterUserId) {
+        console.error('Could not find requester user ID for request:', requestId);
+        return;
+      }
+      await rejectRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
+    } finally {
+      setProcessingRequestId(null);
     }
   };
+
+  // Close dropdown when there are no more received requests
+  useEffect(() => {
+    if (isOpen && receivedRequests.length === 0 && !isLoadingRequests) {
+      setIsOpen(false);
+    }
+  }, [isOpen, receivedRequests.length, isLoadingRequests]);
 
   if (isLoadingCount) {
     return (
@@ -95,7 +122,7 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
       >
         <UserPlus2 className="w-5 h-5 flex-shrink-0" />
         {totalCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-error text-error-content text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-[9px] -right-1 w-5 h-5 bg-error text-error-content text-xs font-bold rounded-full flex items-center justify-center">
             {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
@@ -112,7 +139,7 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
       >
         <UserPlus2 className="w-5 h-5 flex-shrink-0" />
         {totalCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-error text-error-content text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-[7px] -right-1 w-5 h-5 bg-error text-error-content text-xs font-bold rounded-full flex items-center justify-center">
             {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
@@ -165,7 +192,7 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
                         >
                           <div className="flex items-center justify-between gap-2">
                             <Link
-                              to={`/profile/${requester.username}`}
+                              to={`/profile/@${requester.username}`}  // DO NOT MODIFY THE '@'!!!!!!
                               className="flex items-center gap-2 flex-1 hover:opacity-80 transition-opacity min-w-0"
                               onClick={() => setIsOpen(false)}
                             >
@@ -191,18 +218,26 @@ export default function PendingFriendRequestsButton({ isMobile = false }: Pendin
                               <button
                                 className="btn btn-xs btn-primary"
                                 onClick={(e) => handleAccept(e, request.id)}
-                                disabled={isAccepting || isRejecting}
+                                disabled={processingRequestId !== null}
                                 title="Accept"
                               >
-                                <Check className="w-3 h-3 flex-shrink-0" />
+                                {processingRequestId === request.id && isAccepting ? (
+                                  <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                  <Check className="w-3 h-3 flex-shrink-0" />
+                                )}
                               </button>
                               <button
                                 className="btn btn-xs btn-ghost"
                                 onClick={(e) => handleReject(e, request.id)}
-                                disabled={isAccepting || isRejecting}
+                                disabled={processingRequestId !== null}
                                 title="Reject"
                               >
-                                <XIcon className="w-3 h-3 flex-shrink-0" />
+                                {processingRequestId === request.id && isRejecting ? (
+                                  <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                  <XIcon className="w-3 h-3 flex-shrink-0" />
+                                )}
                               </button>
                             </div>
                           </div>
