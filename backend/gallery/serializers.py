@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
+from core.models import Artist
+from post.models import Comment
+
 from .models import Gallery
 
 
@@ -157,3 +160,184 @@ class GalleryListSerializer(ModelSerializer):
             'artist_types': artist_types,
             'brush_drips_count': brush_drips_count,
         }
+
+
+# ============================================================================
+# Gallery Comment Serializers
+# ============================================================================
+
+class GalleryCommentSerializer(serializers.ModelSerializer):
+    author_username = serializers.CharField(source="author.username", read_only=True)
+    author_picture = serializers.ImageField(
+        source="author.profile_picture", read_only=True
+    )
+    author_artist_types = serializers.SerializerMethodField()
+    gallery_title = serializers.CharField(source="gallery.title", read_only=True)
+    is_deleted = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = "__all__"
+
+    def get_author_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.author.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+
+class TopLevelGalleryCommentsViewSerializer(GalleryCommentSerializer):
+    reply_count = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    show_replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = [
+            "comment_id",
+            "text",
+            "created_at",
+            "updated_at",
+            "author_username",
+            "author_picture",
+            "gallery_title",
+            "gallery",
+            "author",
+            "replies_to",
+            "reply_count",
+            "replies",
+            "show_replies",
+            "author_artist_types",
+            "is_deleted",
+        ]
+
+    def get_reply_count(self, obj):
+        """Get reply counts (excluding critique replies)"""
+        if hasattr(obj, "reply_count"):
+            return obj.reply_count
+        return (
+            obj.comment_reply.get_active_objects()
+            .filter(is_critique_reply=False)
+            .count()
+        )
+
+    def get_replies(self, obj):
+        """Get all replies for this comment from prefetched data"""
+        # Use prefetched replies if available
+        if hasattr(obj, "prefetched_replies"):
+            return GalleryCommentSerializer(
+                obj.prefetched_replies, many=True, context=self.context
+            ).data
+        return []
+
+    def get_show_replies(self, obj):
+        """Show replies is false by default - user must click to expand"""
+        # Always return False so replies are collapsed by default
+        # The frontend will toggle this when user clicks "View replies"
+        return False
+
+
+class GalleryCommentCreateSerializer(ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ["text", "gallery"]
+        extra_kwargs = {
+            "gallery": {"required": False},
+        }
+
+    def to_representation(self, instance):
+        return GalleryCommentSerializer(instance, context=self.context).data
+
+
+class GalleryCommentUpdateSerializer(ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ["text"]
+
+    def validate(self, data):
+        # Ensure user owns the comment or is admin
+        user = self.context["request"].user
+        if not (user == self.instance.author or user.is_staff):
+            raise serializers.ValidationError("You can only update your own comments")
+
+        # Ensure comment is not deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Cannot update a deleted comment")
+
+        return data
+
+
+class GalleryCommentDeleteSerializer(serializers.ModelSerializer):
+    confirm = serializers.BooleanField(
+        required=True, write_only=True, help_text="Must be True to confirm deletion"
+    )
+
+    class Meta:
+        model = Comment
+        fields = ["confirm"]
+
+    def validate_confirm(self, value):
+        if not value:
+            raise serializers.ValidationError("Must confirm deletion")
+        return value
+
+    def validate(self, data):
+        if not self.instance:
+            raise serializers.ValidationError("Comment not found")
+
+        # Ensure comment is not already deleted
+        if self.instance.is_deleted:
+            raise serializers.ValidationError("Comment is already deleted")
+
+        # Ensure user owns the comment or is admin
+        user = self.context["request"].user
+        if not (user == self.instance.author or user.is_staff):
+            raise serializers.ValidationError("You can only delete your own comments")
+
+        return data
+
+
+class GalleryCommentReplyViewSerializer(GalleryCommentSerializer):
+    class Meta:
+        model = Comment
+        fields = [
+            "comment_id",
+            "text",
+            "created_at",
+            "updated_at",
+            "author_username",
+            "author_picture",
+            "gallery_title",
+            "gallery",
+            "author",
+            "replies_to",
+        ]
+
+
+class GalleryCommentReplyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ["text", "replies_to"]
+        extra_kwargs = {"replies_to": {"required": True, "write_only": True}}
+
+    def validate_replies_to(self, value):
+        # Prevent replying to a reply (only top-level comments allowed)
+        if value.replies_to is not None:
+            raise serializers.ValidationError(
+                "You can only reply to top-level comments."
+            )
+        if value.is_deleted:
+            raise serializers.ValidationError("Cannot reply to a deleted comment.")
+        return value
+
+    def validate(self, data):
+        replies_to = data["replies_to"]
+
+        # Auto-set author and gallery from parent comment
+        data["gallery"] = replies_to.gallery  # inherit gallery from parent
+
+        return data
+
+    def to_representation(self, instance):
+        return GalleryCommentSerializer(instance, context=self.context).data

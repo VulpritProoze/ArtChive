@@ -1,7 +1,15 @@
 import { gallery } from '@lib/api';
-import type { CanvasState } from '@types';
+import type { CanvasState, Comment } from '@types';
 import type { PaginatedGalleryListResponse } from '@types';
 import type { AxiosProgressEvent } from 'axios';
+
+export interface CommentsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  total_comments?: number;
+  results: Comment[];
+}
 
 export interface Gallery {
   gallery_id: string;
@@ -197,6 +205,79 @@ export const galleryService = {
    */
   async getActiveGalleryByUserId(userId: number): Promise<Gallery> {
     const response = await gallery.get(`user/${userId}/active/`);
+    return response.data;
+  },
+
+  /**
+   * Check if a user has an active gallery
+   */
+  async hasActiveGallery(userId: number): Promise<{ has_active: boolean }> {
+    const response = await gallery.get(`user/${userId}/has-active/`);
+    return response.data;
+  },
+
+  /**
+   * Get comments for a gallery (paginated)
+   * GET /api/gallery/<galleryId>/comments/
+   */
+  async getGalleryComments(
+    galleryId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<CommentsResponse> {
+    const response = await gallery.get(`${galleryId}/comments/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a gallery comment
+   * POST /api/gallery/comment/create/
+   */
+  async createGalleryComment(data: { text: string; gallery: string }): Promise<Comment> {
+    const response = await gallery.post<Comment>('comment/create/', data);
+    return response.data;
+  },
+
+  /**
+   * Update a gallery comment
+   * PUT /api/gallery/comment/<commentId>/update/
+   */
+  async updateGalleryComment(commentId: string, text: string): Promise<Comment> {
+    const response = await gallery.put<Comment>(`comment/${commentId}/update/`, { text });
+    return response.data;
+  },
+
+  /**
+   * Delete a gallery comment
+   * DELETE /api/gallery/comment/<commentId>/delete/
+   */
+  async deleteGalleryComment(commentId: string): Promise<void> {
+    await gallery.delete(`comment/${commentId}/delete/`, { data: { confirm: true } });
+  },
+
+  /**
+   * Get replies for a gallery comment (paginated)
+   * GET /api/gallery/comment/<commentId>/replies/
+   */
+  async getGalleryCommentReplies(
+    commentId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<CommentsResponse> {
+    const response = await gallery.get(`comment/${commentId}/replies/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a reply to a gallery comment
+   * POST /api/gallery/comment/reply/create/
+   */
+  async createGalleryCommentReply(data: { text: string; replies_to: string }): Promise<Comment> {
+    const response = await gallery.post<Comment>('comment/reply/create/', data);
     return response.data;
   },
 };

@@ -15,21 +15,32 @@ Implement a reputation system where users earn or lose reputation based on inter
 
 ### 1.2 Reputation Calculation Logic
 - [ ] **Earn Reputation:**
-  - [ ] When user receives **praise** → Add reputation equal to brushdrips granted
-  - [ ] When user receives **trophy** → Add reputation equal to brushdrips granted
-  - [ ] When user receives **positive critique** → Add reputation equal to brushdrips granted
+  - [ ] When user receives **praise** → Add reputation amount equal to brushdrips granted (1 reputation)
+  - [ ] When user receives **trophy** → Add reputation amount equal to brushdrips granted
+    - [ ] Bronze Stroke: +5 reputation (matches 5 brushdrips)
+    - [ ] Golden Bristle: +10 reputation (matches 10 brushdrips)
+    - [ ] Diamond Canvas: +20 reputation (matches 20 brushdrips)
+  - [ ] When user receives **positive critique** → Add reputation amount equal to brushdrips granted (3 reputation)
   
 - [ ] **Lose Reputation:**
-  - [ ] When user receives **negative critique** → Subtract reputation (amount TBD)
+  - [ ] When user receives **negative critique** → Subtract reputation amount equal to brushdrips cost (3 reputation)
+  - [ ] Note: Reputation amount lost equals the brushdrips cost of the critique
 
 ### 1.3 Implementation Points
 - [ ] Identify where praise/trophy/critique actions occur in codebase
 - [ ] Add reputation update logic to:
-  - [ ] Praise creation endpoint
-  - [ ] Trophy awarding endpoint
-  - [ ] Critique creation endpoint (positive vs negative detection)
+  - [ ] Praise creation endpoint (`PostPraiseCreateView`)
+    - [ ] Add reputation amount: +1 (matches brushdrips granted)
+  - [ ] Trophy awarding endpoint (`PostTrophyCreateView`)
+    - [ ] Add reputation amount: +amount (matches brushdrips granted, varies by trophy type)
+  - [ ] Critique creation endpoint (`CritiqueCreateView`)
+    - [ ] Positive critique: Add reputation amount: +3 (matches brushdrips cost)
+    - [ ] Negative critique: Subtract reputation amount: -3 (matches brushdrips cost)
+    - [ ] Neutral critique: No reputation change
 - [ ] Ensure atomic transactions (reputation update + brushdrips update)
+- [ ] Use `select_for_update()` to lock user row during reputation updates
 - [ ] Add validation to prevent negative reputation (or allow it?)
+- [ ] Store reputation amount changes in same transaction as brushdrips updates
 
 ### 1.4 API Endpoints
 - [ ] Create endpoint to get user reputation: `GET /api/core/users/{id}/reputation/`
@@ -136,8 +147,10 @@ Implement a reputation system where users earn or lose reputation based on inter
 
 ## Questions to Clarify
 
-1. **Reputation Loss:**
-   - How much reputation is lost for negative critique? (Equal to brushdrips lost? Fixed amount?)
+1. **Reputation Amounts:**
+   - Reputation amounts match brushdrips: praise (+1), trophies (+5/+10/+20), critiques (+3/-3)
+   - Should reputation amounts be configurable or hardcoded?
+   - Confirm: Negative critique loses 3 reputation (equal to brushdrips cost)?
 
 2. **Display:**
    - Replace brushdrips entirely with reputation, or show both?
@@ -149,8 +162,10 @@ Implement a reputation system where users earn or lose reputation based on inter
    - Should it auto-refresh?
 
 4. **Reputation Calculation:**
-   - Should reputation be recalculated if a post is deleted?
-   - Should reputation be recalculated if a critique is changed from positive to negative?
+   - Should reputation amounts be recalculated if a post is deleted?
+   - Should reputation amounts be recalculated if a critique is changed from positive to negative?
+   - If a praise/trophy/critique is deleted, should the reputation amount be reversed?
+   - How to handle reputation amount corrections if transactions are found to be invalid?
 
 5. **UI/UX:**
    - What color/style for reputation indicator? (Red dot mentioned)
@@ -198,7 +213,14 @@ frontend/src/
 
 ## Notes
 - Keep brushdrips system intact (reputation is separate/additional)
+- Reputation amounts always match brushdrips amounts for consistency
 - Ensure reputation updates are atomic with brushdrips updates
+- Use `select_for_update()` to prevent race conditions on reputation updates
 - Consider rate limiting for reputation updates to prevent abuse
-- Add logging/auditing for reputation changes (optional but recommended)
+- Add logging/auditing for reputation amount changes (optional but recommended)
+- Reputation amount calculation:
+  - Praise: +1 reputation (1 brushdrip granted)
+  - Trophy: +5/+10/+20 reputation (matches trophy brushdrip value)
+  - Positive critique: +3 reputation (3 brushdrips cost)
+  - Negative critique: -3 reputation (3 brushdrips cost)
 

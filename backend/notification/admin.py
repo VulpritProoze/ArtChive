@@ -55,6 +55,7 @@ class NotificationObjectTypeFilter(admin.SimpleListFilter):
             (NOTIFICATION_TYPES.post_critique, NOTIFICATION_TYPES.post_critique),
             (NOTIFICATION_TYPES.post_praise, NOTIFICATION_TYPES.post_praise),
             (NOTIFICATION_TYPES.post_trophy, NOTIFICATION_TYPES.post_trophy),
+            (NOTIFICATION_TYPES.gallery_comment, NOTIFICATION_TYPES.gallery_comment),
         ]
 
     def queryset(self, request, queryset):
@@ -130,6 +131,7 @@ class NotificationNotifierAdmin(ModelAdmin):
             'post_critique': NOTIFICATION_TYPES.post_critique,
             'post_praise': NOTIFICATION_TYPES.post_praise,
             'post_trophy': NOTIFICATION_TYPES.post_trophy,
+            'gallery_comment': NOTIFICATION_TYPES.gallery_comment,
         }
 
         return type_mapping.get(stored_value, obj.notification_id.notification_object_type)
@@ -163,6 +165,12 @@ class NotificationNotifierAdmin(ModelAdmin):
                 # Format: "postId"
                 url = reverse('admin:post_post_change', args=[object_id])
                 return format_html('<a href="{}">{}</a>', url, object_id)
+            elif object_type == 'gallery_comment':
+                # Format: "galleryId:commentId"
+                if ':' in object_id:
+                    gallery_id, comment_id = object_id.split(':', 1)
+                    url = reverse('admin:post_comment_change', args=[comment_id])
+                    return format_html('<a href="{}">{}</a>', url, object_id)
         except Exception:
             # If reverse fails or object doesn't exist, just return the ID
             pass

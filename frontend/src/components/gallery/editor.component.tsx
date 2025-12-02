@@ -236,6 +236,53 @@ export default function GalleryEditor() {
       // Prevent shortcuts in preview mode
       if (isPreviewMode) return;
 
+      // Check if user is editing text (issue #24 fix)
+      // Don't handle shortcuts when focus is on input/textarea elements
+      const activeElement = document.activeElement;
+      const isEditingText = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+
+      // Copy (Ctrl+C / Cmd+C)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isEditingText) {
+        e.preventDefault();
+        const count = editorState.selectedIds.length;
+        if (count > 0) {
+          editorState.copyObjects();
+          toast.success(`Copied ${count} object(s)`, 'Objects copied to clipboard');
+        }
+        return;
+      }
+
+      // Paste (Ctrl+V / Cmd+V)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isEditingText) {
+        e.preventDefault();
+        // Check if clipboard has items before pasting
+        const clipboardLength = editorState.clipboard?.length || 0;
+        if (clipboardLength > 0) {
+          editorState.pasteObjects();
+          toast.success(`Pasted ${clipboardLength} object(s)`, 'Objects pasted to canvas');
+        }
+        return;
+      }
+
+      // Duplicate (Ctrl+D / Cmd+D)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd' && !isEditingText) {
+        e.preventDefault();
+        const count = editorState.selectedIds.length;
+        if (count > 0) {
+          editorState.copyObjects();
+          editorState.pasteObjects();
+          toast.success(`Duplicated ${count} object(s)`, 'Objects duplicated on canvas');
+        }
+        return;
+      }
+
+      // Don't handle other shortcuts when editing text
+      if (isEditingText) return;
+
       // Undo/Redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -264,14 +311,14 @@ export default function GalleryEditor() {
         handleUngroup();
       }
 
-      // Toggle Select Mode with V
-      if (e.key === 'v' || e.key === 'V') {
+      // Toggle Select Mode with V (only when Ctrl is NOT pressed)
+      if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setEditorMode(prev => prev === 'select' ? 'move' : 'select');
       }
 
-      // Move Mode with M
-      if (e.key === 'm' || e.key === 'M') {
+      // Move Mode with M (only when Ctrl is NOT pressed)
+      if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setEditorMode('move');
       }

@@ -1,7 +1,9 @@
 // frontend/src/components/profile/profile-section.component.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { core } from "@lib/api";
+import { galleryService } from "@services/gallery.service";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import type { UserProfile } from "@types";
@@ -26,12 +28,53 @@ const ProfileComponent: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [hasActiveGallery, setHasActiveGallery] = useState<boolean | null>(null);
+  const [isCheckingGallery, setIsCheckingGallery] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { user, refreshUser } = useAuth();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    checkActiveGallery();
+  }, [user?.id]);
+
+  const checkActiveGallery = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsCheckingGallery(true);
+      const response = await galleryService.hasActiveGallery(user.id);
+      setHasActiveGallery(response.has_active);
+    } catch (error) {
+      console.error("Error checking active gallery:", error);
+      // If error, assume no active gallery
+      setHasActiveGallery(false);
+    } finally {
+      setIsCheckingGallery(false);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -165,6 +208,85 @@ const ProfileComponent: React.FC = () => {
             <p className="text-base-content/60 mt-1">
               Manage your account information and preferences
             </p>
+          </div>
+          {/* Three Dots Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="btn btn-circle btn-ghost"
+              aria-label="More options"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="6" cy="12" r="1.5" />
+                <circle cx="18" cy="12" r="1.5" />
+              </svg>
+            </button>
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50 overflow-hidden">
+                <div className="p-2">
+                  {user?.id && (
+                    <div
+                      title={
+                        hasActiveGallery === false
+                          ? "You don't have an active gallery yet. Publish a gallery to view it here."
+                          : undefined
+                      }
+                    >
+                      {hasActiveGallery ? (
+                        <Link
+                          to={`/gallery/${user.id}`}
+                          className="btn btn-outline btn-sm w-full justify-start gap-3 normal-case"
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span>View Published Gallery</span>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm w-full justify-start gap-3 normal-case"
+                          disabled
+                          style={{ cursor: 'not-allowed' }}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span>View Published Gallery</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
