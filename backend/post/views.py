@@ -2,15 +2,17 @@ import uuid
 from collections import deque
 from datetime import timedelta
 
+from django.contrib import admin
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import (
+    Avg,
+    Count,
     Prefetch,
     Q,
 )
 from django.shortcuts import get_object_or_404
-from django.contrib import admin
 from django.utils import timezone
 from django.views.generic import TemplateView
 from drf_spectacular.utils import (
@@ -33,6 +35,7 @@ from rest_framework.views import APIView
 from collective.models import Channel, CollectiveMember
 from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
 from common.utils.profiling import silk_profile
+from core.cache_utils import get_dashboard_cache_key
 from core.models import BrushDripTransaction, BrushDripWallet, User
 from core.permissions import IsAdminUser, IsAuthorOrSuperUser
 from notification.utils import (
@@ -1913,15 +1916,6 @@ class PostDashboardView(UserPassesTestMixin, TemplateView):
 # Admin Dashboard Statistics API Views
 # ============================================================================
 
-from django.db.models import Avg, Count
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    OpenApiResponse,
-    extend_schema,
-)
-
-from core.cache_utils import get_dashboard_cache_key
-
 
 @extend_schema(
     tags=["Dashboard"],
@@ -1935,12 +1929,12 @@ class PostCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'posts', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         now = timezone.now()
         data = {
@@ -1952,10 +1946,10 @@ class PostCountsAPIView(APIView):
             '1m': Post.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
             '1y': Post.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -1975,12 +1969,12 @@ class PostGrowthAPIView(APIView):
     def get(self, request):
         range_param = request.query_params.get('range', '1m')
         cache_key = get_dashboard_cache_key('post', 'posts', f'growth:{range_param}')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate time range
         now = timezone.now()
         if range_param == '24h':
@@ -1993,7 +1987,7 @@ class PostGrowthAPIView(APIView):
             time_range_start = now - timedelta(days=365)
         else:
             time_range_start = now - timedelta(days=30)
-        
+
         # Calculate growth data
         growth_data = []
         current_date = time_range_start
@@ -2002,12 +1996,12 @@ class PostGrowthAPIView(APIView):
             count = Post.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
             growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
             current_date = next_date
-        
+
         data = {'growth_data': growth_data}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2023,19 +2017,19 @@ class PostTypesAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'posts', 'types')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate posts by type
         posts_by_type = Post.objects.values('post_type').annotate(count=Count('post_type')).order_by('-count')
         data = {'data': [{'x': item['post_type'], 'y': item['count']} for item in posts_by_type]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2051,19 +2045,19 @@ class PostChannelsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'posts', 'channels')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate posts per channel (top 10)
         posts_per_channel = Post.objects.values('channel__title').annotate(count=Count('channel__title')).order_by('-count')[:10]
         data = {'data': [{'x': item['channel__title'] or 'No Channel', 'y': item['count']} for item in posts_per_channel]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2079,22 +2073,22 @@ class EngagementCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'engagement', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         data = {
             'total_hearts': PostHeart.objects.count(),
             'total_praises': PostPraise.objects.count(),
             'total_trophies': PostTrophy.objects.count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2110,12 +2104,12 @@ class CommentCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'comments', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         now = timezone.now()
         data = {
@@ -2127,10 +2121,10 @@ class CommentCountsAPIView(APIView):
             '1m': Comment.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
             '1y': Comment.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2150,12 +2144,12 @@ class CommentGrowthAPIView(APIView):
     def get(self, request):
         range_param = request.query_params.get('range', '1m')
         cache_key = get_dashboard_cache_key('post', 'comments', f'growth:{range_param}')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate time range
         now = timezone.now()
         if range_param == '24h':
@@ -2168,7 +2162,7 @@ class CommentGrowthAPIView(APIView):
             time_range_start = now - timedelta(days=365)
         else:
             time_range_start = now - timedelta(days=30)
-        
+
         # Calculate growth data
         growth_data = []
         current_date = time_range_start
@@ -2177,12 +2171,12 @@ class CommentGrowthAPIView(APIView):
             count = Comment.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
             growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
             current_date = next_date
-        
+
         data = {'growth_data': growth_data}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2198,19 +2192,19 @@ class CommentTypesAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'comments', 'types')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate comments by type
         comments_by_type = Comment.objects.values('is_critique_reply').annotate(count=Count('is_critique_reply')).order_by('-count')
         data = {'data': [{'x': 'Critique Reply' if item['is_critique_reply'] else 'Regular Comment', 'y': item['count']} for item in comments_by_type]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2226,12 +2220,12 @@ class CritiqueCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'critiques', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         now = timezone.now()
         data = {
@@ -2241,10 +2235,10 @@ class CritiqueCountsAPIView(APIView):
             '1m': Critique.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
             '1y': Critique.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2264,12 +2258,12 @@ class CritiqueGrowthAPIView(APIView):
     def get(self, request):
         range_param = request.query_params.get('range', '1m')
         cache_key = get_dashboard_cache_key('post', 'critiques', f'growth:{range_param}')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate time range
         now = timezone.now()
         if range_param == '24h':
@@ -2282,7 +2276,7 @@ class CritiqueGrowthAPIView(APIView):
             time_range_start = now - timedelta(days=365)
         else:
             time_range_start = now - timedelta(days=30)
-        
+
         # Calculate growth data
         growth_data = []
         current_date = time_range_start
@@ -2291,12 +2285,12 @@ class CritiqueGrowthAPIView(APIView):
             count = Critique.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
             growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
             current_date = next_date
-        
+
         data = {'growth_data': growth_data}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2312,19 +2306,19 @@ class CritiqueImpressionsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'critiques', 'impressions')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate critiques by impression
         critiques_by_impression = Critique.objects.values('impression').annotate(count=Count('impression')).order_by('-count')
         data = {'data': [{'x': item['impression'], 'y': item['count']} for item in critiques_by_impression]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -2340,24 +2334,24 @@ class NovelCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('post', 'novels', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         total_novel_posts = NovelPost.objects.count()
         average_chapters_per_novel = NovelPost.objects.values('post_id').annotate(count=Count('post_id')).aggregate(avg=Avg('count'))['avg'] or 0
-        
+
         data = {
             'total': total_novel_posts,
             'average_chapters': round(average_chapters_per_novel, 2),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 

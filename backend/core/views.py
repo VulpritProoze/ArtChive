@@ -33,7 +33,10 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from common.utils.profiling import silk_profile
 
 from .cache_utils import get_dashboard_cache_key, get_user_info_cache_key
+from .friend_request_utils import send_friend_request_update_to_both_users
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
+from notification.utils import create_notification
+from common.utils.choices import NOTIFICATION_TYPES
 from .pagination import BrushDripsTransactionPagination
 from .permissions import IsAdminUser
 from .serializers import (
@@ -1306,6 +1309,9 @@ class CreateFriendRequestView(generics.CreateAPIView):
             status='pending'
         )
 
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_relationship, 'created')
+
         # Serialize with related user info
         response_serializer = UserFellowSerializer(fellow_relationship)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -1343,6 +1349,29 @@ class AcceptFriendRequestView(APIView):
         # Update status to accepted
         fellow_request.status = 'accepted'
         fellow_request.save()
+
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_request, 'accepted')
+
+        # Create notification for the requester (user who sent the request)
+        # The requester is fellow_request.user, the accepter is fellow_request.fellow_user (current user)
+        try:
+            requester = fellow_request.user
+            accepter = fellow_request.fellow_user  # This is the current user who accepted
+            
+            message = f"{accepter.username} accepted your friend request"
+            create_notification(
+                message=message,
+                notification_object_type=NOTIFICATION_TYPES.friend_request_accepted,
+                notification_object_id=str(fellow_request.id),
+                notified_to=requester,
+                notified_by=accepter
+            )
+        except Exception as e:
+            # Log error but don't fail the friend request acceptance
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create friend request accepted notification: {e}", exc_info=True)
 
         serializer = UserFellowSerializer(fellow_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1394,6 +1423,9 @@ class CancelFriendRequestView(APIView):
                     {'error': 'Friend request not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'cancelled')
 
         # Soft delete the request
         fellow_request.delete()
@@ -1550,6 +1582,9 @@ class RejectFriendRequestView(APIView):
                     {'error': 'Friend request not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'rejected')
 
         # Soft delete the request
         fellow_request.delete()

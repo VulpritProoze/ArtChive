@@ -11,7 +11,7 @@ export interface NotificationUser {
 export interface Notification {
   notification_id: string;
   message: string;
-  notification_object_type: 'Post Comment' | 'Post Critique' | 'Post Praise' | 'Post Trophy';
+  notification_object_type: 'Post Comment' | 'Post Critique' | 'Post Praise' | 'Post Trophy' | 'Friend Request Accepted';
   notification_object_id: string;
   is_read: boolean;
   notified_at: string;

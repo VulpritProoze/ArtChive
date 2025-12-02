@@ -12,6 +12,9 @@ django_application = get_asgi_application()
 from conversation.routing import (  # noqa: E402
     websocket_urlpatterns as conversation_routes,  # noqa: E402
 )
+from core.routing import (  # noqa: E402
+    websocket_urlpatterns as friend_request_routes,  # noqa: E402
+)
 from notification.routing import (  # noqa: E402
     websocket_urlpatterns as notification_routes,  # noqa: E402
 )
@@ -21,7 +24,8 @@ application = ProtocolTypeRouter({
     "websocket": AuthMiddlewareStack(
         URLRouter(
             notification_routes +
-            conversation_routes
+            conversation_routes +
+            friend_request_routes
         )
     )
 })
