@@ -1,0 +1,156 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Gallery Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-section" data-dashboard="gallery">
+    <h2 class="dashboard-page-title">Gallery App Statistics</h2>
+    <p class="dashboard-page-subtitle">Gallery statistics and publication status</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- Gallery Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Gallery Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="galleries-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">photo_library</span>
+                </div>
+                <p class="stat-card-title">Total Galleries</p>
+                <p class="stat-card-value"><span data-value-id="galleries-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-published">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">publish</span>
+                </div>
+                <p class="stat-card-title">Published Galleries</p>
+                <p class="stat-card-value"><span data-value-id="galleries-published"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-draft">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">edit</span>
+                </div>
+                <p class="stat-card-title">Draft Galleries</p>
+                <p class="stat-card-value"><span data-value-id="galleries-draft"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-archived">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">archive</span>
+                </div>
+                <p class="stat-card-title">Archived Galleries</p>
+                <p class="stat-card-value"><span data-value-id="galleries-archived"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="galleries-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Galleries (24h)</p>
+                <p class="stat-card-value"><span data-value-id="galleries-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Galleries (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="galleries-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Galleries (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="galleries-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="galleries-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Galleries (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="galleries-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="chart-container dashboard-section-spacing" id="gallery-growth-chart-container">
+        <div class="chart-loading-spinner">
+            <div class="spinner"></div>
+            <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+        </div>
+        <div class="chart-content" style="display: none;">
+            <h4 class="dashboard-chart-title">Gallery Growth Over Time</h4>
+            <div id="gallery-growth-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Awards Section (Coming Soon) -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Awards</h3>
+    <p class="dashboard-page-subtitle">Coming soon</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadGalleryDashboardStats();
+    });
+</script>
+{% endblock %}

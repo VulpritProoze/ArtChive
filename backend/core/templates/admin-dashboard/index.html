@@ -1,0 +1,70 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="dashboard-section">
+    <h2 class="dashboard-page-title">Dashboard Overview</h2>
+    <p class="dashboard-page-subtitle">Select an app to view detailed statistics</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <!-- Core Dashboard Card -->
+    <a href="{% url 'dashboard:core-dashboard' %}" class="stat-card hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="stat-card-title">Core App</p>
+                <p class="stat-card-value">Users & Artists</p>
+                <p class="text-sm text-font-muted-light dark:text-font-muted-dark mt-2">User statistics, artist profiles, and transaction data</p>
+            </div>
+            <svg class="w-12 h-12 dashboard-icon-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+        </div>
+    </a>
+
+    <!-- Post Dashboard Card -->
+    <a href="{% url 'dashboard:post-dashboard' %}" class="stat-card hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="stat-card-title">Post App</p>
+                <p class="stat-card-value">Posts & Engagement</p>
+                <p class="text-sm text-font-muted-light dark:text-font-muted-dark mt-2">Post statistics, comments, critiques, and engagement metrics</p>
+            </div>
+            <svg class="w-12 h-12 dashboard-icon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+        </div>
+    </a>
+
+    <!-- Collective Dashboard Card -->
+    <a href="{% url 'dashboard:collective-dashboard' %}" class="stat-card hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="stat-card-title">Collective App</p>
+                <p class="stat-card-value">Collectives & Channels</p>
+                <p class="text-sm text-font-muted-light dark:text-font-muted-dark mt-2">Collective and channel statistics and growth metrics</p>
+            </div>
+            <svg class="w-12 h-12 dashboard-icon-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+        </div>
+    </a>
+
+    <!-- Gallery Dashboard Card -->
+    <a href="{% url 'dashboard:gallery-dashboard' %}" class="stat-card hover:shadow-md transition-shadow cursor-pointer">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="stat-card-title">Gallery App</p>
+                <p class="stat-card-value">Galleries</p>
+                <p class="text-sm text-font-muted-light dark:text-font-muted-dark mt-2">Gallery statistics and publication status</p>
+            </div>
+            <svg class="w-12 h-12 dashboard-icon-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+        </div>
+    </a>
+</div>
+{% endblock %}
+

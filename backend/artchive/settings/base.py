@@ -38,7 +38,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '1000/hr',
         'user': '1000/hr',
-        'login': '10/15m',
+        'login': '10/m',
         # 'register': '5/hr',
     },
 }
@@ -179,4 +179,22 @@ UNFOLD = {
     "SITE_SYMBOL": "palette",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Statistics",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Statistics Dashboard",
+                        "icon": "bar_chart",
+                        "link": "/admin/admin-dashboard/",
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                ],
+            },
+        ],
+    },
 }

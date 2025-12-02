@@ -4,8 +4,6 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from 'react-hook-form'
-import { loginErrors } from "@errors";
-import { handleApiError } from "@utils";
 import { toast } from "@utils/toast.util";
 
 export default function Login() {
@@ -36,8 +34,8 @@ export default function Login() {
       toast.success('Welcome back!', 'Successfully logged in to your account');
       navigate("/home");
     } catch (error) {
-      const errMessage = handleApiError(error, loginErrors);
-      toast.error('Login failed', errMessage);
+      // Error handling and toast are now done in auth-context.tsx
+      // Just handle navigation or other UI-specific logic here if needed
     }
   };
 
@@ -87,13 +85,13 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end mb-6">
+          {/* <div className="flex items-center justify-end mb-6">
             <div className="text-sm">
               <a href="#" className="font-medium text-primary hover:text-primary/80">
                 Forgot password?
               </a>
             </div>
-          </div>
+          </div> */}
 
           <div>
             <button
@@ -122,7 +120,7 @@ export default function Login() {
           )}
         </form>
 
-        <div className="mt-6">
+        {/* <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-base-300"></div>
@@ -147,7 +145,7 @@ export default function Login() {
               <span>CONTINUE WITH GITHUB</span>
             </button>
           </div>
-        </div>
+        </div> */}
 
         <div className="mt-6 text-center">
           <p className="text-sm text-base-content/70">

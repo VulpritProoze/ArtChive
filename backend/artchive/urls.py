@@ -13,6 +13,8 @@ from drf_spectacular.views import (
 DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
 urlpatterns = [
+    # Admin Dashboard (must be before admin.site.urls to avoid catch-all pattern)
+    path("admin/admin-dashboard/", include("core.urls_dashboard")),
     # Admin
     path("admin/", admin.site.urls),
     # App endpoints

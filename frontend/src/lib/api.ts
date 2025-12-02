@@ -189,6 +189,11 @@ instances.forEach((instance) => {
   // Response interceptor - automatic token refresh
   instance.interceptors.response.use(
     (response: AxiosResponse) => {
+      // Explicitly handle 204 No Content responses
+      if (response.status === 204) {
+        // 204 has no body, but we still return the response object
+        return response;
+      }
       return response;
     },
     createResponseInterceptor(instance)

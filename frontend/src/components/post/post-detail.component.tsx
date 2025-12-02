@@ -204,7 +204,7 @@ export default function PostDetail() {
         >
           ← Back
         </button>
-        <PostCard postItem={enrichedPost!} highlightedItemId={highlightedItemId} />
+        <PostCard postItem={enrichedPost!} highlightedItemId={highlightedItemId} isDetailView={true} />
       </div>
       <PostDetailModals />
     </MainLayout>

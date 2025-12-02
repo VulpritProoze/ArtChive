@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
-import { useNotifications } from '@context/notification-context';
+import { useNotifications } from '@context/realtime-context';
 import type { Notification } from '@types';
 
 // Helper function to format time ago
@@ -87,6 +87,10 @@ export default function NotificationDropdown() {
         return `/post/${objectId}`;
       case 'Post Trophy':
         return `/post/${objectId}`;
+      case 'Friend Request Accepted':
+        // objectId is the friend request ID, but we want to go to the user's profile
+        // For now, navigate to fellows requests page
+        return '/fellows/requests';
       default:
         return '/notifications';
     }
@@ -102,6 +106,8 @@ export default function NotificationDropdown() {
         return '👏';
       case 'Post Trophy':
         return '🏆';
+      case 'Friend Request Accepted':
+        return '👥';
       default:
         return '🔔';
     }

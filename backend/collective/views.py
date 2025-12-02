@@ -1,9 +1,14 @@
 import uuid
+from datetime import timedelta
 
+from django.contrib import admin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -24,6 +29,7 @@ from rest_framework.views import APIView
 
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from common.utils.file_utils import rename_image_file
+from core.cache_utils import get_dashboard_cache_key
 from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
@@ -255,7 +261,7 @@ class InsideCollectiveView(RetrieveAPIView):
             Prefetch(
                 'collective_channel',
                 queryset=Channel.objects.annotate(
-                    posts_count=Count('post', distinct=True)
+                    posts_count=Count('post', filter=Q(post__is_deleted=False), distinct=True)
                 )
             ),
             'collective_member',
@@ -307,6 +313,10 @@ class JoinCollectiveView(APIView):
         serializer.is_valid(raise_exception=True)
         member = serializer.save()
         username = request.user.username
+        
+        # Invalidate user calculations (collective membership changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(request.user.id)
 
         return Response({
             'message': f'{username} has successfully joined this collective',
@@ -408,6 +418,10 @@ class LeaveCollectiveView(APIView):
             member=request.user,
             collective_id=collective.collective_id
         ).delete()
+        
+        # Invalidate user calculations (collective membership changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(request.user.id)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -737,3 +751,289 @@ class CollectiveSearchView(ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
+    """Collective app dashboard with collective and channel statistics"""
+    template_name = 'collective/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Only return minimal context - statistics will be loaded via API
+        context.update({
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collective counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Collective counts data")},
+)
+class CollectiveCountsAPIView(APIView):
+    """API endpoint for collective counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'collectives', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Collective.objects.count(),
+            '24h': Collective.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Collective.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Collective.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Collective.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collective growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Collective growth data")},
+)
+class CollectiveGrowthAPIView(APIView):
+    """API endpoint for collective growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('collective', 'collectives', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Collective.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get collectives by artist type (heavy computation)",
+    responses={200: OpenApiResponse(description="Collectives by artist type data")},
+)
+class CollectiveTypesAPIView(APIView):
+    """API endpoint for collectives by artist type (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'collectives', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate collectives by artist type
+        collective_artist_type_counts = {}
+        collectives = Collective.objects.all()
+        for collective in collectives:
+            for artist_type in collective.artist_types:
+                collective_artist_type_counts[artist_type] = collective_artist_type_counts.get(artist_type, 0) + 1
+
+        data = {'data': [{'x': k, 'y': v} for k, v in collective_artist_type_counts.items()]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channel counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Channel counts data")},
+)
+class ChannelCountsAPIView(APIView):
+    """API endpoint for channel counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'channels', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Channel.objects.count(),
+            '24h': Channel.objects.filter(created_at__gte=now - timedelta(hours=24)).count(),
+            '1w': Channel.objects.filter(created_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': Channel.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
+            '1y': Channel.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channel growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Channel growth data")},
+)
+class ChannelGrowthAPIView(APIView):
+    """API endpoint for channel growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('collective', 'channels', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Channel.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get channels per collective (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Channels per collective data")},
+)
+class ChannelsPerCollectiveAPIView(APIView):
+    """API endpoint for channels per collective (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('collective', 'channels', 'per-collective')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate channels per collective
+        channels_per_collective = Channel.objects.values('collective__title').annotate(count=Count('collective__title')).order_by('-count')
+        data = {'data': [{'x': item['collective__title'] or 'No Collective', 'y': item['count']} for item in channels_per_collective]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+

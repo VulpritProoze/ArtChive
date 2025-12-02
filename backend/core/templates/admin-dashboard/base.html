@@ -1,0 +1,162 @@
+{% load static unfold %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Statistics Dashboard{% endblock %} - Artchive Admin</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon/favicon.ico' %}">
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon/favicon.ico' %}">
+    
+    <!-- Unfold CSS -->
+    <link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/fonts/material-symbols/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/css/styles.css' %}" rel="stylesheet">
+    <link href="{% static 'unfold/css/simplebar/simplebar.css' %}" rel="stylesheet">
+    
+    <!-- Unfold Alpine.js -->
+    <script src="{% static 'unfold/js/alpine/alpine.anchor.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.persist.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.sort.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.resize.js' %}" defer></script>
+    <script src="{% static 'unfold/js/alpine/alpine.js' %}" defer></script>
+    
+    <!-- Unfold app.js - Commented out to avoid conflict with our manual theme manager -->
+    <!-- <script src="{% static 'unfold/js/app.js' %}"></script> -->
+
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'admin-dashboard/dashboard.css' %}">
+    
+    <!-- Inject Unfold theme colors (same as Unfold's skeleton template) -->
+    {% if colors %}
+        <style id="unfold-theme-colors">
+            :root {
+                {% if border_radius %}
+                    --border-radius: {{ border_radius }};
+                {% endif %}
+
+                {% for name, weights in colors.items %}
+                    {% for weight, value in weights.items %}
+                        --color-{{ name }}-{{ weight }}: {{ value }};
+                    {% endfor %}
+                {% endfor %}
+            }
+        </style>
+    {% endif %}
+    
+    <!-- Inline script to apply theme immediately (prevents FOUC) -->
+    <script>
+        (function() {
+            // Get theme from localStorage (matching $persist behavior - JSON format)
+            function getTheme() {
+                try {
+                    const stored = localStorage.getItem('adminTheme');
+                    if (!stored) return 'auto';
+                    // Try to parse as JSON (Alpine.js persist format)
+                    try {
+                        return JSON.parse(stored);
+                    } catch (e) {
+                        // If not JSON, treat as plain string (backward compatibility)
+                        return stored;
+                    }
+                } catch (e) {
+                    return 'auto';
+                }
+            }
+            
+            // Apply theme immediately
+            const theme = getTheme();
+            const html = document.documentElement;
+            const body = document.body;
+            
+            let shouldBeDark = false;
+            if (theme === 'dark') {
+                shouldBeDark = true;
+            } else if (theme === 'light') {
+                shouldBeDark = false;
+            } else {
+                // 'auto' mode - check system preference
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    shouldBeDark = true;
+                }
+            }
+            
+            if (shouldBeDark) {
+                html.classList.add('dark');
+                if (body) body.classList.add('dark');
+            } else {
+                html.classList.remove('dark');
+                if (body) body.classList.remove('dark');
+            }
+        })();
+    </script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="dashboard-body" id="dashboard-body">
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="dashboard-header-container">
+                <div class="dashboard-header-content">
+                    <div class="dashboard-header-left">
+                        <img src="{% static 'favicon/favicon.ico' %}" alt="Artchive Logo" class="dashboard-logo">
+                        <h1 class="dashboard-header-title">Admin Statistics</h1>
+                        <nav class="dashboard-nav">
+                            <a href="{% url 'dashboard:dashboard-index' %}" class="dashboard-nav-link {% if request.resolver_match.url_name == 'dashboard-index' %}active{% endif %}">Overview</a>
+                            <a href="{% url 'dashboard:core-dashboard' %}" class="dashboard-nav-link {% if request.resolver_match.url_name == 'core-dashboard' %}active{% endif %}">Core</a>
+                            <a href="{% url 'dashboard:post-dashboard' %}" class="dashboard-nav-link {% if request.resolver_match.url_name == 'post-dashboard' %}active{% endif %}">Post</a>
+                            <a href="{% url 'dashboard:collective-dashboard' %}" class="dashboard-nav-link {% if request.resolver_match.url_name == 'collective-dashboard' %}active{% endif %}">Collective</a>
+                            <a href="{% url 'dashboard:gallery-dashboard' %}" class="dashboard-nav-link {% if request.resolver_match.url_name == 'gallery-dashboard' %}active{% endif %}">Gallery</a>
+                        </nav>
+                    </div>
+                    <div class="dashboard-header-right">
+                        <a href="/admin/" class="dashboard-back-link">Back to Admin</a>
+                        <button id="theme-toggle-btn" class="dashboard-theme-toggle">
+                            <svg id="theme-icon-dark" 
+                                 style="display: none;" 
+                                 class="dashboard-theme-icon" 
+                                 fill="currentColor" 
+                                 viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                            </svg>
+                            <svg id="theme-icon-light" 
+                                 style="display: none;" 
+                                 class="dashboard-theme-icon" 
+                                 fill="currentColor" 
+                                 viewBox="0 0 20 20">
+                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                            </svg>
+                            <svg id="theme-icon-system" 
+                                 style="display: block;" 
+                                 class="dashboard-theme-icon" 
+                                 fill="none" 
+                                 stroke="currentColor" 
+                                 viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="{% static 'admin-dashboard/dashboard.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
+

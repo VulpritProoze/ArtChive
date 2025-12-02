@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '@context/auth-context'
-import { LoadingSpinner } from '@components/loading-spinner'
+import { ArtChiveLoadingSpinner } from '@components/loading-spinner'
 import { useEffect } from 'react'
 
 export default function ProtectedRoute() {
@@ -14,7 +14,7 @@ export default function ProtectedRoute() {
     // Show loading spinner while auth is being initialized or is actively loading
     // This prevents premature redirect before the auth check completes
     if (!initialized) {
-        return <LoadingSpinner text={"Loading..."} />
+        return <ArtChiveLoadingSpinner text={"Loading..."} />
     }
 
     // If user is authenticated, render the protected content

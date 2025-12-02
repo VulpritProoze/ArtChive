@@ -50,3 +50,24 @@ export const useSearchFellows = (params: FellowSearchParams) => {
   });
 };
 
+/**
+ * Hook to check friend request status between current user and another user (lightweight)
+ */
+export const useCheckFriendRequestStatus = (userId: number | undefined) => {
+  return useQuery<{
+    has_pending_sent: boolean;
+    has_pending_received: boolean;
+    is_friends: boolean;
+    request_id: number | null;
+    relationship_id: number | null;
+  }>({
+    queryKey: ['friend-request-status', userId],
+    queryFn: () => {
+      if (!userId) throw new Error('User ID is required');
+      return userService.checkFriendRequestStatus(userId);
+    },
+    enabled: Boolean(userId),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+

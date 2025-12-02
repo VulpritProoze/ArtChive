@@ -27,16 +27,22 @@ export default function PendingFriendRequestsPage() {
   ) || [];
 
   const handleAccept = async (requestId: number) => {
-    // Find the request to get the requester's name
+    // Find the request to get the requester's name and user ID
     const request = receivedRequests.find(r => r.id === requestId);
     const requesterName = request?.user_info?.fullname || request?.user_info?.username || 'this user';
+    const requesterUserId = request?.user;
     
     if (!window.confirm(`Are you sure you want to accept the friend request from ${requesterName}?`)) {
       return;
     }
     
+    if (!requesterUserId) {
+      console.error('Could not find requester user ID for request:', requestId);
+      return;
+    }
+    
     try {
-      await acceptRequest(requestId);
+      await acceptRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -44,7 +50,14 @@ export default function PendingFriendRequestsPage() {
 
   const handleReject = async (requestId: number) => {
     try {
-      await rejectRequest(requestId);
+      // Find the request to get the requester's user ID
+      const request = receivedRequests.find(r => r.id === requestId);
+      const requesterUserId = request?.user;
+      if (!requesterUserId) {
+        console.error('Could not find requester user ID for request:', requestId);
+        return;
+      }
+      await rejectRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -125,7 +138,7 @@ export default function PendingFriendRequestsPage() {
                         >
                           <div className="flex items-center justify-between gap-3">
                             <Link
-                              to={`/profile/${requester.username}`}
+                              to={`/profile/@${requester.username}`}  // DO NOT MODIFY THE '@'!!!!!!
                               className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity min-w-0"
                             >
                               <div className="avatar">

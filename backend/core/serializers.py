@@ -127,12 +127,30 @@ class LoginSerializer(Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(**data)
+        email = data.get('email')
+        password = data.get('password')
 
-        if user and user.is_active:
-            return user
+        # Check if user exists by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError('This user does not exist. Are you sure you logged in with the right email?') from None
 
-        raise serializers.ValidationError('Incorrect credentials')
+        # Check if user account is deleted
+        if user.is_deleted:
+            raise serializers.ValidationError('User account deleted. Please contact staff')
+
+        # Authenticate user with password
+        authenticated_user = authenticate(username=email, password=password)
+
+        if not authenticated_user:
+            raise serializers.ValidationError('Your password is incorrect. Please try again.')
+
+        # Check if user is active
+        if not authenticated_user.is_active:
+            raise serializers.ValidationError('Account is inactive. Please contact staff')
+
+        return authenticated_user
 
 class RegistrationSerializer(ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -185,6 +203,16 @@ class ProfileViewUpdateSerializer(ModelSerializer):
     profilePicture = serializers.ImageField(source='profile_picture',required=False, validators=[FileExtensionValidator(allowed_extensions=[
         'jpg', 'jpeg', 'png', 'gif'
     ])])
+
+    def validate_profilePicture(self, value):
+        """Process profile picture: resize and compress."""
+        if value:
+            from common.utils.image_processing import process_profile_picture
+            try:
+                return process_profile_picture(value)
+            except Exception as e:
+                raise serializers.ValidationError(f"Failed to process image: {str(e)}")
+        return value
 
     class Meta:
         model = User
@@ -452,12 +480,12 @@ class UserFellowSerializer(ModelSerializer):
     """Serializer for UserFellow relationships"""
     user_info = UserSummarySerializer(source='user', read_only=True)
     fellow_user_info = UserSummarySerializer(source='fellow_user', read_only=True)
-    
+
     class Meta:
         model = UserFellow
-        fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info', 
+        fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info',
                   'status', 'fellowed_at']
-        read_only_fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info', 
+        read_only_fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info',
                            'status', 'fellowed_at']
 
 
@@ -486,7 +514,7 @@ class UserSearchSerializer(ModelSerializer):
 class CreateFriendRequestSerializer(serializers.Serializer):
     """Serializer for creating a friend request"""
     fellow_user_id = serializers.IntegerField(required=True)
-    
+
     def validate_fellow_user_id(self, value):
         """Validate that user is not trying to friend themselves"""
         if value == self.context['request'].user.id:
