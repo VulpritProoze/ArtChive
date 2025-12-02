@@ -157,14 +157,12 @@ class PostListView(generics.ListAPIView):
                 Post.objects.get_active_objects()
                 .prefetch_related(
                     "novel_post",  # Keep - needed for novel posts
-                    Prefetch(
-                        "channel",
-                        queryset=Channel.objects.only("channel_id", "title", "collective_id")
-                    ),  # Only fetch fields we actually use
                 )
                 .select_related(
                     "author",
                     "author__artist",  # Fetch artist info for post author
+                    "channel",
+                    "channel__collective",  # Fetch collective info for collective indicator
                 )
                 .only(
                     # Only fetch fields used by PostListViewSerializer

@@ -1,12 +1,12 @@
 import uuid
 from datetime import timedelta
 
+from django.contrib import admin
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
-from django.contrib import admin
 from django.utils import timezone
 from django.views.generic import TemplateView
 from drf_spectacular.utils import (
@@ -29,8 +29,8 @@ from rest_framework.views import APIView
 
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
 from common.utils.file_utils import rename_image_file
-from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from core.cache_utils import get_dashboard_cache_key
+from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
 from .cache_utils import get_collective_memberships_cache_key
@@ -261,7 +261,7 @@ class InsideCollectiveView(RetrieveAPIView):
             Prefetch(
                 'collective_channel',
                 queryset=Channel.objects.annotate(
-                    posts_count=Count('post', distinct=True)
+                    posts_count=Count('post', filter=Q(post__is_deleted=False), distinct=True)
                 )
             ),
             'collective_member',
@@ -789,7 +789,6 @@ class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
 # Admin Dashboard Statistics API Views
 # ============================================================================
 
-from django.db.models import Count
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -809,12 +808,12 @@ class CollectiveCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('collective', 'collectives', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         now = timezone.now()
         data = {
@@ -824,10 +823,10 @@ class CollectiveCountsAPIView(APIView):
             '1m': Collective.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
             '1y': Collective.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -847,12 +846,12 @@ class CollectiveGrowthAPIView(APIView):
     def get(self, request):
         range_param = request.query_params.get('range', '1m')
         cache_key = get_dashboard_cache_key('collective', 'collectives', f'growth:{range_param}')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate time range
         now = timezone.now()
         if range_param == '24h':
@@ -865,7 +864,7 @@ class CollectiveGrowthAPIView(APIView):
             time_range_start = now - timedelta(days=365)
         else:
             time_range_start = now - timedelta(days=30)
-        
+
         # Calculate growth data
         growth_data = []
         current_date = time_range_start
@@ -874,12 +873,12 @@ class CollectiveGrowthAPIView(APIView):
             count = Collective.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
             growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
             current_date = next_date
-        
+
         data = {'growth_data': growth_data}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -895,24 +894,24 @@ class CollectiveTypesAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('collective', 'collectives', 'types')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate collectives by artist type
         collective_artist_type_counts = {}
         collectives = Collective.objects.all()
         for collective in collectives:
             for artist_type in collective.artist_types:
                 collective_artist_type_counts[artist_type] = collective_artist_type_counts.get(artist_type, 0) + 1
-        
+
         data = {'data': [{'x': k, 'y': v} for k, v in collective_artist_type_counts.items()]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -928,12 +927,12 @@ class ChannelCountsAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('collective', 'channels', 'counts')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate statistics
         now = timezone.now()
         data = {
@@ -943,10 +942,10 @@ class ChannelCountsAPIView(APIView):
             '1m': Channel.objects.filter(created_at__gte=now - timedelta(days=30)).count(),
             '1y': Channel.objects.filter(created_at__gte=now - timedelta(days=365)).count(),
         }
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -966,12 +965,12 @@ class ChannelGrowthAPIView(APIView):
     def get(self, request):
         range_param = request.query_params.get('range', '1m')
         cache_key = get_dashboard_cache_key('collective', 'channels', f'growth:{range_param}')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate time range
         now = timezone.now()
         if range_param == '24h':
@@ -984,7 +983,7 @@ class ChannelGrowthAPIView(APIView):
             time_range_start = now - timedelta(days=365)
         else:
             time_range_start = now - timedelta(days=30)
-        
+
         # Calculate growth data
         growth_data = []
         current_date = time_range_start
@@ -993,12 +992,12 @@ class ChannelGrowthAPIView(APIView):
             count = Channel.objects.filter(created_at__gte=current_date, created_at__lt=next_date).count()
             growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
             current_date = next_date
-        
+
         data = {'growth_data': growth_data}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 
@@ -1014,19 +1013,19 @@ class ChannelsPerCollectiveAPIView(APIView):
 
     def get(self, request):
         cache_key = get_dashboard_cache_key('collective', 'channels', 'per-collective')
-        
+
         # Try cache first
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
-        
+
         # Calculate channels per collective
         channels_per_collective = Channel.objects.values('collective__title').annotate(count=Count('collective__title')).order_by('-count')
         data = {'data': [{'x': item['collective__title'] or 'No Collective', 'y': item['count']} for item in channels_per_collective]}
-        
+
         # Cache for 5 minutes
         cache.set(cache_key, data, 300)
-        
+
         return Response(data)
 
 

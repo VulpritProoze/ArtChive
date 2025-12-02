@@ -29,6 +29,9 @@ export interface Post {
   author_artist_types?: string[];
   author_picture?: string;
   collective: string;
+  collective_id?: string | null;
+  collective_title?: string | null;
+  channel_name?: string;
   novel_post?: NovelPost[];
   comments?: Comment[];
   comment_count?: number; // Optional - fetched via bulk-meta endpoint
