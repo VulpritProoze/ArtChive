@@ -66,35 +66,26 @@ const AvatarListPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              My Avatars
-            </h1>
-            <p className="text-base-content/60 mt-2">
-              Create and manage your custom avatars
-            </p>
-          </div>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Simple Header */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">My Avatars</h1>
           <button
             onClick={handleCreateNew}
             className="btn btn-primary gap-2"
           >
             <FontAwesomeIcon icon={faPlus} />
-            Create New Avatar
+            Create Avatar
           </button>
         </div>
 
         {/* Empty State */}
-        {avatars && avatars.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="text-8xl mb-4">🎨</div>
-            <h3 className="text-2xl font-bold text-base-content mb-2">
-              No Avatars Yet
-            </h3>
-            <p className="text-base-content/60 text-center max-w-md mb-6">
-              Create your first custom avatar using our canvas editor!
+        {!avatars || avatars.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🎨</div>
+            <h3 className="text-2xl font-bold mb-2">No avatars yet</h3>
+            <p className="text-base-content/60 mb-6">
+              Create your first avatar to get started
             </p>
             <button
               onClick={handleCreateNew}
@@ -104,141 +95,121 @@ const AvatarListPage: React.FC = () => {
               Create Your First Avatar
             </button>
           </div>
-        )}
-
-        {/* Avatar Grid */}
-        {avatars && avatars.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {avatars.map((avatar: Avatar) => (
-              <div
-                key={avatar.avatar_id}
-                className={`card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 ${
-                  avatar.is_primary ? 'ring-2 ring-primary' : ''
-                }`}
-              >
-                {/* Avatar Image */}
-                <figure className="bg-base-300 h-64 relative">
-                  {avatar.rendered_image ? (
-                    <img
-                      src={avatar.rendered_image}
-                      alt={avatar.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center w-full h-full text-base-content/30">
-                      <div className="text-center">
-                        <div className="text-6xl mb-2">🎭</div>
-                        <p className="text-sm">No Preview</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Primary Badge */}
-                  {avatar.is_primary && (
-                    <div className="absolute top-2 left-2 badge badge-primary gap-1">
-                      <FontAwesomeIcon icon={faStar} className="text-xs" />
-                      Primary
-                    </div>
-                  )}
-
-                  {/* Status Badge */}
-                  <div className={`absolute top-2 right-2 badge ${
-                    avatar.status === 'active' ? 'badge-success' :
-                    avatar.status === 'draft' ? 'badge-warning' :
-                    'badge-ghost'
-                  }`}>
-                    {avatar.status}
-                  </div>
-                </figure>
-
-                {/* Card Body */}
-                <div className="card-body">
-                  <h2 className="card-title text-lg">
-                    {avatar.name}
-                    {avatar.is_primary && (
-                      <FontAwesomeIcon icon={faStar} className="text-primary text-sm" />
-                    )}
-                  </h2>
-                  
-                  {avatar.description && (
-                    <p className="text-sm text-base-content/70 line-clamp-2">
-                      {avatar.description}
-                    </p>
-                  )}
-
-                  <div className="card-actions justify-between items-center mt-4">
-                    {/* Edit Button */}
-                    <button
-                      onClick={() => handleEdit(avatar.avatar_id)}
-                      className="btn btn-sm btn-primary"
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                      Edit
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    <div className="dropdown dropdown-end">
-                      <button
-                        tabIndex={0}
-                        className="btn btn-sm btn-ghost btn-circle"
-                        onClick={() => setOpenDropdown(
-                          openDropdown === avatar.avatar_id ? null : avatar.avatar_id
-                        )}
-                      >
-                        <FontAwesomeIcon icon={faEllipsisV} />
-                      </button>
-                      {openDropdown === avatar.avatar_id && (
-                        <ul
-                          tabIndex={0}
-                          className="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 z-10"
-                        >
-                          {!avatar.is_primary && (
-                            <li>
-                              <button
-                                onClick={() => {
-                                  handleSetPrimary(avatar.avatar_id);
-                                  setOpenDropdown(null);
-                                }}
-                                disabled={isSettingPrimary}
-                              >
-                                <FontAwesomeIcon icon={faStar} />
-                                Set as Primary
-                              </button>
-                            </li>
-                          )}
-                          <li>
-                            <button
-                              onClick={() => {
-                                handleDuplicate(avatar.avatar_id);
-                                setOpenDropdown(null);
-                              }}
-                              disabled={isDuplicating}
-                            >
-                              <FontAwesomeIcon icon={faCopy} />
-                              Duplicate
-                            </button>
-                          </li>
-                          <li>
-                            <button
-                              onClick={() => {
-                                handleDelete(avatar.avatar_id, avatar.name);
-                                setOpenDropdown(null);
-                              }}
-                              disabled={isDeleting}
-                              className="text-error"
-                            >
-                              <FontAwesomeIcon icon={faTrash} />
-                              Delete
-                            </button>
-                          </li>
-                        </ul>
-                      )}
-                    </div>
-                  </div>
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="stats shadow mb-6 border border-base-300">
+              <div className="stat">
+                <div className="stat-title">Total Avatars</div>
+                <div className="stat-value text-primary">{avatars.length}</div>
+              </div>
+              <div className="stat">
+                <div className="stat-title">Active</div>
+                <div className="stat-value text-secondary">
+                  {avatars.filter((a) => a.status === 'active').length}
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="stat">
+                <div className="stat-title">Drafts</div>
+                <div className="stat-value text-accent">
+                  {avatars.filter((a) => a.status === 'draft').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Avatar Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {avatars.map((avatar) => (
+                <div
+                  key={avatar.avatar_id}
+                  className="card bg-base-200 border border-base-300 hover:border-primary transition-all"
+                >
+                  <figure className="px-6 pt-6">
+                    <img
+                      src={avatar.thumbnail || avatar.rendered_image || '/placeholder-avatar.png'}
+                      alt={avatar.name}
+                      className="rounded-lg w-full h-48 object-cover"
+                    />
+                  </figure>
+                  <div className="card-body p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="card-title text-base truncate">
+                          {avatar.name}
+                          {avatar.is_primary && (
+                            <div className="badge badge-primary badge-sm gap-1">
+                              <FontAwesomeIcon icon={faStar} />
+                            </div>
+                          )}
+                        </h2>
+                        <div className="badge badge-sm badge-ghost mt-1">{avatar.status}</div>
+                      </div>
+                      
+                      {/* Dropdown Menu */}
+                      <div className="dropdown dropdown-end">
+                        <label
+                          tabIndex={0}
+                          className="btn btn-ghost btn-sm btn-circle"
+                          onClick={() => setOpenDropdown(openDropdown === avatar.avatar_id ? null : avatar.avatar_id)}
+                        >
+                          <FontAwesomeIcon icon={faEllipsisV} />
+                        </label>
+                        {openDropdown === avatar.avatar_id && (
+                          <ul
+                            tabIndex={0}
+                            className="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 z-10"
+                          >
+                            <li>
+                              <button onClick={() => handleEdit(avatar.avatar_id)}>
+                                <FontAwesomeIcon icon={faEdit} />
+                                Edit
+                              </button>
+                            </li>
+                            {!avatar.is_primary && (
+                              <li>
+                                <button
+                                  onClick={() => handleSetPrimary(avatar.avatar_id)}
+                                  disabled={isSettingPrimary}
+                                >
+                                  <FontAwesomeIcon icon={faStar} />
+                                  Set as Primary
+                                </button>
+                              </li>
+                            )}
+                            <li>
+                              <button
+                                onClick={() => handleDuplicate(avatar.avatar_id)}
+                                disabled={isDuplicating}
+                              >
+                                <FontAwesomeIcon icon={faCopy} />
+                                Duplicate
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                onClick={() => handleDelete(avatar.avatar_id, avatar.name)}
+                                disabled={isDeleting}
+                                className="text-error"
+                              >
+                                <FontAwesomeIcon icon={faTrash} />
+                                Delete
+                              </button>
+                            </li>
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {avatar.description && (
+                      <p className="text-sm text-base-content/60 line-clamp-2 mt-2">
+                        {avatar.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </MainLayout>
@@ -246,4 +217,3 @@ const AvatarListPage: React.FC = () => {
 };
 
 export default AvatarListPage;
-

@@ -1,0 +1,200 @@
+[
+  {
+    "model": "avatar.avatar",
+    "pk": "00000000-0000-0000-0000-000000000001",
+    "fields": {
+      "user": 1,
+      "name": "Default Avatar - Simple Face",
+      "description": "A simple, friendly face avatar",
+      "status": "active",
+      "is_primary": false,
+      "canvas_json": {
+        "width": 512,
+        "height": 512,
+        "background": "#E8F4F8",
+        "objects": [
+          {
+            "id": "face",
+            "type": "circle",
+            "x": 256,
+            "y": 256,
+            "radius": 180,
+            "fill": "#FFD4A3",
+            "stroke": "#8B4513",
+            "strokeWidth": 3,
+            "name": "Face"
+          },
+          {
+            "id": "left-eye",
+            "type": "circle",
+            "x": 206,
+            "y": 230,
+            "radius": 15,
+            "fill": "#2C1810",
+            "name": "Left Eye"
+          },
+          {
+            "id": "right-eye",
+            "type": "circle",
+            "x": 306,
+            "y": 230,
+            "radius": 15,
+            "fill": "#2C1810",
+            "name": "Right Eye"
+          },
+          {
+            "id": "mouth",
+            "type": "line",
+            "points": [220, 300, 256, 320, 292, 300],
+            "stroke": "#8B4513",
+            "strokeWidth": 4,
+            "name": "Smile"
+          }
+        ]
+      },
+      "is_deleted": false
+    }
+  },
+  {
+    "model": "avatar.avatar",
+    "pk": "00000000-0000-0000-0000-000000000002",
+    "fields": {
+      "user": 1,
+      "name": "Default Avatar - Artist",
+      "description": "Avatar for creative artists",
+      "status": "active",
+      "is_primary": false,
+      "canvas_json": {
+        "width": 512,
+        "height": 512,
+        "background": "#F0E6FA",
+        "objects": [
+          {
+            "id": "base",
+            "type": "circle",
+            "x": 256,
+            "y": 256,
+            "radius": 180,
+            "fill": "#FFE4B5",
+            "stroke": "#8B4513",
+            "strokeWidth": 2,
+            "name": "Base"
+          },
+          {
+            "id": "hair",
+            "type": "circle",
+            "x": 256,
+            "y": 180,
+            "radius": 120,
+            "fill": "#4B3621",
+            "name": "Hair"
+          },
+          {
+            "id": "glasses",
+            "type": "rect",
+            "x": 180,
+            "y": 220,
+            "width": 152,
+            "height": 60,
+            "fill": "transparent",
+            "stroke": "#000000",
+            "strokeWidth": 4,
+            "name": "Glasses Frame"
+          },
+          {
+            "id": "left-lens",
+            "type": "circle",
+            "x": 220,
+            "y": 250,
+            "radius": 25,
+            "fill": "#E0F7FF",
+            "stroke": "#000000",
+            "strokeWidth": 3,
+            "name": "Left Lens"
+          },
+          {
+            "id": "right-lens",
+            "type": "circle",
+            "x": 292,
+            "y": 250,
+            "radius": 25,
+            "fill": "#E0F7FF",
+            "stroke": "#000000",
+            "strokeWidth": 3,
+            "name": "Right Lens"
+          },
+          {
+            "id": "mouth",
+            "type": "line",
+            "points": [226, 310, 286, 310],
+            "stroke": "#8B4513",
+            "strokeWidth": 3,
+            "name": "Mouth"
+          }
+        ]
+      },
+      "is_deleted": false
+    }
+  },
+  {
+    "model": "avatar.avatar",
+    "pk": "00000000-0000-0000-0000-000000000003",
+    "fields": {
+      "user": 1,
+      "name": "Default Avatar - Cool",
+      "description": "A cool and modern avatar",
+      "status": "active",
+      "is_primary": false,
+      "canvas_json": {
+        "width": 512,
+        "height": 512,
+        "background": "#FFE5B4",
+        "objects": [
+          {
+            "id": "head",
+            "type": "circle",
+            "x": 256,
+            "y": 256,
+            "radius": 180,
+            "fill": "#F4C2A0",
+            "stroke": "#8B6F47",
+            "strokeWidth": 2,
+            "name": "Head"
+          },
+          {
+            "id": "sunglasses",
+            "type": "rect",
+            "x": 170,
+            "y": 220,
+            "width": 172,
+            "height": 50,
+            "fill": "#1A1A1A",
+            "stroke": "#000000",
+            "strokeWidth": 3,
+            "name": "Sunglasses"
+          },
+          {
+            "id": "sunglasses-bridge",
+            "type": "rect",
+            "x": 246,
+            "y": 235,
+            "width": 20,
+            "height": 20,
+            "fill": "#1A1A1A",
+            "name": "Bridge"
+          },
+          {
+            "id": "smile",
+            "type": "line",
+            "points": [220, 310, 256, 330, 292, 310],
+            "stroke": "#8B6F47",
+            "strokeWidth": 4,
+            "name": "Smile"
+          }
+        ]
+      },
+      "is_deleted": false
+    }
+  }
+]
+

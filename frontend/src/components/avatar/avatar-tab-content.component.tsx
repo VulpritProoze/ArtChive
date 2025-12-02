@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAvatars } from '@hooks/queries/use-avatar';
 import { Avatar } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import AvatarPreview from './avatar-preview.component';
 
 interface AvatarTabContentProps {
   userId?: number;
@@ -78,45 +79,16 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
         </div>
       )}
 
-      {/* Avatar Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* Avatar Grid - Circular Preview Style */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
         {avatars.map((avatar: Avatar) => (
-          <div
+          <AvatarPreview
             key={avatar.avatar_id}
-            className={`card bg-base-200 shadow-xl hover:shadow-2xl transition-all cursor-pointer ${
-              avatar.is_primary ? 'ring-2 ring-primary' : ''
-            }`}
+            avatar={avatar}
+            size="lg"
             onClick={() => isOwnProfile && navigate(`/avatar/${avatar.avatar_id}/edit`)}
-          >
-            {/* Avatar Image */}
-            <figure className="bg-base-300 h-48 relative">
-              {avatar.rendered_image ? (
-                <img
-                  src={avatar.rendered_image}
-                  alt={avatar.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center w-full h-full text-base-content/30">
-                  <div className="text-6xl">🎭</div>
-                </div>
-              )}
-              
-              {/* Primary Badge */}
-              {avatar.is_primary && (
-                <div className="absolute top-2 left-2 badge badge-primary badge-sm gap-1">
-                  <FontAwesomeIcon icon={faStar} className="text-xs" />
-                  Primary
-                </div>
-              )}
-            </figure>
-
-            {/* Card Body */}
-            <div className="card-body p-4">
-              <h3 className="font-semibold text-sm truncate">{avatar.name}</h3>
-              <div className="badge badge-sm badge-ghost">{avatar.status}</div>
-            </div>
-          </div>
+            showPrimaryBadge={true}
+          />
         ))}
       </div>
     </div>
