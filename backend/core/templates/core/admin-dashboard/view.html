@@ -1,0 +1,354 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Core Dashboard{% endblock %}
+
+{% block content %}
+<div data-dashboard="core" class="dashboard-section">
+    <h2 class="dashboard-page-title">Core App Statistics</h2>
+    <p class="dashboard-page-subtitle">User, artist, and transaction statistics</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- User Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">User Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="users-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">people</span>
+                </div>
+                <p class="stat-card-title">Total Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="users-active">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_check</span>
+                </div>
+                <p class="stat-card-title">Active Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="users-inactive">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_off</span>
+                </div>
+                <p class="stat-card-title">Inactive Users</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="users-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="users-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="users-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="users-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">person_add</span>
+                </div>
+                <p class="stat-card-title">New Users (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="chart-container" id="user-growth-chart-container">
+        <div class="chart-loading-spinner">
+            <div class="spinner"></div>
+            <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+        </div>
+        <div class="chart-content" style="display: none;">
+            <h4 class="dashboard-chart-title">User Growth Over Time</h4>
+            <div id="user-growth-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Artist Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Artist Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="artists-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">palette</span>
+                </div>
+                <p class="stat-card-title">Total Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="artists-active">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">brush</span>
+                </div>
+                <p class="stat-card-title">Active Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="artists-deleted">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Artists</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="artists-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="artists-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="artists-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="artists-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                </div>
+                <p class="stat-card-title">New Artists (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="artist-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Artists by Type</h4>
+                <div id="artist-type-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="artist-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Artist Growth Over Time</h4>
+                <div id="artist-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Transaction Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="transactions-total">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">payments</span>
+                </div>
+                <p class="stat-card-title">Total Transactions</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="transactions-24h">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (24h)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="transactions-1w">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Week)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="transactions-1m">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Month)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="transactions-1y">
+            <div class="skeleton-card loading">
+                <div class="skeleton-line" style="width: 60%;"></div>
+                <div class="skeleton-line" style="width: 40%; height: 2rem;"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                </div>
+                <p class="stat-card-title">Transactions (1 Year)</p>
+                <p class="stat-card-value">-</p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="transaction-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Transactions by Type</h4>
+                <div id="transaction-type-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="transaction-volume-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Transaction Volume Over Time</h4>
+                <div id="transaction-volume-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load dashboard statistics when page loads
+    if (typeof loadCoreDashboardStats === 'function') {
+        loadCoreDashboardStats();
+    }
+</script>
+{% endblock %}

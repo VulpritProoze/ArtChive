@@ -23,6 +23,12 @@ class Gallery(models.Model):
 
     objects = GalleryManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['creator', 'status', 'created_at'], name='gal_cr_stat_crt_idx'),
+            models.Index(fields=['creator', 'is_deleted', 'created_at'], name='gal_cr_del_crt_idx'),
+        ]
+
     def __str__(self):
         return f"{self.title}, owned by {self.creator.username}"
 

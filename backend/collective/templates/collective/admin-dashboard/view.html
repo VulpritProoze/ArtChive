@@ -1,0 +1,215 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Collective Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-section" data-dashboard="collective">
+    <h2 class="dashboard-page-title">Collective App Statistics</h2>
+    <p class="dashboard-page-subtitle">Collective and channel statistics</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- Collective Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Collective Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="collectives-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">groups</span>
+                </div>
+                <p class="stat-card-title">Total Collectives</p>
+                <p class="stat-card-value"><span data-value-id="collectives-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="collectives-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Collectives (24h)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="collectives-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="collectives-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="collectives-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Collectives (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="collectives-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="collective-artist-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Collectives by Artist Type</h4>
+                <div id="collective-artist-type-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="collective-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Collective Growth Over Time</h4>
+                <div id="collective-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Channel Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Channel Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="channels-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">forum</span>
+                </div>
+                <p class="stat-card-title">Total Channels</p>
+                <p class="stat-card-value"><span data-value-id="channels-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="channels-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Channels (24h)</p>
+                <p class="stat-card-value"><span data-value-id="channels-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="channels-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="channels-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="channels-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Channels (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="channels-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="channels-per-collective-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Channels per Collective</h4>
+                <div id="channels-per-collective-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="channel-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Channel Growth Over Time</h4>
+                <div id="channel-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadCollectiveDashboardStats();
+    });
+</script>
+{% endblock %}

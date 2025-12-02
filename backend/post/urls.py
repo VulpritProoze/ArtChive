@@ -1,6 +1,18 @@
 from django.urls import path
 
 from .views import (
+    CommentCountsAPIView,
+    CommentGrowthAPIView,
+    CommentTypesAPIView,
+    CritiqueCountsAPIView,
+    CritiqueGrowthAPIView,
+    CritiqueImpressionsAPIView,
+    EngagementCountsAPIView,
+    NovelCountsAPIView,
+    PostChannelsAPIView,
+    PostCountsAPIView,
+    PostGrowthAPIView,
+    PostTypesAPIView,
     BulkPostPraiseCountView,
     BulkPostTrophyCountView,
     CommentCreateView,
@@ -224,5 +236,66 @@ urlpatterns = [
         "<uuid:post_id>/trophy/check/",
         PostTrophyCheckView.as_view(),
         name="post-trophy-check",
+    ),
+    # Dashboard API endpoints
+    path(
+        "dashboard/post/posts/counts/",
+        PostCountsAPIView.as_view(),
+        name="dashboard-post-posts-counts",
+    ),
+    path(
+        "dashboard/post/posts/growth/",
+        PostGrowthAPIView.as_view(),
+        name="dashboard-post-posts-growth",
+    ),
+    path(
+        "dashboard/post/posts/types/",
+        PostTypesAPIView.as_view(),
+        name="dashboard-post-posts-types",
+    ),
+    path(
+        "dashboard/post/posts/channels/",
+        PostChannelsAPIView.as_view(),
+        name="dashboard-post-posts-channels",
+    ),
+    path(
+        "dashboard/post/engagement/counts/",
+        EngagementCountsAPIView.as_view(),
+        name="dashboard-post-engagement-counts",
+    ),
+    path(
+        "dashboard/post/comments/counts/",
+        CommentCountsAPIView.as_view(),
+        name="dashboard-post-comments-counts",
+    ),
+    path(
+        "dashboard/post/comments/growth/",
+        CommentGrowthAPIView.as_view(),
+        name="dashboard-post-comments-growth",
+    ),
+    path(
+        "dashboard/post/comments/types/",
+        CommentTypesAPIView.as_view(),
+        name="dashboard-post-comments-types",
+    ),
+    path(
+        "dashboard/post/critiques/counts/",
+        CritiqueCountsAPIView.as_view(),
+        name="dashboard-post-critiques-counts",
+    ),
+    path(
+        "dashboard/post/critiques/growth/",
+        CritiqueGrowthAPIView.as_view(),
+        name="dashboard-post-critiques-growth",
+    ),
+    path(
+        "dashboard/post/critiques/impressions/",
+        CritiqueImpressionsAPIView.as_view(),
+        name="dashboard-post-critiques-impressions",
+    ),
+    path(
+        "dashboard/post/novels/counts/",
+        NovelCountsAPIView.as_view(),
+        name="dashboard-post-novels-counts",
     ),
 ]

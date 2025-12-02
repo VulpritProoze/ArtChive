@@ -19,6 +19,7 @@ import FellowsListTab from '@components/fellows/fellows-list-tab.component';
 import AvatarTabContent from '@components/avatar/avatar-tab-content.component';
 import { useQuery } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
+import { galleryService } from '@services/gallery.service';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
@@ -72,7 +73,10 @@ const Timeline: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'works' | 'avatar' | 'collectives' | 'fellows'>('timeline');
   const [otherTabsDropdownOpen, setOtherTabsDropdownOpen] = useState(false);
+  const [isGalleryDropdownOpen, setIsGalleryDropdownOpen] = useState(false);
+  const [hasActiveGallery, setHasActiveGallery] = useState<boolean | null>(null);
   const otherTabsDropdownRef = useRef<HTMLDivElement>(null);
+  const galleryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,16 +84,36 @@ const Timeline: React.FC = () => {
       if (otherTabsDropdownRef.current && !otherTabsDropdownRef.current.contains(event.target as Node)) {
         setOtherTabsDropdownOpen(false);
       }
+      if (galleryDropdownRef.current && !galleryDropdownRef.current.contains(event.target as Node)) {
+        setIsGalleryDropdownOpen(false);
+      }
     }
 
-    if (otherTabsDropdownOpen) {
+    if (otherTabsDropdownOpen || isGalleryDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [otherTabsDropdownOpen]);
+  }, [otherTabsDropdownOpen, isGalleryDropdownOpen]);
+
+  // Check if user has active gallery
+  useEffect(() => {
+    const checkActiveGallery = async () => {
+      if (!profileUser?.id) return;
+      
+      try {
+        const response = await galleryService.hasActiveGallery(profileUser.id);
+        setHasActiveGallery(response.has_active);
+      } catch (error) {
+        console.error("Error checking active gallery:", error);
+        setHasActiveGallery(false);
+      }
+    };
+
+    checkActiveGallery();
+  }, [profileUser?.id]);
 
   // Fetch posts using user ID from profile data
   const {
@@ -317,7 +341,7 @@ const Timeline: React.FC = () => {
                   <p className="text-base-content/60 font-medium">@{profileUser?.username || 'username'}</p>
                 </div>
 
-                <div className="flex flex-wrap justify-center lg:justify-end gap-2">
+                <div className="flex flex-wrap justify-center lg:justify-end gap-2 items-center">
                   {isOwnProfile && (
                     <>
                       <Link to="/profile/me" className="btn btn-sm btn-outline gap-2">
@@ -333,6 +357,88 @@ const Timeline: React.FC = () => {
                   )}
                   {!isOwnProfile && <AddFellowButton profileUser={profileUser} />}
                   <button className="btn btn-sm btn-outline gap-2">Share</button>
+                  
+                  {/* Three Dots Dropdown */}
+                  <div className="relative" ref={galleryDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsGalleryDropdownOpen(!isGalleryDropdownOpen)}
+                      className="btn btn-circle btn-ghost btn-sm"
+                      aria-label="More options"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle cx="12" cy="12" r="1.5" />
+                        <circle cx="6" cy="12" r="1.5" />
+                        <circle cx="18" cy="12" r="1.5" />
+                      </svg>
+                    </button>
+                    {isGalleryDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50 overflow-hidden">
+                        <div className="p-2">
+                          {profileUser?.id && (
+                            <div
+                              title={
+                                hasActiveGallery === false
+                                  ? isOwnProfile
+                                    ? "You don't have an active gallery yet. Publish a gallery to view it here."
+                                    : `${profileUser?.username || 'This user'} doesn't have an active gallery yet.`
+                                  : undefined
+                              }
+                            >
+                              {hasActiveGallery ? (
+                                <Link
+                                  to={`/gallery/${profileUser.id}`}
+                                  className="btn btn-outline btn-sm w-full justify-start gap-3 normal-case"
+                                  onClick={() => setIsGalleryDropdownOpen(false)}
+                                >
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                    />
+                                  </svg>
+                                  <span>View Published Gallery</span>
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm w-full justify-start gap-3 normal-case"
+                                  disabled
+                                  style={{ cursor: 'not-allowed' }}
+                                >
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                    />
+                                  </svg>
+                                  <span>View Published Gallery</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -364,7 +470,7 @@ const Timeline: React.FC = () => {
                   onClick={() => setActiveTab('fellows')}
                   className="text-center hover:opacity-80 transition-opacity cursor-pointer"
                 >
-                  <h4 className="text-2xl font-bold text-base-content">{fellowsCount}</h4>
+                  <h4 className="text-2xl font-bold text-base-content">{fellowsCount ?? "-"}</h4>
                   <p className="text-base-content/60 text-sm">Fellows</p>
                 </button>
               </div>

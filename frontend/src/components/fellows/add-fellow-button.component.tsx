@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faEllipsisH, faUserMinus, faBan, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faEllipsisH, faUserMinus, faBan, faCheck, faTimes, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '@context/auth-context';
-import { useFellows, usePendingFriendRequests } from '@hooks/queries/use-fellows';
-import { useCreateFriendRequest, useUnfriend, useBlockUser, useAcceptFriendRequest, useRejectFriendRequest } from '@hooks/mutations/use-fellow-mutations';
+import { useCheckFriendRequestStatus } from '@hooks/queries/use-fellows';
+import { useCreateFriendRequest, useUnfriend, useBlockUser, useAcceptFriendRequest, useRejectFriendRequest, useCancelFriendRequest } from '@hooks/mutations/use-fellow-mutations';
 import { usePostUI } from '@context/post-ui-context';
 // Type matching the return from useUserProfile hook (UserProfilePublicSerializer)
 interface UserProfilePublic {
@@ -21,61 +20,29 @@ interface AddFellowButtonProps {
 export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
   const { user: currentUser } = useAuth();
   const { dropdownOpen, setDropdownOpen } = usePostUI();
-  const { data: fellows } = useFellows();
-  const { data: pendingRequests } = usePendingFriendRequests();
+  const { data: statusData, isLoading: isLoadingStatus } = useCheckFriendRequestStatus(profileUser?.id);
   const { mutateAsync: createRequest, isPending: isCreating } = useCreateFriendRequest();
   const { mutateAsync: unfriend, isPending: isUnfriending } = useUnfriend();
   const { mutateAsync: blockUser } = useBlockUser();
   const { mutateAsync: acceptRequest, isPending: isAccepting } = useAcceptFriendRequest();
   const { mutateAsync: rejectRequest, isPending: isRejecting } = useRejectFriendRequest();
+  const { mutateAsync: cancelRequest, isPending: isCancelling } = useCancelFriendRequest();
 
-  const [relationshipStatus, setRelationshipStatus] = useState<
-    'none' | 'pending-sent' | 'pending-received' | 'accepted'
-  >('none');
-  const [relationshipId, setRelationshipId] = useState<number | null>(null);
-
-  // Determine relationship status
-  useEffect(() => {
-    if (!currentUser || !profileUser || !fellows || !pendingRequests) {
-      setRelationshipStatus('none');
-      setRelationshipId(null);
-      return;
-    }
-
-    // Check if already friends (accepted)
-    const acceptedRelationship = fellows.find(
-      (f) =>
-        (f.user === currentUser.id && f.fellow_user === profileUser.id) ||
-        (f.fellow_user === currentUser.id && f.user === profileUser.id)
-    );
-    if (acceptedRelationship && acceptedRelationship.status === 'accepted') {
-      setRelationshipStatus('accepted');
-      setRelationshipId(acceptedRelationship.id);
-      return;
-    }
-
-    // Check pending requests
-    const pendingSent = pendingRequests.find(
-      (req) => req.user === currentUser.id && req.fellow_user === profileUser.id && req.status === 'pending'
-    );
-    if (pendingSent) {
-      setRelationshipStatus('pending-sent');
-      setRelationshipId(pendingSent.id);
-      return;
-    }
-
-    const pendingReceived = pendingRequests.find(
-      (req) => req.fellow_user === currentUser.id && req.user === profileUser.id && req.status === 'pending'
-    );
-    if (pendingReceived) {
-      setRelationshipStatus('pending-received');
-      setRelationshipId(pendingReceived.id);
-      return;
-    }
-
-    setRelationshipStatus('none');
-    setRelationshipId(null);
-  }, [currentUser, profileUser, fellows, pendingRequests]);
+  const relationshipStatus = statusData
+    ? statusData.is_friends
+      ? 'accepted'
+      : statusData.has_pending_received
+      ? 'pending-received'
+      : statusData.has_pending_sent
+      ? 'pending-sent'
+      : 'none'
+    : 'none';
+  // Use relationship_id for accepted friends, request_id for pending requests
+  const relationshipId = statusData
+    ? statusData.is_friends
+      ? statusData.relationship_id || null
+      : statusData.request_id || null
+    : null;
 
   const handleAddFellow = async () => {
     if (!profileUser) return;
@@ -84,7 +51,24 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
       return;
     }
     try {
-      await createRequest({ fellow_user_id: profileUser.id });
+      await createRequest({ 
+        payload: { fellow_user_id: profileUser.id },
+        userId: profileUser.id 
+      });
+    } catch (error) {
+      // Error handled by mutation hook
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!relationshipId || !profileUser) return;
+    const userDisplayName = profileUser.fullname || `@${profileUser.username}`;
+    if (!window.confirm(`Are you sure you want to cancel the friend request to ${userDisplayName}?`)) {
+      return;
+    }
+    try {
+      await cancelRequest({ requestId: relationshipId, userId: profileUser.id });
+      setDropdownOpen(null);
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -120,7 +104,7 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
       return;
     }
     try {
-      await acceptRequest(relationshipId);
+      await acceptRequest({ requestId: relationshipId, userId: profileUser.id });
       setDropdownOpen(null);
     } catch (error) {
       // Error handled by mutation hook
@@ -134,7 +118,7 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
       return;
     }
     try {
-      await rejectRequest(relationshipId);
+      await rejectRequest({ requestId: relationshipId, userId: profileUser.id });
       setDropdownOpen(null);
     } catch (error) {
       // Error handled by mutation hook
@@ -152,20 +136,55 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
       <button
         className="btn btn-sm btn-primary gap-2"
         onClick={handleAddFellow}
-        disabled={isCreating}
+        disabled={isCreating || isLoadingStatus}
       >
-        <FontAwesomeIcon icon={faUserPlus} />
-        {isCreating ? 'Sending...' : 'Add as Fellow'}
+        {isLoadingStatus || isCreating ? (
+          <span className="loading loading-spinner loading-xs"></span>
+        ) : (
+          <FontAwesomeIcon icon={faUserPlus} />
+        )}
+        {isLoadingStatus ? 'Loading...' : isCreating ? 'Sending...' : 'Add as Fellow'}
       </button>
     );
   }
 
   if (relationshipStatus === 'pending-sent') {
     return (
-      <button className="btn btn-sm btn-outline gap-2" disabled>
-        <FontAwesomeIcon icon={faUserPlus} />
-        Pending
-      </button>
+      <div className="dropdown dropdown-end">
+        <button
+          className="btn btn-sm btn-outline gap-2"
+          onClick={() =>
+            setDropdownOpen(dropdownOpen === `pending-sent-${profileUser.id}` ? null : `pending-sent-${profileUser.id}`)
+          }
+          disabled={isCancelling || isLoadingStatus}
+        >
+          {isLoadingStatus || isCancelling ? (
+            <span className="loading loading-spinner loading-xs"></span>
+          ) : (
+            <FontAwesomeIcon icon={faUserPlus} />
+          )}
+          {isLoadingStatus ? 'Loading...' : isCancelling ? 'Cancelling...' : 'Pending'}
+        </button>
+
+        {dropdownOpen === `pending-sent-${profileUser.id}` && (
+          <ul className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-48 border border-base-300 z-50">
+            <li>
+              <button
+                className="text-sm flex items-center gap-2 text-error"
+                onClick={handleCancelRequest}
+                disabled={isCancelling}
+              >
+                {isCancelling ? (
+                  <span className="loading loading-spinner loading-xs"></span>
+                ) : (
+                  <FontAwesomeIcon icon={faXmark} />
+                )}
+                {isCancelling ? 'Cancelling...' : 'Cancel Request'}
+              </button>
+            </li>
+          </ul>
+        )}
+      </div>
     );
   }
 
@@ -177,9 +196,14 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
           onClick={() =>
             setDropdownOpen(dropdownOpen === `pending-received-${profileUser.id}` ? null : `pending-received-${profileUser.id}`)
           }
+          disabled={isLoadingStatus || isAccepting || isRejecting}
         >
-          <FontAwesomeIcon icon={faUserPlus} />
-          Request Received
+          {isLoadingStatus || isAccepting || isRejecting ? (
+            <span className="loading loading-spinner loading-xs"></span>
+          ) : (
+            <FontAwesomeIcon icon={faUserPlus} />
+          )}
+          {isLoadingStatus ? 'Loading...' : isRejecting ? 'Rejecting...' : isAccepting ? 'Accepting...' : 'Request Received'}
         </button>
 
         {dropdownOpen === `pending-received-${profileUser.id}` && (
@@ -190,7 +214,11 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
                 onClick={handleAcceptRequest}
                 disabled={isAccepting || isRejecting}
               >
-                <FontAwesomeIcon icon={faCheck} />
+                {isAccepting ? (
+                  <span className="loading loading-spinner loading-xs"></span>
+                ) : (
+                  <FontAwesomeIcon icon={faCheck} />
+                )}
                 {isAccepting ? 'Accepting...' : 'Accept'}
               </button>
             </li>
@@ -200,7 +228,11 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
                 onClick={handleRejectRequest}
                 disabled={isAccepting || isRejecting}
               >
-                <FontAwesomeIcon icon={faTimes} />
+                {isRejecting ? (
+                  <span className="loading loading-spinner loading-xs"></span>
+                ) : (
+                  <FontAwesomeIcon icon={faTimes} />
+                )}
                 {isRejecting ? 'Rejecting...' : 'Reject'}
               </button>
             </li>
@@ -218,9 +250,14 @@ export default function AddFellowButton({ profileUser }: AddFellowButtonProps) {
           onClick={() =>
             setDropdownOpen(dropdownOpen === `add-fellow-${profileUser.id}` ? null : `add-fellow-${profileUser.id}`)
           }
+          disabled={isLoadingStatus || isUnfriending}
         >
-          <FontAwesomeIcon icon={faEllipsisH} />
-          Friends
+          {isLoadingStatus ? (
+            <span className="loading loading-spinner loading-xs"></span>
+          ) : (
+            <FontAwesomeIcon icon={faEllipsisH} />
+          )}
+          {isLoadingStatus ? 'Loading...' : 'Friends'}
         </button>
 
         {dropdownOpen === `add-fellow-${profileUser.id}` && (

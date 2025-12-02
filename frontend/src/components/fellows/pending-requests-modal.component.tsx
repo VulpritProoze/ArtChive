@@ -31,7 +31,16 @@ export default function PendingFriendRequestsModal({
 
   const handleAccept = async (requestId: number) => {
     try {
-      await acceptRequest(requestId);
+      // Find the request to get the requester's user ID
+      const request = receivedRequests.find(r => r.id === requestId);
+      const requesterUserId = request?.user;
+      
+      if (!requesterUserId) {
+        console.error('Could not find requester user ID for request:', requestId);
+        return;
+      }
+      
+      await acceptRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -39,7 +48,14 @@ export default function PendingFriendRequestsModal({
 
   const handleReject = async (requestId: number) => {
     try {
-      await rejectRequest(requestId);
+      // Find the request to get the requester's user ID
+      const request = receivedRequests.find(r => r.id === requestId);
+      const requesterUserId = request?.user;
+      if (!requesterUserId) {
+        console.error('Could not find requester user ID for request:', requestId);
+        return;
+      }
+      await rejectRequest({ requestId, userId: requesterUserId });
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -90,7 +106,7 @@ export default function PendingFriendRequestsModal({
                         >
                           <div className="flex items-center justify-between">
                             <Link
-                              to={`/profile/${requester.username}`}
+                              to={`/profile/@${requester.username}`}  // DO NOT MODIFY THE '@'!!!!!!
                               className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity"
                               onClick={onClose}
                             >

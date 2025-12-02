@@ -1,0 +1,454 @@
+{% extends "admin-dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Post Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-section" data-dashboard="post">
+    <h2 class="dashboard-page-title">Post App Statistics</h2>
+    <p class="dashboard-page-subtitle">Post, engagement, comment, critique, and novel post statistics</p>
+</div>
+
+<!-- Time Range Selector -->
+<div class="time-range-selector">
+    <a href="?range=24h" class="time-range-btn {% if current_range == '24h' %}active{% endif %}">24 Hours</a>
+    <a href="?range=1w" class="time-range-btn {% if current_range == '1w' %}active{% endif %}">1 Week</a>
+    <a href="?range=1m" class="time-range-btn {% if current_range == '1m' %}active{% endif %}">1 Month</a>
+    <a href="?range=1y" class="time-range-btn {% if current_range == '1y' %}active{% endif %}">1 Year</a>
+</div>
+
+<!-- Post Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Post Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="posts-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">article</span>
+                </div>
+                <p class="stat-card-title">Total Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="posts-active">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <p class="stat-card-title">Active Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-active"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="posts-deleted">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Posts</p>
+                <p class="stat-card-value"><span data-value-id="posts-deleted"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="posts-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Posts (24h)</p>
+                <p class="stat-card-value"><span data-value-id="posts-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="posts-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="posts-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="posts-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Posts (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="posts-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="posts-by-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Posts by Type</h4>
+                <div id="posts-by-type-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="post-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Post Growth Over Time</h4>
+                <div id="post-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="chart-container dashboard-section-spacing" id="posts-per-channel-chart-container">
+        <div class="chart-loading-spinner">
+            <div class="spinner"></div>
+            <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+        </div>
+        <div class="chart-content" style="display: none;">
+            <h4 class="dashboard-chart-title">Posts per Channel (Top 10)</h4>
+            <div id="posts-per-channel-chart"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Engagement Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Engagement Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="engagement-hearts">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">favorite</span>
+                </div>
+                <p class="stat-card-title">Total Hearts</p>
+                <p class="stat-card-value"><span data-value-id="engagement-hearts"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="engagement-praises">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">thumb_up</span>
+                </div>
+                <p class="stat-card-title">Total Praises</p>
+                <p class="stat-card-value"><span data-value-id="engagement-praises"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="engagement-trophies">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">emoji_events</span>
+                </div>
+                <p class="stat-card-title">Total Trophies</p>
+                <p class="stat-card-value"><span data-value-id="engagement-trophies"></span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comment Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Comment Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="comments-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">comment</span>
+                </div>
+                <p class="stat-card-title">Total Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="comments-active">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <p class="stat-card-title">Active Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-active"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="comments-deleted">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">delete</span>
+                </div>
+                <p class="stat-card-title">Deleted Comments</p>
+                <p class="stat-card-value"><span data-value-id="comments-deleted"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="comments-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Comments (24h)</p>
+                <p class="stat-card-value"><span data-value-id="comments-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="comments-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="comments-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="comments-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Comments (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="comments-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="comments-by-type-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Comments by Type</h4>
+                <div id="comments-by-type-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="comment-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Comment Growth Over Time</h4>
+                <div id="comment-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Critique Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Critique Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="critiques-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">rate_review</span>
+                </div>
+                <p class="stat-card-title">Total Critiques</p>
+                <p class="stat-card-value"><span data-value-id="critiques-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="critiques-24h">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <p class="stat-card-title">New Critiques (24h)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-24h"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="critiques-1w">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Week)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1w"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="critiques-1m">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">event</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Month)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1m"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="critiques-1y">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                </div>
+                <p class="stat-card-title">New Critiques (1 Year)</p>
+                <p class="stat-card-value"><span data-value-id="critiques-1y"></span></p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid-full dashboard-section-spacing">
+        <div class="chart-container" id="critiques-by-impression-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Critiques by Impression</h4>
+                <div id="critiques-by-impression-chart"></div>
+            </div>
+        </div>
+        <div class="chart-container" id="critique-growth-chart-container">
+            <div class="chart-loading-spinner">
+                <div class="spinner"></div>
+                <div class="chart-loading-text">Crunching numbers, this may take a while...</div>
+            </div>
+            <div class="chart-content" style="display: none;">
+                <h4 class="dashboard-chart-title">Critique Growth Over Time</h4>
+                <div id="critique-growth-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Novel Post Statistics -->
+<div class="dashboard-section">
+    <h3 class="dashboard-section-title">Novel Post Statistics</h3>
+    <div class="dashboard-grid dashboard-section-spacing">
+        <div class="stat-card" data-stat-id="novels-total">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">menu_book</span>
+                </div>
+                <p class="stat-card-title">Total Novel Posts</p>
+                <p class="stat-card-value"><span data-value-id="novels-total"></span></p>
+            </div>
+        </div>
+        <div class="stat-card" data-stat-id="novels-avg-chapters">
+            <div class="skeleton-card loading">
+                <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+                <div class="h-8 bg-base-300 rounded w-1/2"></div>
+            </div>
+            <div class="stat-card-content" style="display: none;">
+                <div class="stat-card-icon">
+                    <span class="material-symbols-outlined">auto_stories</span>
+                </div>
+                <p class="stat-card-title">Average Chapters per Novel</p>
+                <p class="stat-card-value"><span data-value-id="novels-avg-chapters"></span></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        window.loadPostDashboardStats();
+    });
+</script>
+{% endblock %}

@@ -1,13 +1,18 @@
 import logging
+from datetime import timedelta
 
 from decouple import config
+from django.contrib import admin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
@@ -27,8 +32,11 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from common.utils.profiling import silk_profile
 
-from .cache_utils import get_user_info_cache_key
+from .cache_utils import get_dashboard_cache_key, get_user_info_cache_key
+from .friend_request_utils import send_friend_request_update_to_both_users
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
+from notification.utils import create_notification
+from common.utils.choices import NOTIFICATION_TYPES
 from .pagination import BrushDripsTransactionPagination
 from .permissions import IsAdminUser
 from .serializers import (
@@ -1056,13 +1064,15 @@ class FriendRequestCountView(APIView):
         # Count received requests (where user is the recipient)
         received_count = UserFellow.objects.filter(
             fellow_user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         ).count()
 
         # Count sent requests (where user is the requester)
         sent_count = UserFellow.objects.filter(
             user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         ).count()
 
         data = {
@@ -1094,7 +1104,8 @@ class PendingFriendRequestsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return UserFellow.objects.filter(
-            Q(fellow_user=user, status='pending') | Q(user=user, status='pending')
+            (Q(fellow_user=user, status='pending') | Q(user=user, status='pending')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1124,7 +1135,8 @@ class FellowsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return UserFellow.objects.filter(
-            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1154,7 +1166,7 @@ class UserFellowsListView(generics.ListAPIView):
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
         user = get_object_or_404(User, id=user_id)
-        return UserFellow.objects.filter(
+        return UserFellow.objects.get_active_objects().filter(
             Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
         ).select_related(
             'user',
@@ -1200,8 +1212,9 @@ class SearchFellowsView(generics.ListAPIView):
         filter_by = self.request.query_params.get('filter_by', 'username').strip()
 
         # Base queryset: all accepted fellows
-        queryset = UserFellow.objects.filter(
-            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        queryset = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
         ).select_related(
             'user',
             'user__artist',
@@ -1265,10 +1278,11 @@ class CreateFriendRequestView(generics.CreateAPIView):
         fellow_user_id = serializer.validated_data['fellow_user_id']
         fellow_user = get_object_or_404(User, id=fellow_user_id)
 
-        # Check if relationship already exists (both directions)
-        existing = UserFellow.objects.filter(
-            Q(user=user, fellow_user=fellow_user) |
-            Q(user=fellow_user, fellow_user=user)
+        # Check if relationship already exists (both directions) - only check non-deleted
+        existing = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=fellow_user) |
+             Q(user=fellow_user, fellow_user=user)),
+            is_deleted=False
         ).first()
 
         if existing:
@@ -1294,6 +1308,11 @@ class CreateFriendRequestView(generics.CreateAPIView):
             fellow_user=fellow_user,
             status='pending'
         )
+
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_relationship, 'created')
+        
+        # Note: No cache invalidation needed for pending requests (not accepted yet)
 
         # Serialize with related user info
         response_serializer = UserFellowSerializer(fellow_relationship)
@@ -1325,15 +1344,203 @@ class AcceptFriendRequestView(APIView):
             UserFellow,
             id=id,
             fellow_user=user,
-            status='pending'
+            status='pending',
+            is_deleted=False
         )
 
         # Update status to accepted
         fellow_request.status = 'accepted'
         fellow_request.save()
 
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_request, 'accepted')
+
+        # Create notification for the requester (user who sent the request)
+        # The requester is fellow_request.user, the accepter is fellow_request.fellow_user (current user)
+        try:
+            requester = fellow_request.user
+            accepter = fellow_request.fellow_user  # This is the current user who accepted
+            
+            message = f"{accepter.username} accepted your friend request"
+            create_notification(
+                message=message,
+                notification_object_type=NOTIFICATION_TYPES.friend_request_accepted,
+                notification_object_id=str(fellow_request.id),
+                notified_to=requester,
+                notified_by=accepter
+            )
+        except Exception as e:
+            # Log error but don't fail the friend request acceptance
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create friend request accepted notification: {e}", exc_info=True)
+
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(fellow_request.user.id)
+        invalidate_user_calculations(fellow_request.fellow_user.id)
+        
         serializer = UserFellowSerializer(fellow_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Cancel a friend request (requester cancels their own sent request)",
+    responses={
+        204: OpenApiResponse(description="Request cancelled successfully"),
+        400: OpenApiResponse(description="Request is already deleted"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class CancelFriendRequestView(APIView):
+    """
+    Cancel a friend request.
+    Only the requester (user) can cancel their own sent request.
+    Deletes the UserFellow record.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the requester
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                user=user,
+                status='pending',
+            ).first()
+
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'cancelled')
+
+        # Soft delete the request
+        fellow_request.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Check friend request status between current user and another user",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            description="ID of the user to check relationship with",
+            type=int,
+            required=True,
+        ),
+    ],
+    responses={
+        200: OpenApiResponse(
+            description="Relationship status",
+            response={
+                "type": "object",
+                "properties": {
+                    "has_pending_sent": {"type": "boolean"},
+                    "has_pending_received": {"type": "boolean"},
+                    "is_friends": {"type": "boolean"},
+                    "request_id": {"type": "integer", "nullable": True},
+                    "relationship_id": {"type": "integer", "nullable": True},
+                },
+            },
+        ),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class CheckFriendRequestStatusView(APIView):
+    """
+    Lightweight endpoint to check friend request status between current user and another user.
+    Returns:
+    - has_pending_sent: True if current user has sent a pending request to the other user
+    - has_pending_received: True if current user has received a pending request from the other user
+    - is_friends: True if users are already friends
+    - request_id: ID of the pending request (if any)
+    - relationship_id: ID of the accepted relationship (if users are friends)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        other_user_id = request.query_params.get('user_id')
+
+        if not other_user_id:
+            return Response(
+                {'error': 'user_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            other_user = User.objects.get(id=other_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check for pending request sent by current user
+        pending_sent = UserFellow.objects.get_active_objects().filter(
+            user=user,
+            fellow_user=other_user,
+            status='pending'
+        ).first()
+
+        # Check for pending request received by current user
+        pending_received = UserFellow.objects.get_active_objects().filter(
+            user=other_user,
+            fellow_user=user,
+            status='pending'
+        ).first()
+
+        # Check if already friends and get relationship ID
+        accepted_relationship = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=other_user) | Q(user=other_user, fellow_user=user)),
+            status='accepted'
+        ).first()
+
+        is_friends = accepted_relationship is not None
+
+        # Determine request_id (prioritize received over sent for UI purposes)
+        # Also include relationship_id for accepted friends
+        request_id = None
+        relationship_id = None
+        if pending_received:
+            request_id = pending_received.id
+        elif pending_sent:
+            request_id = pending_sent.id
+        elif accepted_relationship:
+            relationship_id = accepted_relationship.id
+
+        data = {
+            'has_pending_sent': pending_sent is not None,
+            'has_pending_received': pending_received is not None,
+            'is_friends': is_friends,
+            'request_id': request_id,
+            'relationship_id': relationship_id,
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -1357,14 +1564,36 @@ class RejectFriendRequestView(APIView):
         user = request.user
 
         # Get the request where user is the recipient
-        fellow_request = get_object_or_404(
-            UserFellow,
-            id=id,
-            fellow_user=user,
-            status='pending'
-        )
+        # Filter out already deleted fellows
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            ).first()
 
-        # Delete the request
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'rejected')
+
+        # Soft delete the request
         fellow_request.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1389,20 +1618,41 @@ class UnfriendView(APIView):
     def delete(self, request, id):
         user = request.user
 
-        # Find relationship in either direction
+        # Find relationship in either direction (only non-deleted)
         fellow_relationship = UserFellow.objects.filter(
-            Q(id=id, user=user, status='accepted') |
-            Q(id=id, fellow_user=user, status='accepted')
+            (Q(id=id, user=user, status='accepted') |
+             Q(id=id, fellow_user=user, status='accepted')),
+            is_deleted=False
         ).first()
 
         if not fellow_relationship:
-            return Response(
-                {'error': 'Friend relationship not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            # Check if it exists but is already deleted
+            deleted_relationship = UserFellow.objects.filter(
+                (Q(id=id, user=user, status='accepted') |
+                 Q(id=id, fellow_user=user, status='accepted')),
+                is_deleted=True
+            ).first()
 
-        # Delete the relationship
+            if deleted_relationship:
+                return Response(
+                    {'error': 'Friend relationship is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend relationship not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Soft delete the relationship
+        user_id = fellow_relationship.user.id
+        fellow_user_id = fellow_relationship.fellow_user.id
         fellow_relationship.delete()
+        
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(user_id)
+        invalidate_user_calculations(fellow_user_id)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1482,5 +1732,391 @@ class UserSearchView(generics.ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class DashboardIndexView(UserPassesTestMixin, TemplateView):
+    """Index page for admin dashboard navigation"""
+    template_name = 'admin-dashboard/index.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+class CoreDashboardView(UserPassesTestMixin, TemplateView):
+    """Core app dashboard with user, artist, and transaction statistics"""
+    template_name = 'core/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Only return minimal context - statistics will be loaded via API
+        context.update({
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="User counts data")},
+)
+class UserCountsAPIView(APIView):
+    """API endpoint for user counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'users', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': User.objects.count(),
+            'active': User.objects.filter(is_deleted=False).count(),
+            'inactive': User.objects.filter(is_deleted=True).count(),
+            '24h': User.objects.filter(date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': User.objects.filter(date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': User.objects.filter(date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': User.objects.filter(date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="User growth data")},
+)
+class UserGrowthAPIView(APIView):
+    """API endpoint for user growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'users', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = User.objects.filter(date_joined__gte=current_date, date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Artist counts data")},
+)
+class ArtistCountsAPIView(APIView):
+    """API endpoint for artist counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Artist.objects.count(),
+            'active': Artist.objects.filter(is_deleted=False).count(),
+            'deleted': Artist.objects.filter(is_deleted=True).count(),
+            '24h': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Artist growth data")},
+)
+class ArtistGrowthAPIView(APIView):
+    """API endpoint for artist growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'artists', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Artist.objects.filter(user_id__date_joined__gte=current_date, user_id__date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist type counts (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Artist type counts data")},
+)
+class ArtistTypesAPIView(APIView):
+    """API endpoint for artist type counts (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate artist type counts
+        artist_type_counts = {}
+        artists = Artist.objects.filter(is_deleted=False)
+        for artist in artists:
+            for artist_type in artist.artist_types:
+                artist_type_counts[artist_type] = artist_type_counts.get(artist_type, 0) + 1
+
+        data = {'data': [{'x': k, 'y': v} for k, v in artist_type_counts.items()]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Transaction counts data")},
+)
+class TransactionCountsAPIView(APIView):
+    """API endpoint for transaction counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': BrushDripTransaction.objects.count(),
+            '24h': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(hours=24)).count(),
+            '1w': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=30)).count(),
+            '1y': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction types data (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Transaction types data")},
+)
+class TransactionTypesAPIView(APIView):
+    """API endpoint for transaction types (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate transaction type counts
+        transaction_type_counts = BrushDripTransaction.objects.values('transaction_object_type').annotate(count=Count('transaction_object_type')).order_by('-count')
+        data = {'data': [{'x': item['transaction_object_type'], 'y': item['count']} for item in transaction_type_counts]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction volume over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Transaction volume data")},
+)
+class TransactionVolumeAPIView(APIView):
+    """API endpoint for transaction volume over time (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'transactions', f'volume:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate volume data
+        volume_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            volume = BrushDripTransaction.objects.filter(transacted_at__gte=current_date, transacted_at__lt=next_date).aggregate(total=Sum('amount'))['total'] or 0
+            volume_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': volume})
+            current_date = next_date
+
+        data = {'volume_data': volume_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
 
 

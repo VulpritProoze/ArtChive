@@ -104,6 +104,8 @@ NOTIFICATION_OBJECT_CHOICES = [
     ('post_critique', 'Post Critique'),
     ('post_praise', 'Post Praise'),
     ('post_trophy', 'Post Trophy'),
+    ('gallery_comment', 'Gallery Comment'),
+    ('friend_request_accepted', 'Friend Request Accepted'),
 ]
 
 NOTIFICATION_TYPES = SimpleNamespace(
@@ -111,6 +113,8 @@ NOTIFICATION_TYPES = SimpleNamespace(
     post_critique='Post Critique',
     post_praise='Post Praise',
     post_trophy='Post Trophy',
+    gallery_comment='Gallery Comment',
+    friend_request_accepted='Friend Request Accepted',
 )
 
 AVATAR_STATUS_CHOICES = (

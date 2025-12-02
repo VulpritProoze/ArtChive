@@ -431,6 +431,8 @@ class PostListViewSerializer(serializers.ModelSerializer):
         source="author.profile_picture", read_only=True
     )
     channel_name = serializers.CharField(source="channel.title", read_only=True)
+    collective_id = serializers.CharField(source="channel.collective.collective_id", read_only=True, allow_null=True)
+    collective_title = serializers.CharField(source="channel.collective.title", read_only=True, allow_null=True)
 
     class Meta:
         model = Post
@@ -451,6 +453,8 @@ class PostListViewSerializer(serializers.ModelSerializer):
             "author_fullname",
             "author_picture",
             "channel_name",
+            "collective_id",
+            "collective_title",
         ]
 
     def get_author_artist_types(self, obj):

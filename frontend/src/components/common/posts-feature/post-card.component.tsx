@@ -36,12 +36,14 @@ interface PostCardProps {
   postItem: PostCardPostItem;
   highlightedItemId?: string | null;
   countsLoading?: boolean; // NEW: Loading state for counts
+  isDetailView?: boolean; // Whether this is in post detail view
 }
 
 export default function PostCard({
   postItem,
   highlightedItemId,
   countsLoading = false, // Default to false
+  isDetailView = false, // Default to false (feed view)
 }: PostCardProps) {
   const {
     showPraiseListModal,
@@ -188,13 +190,15 @@ export default function PostCard({
         {postItem.post_type === "novel" &&
           postItem.novel_post &&
           postItem.novel_post.length > 0 && (
-            <NovelRenderer postItem={postItem} />
+            <NovelRenderer postItem={postItem} isDetailView={isDetailView} />
           )}
 
-        {/* Text-only post (default type) - description shown below likes/date */}
-        {(!postItem.post_type || postItem.post_type === "default") && (
-          <div className="p-6">
-            {/* Description will be shown below likes/date */}
+        {/* Text-only post (default type) - description shown in post body */}
+        {(!postItem.post_type || postItem.post_type === "default") && postItem.description && (
+          <div className="px-4 py-3">
+            <p className="text-base text-base-content whitespace-pre-wrap break-words">
+              {postItem.description}
+            </p>
           </div>
         )}
 
@@ -376,8 +380,10 @@ export default function PostCard({
             </p>
           </div>
 
-          {/* Description - Below likes/date, above Comments */}
-          {postItem.description && (
+          {/* Description - Below likes/date, above Comments (only for non-default posts) */}
+          {postItem.description && 
+           postItem.post_type && 
+           postItem.post_type !== "default" && (
             <div className="mb-3">
               <p className="text-sm text-base-content">
                 <span className="font-semibold">

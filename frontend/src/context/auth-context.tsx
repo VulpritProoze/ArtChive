@@ -4,6 +4,9 @@ import type { AuthContextType, User, CollectiveMember } from "@types";
 import { isAxiosError } from "axios";
 import { toast } from "@utils/toast.util";
 import formatFieldName from '@utils/format-fieldname'
+import handleApiError from '@utils/handle-api-error';
+import formatErrorForToast from '@utils/format-error-for-toast';
+import { loginErrors } from '@errors';
 
 type CollectiveMemberType = CollectiveMember[] | null
 
@@ -181,6 +184,9 @@ export const AuthProvider = ({ children }) => {
       await fetchCollectiveMemberDetails()
       setInitialized(true)
     } catch (error) {
+      const errorMessage = handleApiError(error, loginErrors, true);
+      const formattedError = formatErrorForToast(errorMessage);
+      toast.error('Login failed', formattedError);
       console.error("Login failed: ", error);
       throw error
     }

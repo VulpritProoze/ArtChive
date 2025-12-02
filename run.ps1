@@ -12,7 +12,7 @@ if (Test-Path .env) {
             $loadedCount++
         }
     }
-    Write-Host "✅ Successfully loaded $loadedCount environment variable(s) from .env" -ForegroundColor Green
+    Write-Host "Successfully loaded $loadedCount environment variable(s) from .env" -ForegroundColor Green
 } else {
-    Write-Host "⚠️  Warning: .env file not found in current directory!" -ForegroundColor Yellow
+    Write-Host "Warning: .env file not found in current directory!" -ForegroundColor Yellow
 }

@@ -17,6 +17,12 @@ class Notification(models.Model):
     notified_at = models.DateTimeField(auto_now_add=True)
     notified_to = models.ForeignKey(User, on_delete=models.CASCADE)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['notified_to', 'is_read', 'notified_at'], name='notification_user_read_at_idx'),
+            models.Index(fields=['notified_to', 'notification_object_type'], name='notification_user_type_idx'),
+        ]
+
 class NotificationNotifier(models.Model):
     notification_id = models.ForeignKey(Notification, on_delete=models.CASCADE)
     notified_by = models.ForeignKey(User, on_delete=models.CASCADE)

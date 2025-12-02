@@ -322,3 +322,7 @@ export function useNotifications() {
   }
   return context;
 }
+
+// Re-export from realtime context for backward compatibility
+// When using unified WebSocket, components can import from either location
+export { useRealtime as useNotificationsUnified } from './realtime-context';

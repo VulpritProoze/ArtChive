@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faCheckDouble, faTrash, faBell } from '@fortawesome/free-solid-svg-icons';
-import { useNotifications } from '@context/notification-context';
+import { useNotifications } from '@context/realtime-context';
 import type { Notification } from '@types';
 import { MainLayout } from '@components/common/layout/MainLayout';
 
@@ -62,6 +62,10 @@ export default function NotificationIndex() {
         return `/post/${objectId}`;
       case 'Post Trophy':
         return `/post/${objectId}`;
+      case 'Friend Request Accepted':
+        // objectId is the friend request ID, but we want to go to the user's profile
+        // For now, navigate to fellows requests page
+        return '/fellows/requests';
       default:
         return '/notifications';
     }
@@ -77,6 +81,8 @@ export default function NotificationIndex() {
         return '👏';
       case 'Post Trophy':
         return '🏆';
+      case 'Friend Request Accepted':
+        return '👥';
       default:
         return '🔔';
     }

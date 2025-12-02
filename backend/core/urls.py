@@ -1,6 +1,14 @@
 from django.urls import path
 
 from .views import (
+    ArtistCountsAPIView,
+    ArtistGrowthAPIView,
+    ArtistTypesAPIView,
+    TransactionCountsAPIView,
+    TransactionTypesAPIView,
+    TransactionVolumeAPIView,
+    UserCountsAPIView,
+    UserGrowthAPIView,
     AcceptFriendRequestView,
     BlockUserView,
     BrushDripMyTransactionsView,
@@ -10,6 +18,8 @@ from .views import (
     BrushDripTransactionStatsView,
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
+    CancelFriendRequestView,
+    CheckFriendRequestStatusView,
     CookieTokenRefreshView,
     CreateFriendRequestView,
     FellowsListView,
@@ -127,6 +137,16 @@ urlpatterns = [
         name="reject-friend-request",
     ),
     path(
+        "fellows/requests/<int:id>/cancel/",
+        CancelFriendRequestView.as_view(),
+        name="cancel-friend-request",
+    ),
+    path(
+        "fellows/check-status/",
+        CheckFriendRequestStatusView.as_view(),
+        name="check-friend-request-status",
+    ),
+    path(
         "fellows/",
         FellowsListView.as_view(),
         name="fellows-list",
@@ -155,5 +175,46 @@ urlpatterns = [
         "fellows/<int:id>/block/",
         BlockUserView.as_view(),
         name="block-user",
+    ),
+    # Dashboard API endpoints
+    path(
+        "dashboard/core/users/counts/",
+        UserCountsAPIView.as_view(),
+        name="dashboard-core-users-counts",
+    ),
+    path(
+        "dashboard/core/users/growth/",
+        UserGrowthAPIView.as_view(),
+        name="dashboard-core-users-growth",
+    ),
+    path(
+        "dashboard/core/artists/counts/",
+        ArtistCountsAPIView.as_view(),
+        name="dashboard-core-artists-counts",
+    ),
+    path(
+        "dashboard/core/artists/growth/",
+        ArtistGrowthAPIView.as_view(),
+        name="dashboard-core-artists-growth",
+    ),
+    path(
+        "dashboard/core/artists/types/",
+        ArtistTypesAPIView.as_view(),
+        name="dashboard-core-artists-types",
+    ),
+    path(
+        "dashboard/core/transactions/counts/",
+        TransactionCountsAPIView.as_view(),
+        name="dashboard-core-transactions-counts",
+    ),
+    path(
+        "dashboard/core/transactions/types/",
+        TransactionTypesAPIView.as_view(),
+        name="dashboard-core-transactions-types",
+    ),
+    path(
+        "dashboard/core/transactions/volume/",
+        TransactionVolumeAPIView.as_view(),
+        name="dashboard-core-transactions-volume",
     ),
 ]
