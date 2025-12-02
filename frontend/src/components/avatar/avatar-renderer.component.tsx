@@ -43,8 +43,10 @@ const AvatarRenderer: React.FC<AvatarRendererProps> = ({
   const hairY = center - (faceHeight * 0.42);
   const earOffset = faceWidth * 0.48;
 
-  // Eye size
-  const eyeSize = eyeStyles[options.eyes as keyof typeof eyeStyles]?.size || 15;
+  // Eye style properties
+  const eyeStyle = eyeStyles[options.eyes as keyof typeof eyeStyles] || eyeStyles.default;
+  const eyeSize = eyeStyle.size;
+  const eyeShape = eyeStyle.shape;
 
   // Get darker shade for shadows
   const darkerSkin = `color-mix(in srgb, ${skinColor} 85%, black)`;
@@ -245,40 +247,134 @@ const AvatarRenderer: React.FC<AvatarRendererProps> = ({
       {/* Eyebrows */}
       <g fill={`color-mix(in srgb, ${hairColor} 90%, black)`}>
         {/* Left eyebrow */}
-        <path
-          d={`M ${leftEyeX - 25} ${eyeY - 22} Q ${leftEyeX} ${eyeY - 26} ${leftEyeX + 25} ${eyeY - 22}`}
-          fill="none"
-          stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
-          strokeWidth={options.eyebrows === 'thick' ? '4' : options.eyebrows === 'thin' ? '2' : '3'}
-          strokeLinecap="round"
-        />
+        {options.eyebrows === 'arched' ? (
+          <path
+            d={`M ${leftEyeX - 25} ${eyeY - 20} Q ${leftEyeX - 8} ${eyeY - 28} ${leftEyeX + 25} ${eyeY - 22}`}
+            fill="none"
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        ) : options.eyebrows === 'straight' ? (
+          <line
+            x1={leftEyeX - 25}
+            y1={eyeY - 24}
+            x2={leftEyeX + 25}
+            y2={eyeY - 24}
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        ) : (
+          <path
+            d={`M ${leftEyeX - 25} ${eyeY - 22} Q ${leftEyeX} ${eyeY - 26} ${leftEyeX + 25} ${eyeY - 22}`}
+            fill="none"
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth={options.eyebrows === 'thick' ? '5' : options.eyebrows === 'thin' ? '2' : '3'}
+            strokeLinecap="round"
+          />
+        )}
+        
         {/* Right eyebrow */}
-        <path
-          d={`M ${rightEyeX - 25} ${eyeY - 22} Q ${rightEyeX} ${eyeY - 26} ${rightEyeX + 25} ${eyeY - 22}`}
-          fill="none"
-          stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
-          strokeWidth={options.eyebrows === 'thick' ? '4' : options.eyebrows === 'thin' ? '2' : '3'}
-          strokeLinecap="round"
-        />
+        {options.eyebrows === 'arched' ? (
+          <path
+            d={`M ${rightEyeX - 25} ${eyeY - 22} Q ${rightEyeX + 8} ${eyeY - 28} ${rightEyeX + 25} ${eyeY - 20}`}
+            fill="none"
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        ) : options.eyebrows === 'straight' ? (
+          <line
+            x1={rightEyeX - 25}
+            y1={eyeY - 24}
+            x2={rightEyeX + 25}
+            y2={eyeY - 24}
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        ) : (
+          <path
+            d={`M ${rightEyeX - 25} ${eyeY - 22} Q ${rightEyeX} ${eyeY - 26} ${rightEyeX + 25} ${eyeY - 22}`}
+            fill="none"
+            stroke={`color-mix(in srgb, ${hairColor} 90%, black)`}
+            strokeWidth={options.eyebrows === 'thick' ? '5' : options.eyebrows === 'thin' ? '2' : '3'}
+            strokeLinecap="round"
+          />
+        )}
       </g>
 
       {/* Eyes */}
       <g>
-        {/* Left eye white */}
-        <ellipse
-          cx={leftEyeX}
-          cy={eyeY}
-          rx={eyeSize + 5}
-          ry={eyeSize + 3}
-          fill="white"
-        />
-        {/* Left iris */}
-        <circle
-          cx={leftEyeX}
-          cy={eyeY}
-          r={eyeSize * 0.7}
-          fill="#3B82F6"
-        />
+        {/* Left eye */}
+        {eyeShape === 'almond' ? (
+          <>
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize + 6}
+              ry={eyeSize + 2}
+              fill="white"
+            />
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize * 0.75}
+              ry={eyeSize * 0.65}
+              fill="#3B82F6"
+            />
+          </>
+        ) : eyeShape === 'squint' ? (
+          <>
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize + 4}
+              ry={eyeSize}
+              fill="white"
+            />
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize * 0.6}
+              ry={eyeSize * 0.5}
+              fill="#3B82F6"
+            />
+          </>
+        ) : eyeShape === 'wide' ? (
+          <>
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize + 7}
+              ry={eyeSize + 4}
+              fill="white"
+            />
+            <circle
+              cx={leftEyeX}
+              cy={eyeY}
+              r={eyeSize * 0.8}
+              fill="#3B82F6"
+            />
+          </>
+        ) : (
+          <>
+            <ellipse
+              cx={leftEyeX}
+              cy={eyeY}
+              rx={eyeSize + 5}
+              ry={eyeSize + 3}
+              fill="white"
+            />
+            <circle
+              cx={leftEyeX}
+              cy={eyeY}
+              r={eyeSize * 0.7}
+              fill="#3B82F6"
+            />
+          </>
+        )}
         {/* Left pupil */}
         <circle
           cx={leftEyeX + 2}
@@ -295,21 +391,74 @@ const AvatarRenderer: React.FC<AvatarRendererProps> = ({
           opacity="0.9"
         />
         
-        {/* Right eye white */}
-        <ellipse
-          cx={rightEyeX}
-          cy={eyeY}
-          rx={eyeSize + 5}
-          ry={eyeSize + 3}
-          fill="white"
-        />
-        {/* Right iris */}
-        <circle
-          cx={rightEyeX}
-          cy={eyeY}
-          r={eyeSize * 0.7}
-          fill="#3B82F6"
-        />
+        {/* Right eye */}
+        {eyeShape === 'almond' ? (
+          <>
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize + 6}
+              ry={eyeSize + 2}
+              fill="white"
+            />
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize * 0.75}
+              ry={eyeSize * 0.65}
+              fill="#3B82F6"
+            />
+          </>
+        ) : eyeShape === 'squint' ? (
+          <>
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize + 4}
+              ry={eyeSize}
+              fill="white"
+            />
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize * 0.6}
+              ry={eyeSize * 0.5}
+              fill="#3B82F6"
+            />
+          </>
+        ) : eyeShape === 'wide' ? (
+          <>
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize + 7}
+              ry={eyeSize + 4}
+              fill="white"
+            />
+            <circle
+              cx={rightEyeX}
+              cy={eyeY}
+              r={eyeSize * 0.8}
+              fill="#3B82F6"
+            />
+          </>
+        ) : (
+          <>
+            <ellipse
+              cx={rightEyeX}
+              cy={eyeY}
+              rx={eyeSize + 5}
+              ry={eyeSize + 3}
+              fill="white"
+            />
+            <circle
+              cx={rightEyeX}
+              cy={eyeY}
+              r={eyeSize * 0.7}
+              fill="#3B82F6"
+            />
+          </>
+        )}
         {/* Right pupil */}
         <circle
           cx={rightEyeX + 2}
@@ -337,9 +486,37 @@ const AvatarRenderer: React.FC<AvatarRendererProps> = ({
 
       {/* Nose */}
       <g stroke={darkerSkin} strokeWidth="2" fill="none" strokeLinecap="round">
-        <path d={`M ${center} ${noseY - 15} L ${center} ${noseY + 8}`} />
-        <path d={`M ${center} ${noseY + 8} Q ${center - 6} ${noseY + 12} ${center - 8} ${noseY + 6}`} />
-        <path d={`M ${center} ${noseY + 8} Q ${center + 6} ${noseY + 12} ${center + 8} ${noseY + 6}`} />
+        {options.nose === 'small' ? (
+          <>
+            <path d={`M ${center} ${noseY - 8} L ${center} ${noseY + 4}`} />
+            <path d={`M ${center} ${noseY + 4} Q ${center - 4} ${noseY + 7} ${center - 6} ${noseY + 3}`} />
+            <path d={`M ${center} ${noseY + 4} Q ${center + 4} ${noseY + 7} ${center + 6} ${noseY + 3}`} />
+          </>
+        ) : options.nose === 'large' ? (
+          <>
+            <path d={`M ${center} ${noseY - 20} L ${center} ${noseY + 12}`} strokeWidth="2.5" />
+            <path d={`M ${center} ${noseY + 12} Q ${center - 8} ${noseY + 16} ${center - 10} ${noseY + 8}`} />
+            <path d={`M ${center} ${noseY + 12} Q ${center + 8} ${noseY + 16} ${center + 10} ${noseY + 8}`} />
+          </>
+        ) : options.nose === 'pointed' ? (
+          <>
+            <path d={`M ${center} ${noseY - 15} L ${center + 2} ${noseY + 10}`} />
+            <path d={`M ${center + 2} ${noseY + 10} Q ${center - 4} ${noseY + 12} ${center - 7} ${noseY + 5}`} />
+            <path d={`M ${center + 2} ${noseY + 10} Q ${center + 6} ${noseY + 12} ${center + 9} ${noseY + 5}`} />
+          </>
+        ) : options.nose === 'wide' ? (
+          <>
+            <path d={`M ${center} ${noseY - 15} L ${center} ${noseY + 8}`} />
+            <path d={`M ${center} ${noseY + 8} Q ${center - 8} ${noseY + 14} ${center - 12} ${noseY + 6}`} />
+            <path d={`M ${center} ${noseY + 8} Q ${center + 8} ${noseY + 14} ${center + 12} ${noseY + 6}`} />
+          </>
+        ) : (
+          <>
+            <path d={`M ${center} ${noseY - 15} L ${center} ${noseY + 8}`} />
+            <path d={`M ${center} ${noseY + 8} Q ${center - 6} ${noseY + 12} ${center - 8} ${noseY + 6}`} />
+            <path d={`M ${center} ${noseY + 8} Q ${center + 6} ${noseY + 12} ${center + 8} ${noseY + 6}`} />
+          </>
+        )}
       </g>
 
       {/* Mouth */}

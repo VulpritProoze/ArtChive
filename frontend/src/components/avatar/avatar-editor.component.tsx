@@ -104,20 +104,38 @@ const AvatarEditorPage: React.FC = () => {
   };
 
   const handleRandomize = () => {
-    const randomSkin = Object.keys(skinTones)[Math.floor(Math.random() * 6)];
-    const randomFace = ['oval', 'round', 'square'][Math.floor(Math.random() * 3)];
-    const randomEyes = ['normal', 'wide', 'narrow'][Math.floor(Math.random() * 3)];
-    const randomEyebrows = ['normal', 'thick', 'thin'][Math.floor(Math.random() * 3)];
-    const randomNose = ['normal', 'small', 'large'][Math.floor(Math.random() * 3)];
-    const randomMouth = ['smile', 'neutral', 'grin', 'laugh', 'serious'][Math.floor(Math.random() * 5)];
-    const randomHair = ['short', 'medium', 'long', 'curly', 'spiky', 'buzz', 'wavy', 'none'][Math.floor(Math.random() * 8)];
-    const randomHairColor = Object.keys(hairColors)[Math.floor(Math.random() * 8)];
-    const randomFacialHair = ['none', 'stubble', 'mustache', 'beard', 'goatee', 'full'][Math.floor(Math.random() * 6)];
-    const randomAccessories = ['none', 'glasses', 'sunglasses', 'hat', 'cap', 'headband', 'earrings'][Math.floor(Math.random() * 7)];
-    const randomClothing = Object.keys(clothingStyles)[Math.floor(Math.random() * 5)];
+    // Get random values from actual available options
+    const skinOptions = Object.keys(skinTones);
+    const faceShapeOptions = ['oval', 'round', 'square', 'heart', 'diamond'];
+    const eyeOptions = ['default', 'large', 'almond', 'squint', 'wide'];
+    const eyebrowOptions = ['default', 'thin', 'thick', 'arched', 'straight'];
+    const noseOptions = ['default', 'small', 'large', 'pointed', 'wide'];
+    const mouthOptions = ['smile', 'neutral', 'grin', 'laugh', 'serious'];
+    const hairOptions = ['none', 'short', 'medium', 'long', 'curly', 'wavy', 'spiky', 'buzz'];
+    const hairColorOptions = Object.keys(hairColors);
+    const facialHairOptions = ['none', 'stubble', 'mustache', 'beard', 'goatee', 'full'];
+    const accessoryOptions = ['none', 'glasses', 'sunglasses', 'hat', 'cap', 'headband', 'earrings'];
+    const clothingOptions = Object.keys(clothingStyles);
+    const backgroundColors = [
+      '#F5F5F5', '#E3F2FD', '#FFF3E0', '#F3E5F5', '#E8F5E9',
+      '#FCE4EC', '#E0F2F1', '#FFF9C4', '#FFE0B2', '#D7CCC8',
+      '#CFD8DC', '#F8BBD0', '#C5CAE9', '#B2DFDB', '#DCEDC8',
+    ];
+    
+    const randomSkin = skinOptions[Math.floor(Math.random() * skinOptions.length)];
+    const randomFace = faceShapeOptions[Math.floor(Math.random() * faceShapeOptions.length)];
+    const randomEyes = eyeOptions[Math.floor(Math.random() * eyeOptions.length)];
+    const randomEyebrows = eyebrowOptions[Math.floor(Math.random() * eyebrowOptions.length)];
+    const randomNose = noseOptions[Math.floor(Math.random() * noseOptions.length)];
+    const randomMouth = mouthOptions[Math.floor(Math.random() * mouthOptions.length)];
+    const randomHair = hairOptions[Math.floor(Math.random() * hairOptions.length)];
+    const randomHairColor = hairColorOptions[Math.floor(Math.random() * hairColorOptions.length)];
+    const randomFacialHair = facialHairOptions[Math.floor(Math.random() * facialHairOptions.length)];
+    const randomAccessories = accessoryOptions[Math.floor(Math.random() * accessoryOptions.length)];
+    const randomClothing = clothingOptions[Math.floor(Math.random() * clothingOptions.length)];
+    const randomBackground = backgroundColors[Math.floor(Math.random() * backgroundColors.length)];
     
     setAvatarOptions({
-      ...avatarOptions,
       skin: randomSkin,
       faceShape: randomFace,
       eyes: randomEyes,
@@ -129,6 +147,7 @@ const AvatarEditorPage: React.FC = () => {
       facialHair: randomFacialHair,
       accessories: randomAccessories,
       clothing: randomClothing,
+      background: randomBackground,
     });
   };
 
@@ -193,29 +212,41 @@ const AvatarEditorPage: React.FC = () => {
            {/* Avatar Preview */}
            <div>
              <div className="sticky top-6">
-               <div className="bg-base-200 rounded-xl border border-base-300 p-6">
-                 <h2 className="text-xl font-bold mb-4">Preview</h2>
+               <div className="bg-gradient-to-br from-base-200 to-base-300 rounded-2xl border-2 border-base-300 p-6 shadow-xl">
+                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                   <span className="text-primary">👁️</span>
+                   Live Preview
+                 </h2>
                    
-                 {/* Preview Container */}
-                 <div className="bg-base-100 rounded-lg p-6 flex items-center justify-center border border-base-300">
-                   <AvatarRenderer 
-                     options={avatarOptions}
-                     size={Math.min(400, typeof window !== 'undefined' ? window.innerWidth - 100 : 400)}
-                     className="rounded-lg"
-                   />
+                 {/* Preview Container with better styling */}
+                 <div className="bg-base-100 rounded-2xl p-8 flex items-center justify-center border-2 border-base-300 shadow-inner">
+                   <div className="relative">
+                     <AvatarRenderer 
+                       options={avatarOptions}
+                       size={Math.min(400, typeof window !== 'undefined' ? window.innerWidth - 100 : 400)}
+                       className="rounded-2xl shadow-2xl"
+                     />
+                     <div className="absolute -bottom-3 -right-3 bg-success text-success-content rounded-full w-12 h-12 flex items-center justify-center shadow-lg">
+                       <span className="text-2xl">✓</span>
+                     </div>
+                   </div>
                  </div>
 
                  {/* Avatar Details */}
                  <div className="mt-6 space-y-4">
+                   <div className="divider my-4">
+                     <span className="text-sm font-semibold">Avatar Details</span>
+                   </div>
+                   
                    <div className="form-control">
                      <label className="label">
-                       <span className="label-text font-medium">Name *</span>
-                       <span className="label-text-alt">{name.length}/255</span>
+                       <span className="label-text font-semibold text-base">Name *</span>
+                       <span className="label-text-alt text-xs badge badge-ghost">{name.length}/255</span>
                      </label>
                      <input
                        type="text"
-                       placeholder="My Avatar"
-                       className="input input-bordered w-full"
+                       placeholder="My Awesome Avatar"
+                       className="input input-bordered w-full focus:input-primary transition-all"
                        value={name}
                        onChange={(e) => setName(e.target.value)}
                        maxLength={255}
@@ -224,12 +255,12 @@ const AvatarEditorPage: React.FC = () => {
 
                    <div className="form-control">
                      <label className="label">
-                       <span className="label-text font-medium">Description</span>
-                       <span className="label-text-alt">{description.length}/1000</span>
+                       <span className="label-text font-semibold text-base">Description</span>
+                       <span className="label-text-alt text-xs badge badge-ghost">{description.length}/1000</span>
                      </label>
                      <textarea
-                       className="textarea textarea-bordered h-20"
-                       placeholder="Describe your avatar..."
+                       className="textarea textarea-bordered h-24 focus:textarea-primary transition-all"
+                       placeholder="Describe your avatar's personality or style..."
                        value={description}
                        onChange={(e) => setDescription(e.target.value)}
                        maxLength={1000}
@@ -238,16 +269,16 @@ const AvatarEditorPage: React.FC = () => {
 
                    <div className="form-control">
                      <label className="label">
-                       <span className="label-text font-medium">Status</span>
+                       <span className="label-text font-semibold text-base">Status</span>
                      </label>
                      <select
-                       className="select select-bordered w-full"
+                       className="select select-bordered w-full focus:select-primary transition-all"
                        value={status}
                        onChange={(e) => setStatus(e.target.value as 'draft' | 'active' | 'archived')}
                      >
-                       <option value="draft">Draft</option>
-                       <option value="active">Active</option>
-                       <option value="archived">Archived</option>
+                       <option value="draft">📝 Draft</option>
+                       <option value="active">✅ Active</option>
+                       <option value="archived">📦 Archived</option>
                      </select>
                    </div>
                  </div>
@@ -256,7 +287,7 @@ const AvatarEditorPage: React.FC = () => {
            </div>
 
            {/* Customization Panel */}
-           <div className="bg-base-200 rounded-xl border border-base-300">
+           <div className="bg-base-200 rounded-2xl border-2 border-base-300 shadow-xl overflow-hidden">
              <div className="h-[calc(100vh-180px)]">
                <AvatarCustomizer
                  options={avatarOptions}
