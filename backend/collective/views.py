@@ -313,6 +313,10 @@ class JoinCollectiveView(APIView):
         serializer.is_valid(raise_exception=True)
         member = serializer.save()
         username = request.user.username
+        
+        # Invalidate user calculations (collective membership changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(request.user.id)
 
         return Response({
             'message': f'{username} has successfully joined this collective',
@@ -414,6 +418,10 @@ class LeaveCollectiveView(APIView):
             member=request.user,
             collective_id=collective.collective_id
         ).delete()
+        
+        # Invalidate user calculations (collective membership changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(request.user.id)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

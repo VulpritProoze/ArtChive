@@ -56,6 +56,12 @@ class CollectiveMember(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['member', 'collective_id'], name='cmember_member_coll_idx'),
+            models.Index(fields=['collective_id', 'member'], name='cmember_coll_member_idx'),
+        ]
+
     def __str__(self):
         member_instance = getattr(self, "member", None)
         if member_instance and hasattr(member_instance, "username"):

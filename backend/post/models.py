@@ -30,6 +30,14 @@ class Post(models.Model):
 
     objects = SoftDeleteManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['author_id', 'created_at'], name='post_author_created_idx'),
+            models.Index(fields=['channel_id', 'created_at'], name='post_channel_created_idx'),
+            models.Index(fields=['post_type', 'created_at'], name='post_type_created_idx'),
+            models.Index(fields=['is_deleted', 'created_at'], name='post_deleted_created_idx'),
+        ]
+
     def __str__(self):
         desc = self.description or ""
         desc = desc[:15] + '...' if len(desc) > 15 else desc
@@ -55,6 +63,13 @@ class PostHeart(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_heart')
     hearted_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['author', 'post_id'], name='postheart_author_post_idx'),
+            models.Index(fields=['post_id', 'author'], name='postheart_post_author_idx'),
+            models.Index(fields=['author', 'hearted_at'], name='postheart_author_at_idx'),
+        ]
+
     def __str__(self):
         return f'{self.author} hearted {self.post_id}'
 
@@ -63,11 +78,25 @@ class PostPraise(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_praise')
     praised_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['author', 'post_id'], name='postpraise_author_post_idx'),
+            models.Index(fields=['post_id', 'author'], name='postpraise_post_author_idx'),
+            models.Index(fields=['author', 'praised_at'], name='postpraise_author_at_idx'),
+        ]
+
 class PostTrophy(models.Model):
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_trophy')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_trophy')
     awarded_at = models.DateTimeField(auto_now_add=True)
     post_trophy_type = models.ForeignKey('TrophyType', on_delete=models.RESTRICT, related_name='post_trophy')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['author', 'post_id'], name='posttrophy_author_post_idx'),
+            models.Index(fields=['post_id', 'author'], name='posttrophy_post_author_idx'),
+            models.Index(fields=['author', 'awarded_at'], name='posttrophy_author_at_idx'),
+        ]
 
 class TrophyType(models.Model):
     trophy = models.CharField(max_length=100)
@@ -93,6 +122,14 @@ class Comment(models.Model):
     gallery = models.ForeignKey(Gallery, on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_comment')
 
     objects = SoftDeleteManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['post_id', 'is_deleted', 'created_at'], name='comment_post_del_created_idx'),
+            models.Index(fields=['author', 'created_at'], name='comment_author_created_idx'),
+            models.Index(fields=['gallery', 'is_deleted', 'created_at'], name='cmt_gal_del_crt_idx'),
+            models.Index(fields=['critique_id', 'is_deleted', 'created_at'], name='comment_crit_del_created_idx'),
+        ]
 
     def delete(self, *_args, **_kwargs):
         """Override delete to perform soft deletion and cascade to all replies"""
@@ -135,6 +172,12 @@ class Critique(models.Model):
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
 
     objects = SoftDeleteManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['post_id', 'is_deleted', 'created_at'], name='critique_post_del_created_idx'),
+            models.Index(fields=['author', 'created_at'], name='critique_author_created_idx'),
+        ]
 
     def __str__(self):
         text = self.text or ""

@@ -1311,6 +1311,8 @@ class CreateFriendRequestView(generics.CreateAPIView):
 
         # Send WebSocket update to both users
         send_friend_request_update_to_both_users(fellow_relationship, 'created')
+        
+        # Note: No cache invalidation needed for pending requests (not accepted yet)
 
         # Serialize with related user info
         response_serializer = UserFellowSerializer(fellow_relationship)
@@ -1373,6 +1375,11 @@ class AcceptFriendRequestView(APIView):
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to create friend request accepted notification: {e}", exc_info=True)
 
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(fellow_request.user.id)
+        invalidate_user_calculations(fellow_request.fellow_user.id)
+        
         serializer = UserFellowSerializer(fellow_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1638,7 +1645,14 @@ class UnfriendView(APIView):
                 )
 
         # Soft delete the relationship
+        user_id = fellow_relationship.user.id
+        fellow_user_id = fellow_relationship.fellow_user.id
         fellow_relationship.delete()
+        
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(user_id)
+        invalidate_user_calculations(fellow_user_id)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

@@ -1,3 +1,4 @@
+import random
 import uuid
 from collections import deque
 from datetime import timedelta
@@ -32,7 +33,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from collective.models import Channel, CollectiveMember
+from collective.models import CollectiveMember
 from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
 from common.utils.profiling import silk_profile
 from core.cache_utils import get_dashboard_cache_key
@@ -114,7 +115,13 @@ class PostCreateView(generics.CreateAPIView):
 
 class PostListView(generics.ListAPIView):
     """
-    Paginated list of all posts with caching
+    Paginated list of all posts with personalized ranking and caching.
+
+    For authenticated users: Posts are ranked by personalized score (recency,
+    social connections, engagement, etc.)
+
+    For anonymous users: Posts are shown chronologically (newest first).
+
     Example URLs:
     - /posts/ (first 10 posts)
     - /posts/?page=2 (next 10 posts)
@@ -128,30 +135,172 @@ class PostListView(generics.ListAPIView):
         page = request.query_params.get("page", 1)
         page_size = request.query_params.get("page_size", 10)
         user_id = request.user.id if request.user.is_authenticated else "anon"
-        cache_key = f"post_list:{user_id}:{page}:{page_size}"
+
+        # Check for cache invalidation flag from client (optional manual refresh)
+        invalidate_cache = request.query_params.get("invalidate_cache", "false").lower() == "true"
+
+        # Get calculation version for authenticated users (Facebook-style cache invalidation)
+        # Version increments when calculations change, automatically invalidating post cache
+        if request.user.is_authenticated:
+            from .ranking import invalidate_user_calculations
+            version_key = f"calc_version:{user_id}"
+            calc_version = cache.get(version_key, 1)
+
+            # If invalidate_cache flag is true, increment version to force refresh
+            if invalidate_cache:
+                invalidate_user_calculations(user_id)
+                calc_version = cache.get(version_key, 1)  # Get updated version
+
+            # Include calculation version in cache key
+            cache_key = f"post_list:{user_id}:calc_v{calc_version}:{page}:{page_size}"
+        else:
+            # Anonymous users: no calculation version needed (chronological only)
+            cache_key = f"post_list:{user_id}:{page}:{page_size}"
 
         cached_data = cache.get(cache_key)
         if cached_data:
+            # Smart filtering: Filter out deleted posts from cache (don't invalidate)
+            # This keeps cache valid even when posts are deleted
+            if isinstance(cached_data, dict) and 'results' in cached_data:
+                # Paginated response format
+                filtered_results = [
+                    post for post in cached_data['results']
+                    if not post.get('is_deleted', False)
+                ]
+
+                # Reshuffle posts every time user fetches (shuffle cache)
+                random.shuffle(filtered_results)
+
+                # Update the cached data with filtered and shuffled results
+                cached_data['results'] = filtered_results
+                # Update count if present
+                if 'count' in cached_data:
+                    cached_data['count'] = len(filtered_results)
+            elif isinstance(cached_data, list):
+                # Non-paginated list format
+                filtered_results = [
+                    post for post in cached_data
+                    if not post.get('is_deleted', False)
+                ]
+                # Reshuffle
+                random.shuffle(filtered_results)
+                cached_data = filtered_results
+
+            # Check if user created a new post recently (within last 5 minutes)
+            # If so, fetch it separately and prepend it (don't add to cache)
+            if request.user.is_authenticated:
+                recent_post = Post.objects.filter(
+                    author=request.user,
+                    created_at__gte=timezone.now() - timedelta(minutes=5),
+                    is_deleted=False
+                ).order_by('-created_at').first()
+
+                if recent_post:
+                    # Serialize the new post
+                    from .serializers import PostListViewSerializer
+                    serializer = PostListViewSerializer(recent_post, context={'request': request})
+                    new_post_data = serializer.data
+
+                    # Prepend to results (only if not already in results)
+                    if isinstance(cached_data, dict) and 'results' in cached_data:
+                        existing_ids = {post.get('post_id') for post in cached_data['results']}
+                        if new_post_data.get('post_id') not in existing_ids:
+                            # Remove from list if it exists elsewhere, then prepend
+                            cached_data['results'] = [p for p in cached_data['results'] if p.get('post_id') != new_post_data.get('post_id')]
+                            cached_data['results'].insert(0, new_post_data)
+                            if 'count' in cached_data:
+                                cached_data['count'] = len(cached_data['results'])
+                    elif isinstance(cached_data, list):
+                        existing_ids = {post.get('post_id') for post in cached_data}
+                        if new_post_data.get('post_id') not in existing_ids:
+                            # Remove from list if it exists elsewhere, then prepend
+                            cached_data = [p for p in cached_data if p.get('post_id') != new_post_data.get('post_id')]
+                            cached_data.insert(0, new_post_data)
+
             return Response(cached_data)
 
         response = super().list(request, *args, **kwargs)
+
+        # Check if user created a new post recently (within last 5 minutes)
+        # If so, prepend it to results (don't add to cache)
+        recent_post = None
+        recent_post_id = None
+        if request.user.is_authenticated:
+            recent_post = Post.objects.filter(
+                author=request.user,
+                created_at__gte=timezone.now() - timedelta(minutes=5),
+                is_deleted=False
+            ).order_by('-created_at').first()
+
+            if recent_post:
+                recent_post_id = str(recent_post.post_id)
+                # Serialize the new post
+                from .serializers import PostListViewSerializer
+                serializer = PostListViewSerializer(recent_post, context={'request': request})
+                new_post_data = serializer.data
+
+                # Prepend to results (remove from list if it exists elsewhere, then prepend)
+                if isinstance(response.data, dict) and 'results' in response.data:
+                    # Remove from list if it exists elsewhere
+                    response.data['results'] = [p for p in response.data['results'] if str(p.get('post_id')) != recent_post_id]
+                    # Prepend as first item
+                    response.data['results'].insert(0, new_post_data)
+                    if 'count' in response.data:
+                        response.data['count'] = len(response.data['results'])
+                elif isinstance(response.data, list):
+                    # Remove from list if it exists elsewhere
+                    response.data = [p for p in response.data if str(p.get('post_id')) != recent_post_id]
+                    # Prepend as first item
+                    response.data.insert(0, new_post_data)
+
+        # Reshuffle results before caching (but keep recent post first if it exists)
+
+        if isinstance(response.data, dict) and 'results' in response.data:
+            if recent_post_id:
+                # Remove recent post, shuffle the rest, then prepend it back
+                recent_post_data = None
+                for i, post in enumerate(response.data['results']):
+                    if str(post.get('post_id')) == recent_post_id:
+                        recent_post_data = response.data['results'].pop(i)
+                        break
+                random.shuffle(response.data['results'])
+                if recent_post_data:
+                    response.data['results'].insert(0, recent_post_data)
+            else:
+                random.shuffle(response.data['results'])
+        elif isinstance(response.data, list):
+            if recent_post_id:
+                # Remove recent post, shuffle the rest, then prepend it back
+                recent_post_data = None
+                for i, post in enumerate(response.data):
+                    if str(post.get('post_id')) == recent_post_id:
+                        recent_post_data = response.data.pop(i)
+                        break
+                random.shuffle(response.data)
+                if recent_post_data:
+                    response.data.insert(0, recent_post_data)
+            else:
+                random.shuffle(response.data)
+
         cache.set(cache_key, response.data, 300)  # 5 minutes
         return response
 
     def get_queryset(self):
         """
-        Fetch core post data only. Counts and user interactions are fetched
-        separately via PostBulkMetaView for better performance.
+        Fetch core post data with personalized ranking for authenticated users.
+        Counts and user interactions are fetched separately via PostBulkMetaView.
 
-        Additional optimizations:
-        - Cache joined_collectives per user
-        - Use Prefetch() for selective prefetching
-        - Early return optimizations
+        Performance optimizations:
+        - Database-level scoring (no Python loops)
+        - Multi-level caching (fellows, collectives, interaction stats)
+        - Efficient prefetching and select_related
         """
+        from .ranking import build_personalized_queryset
+
         user = self.request.user
         public_channel_id = "00000000-0000-0000-0000-000000000001"
 
-        # Build base queryset - only core post data, no annotations
+        # Build base queryset - only core post data, no annotations yet
         with silk_profile(name="PostListView - Build Base Queryset"):
             queryset = (
                 Post.objects.get_active_objects()
@@ -177,12 +326,9 @@ class PostListView(generics.ListAPIView):
                     "created_at",
                     "updated_at",
                 )
-                .order_by("-created_at")
             )
 
         # Filter based on authentication
-        # Only show public posts for unauthenticated users
-        # Show collective posts too for authenticated users
         if user.is_authenticated:
             with silk_profile(name="PostListView - Filter Authenticated User"):
                 # Cache joined_collectives per user (cache for 5 minutes)
@@ -201,20 +347,22 @@ class PostListView(generics.ListAPIView):
 
                 # Optimization: If user has no collectives, only show public posts
                 if not joined_collectives:
-                    return queryset.filter(channel=public_channel_id)
+                    queryset = queryset.filter(channel=public_channel_id)
+                else:
+                    # Posts from joined collectives OR public posts
+                    joined_posts = Q(channel__collective__in=joined_collectives)
+                    public_posts = Q(channel=public_channel_id)
+                    queryset = queryset.filter(public_posts | joined_posts)
 
-                # Posts from joined collectives
-                joined_posts = Q(channel__collective__in=joined_collectives)
+                # Apply personalized ranking (database-level scoring)
+                with silk_profile(name="PostListView - Apply Personalized Ranking"):
+                    queryset = build_personalized_queryset(queryset, user)
 
-                # Always include public posts (from the known public channel)
-                public_posts = Q(channel=public_channel_id)
-
-                # Combine: public posts OR posts from joined collectives
-                return queryset.filter(public_posts | joined_posts)
-
-        # Returns only public posts if unauthenticated
-        with silk_profile(name="PostListView - Filter Public Posts"):
-            return queryset.filter(channel=public_channel_id)
+                return queryset
+        else:
+            # Anonymous users: chronological ordering only
+            with silk_profile(name="PostListView - Filter Public Posts"):
+                return queryset.filter(channel=public_channel_id).order_by("-created_at")
 
 
 class PostBulkMetaView(APIView):
@@ -763,6 +911,9 @@ class PostHeartCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+        # Invalidate user calculations to refresh personalized ranking
+        from .ranking import invalidate_user_calculations
+        invalidate_user_calculations(self.request.user.id)
 
 
 class PostHeartDestroyView(generics.DestroyAPIView):
@@ -777,6 +928,13 @@ class PostHeartDestroyView(generics.DestroyAPIView):
     def get_object(self):
         post_id = self.kwargs.get("post_id")
         return get_object_or_404(PostHeart, post_id=post_id, author=self.request.user)
+
+    def perform_destroy(self, instance):
+        user_id = self.request.user.id
+        instance.delete()
+        # Invalidate user calculations to refresh personalized ranking
+        from .ranking import invalidate_user_calculations
+        invalidate_user_calculations(user_id)
 
 
 class UserHeartedPostsListView(generics.ListAPIView):
@@ -1130,6 +1288,10 @@ class PostPraiseCreateView(APIView):
                 # Send notification to post author
                 create_praise_notification(post_praise, post_author)
 
+            # Invalidate user calculations to refresh personalized ranking
+            from .ranking import invalidate_user_calculations
+            invalidate_user_calculations(user.id)
+
             # Return serialized response
             response_serializer = PostPraiseSerializer(
                 post_praise, context={"request": request}
@@ -1420,6 +1582,10 @@ class PostTrophyCreateView(APIView):
 
                 # Send notification to post author
                 create_trophy_notification(post_trophy, post_author)
+
+            # Invalidate user calculations to refresh personalized ranking
+            from .ranking import invalidate_user_calculations
+            invalidate_user_calculations(user.id)
 
             # Return serialized response
             response_serializer = PostTrophySerializer(

@@ -81,6 +81,13 @@ class UserFellow(models.Model):
 
     objects = SoftDeleteManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'fellow_user', 'status'], name='userfellow_lookup_idx'),
+            models.Index(fields=['user', 'status', 'is_deleted'], name='ufellow_user_stat_del_idx'),
+            models.Index(fields=['fellow_user', 'status', 'is_deleted'], name='ufellow_fellow_stat_del_idx'),
+        ]
+
     def delete(self, *args, **kwargs):
         """Override delete to perform soft deletion"""
         self.is_deleted = True
@@ -131,3 +138,60 @@ class BrushDripTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transacted_by} sent {self.amount} to {self.transacted_to}. {self.transaction_object_type}"
+
+
+class UserPreference(models.Model):
+    """
+    Store explicit user preferences for personalized post ranking.
+    Allows users to set preferred post types and artist types.
+    Can be used to supplement or override inferred preferences from interaction history.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='user_preference',
+        primary_key=True
+    )
+
+    # Preferred content types (explicit user preferences)
+    preferred_post_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of preferred post types, e.g. ["image", "novel", "video"]'
+    )
+    preferred_artist_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of preferred artist types, e.g. ["visual_arts", "literary_arts"]'
+    )
+
+    # Future features (for negative signals)
+    muted_collectives = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of collective IDs to hide posts from (future feature)'
+    )
+    blocked_users = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of user IDs to hide posts from (future feature)'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Preference'
+        verbose_name_plural = 'User Preferences'
+
+    def __str__(self):
+        return f"Preferences for {self.user.username}"
+
+    def get_preferred_post_types(self):
+        """Get preferred post types, return empty list if None"""
+        return self.preferred_post_types or []
+
+    def get_preferred_artist_types(self):
+        """Get preferred artist types, return empty list if None"""
+        return self.preferred_artist_types or []
