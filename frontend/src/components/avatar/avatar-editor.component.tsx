@@ -5,6 +5,9 @@ import { useAvatar, useCreateAvatar, useUpdateAvatar } from '@hooks/queries/use-
 import { CreateAvatarData, UpdateAvatarData } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import AvatarRenderer from './avatar-renderer.component';
+import AvatarCustomizer from './avatar-customizer.component';
+import { AvatarOptions, defaultAvatarOptions, skinTones, hairColors, clothingStyles } from './avatar-options';
 
 const AvatarEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,12 +26,16 @@ const AvatarEditorPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'draft' | 'active' | 'archived'>('draft');
 
-  // Canvas state (simplified)
+  // Avatar customization options
+  const [avatarOptions, setAvatarOptions] = useState<AvatarOptions>(defaultAvatarOptions);
+
+  // Canvas data (for backward compatibility with API)
   const [canvasData, setCanvasData] = useState({
     width: 512,
     height: 512,
-    background: '#ffffff',
+    background: avatarOptions.background,
     objects: [] as any[],
+    avatarOptions: avatarOptions, // Store avatar options in canvas JSON
   });
 
   // Load avatar data if editing
@@ -39,9 +46,22 @@ const AvatarEditorPage: React.FC = () => {
       setStatus(avatar.status);
       if (avatar.canvas_json) {
         setCanvasData(avatar.canvas_json);
+        // Load avatar options if they exist
+        if ((avatar.canvas_json as any).avatarOptions) {
+          setAvatarOptions((avatar.canvas_json as any).avatarOptions);
+        }
       }
     }
   }, [avatar]);
+
+  // Update canvas data when avatar options change
+  useEffect(() => {
+    setCanvasData(prev => ({
+      ...prev,
+      background: avatarOptions.background,
+      avatarOptions: avatarOptions,
+    }));
+  }, [avatarOptions]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -83,6 +103,39 @@ const AvatarEditorPage: React.FC = () => {
     navigate('/avatar');
   };
 
+  const handleRandomize = () => {
+    const randomSkin = Object.keys(skinTones)[Math.floor(Math.random() * 6)];
+    const randomFace = ['oval', 'round', 'square'][Math.floor(Math.random() * 3)];
+    const randomEyes = ['normal', 'wide', 'narrow'][Math.floor(Math.random() * 3)];
+    const randomEyebrows = ['normal', 'thick', 'thin'][Math.floor(Math.random() * 3)];
+    const randomNose = ['normal', 'small', 'large'][Math.floor(Math.random() * 3)];
+    const randomMouth = ['smile', 'neutral', 'grin', 'laugh', 'serious'][Math.floor(Math.random() * 5)];
+    const randomHair = ['short', 'medium', 'long', 'curly', 'spiky', 'buzz', 'wavy', 'none'][Math.floor(Math.random() * 8)];
+    const randomHairColor = Object.keys(hairColors)[Math.floor(Math.random() * 8)];
+    const randomFacialHair = ['none', 'stubble', 'mustache', 'beard', 'goatee', 'full'][Math.floor(Math.random() * 6)];
+    const randomAccessories = ['none', 'glasses', 'sunglasses', 'hat', 'cap', 'headband', 'earrings'][Math.floor(Math.random() * 7)];
+    const randomClothing = Object.keys(clothingStyles)[Math.floor(Math.random() * 5)];
+    
+    setAvatarOptions({
+      ...avatarOptions,
+      skin: randomSkin,
+      faceShape: randomFace,
+      eyes: randomEyes,
+      eyebrows: randomEyebrows,
+      nose: randomNose,
+      mouth: randomMouth,
+      hair: randomHair,
+      hairColor: randomHairColor,
+      facialHair: randomFacialHair,
+      accessories: randomAccessories,
+      clothing: randomClothing,
+    });
+  };
+
+  const handleReset = () => {
+    setAvatarOptions(defaultAvatarOptions);
+  };
+
   if (isEditMode && isLoading) {
     return (
       <MainLayout>
@@ -95,151 +148,126 @@ const AvatarEditorPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCancel}
-              className="btn btn-ghost btn-circle"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                {isEditMode ? 'Edit Avatar' : 'Create New Avatar'}
-              </h1>
-              <p className="text-base-content/60 mt-1">
-                Design your custom avatar
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleSave}
-            className="btn btn-primary gap-2"
-            disabled={isCreating || isUpdating}
-          >
-            {(isCreating || isUpdating) ? (
-              <span className="loading loading-spinner loading-sm"></span>
-            ) : (
-              <FontAwesomeIcon icon={faSave} />
-            )}
-            Save Avatar
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Canvas Area */}
-          <div className="lg:col-span-2">
-            <div className="card bg-base-200 shadow-xl">
-              <div className="card-body">
-                <h2 className="card-title">Canvas Editor</h2>
-                <div className="bg-base-300 rounded-lg p-4 flex items-center justify-center min-h-[512px]">
-                  {/* Simplified Canvas Preview */}
-                  <div
-                    className="bg-white rounded-lg shadow-inner"
-                    style={{
-                      width: '512px',
-                      height: '512px',
-                      backgroundColor: canvasData.background,
-                      position: 'relative',
-                    }}
-                  >
-                    <div className="flex items-center justify-center h-full text-base-content/30">
-                      <div className="text-center">
-                        <div className="text-8xl mb-4">🎨</div>
-                        <p className="text-xl font-semibold">Canvas Editor</p>
-                        <p className="text-sm mt-2">512 x 512 pixels</p>
-                        <p className="text-xs mt-4 max-w-xs">
-                          Note: Full canvas editor coming soon. For now, you can save avatar metadata.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Properties Panel */}
-          <div className="space-y-6">
-            {/* Avatar Details */}
-            <div className="card bg-base-200 shadow-xl">
-              <div className="card-body">
-                <h2 className="card-title text-lg">Avatar Details</h2>
-                
-                {/* Name */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Name *</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="My Avatar"
-                    className="input input-bordered"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    maxLength={255}
-                  />
-                </div>
-
-                {/* Description */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Description</span>
-                  </label>
-                  <textarea
-                    className="textarea textarea-bordered h-24"
-                    placeholder="Optional description..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    maxLength={1000}
-                  ></textarea>
-                </div>
-
-                {/* Status */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Status</span>
-                  </label>
-                  <select
-                    className="select select-bordered"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as 'draft' | 'active' | 'archived')}
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Canvas Tools (Placeholder) */}
-            <div className="card bg-base-200 shadow-xl">
-              <div className="card-body">
-                <h2 className="card-title text-lg">Tools</h2>
-                <div className="grid grid-cols-2 gap-2">
-                  <button className="btn btn-sm btn-outline" disabled>
-                    Rectangle
-                  </button>
-                  <button className="btn btn-sm btn-outline" disabled>
-                    Circle
-                  </button>
-                  <button className="btn btn-sm btn-outline" disabled>
-                    Text
-                  </button>
-                  <button className="btn btn-sm btn-outline" disabled>
-                    Image
-                  </button>
-                </div>
-                <p className="text-xs text-base-content/60 mt-2">
-                  Canvas tools coming soon
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Simple Header */}
+        <div className="bg-base-200 rounded-xl p-6 mb-6 border border-base-300">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCancel}
+                className="btn btn-ghost btn-sm"
+              >
+                <FontAwesomeIcon icon={faArrowLeft} />
+                Back
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold">
+                  {isEditMode ? 'Edit Avatar' : 'Create Avatar'}
+                </h1>
+                <p className="text-base-content/60 mt-1">
+                  Customize your avatar
                 </p>
               </div>
             </div>
+            <button
+              onClick={handleSave}
+              className="btn btn-primary gap-2"
+              disabled={isCreating || isUpdating}
+            >
+              {(isCreating || isUpdating) ? (
+                <>
+                  <span className="loading loading-spinner loading-sm"></span>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faSave} />
+                  <span>Save Avatar</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           {/* Avatar Preview */}
+           <div>
+             <div className="sticky top-6">
+               <div className="bg-base-200 rounded-xl border border-base-300 p-6">
+                 <h2 className="text-xl font-bold mb-4">Preview</h2>
+                   
+                 {/* Preview Container */}
+                 <div className="bg-base-100 rounded-lg p-6 flex items-center justify-center border border-base-300">
+                   <AvatarRenderer 
+                     options={avatarOptions}
+                     size={Math.min(400, typeof window !== 'undefined' ? window.innerWidth - 100 : 400)}
+                     className="rounded-lg"
+                   />
+                 </div>
+
+                 {/* Avatar Details */}
+                 <div className="mt-6 space-y-4">
+                   <div className="form-control">
+                     <label className="label">
+                       <span className="label-text font-medium">Name *</span>
+                       <span className="label-text-alt">{name.length}/255</span>
+                     </label>
+                     <input
+                       type="text"
+                       placeholder="My Avatar"
+                       className="input input-bordered w-full"
+                       value={name}
+                       onChange={(e) => setName(e.target.value)}
+                       maxLength={255}
+                     />
+                   </div>
+
+                   <div className="form-control">
+                     <label className="label">
+                       <span className="label-text font-medium">Description</span>
+                       <span className="label-text-alt">{description.length}/1000</span>
+                     </label>
+                     <textarea
+                       className="textarea textarea-bordered h-20"
+                       placeholder="Describe your avatar..."
+                       value={description}
+                       onChange={(e) => setDescription(e.target.value)}
+                       maxLength={1000}
+                     ></textarea>
+                   </div>
+
+                   <div className="form-control">
+                     <label className="label">
+                       <span className="label-text font-medium">Status</span>
+                     </label>
+                     <select
+                       className="select select-bordered w-full"
+                       value={status}
+                       onChange={(e) => setStatus(e.target.value as 'draft' | 'active' | 'archived')}
+                     >
+                       <option value="draft">Draft</option>
+                       <option value="active">Active</option>
+                       <option value="archived">Archived</option>
+                     </select>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+
+           {/* Customization Panel */}
+           <div className="bg-base-200 rounded-xl border border-base-300">
+             <div className="h-[calc(100vh-180px)]">
+               <AvatarCustomizer
+                 options={avatarOptions}
+                 onChange={setAvatarOptions}
+                 onRandomize={handleRandomize}
+                 onReset={handleReset}
+               />
+             </div>
+           </div>
+         </div>
+
       </div>
     </MainLayout>
   );
