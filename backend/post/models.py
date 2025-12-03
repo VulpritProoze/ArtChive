@@ -169,6 +169,7 @@ class Critique(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     post_id = models.ForeignKey(Post, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
+    gallery_id = models.ForeignKey('gallery.Gallery', on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_critique')
     author = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='post_critique')
 
     objects = SoftDeleteManager()
@@ -176,8 +177,10 @@ class Critique(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['post_id', 'is_deleted', 'created_at'], name='critique_post_del_created_idx'),
+            models.Index(fields=['gallery_id', 'is_deleted', 'created_at'], name='critique_gal_del_created_idx'),
             models.Index(fields=['author', 'created_at'], name='critique_author_created_idx'),
         ]
+
 
     def __str__(self):
         text = self.text or ""

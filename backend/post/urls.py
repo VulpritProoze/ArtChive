@@ -105,6 +105,7 @@ urlpatterns = [
         name="comment-reply-update",
     ),
     path("<uuid:post_id>/critiques/", CritiqueListView.as_view(), name="critique-list"),
+    path("critique/list/", CritiqueListView.as_view(), name="critique-list-generic"),  # For gallery critiques via query param
     path("critiques/search/", CritiqueSearchView.as_view(), name="critique-search"),
     path("critique/create/", CritiqueCreateView.as_view(), name="critique-create"),
     path(

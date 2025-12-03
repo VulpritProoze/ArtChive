@@ -48,6 +48,9 @@ from .serializers import (
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
+    ReputationHistorySerializer,
+    ReputationLeaderboardEntrySerializer,
+    ReputationSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
     UserFellowSerializer,
@@ -344,6 +347,7 @@ class UserInfoView(RetrieveAPIView):
             "last_name",
             "profile_picture",
             "is_superuser",
+            "reputation",
             # artist relation fields (to avoid full fetch)
             "artist__artist_types",
             # user_wallet relation fields

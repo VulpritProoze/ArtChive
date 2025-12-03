@@ -9,8 +9,10 @@ import PendingFriendRequestsButton from "@components/fellows/pending-requests-bu
 import { useTopPosts } from "@hooks/queries/use-posts";
 import { useFellows } from "@hooks/queries/use-fellows";
 import { useRealtime } from "@context/realtime-context";
+import { UserStatsDisplay } from "@components/reputation/user-stats-display.component";
+import { formatNumber } from "@utils/format-number.util";
 // DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
-import { useActiveFellows } from "@hooks/queries/use-active-fellows";
+// import { useActiveFellows } from "@hooks/queries/use-active-fellows";
 import {
   Home,
   Images as GalleryIcon,
@@ -32,7 +34,8 @@ import {
   X,
   PanelRightOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CircleDot
 } from "lucide-react";
 
 interface MainLayoutProps {
@@ -66,16 +69,17 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const { data: allFellows = [], isLoading: isLoadingFellows } = useFellows();
   
   // DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
-  const { data: activeFellowsFromAPI = [], isLoading: isLoadingActiveFellowsFromAPI } = useActiveFellows();
-  const activeFellows = activeFellowsFromAPI;
-  const isLoadingActiveFellows = isLoadingActiveFellowsFromAPI;
+  // const { data: activeFellowsFromAPI = [], isLoading: isLoadingActiveFellowsFromAPI } = useActiveFellows();
+  // const activeFellows = activeFellowsFromAPI;
+  // const isLoadingActiveFellows = isLoadingActiveFellowsFromAPI;
   
   // Filter fellows to show only those who are active (WebSocket-based)
-  // const activeFellows = allFellows.filter(fellow => {
-  //   const fellowUserId = fellow.user === user?.id ? fellow.fellow_user : fellow.user;
-  //   return isFellowActive(fellowUserId);
-  // });
-  // const isLoadingActiveFellows = isLoadingFellows;
+  const activeFellows = allFellows.filter(fellow => {
+    const fellowUserId = fellow.user === user?.id ? fellow.fellow_user : fellow.user;
+    return isFellowActive(fellowUserId);
+  });
+  
+  const isLoadingActiveFellows = isLoadingFellows;
 
   useEffect(() => {
     if (!showRightSidebar) {
@@ -206,6 +210,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         navigate('/drips')
       }
     },
+    {
+      label: "Reputation",
+      icon: CircleDot,
+      action: () => {
+        setIsSettingsOpen(false);
+        // Navigate to Reputation page
+        navigate('/reputation')
+      }
+    },
   ];
 
   return (
@@ -266,10 +279,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                         </h5>
                       )}
                       <p className="text-xs text-primary truncate max-w-[120px]">@{user.username}</p>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
-                      </div>
+                      <UserStatsDisplay
+                        brushdrips={parseInt(user.brushdrips_count) || 0}
+                        reputation={user.reputation}
+                        showBrushdrips={true}
+                      />
                     </div>
                   </Link>
                 </div>
@@ -395,9 +409,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                       </h5>
                     )}
                     <p className="text-xs text-primary truncate">@{user.username}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="w-2 h-2 bg-primary rounded-full"></div>
-                      <p className="text-[10px] text-base-content/70 font-medium">{user.brushdrips_count || 0} BD</p>
+                    <div className="mt-0.5">
+                      <UserStatsDisplay
+                        brushdrips={parseInt(user.brushdrips_count) || 0}
+                        reputation={user.reputation}
+                        showBrushdrips={true}
+                      />
                     </div>
                   </div>
                 </Link>

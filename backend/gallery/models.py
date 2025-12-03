@@ -43,9 +43,21 @@ class GalleryAward(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gallery_award')
     awarded_at = models.DateTimeField(auto_now_add=True)
     gallery_award_type = models.ForeignKey('AwardType', on_delete=models.RESTRICT, related_name='gallery_award')
+    is_deleted = models.BooleanField(default=False)  # Soft delete
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['gallery_id', 'author'], name='galleryaward_gal_author_idx'),
+            models.Index(fields=['author', 'awarded_at'], name='galleryaward_author_at_idx'),
+        ]
+
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion"""
+        self.is_deleted = True
+        self.save()
 
 class AwardType(models.Model):
-    award = models.CharField(max_length=100)
+    award = models.CharField(max_length=100, choices=choices.GALLERY_AWARD_CHOICES)
     brush_drip_value = models.IntegerField()
 
 

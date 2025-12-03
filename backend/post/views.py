@@ -969,7 +969,10 @@ class PostHeartsListView(ListAPIView):
 
 class CritiqueListView(ListAPIView):
     """
-    List all critiques for a specific post
+    List all critiques for a specific post or gallery
+    Supports both:
+    - GET /api/post/<post_id>/critiques/ (for posts)
+    - GET /api/post/critique/list/?gallery_id=<gallery_id> (for galleries, via query param)
     """
 
     serializer_class = CritiqueSerializer
@@ -977,36 +980,55 @@ class CritiqueListView(ListAPIView):
     pagination_class = CritiquePagination
 
     def get_queryset(self):
-        post_id = self.kwargs["post_id"]
+        # Check if post_id is in URL kwargs (for post critiques)
+        post_id = self.kwargs.get("post_id")
+        # Check if gallery_id is in query params (for gallery critiques)
+        gallery_id = self.request.query_params.get("gallery_id")
+
+        queryset = Critique.objects.get_active_objects()
+
+        if post_id:
+            # Filter by post_id
+            queryset = queryset.filter(post_id=post_id)
+        elif gallery_id:
+            # Filter by gallery_id
+            queryset = queryset.filter(gallery_id=gallery_id)
+        else:
+            # No filter provided, return empty queryset
+            return Critique.objects.none()
+
         return (
-            Critique.objects.get_active_objects()
-            .filter(post_id=post_id)
+            queryset
             .annotate(
                 reply_count=Count(
                     "critique_reply", filter=Q(critique_reply__is_deleted=False)
                 )
             )
-            .select_related("author", "post_id")
+            .select_related("author", "post_id", "gallery_id")
             .order_by("-created_at")
         )
 
 
 class CritiqueCreateView(APIView):
     """
-    Create a new critique for a post (costs 1 Brush Drip)
+    Create a new critique for a post or gallery (costs 3 Brush Drips)
     POST /api/posts/critique/create/
 
     Body: {
         "text": "<text>",
         "impression": "positive" | "negative" | "neutral",
-        "post_id": "<uuid>"
+        "post_id": "<uuid>" (optional, if critiquing a post)
+        "gallery_id": "<uuid>" (optional, if critiquing a gallery)
     }
 
+    Note: Either post_id OR gallery_id must be provided, but not both.
+
     This endpoint:
-    1. Validates user has 1 Brush Drip
+    1. Validates user has 3 Brush Drips
     2. Creates Critique record
-    3. Deducts 1 Brush Drip from user (no refund on deletion)
+    3. Deducts 3 Brush Drips from user (no refund on deletion)
     4. Creates transaction record
+    5. Sends notification to post author or gallery creator
 
     All operations are atomic (either all succeed or all fail)
     """
@@ -1021,7 +1043,8 @@ class CritiqueCreateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        post = serializer.validated_data["post_id"]
+        post = serializer.validated_data.get("post_id")
+        gallery = serializer.validated_data.get("gallery_id")
         text = serializer.validated_data["text"]
         impression = serializer.validated_data["impression"]
 
@@ -1039,31 +1062,38 @@ class CritiqueCreateView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Deduct 1 Brush Drip from user (no transfer to post author)
+                # Deduct 3 Brush Drips from user (no transfer to recipient)
                 user_wallet.balance -= 3
                 user_wallet.save()
 
                 # Create Critique
                 critique = Critique.objects.create(
                     post_id=post,
+                    gallery_id=gallery,
                     author=user,
                     text=text,
                     impression=impression,
                 )
 
-                # Create transaction record (transacted_to is None for critiques)
+                # Determine recipient for notification and transaction
+                recipient = None
+                if post:
+                    recipient = post.author
+                elif gallery:
+                    recipient = gallery.creator
+
+                # Create transaction record (transacted_to is recipient for reputation)
                 BrushDripTransaction.objects.create(
-                    amount=1,
+                    amount=3,
                     transaction_object_type="critique",
                     transaction_object_id=str(critique.critique_id),
                     transacted_by=user,
-                    transacted_to=None,  # No transfer, just deduction
+                    transacted_to=recipient,  # Recipient gets reputation, not BD
                 )
 
-                # Send notification to post author
-                if post:
-                    post_author = post.author
-                    create_critique_notification(critique, post_author)
+                # Send notification to recipient
+                if recipient:
+                    create_critique_notification(critique, recipient)
 
             # Return serialized response
             response_serializer = CritiqueSerializer(

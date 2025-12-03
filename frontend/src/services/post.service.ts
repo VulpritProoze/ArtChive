@@ -189,10 +189,7 @@ export const postService = {
    * POST /api/post/trophy/create/
    */
   async awardTrophy(data: { post_id: string; trophy_type: string }): Promise<void> {
-    await post.post('trophy/create/', {
-      post_id: data.post_id,
-      trophy_type: data.trophy_type,
-    });
+    await post.post('/trophy/create/', data);
   },
 
   /**
@@ -282,10 +279,27 @@ export const postService = {
   },
 
   /**
-   * Create a critique
+   * Get critiques for a gallery (paginated)
+   * Note: This endpoint doesn't exist yet, but we can reuse the post endpoint structure
+   * For now, we'll need to create a gallery-specific endpoint or extend the existing one
+   * GET /api/gallery/<galleryId>/critiques/ (to be implemented)
+   * For MVP, we can filter critiques by gallery_id on the backend
+   */
+  async getGalleryCritiques(galleryId: string, page: number = 1, pageSize: number = 10): Promise<CritiqueResponse> {
+    // TODO: Create backend endpoint for gallery critiques
+    // For now, we'll need to fetch all critiques and filter client-side, or create the endpoint
+    // This is a placeholder - backend needs to implement GET /api/gallery/<galleryId>/critiques/
+    const response = await post.get(`/critique/list/`, {
+      params: { gallery_id: galleryId, page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a critique (supports both post and gallery)
    * POST /api/post/critique/create/
    */
-  async createCritique(data: { text: string; impression: string; post_id: string }): Promise<void> {
+  async createCritique(data: { text: string; impression: string; post_id?: string; gallery_id?: string }): Promise<void> {
     await post.post('/critique/create/', data);
   },
 

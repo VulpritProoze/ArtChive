@@ -817,7 +817,8 @@ class CritiqueSerializer(ModelSerializer):
     author_picture = serializers.ImageField(
         source="author.profile_picture", read_only=True
     )
-    post_title = serializers.CharField(source="post_id.title", read_only=True)
+    post_title = serializers.SerializerMethodField()
+    gallery_title = serializers.SerializerMethodField()
     author_artist_types = serializers.SerializerMethodField()
     author_fullname = serializers.SerializerMethodField()
     reply_count = serializers.SerializerMethodField()
@@ -826,6 +827,14 @@ class CritiqueSerializer(ModelSerializer):
     class Meta:
         model = Critique
         fields = "__all__"
+
+    def get_post_title(self, obj):
+        """Safely get post title, returning None if post_id is None"""
+        return obj.post_id.title if obj.post_id else None
+
+    def get_gallery_title(self, obj):
+        """Safely get gallery title, returning None if gallery_id is None"""
+        return obj.gallery_id.title if obj.gallery_id else None
 
     def get_author_artist_types(self, obj):
         """Fetch author's artist types"""
@@ -851,7 +860,7 @@ class CritiqueSerializer(ModelSerializer):
 class CritiqueCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Critique
-        fields = ["text", "impression", "post_id"]
+        fields = ["text", "impression", "post_id", "gallery_id"]
 
     def validate_impression(self, value):
         valid_choices = [choice[0] for choice in choices.CRITIQUE_IMPRESSIONS]
@@ -867,6 +876,17 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
 
         user = data.get("author")
         post = data.get("post_id")
+        gallery = data.get("gallery_id")
+
+        # Validate that either post_id or gallery_id is set, but not both
+        if not post and not gallery:
+            raise serializers.ValidationError(
+                "Either post_id or gallery_id must be provided."
+            )
+        if post and gallery:
+            raise serializers.ValidationError(
+                "Cannot provide both post_id and gallery_id. Please provide only one."
+            )
 
         # Prevent post author from critiquing their own post
         if post and post.author == user:
@@ -874,9 +894,16 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
                 "You cannot critique your own post"
             )
 
+        # Prevent gallery creator from critiquing their own gallery
+        if gallery and gallery.creator == user:
+            raise serializers.ValidationError(
+                "You cannot critique your own gallery"
+            )
+
         # Check if user already created a critique for this post
         if (
             user and
+            post and
             Critique.objects.get_active_objects()
             .filter(post_id=post, author=user)
             .exists()
@@ -885,13 +912,25 @@ class CritiqueCreateSerializer(serializers.ModelSerializer):
                 "You have already created a critique for this post"
             )
 
-        # Check if user has sufficient Brush Drips (1 required)
+        # Check if user already created a critique for this gallery
+        if (
+            user and
+            gallery and
+            Critique.objects.get_active_objects()
+            .filter(gallery_id=gallery, author=user)
+            .exists()
+        ):
+            raise serializers.ValidationError(
+                "You have already created a critique for this gallery"
+            )
+
+        # Check if user has sufficient Brush Drips (3 required for critique)
         if user:
             try:
                 wallet = BrushDripWallet.objects.get(user=user)
-                if wallet.balance < 1:
+                if wallet.balance < 3:
                     raise serializers.ValidationError(
-                        f"Insufficient Brush Drips. You need 1 Brush Drip to create a critique. "
+                        f"Insufficient Brush Drips. You need 3 Brush Drips to create a critique. "
                         f"Current balance: {wallet.balance}"
                     )
             except BrushDripWallet.DoesNotExist as e:

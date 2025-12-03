@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .reputation_views import (
+    MyLeaderboardPositionView,
+    ReputationLeaderboardView,
+    UserReputationHistoryView,
+    UserReputationView,
+)
 from .views import (
     ArtistCountsAPIView,
     ArtistGrowthAPIView,
@@ -228,5 +234,26 @@ urlpatterns = [
         "dashboard/core/transactions/volume/",
         TransactionVolumeAPIView.as_view(),
         name="dashboard-core-transactions-volume",
+    ),
+    # Reputation endpoints
+    path(
+        "users/<int:pk>/reputation/",
+        UserReputationView.as_view(),
+        name="user-reputation",
+    ),
+    path(
+        "users/<int:user_id>/reputation/history/",
+        UserReputationHistoryView.as_view(),
+        name="user-reputation-history",
+    ),
+    path(
+        "reputation/leaderboard/",
+        ReputationLeaderboardView.as_view(),
+        name="reputation-leaderboard",
+    ),
+    path(
+        "reputation/leaderboard/me/",
+        MyLeaderboardPositionView.as_view(),
+        name="my-leaderboard-position",
     ),
 ]

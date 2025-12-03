@@ -15,18 +15,35 @@ import {
 } from '@hooks/queries/use-critiques';
 
 interface CritiqueSectionProps {
-  postId: string;
+  postId?: string;
+  galleryId?: string;
+  targetType?: 'post' | 'gallery';
   highlightedItemId?: string | null;
 }
 
-export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId, highlightedItemId }) => {
+export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ 
+  postId, 
+  galleryId,
+  targetType,
+  highlightedItemId 
+}) => {
   const {
     setShowCritiqueForm,
     setSelectedCritique,
     setCritiqueTargetPostId,
+    setCritiqueTargetGalleryId,
+    setCritiqueTargetType,
     setEditingCritiqueForm,
   } = usePostUI();
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCritiques(postId);
+  
+  // Determine target type and ID
+  const finalTargetType = targetType || (postId ? 'post' : 'gallery');
+  const targetId = postId || galleryId || '';
+  
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCritiques(
+    targetId,
+    finalTargetType
+  );
   const critiques = useMemo(() => data?.pages.flatMap((page) => page.results || []) ?? [], [data]);
 
   // Calculate statistics
@@ -39,7 +56,15 @@ export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId, highli
 
   const handleAddCritique = () => {
     setSelectedCritique(null);
-    setCritiqueTargetPostId(postId);
+    if (finalTargetType === 'gallery' && galleryId) {
+      setCritiqueTargetGalleryId(galleryId);
+      setCritiqueTargetPostId(null);
+      setCritiqueTargetType('gallery');
+    } else if (postId) {
+      setCritiqueTargetPostId(postId);
+      setCritiqueTargetGalleryId(null);
+      setCritiqueTargetType('post');
+    }
     setEditingCritiqueForm(false);
     setShowCritiqueForm(true);
   };
@@ -120,6 +145,8 @@ export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId, highli
             key={critique.critique_id}
             critique={critique}
             postId={postId}
+            galleryId={galleryId}
+            targetType={finalTargetType}
             highlightedItemId={highlightedItemId}
           />
         ))}
@@ -154,16 +181,28 @@ export const CritiqueSection: React.FC<CritiqueSectionProps> = ({ postId, highli
 };
 
 // Individual Critique Card Component (StackOverflow-style)
-const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedItemId?: string | null }> = ({
+const CritiqueCard: React.FC<{ 
+  critique: Critique; 
+  postId?: string;
+  galleryId?: string;
+  targetType?: 'post' | 'gallery';
+  highlightedItemId?: string | null;
+}> = ({
   critique,
   postId,
+  galleryId,
+  targetType,
   highlightedItemId,
 }) => {
+  const finalTargetType = targetType || (postId ? 'post' : 'gallery');
+  const targetId = postId || galleryId || '';
   const { user } = useAuth();
   const {
     setShowCritiqueForm,
     setSelectedCritique,
     setCritiqueTargetPostId,
+    setCritiqueTargetGalleryId,
+    setCritiqueTargetType,
     setEditingCritiqueForm,
   } = usePostUI();
   const deleteCritiqueMutation = useDeleteCritique();
@@ -189,7 +228,15 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedIt
 
   const handleEditCritique = () => {
     setSelectedCritique(critique);
-    setCritiqueTargetPostId(postId);
+    if (finalTargetType === 'gallery' && galleryId) {
+      setCritiqueTargetGalleryId(galleryId);
+      setCritiqueTargetPostId(null);
+      setCritiqueTargetType('gallery');
+    } else if (postId) {
+      setCritiqueTargetPostId(postId);
+      setCritiqueTargetGalleryId(null);
+      setCritiqueTargetType('post');
+    }
     setEditingCritiqueForm(true);
     setShowCritiqueForm(true);
   };
@@ -197,7 +244,12 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedIt
   const handleDeleteCritique = async () => {
     if (!window.confirm('Are you sure you want to delete this critique?')) return;
     try {
-      await deleteCritiqueMutation.mutateAsync({ critiqueId: critique.critique_id, postId });
+      await deleteCritiqueMutation.mutateAsync({ 
+        critiqueId: critique.critique_id, 
+        postId,
+        galleryId,
+        targetType: finalTargetType
+      });
       toast.success('Critique deleted', 'The critique has been removed successfully');
     } catch (error) {
       const message = handleApiError(error, {}, true, true);
@@ -220,6 +272,8 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedIt
       await createReplyMutation.mutateAsync({
         critiqueId: critique.critique_id,
         postId,
+        galleryId,
+        targetType: finalTargetType,
         text: replyText,
       });
       setReplyText('');
@@ -247,6 +301,8 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedIt
         replyId: editingReplyId,
         critiqueId: critique.critique_id,
         postId,
+        galleryId,
+        targetType: finalTargetType,
         text: editingReplyText,
       });
       setEditingReplyId(null);
@@ -265,7 +321,13 @@ const CritiqueCard: React.FC<{ critique: Critique; postId: string; highlightedIt
     if (!window.confirm('Are you sure you want to delete this reply?')) return;
     setPendingReplyId(replyId);
     try {
-      await deleteReplyMutation.mutateAsync({ replyId, critiqueId: critique.critique_id, postId });
+      await deleteReplyMutation.mutateAsync({ 
+        replyId, 
+        critiqueId: critique.critique_id, 
+        postId,
+        galleryId,
+        targetType: finalTargetType
+      });
       await refetchReplies();
       toast.success('Reply deleted', 'Your reply has been deleted successfully');
     } catch (error) {

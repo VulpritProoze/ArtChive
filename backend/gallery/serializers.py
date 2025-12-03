@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
-from core.models import Artist
+from core.models import Artist, BrushDripWallet
 from post.models import Comment
 
-from .models import Gallery
+from .models import Gallery, GalleryAward, AwardType
 
 
 class GallerySerializer(ModelSerializer):

@@ -27,9 +27,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
-from common.utils.choices import NOTIFICATION_TYPES
+from common.utils.choices import NOTIFICATION_TYPES, GALLERY_AWARD_BRUSH_DRIP_COSTS
 from core.cache_utils import get_dashboard_cache_key
-from core.models import User
+from core.models import User, BrushDripWallet, BrushDripTransaction
 from core.permissions import IsAuthorOrSuperUser
 from notification.utils import create_notification
 from post.models import Comment

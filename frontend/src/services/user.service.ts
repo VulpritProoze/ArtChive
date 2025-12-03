@@ -165,5 +165,84 @@ export const userService = {
   async blockUser(relationshipId: number): Promise<void> {
     await core.post(`fellows/${relationshipId}/block/`);
   },
+
+  /**
+   * Get user reputation
+   * GET /api/core/users/<id>/reputation/
+   */
+  async getUserReputation(userId: number): Promise<{ user_id: number; username: string; reputation: number }> {
+    const response = await core.get(`users/${userId}/reputation/`);
+    return response.data;
+  },
+
+  /**
+   * Get user reputation history
+   * GET /api/core/users/<id>/reputation/history/?limit=50&offset=0
+   */
+  async getUserReputationHistory(
+    userId: number,
+    params?: { limit?: number; offset?: number }
+  ): Promise<ReputationHistoryEntry[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    
+    const response = await core.get(`users/${userId}/reputation/history/?${queryParams.toString()}`);
+    return response.data;
+  },
+
+  /**
+   * Get reputation leaderboard
+   * GET /api/core/reputation/leaderboard/?limit=25&offset=0
+   */
+  async getReputationLeaderboard(params?: { limit?: number; offset?: number }): Promise<LeaderboardResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+    
+    const response = await core.get(`reputation/leaderboard/?${queryParams.toString()}`);
+    return response.data;
+  },
+
+  /**
+   * Get current user's leaderboard position
+   * GET /api/core/reputation/leaderboard/me/
+   */
+  async getMyLeaderboardPosition(): Promise<{
+    rank: number;
+    reputation: number;
+    surrounding_users: LeaderboardEntry[];
+  }> {
+    const response = await core.get('reputation/leaderboard/me/');
+    return response.data;
+  },
 };
+
+// Reputation types
+export interface ReputationHistoryEntry {
+  amount: number;
+  source_type: 'praise' | 'trophy' | 'critique' | 'gallery_award';
+  source_id: string;
+  source_object_type: 'post' | 'gallery' | null;
+  description: string | null;
+  created_at: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: number;
+  id: number;
+  username: string;
+  fullname: string;
+  profile_picture: string | null;
+  reputation: number;
+  artist_types: string[];
+}
+
+export interface LeaderboardResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: LeaderboardEntry[];
+}
 

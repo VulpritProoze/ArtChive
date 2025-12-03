@@ -3,11 +3,14 @@ import { X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { usePostTrophies } from "@hooks/queries/use-post-lists";
+import { useGalleryAwards } from "@hooks/queries/use-gallery-awards";
 
 interface TrophyListModalProps {
   isOpen: boolean;
   onClose: () => void;
-  postId: string;
+  postId?: string;
+  galleryId?: string;
+  targetType?: 'post' | 'gallery';
 }
 
 interface GroupedTrophy {
@@ -28,19 +31,52 @@ export default function TrophyListModal({
   isOpen,
   onClose,
   postId,
+  galleryId,
+  targetType = 'post',
 }: TrophyListModalProps) {
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-  } = usePostTrophies(postId, isOpen);
+  const finalTargetType = targetType || (postId ? 'post' : 'gallery');
+  const finalTargetId = postId || galleryId || '';
 
-  const trophies = useMemo(
-    () => data?.pages.flatMap((page) => page.results || []) ?? [],
-    [data]
-  );
+  // Use appropriate hook based on target type
+  const {
+    data: postTrophiesData,
+    fetchNextPage: fetchNextPostTrophies,
+    hasNextPage: hasNextPostTrophies,
+    isFetchingNextPage: isFetchingNextPostTrophies,
+    isLoading: isLoadingPostTrophies,
+  } = usePostTrophies(finalTargetId, isOpen && finalTargetType === 'post');
+
+  const {
+    data: galleryAwardsData,
+    fetchNextPage: fetchNextGalleryAwards,
+    hasNextPage: hasNextGalleryAwards,
+    isFetchingNextPage: isFetchingNextGalleryAwards,
+    isLoading: isLoadingGalleryAwards,
+  } = useGalleryAwards(finalTargetId, { enabled: isOpen && finalTargetType === 'gallery' });
+
+  // Normalize data structure
+  const trophies = useMemo(() => {
+    if (finalTargetType === 'gallery') {
+      const awards = galleryAwardsData?.pages.flatMap((page) => page.results || []) ?? [];
+      return awards.map(award => ({
+        id: award.id,
+        author: award.author,
+        author_username: award.author_username,
+        author_fullname: award.author_username, // Gallery awards don't have fullname in response
+        author_picture: award.author_picture,
+        trophy_type_name: award.award_type,
+        trophy_brush_drip_value: award.brush_drip_value,
+        awarded_at: award.awarded_at,
+      }));
+    } else {
+      return postTrophiesData?.pages.flatMap((page) => page.results || []) ?? [];
+    }
+  }, [postTrophiesData, galleryAwardsData, finalTargetType]);
+
+  const isLoading = finalTargetType === 'gallery' ? isLoadingGalleryAwards : isLoadingPostTrophies;
+  const hasNextPage = finalTargetType === 'gallery' ? hasNextGalleryAwards : hasNextPostTrophies;
+  const isFetchingNextPage = finalTargetType === 'gallery' ? isFetchingNextGalleryAwards : isFetchingNextPostTrophies;
+  const fetchNextPage = finalTargetType === 'gallery' ? fetchNextGalleryAwards : fetchNextPostTrophies;
 
   const getTrophyEmoji = (trophyType: string) => {
     switch (trophyType.toLowerCase()) {
@@ -108,7 +144,7 @@ export default function TrophyListModal({
               className="text-warning text-xl"
             />
             <h3 className="text-lg font-bold text-base-content">
-              Trophies
+              {finalTargetType === 'gallery' ? 'Gallery Awards' : 'Trophies'}
             </h3>
           </div>
           <button

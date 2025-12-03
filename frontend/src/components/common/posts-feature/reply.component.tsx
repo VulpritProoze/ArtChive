@@ -182,7 +182,7 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
             <div className="flex-1">
               <div
                 ref={userInfoRef}
-                className="relative"
+                className="relative -m-2 p-2"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               >

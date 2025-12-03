@@ -8,7 +8,7 @@ from rest_framework.serializers import ModelSerializer, Serializer
 
 from collective.models import CollectiveMember
 
-from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
+from .models import Artist, BrushDripTransaction, BrushDripWallet, ReputationHistory, User, UserFellow
 
 
 class UserSerializer(ModelSerializer):
@@ -16,11 +16,12 @@ class UserSerializer(ModelSerializer):
     artist_types = serializers.SerializerMethodField()
     fullname = serializers.SerializerMethodField()
     brushdrips_count = serializers.IntegerField(source='user_wallet.balance')
+    reputation = serializers.IntegerField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
-        read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        fields = ['id', 'email', 'username', 'brushdrips_count', 'reputation', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'reputation', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
         # Use prefetched data instead of querying database (optimized)
@@ -81,12 +82,12 @@ class UserProfilePublicSerializer(ModelSerializer):
 class UserSummarySerializer(ModelSerializer):
     """
     Lightweight user summary serializer for hover modals.
-    Includes basic user info and brush drips count.
-    Placeholder for future statistics.
+    Includes basic user info, brush drips count, and reputation.
     """
     artist_types = serializers.SerializerMethodField()
     fullname = serializers.SerializerMethodField()
     brushdrips_count = serializers.SerializerMethodField()
+    reputation = serializers.IntegerField()
 
     class Meta:
         model = User
@@ -97,8 +98,9 @@ class UserSummarySerializer(ModelSerializer):
             'profile_picture',
             'artist_types',
             'brushdrips_count',
+            'reputation',
         ]
-        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'brushdrips_count']
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'brushdrips_count', 'reputation']
 
     def get_artist_types(self, obj):
         """Fetch author's artist types"""
@@ -520,3 +522,70 @@ class CreateFriendRequestSerializer(serializers.Serializer):
         if value == self.context['request'].user.id:
             raise serializers.ValidationError("You cannot send a friend request to yourself.")
         return value
+
+
+# Reputation System Serializers
+class ReputationSerializer(serializers.Serializer):
+    """Serializer for user reputation"""
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    reputation = serializers.IntegerField()
+
+
+class ReputationHistorySerializer(ModelSerializer):
+    """Serializer for reputation history records"""
+    class Meta:
+        model = ReputationHistory
+        fields = [
+            'amount',
+            'source_type',
+            'source_id',
+            'source_object_type',
+            'description',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+
+class ReputationLeaderboardEntrySerializer(ModelSerializer):
+    """Serializer for leaderboard entries"""
+    rank = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'rank',
+            'user_id',
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'reputation',
+            'artist_types',
+        ]
+        read_only_fields = fields
+
+    def get_rank(self, obj):
+        """Calculate rank based on position in queryset"""
+        # Rank is calculated in the view based on offset + index
+        return getattr(obj, '_rank', None)
+
+    def get_user_id(self, obj):
+        """Return user ID (alias for id field)"""
+        return obj.id
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        parts = [obj.first_name or '', obj.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else ''

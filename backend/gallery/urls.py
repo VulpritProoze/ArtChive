@@ -1,5 +1,10 @@
 from django.urls import path
 
+from .award_views import (
+    GalleryAwardCreateView,
+    GalleryAwardDeleteView,
+    GalleryAwardListView,
+)
 from .views import (
     GalleryCommentCreateView,
     GalleryCommentDeleteView,
@@ -43,6 +48,11 @@ urlpatterns = [
     path('comment/reply/create/', GalleryCommentReplyCreateView.as_view(), name='gallery-comment-reply-create'),
     path('comment/<uuid:comment_id>/replies/', GalleryCommentsReplyDetailView.as_view(), name='gallery-comment-replies'),
     path('comments/', GalleryCommentListView.as_view(), name='gallery-comment-list'),
+    
+    # Gallery Awards
+    path('award/create/', GalleryAwardCreateView.as_view(), name='gallery-award-create'),
+    path('award/<int:award_id>/delete/', GalleryAwardDeleteView.as_view(), name='gallery-award-delete'),
+    path('<uuid:gallery_id>/awards/', GalleryAwardListView.as_view(), name='gallery-award-list'),
     
     # Dashboard API endpoints
     path(

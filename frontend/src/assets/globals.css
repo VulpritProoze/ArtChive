@@ -25,6 +25,9 @@
   --color-secondary: #f97316;
   --color-secondary-content: white;
 
+  /* Reputation color (red shade) */
+  --color-reputation: #ef4444;
+
   /* Custom base-400 color */
   --color-base-100: oklch(100% 0 0);
   --color-base-200: oklch(98% 0 0);
@@ -39,6 +42,9 @@
   --color-primary: #443893;
   --color-secondary: #c2410c;
   --color-secondary-content: white;
+
+  /* Reputation color (red shade) */
+  --color-reputation: #f87171;
 
   --color-base-100: oklch(25% 0 0);
   --color-base-200: oklch(22% 0 0);
@@ -121,6 +127,19 @@ html {
 
   .text-base-400 {
     color: var(--color-base-400);
+  }
+
+  /* Reputation utility classes */
+  .text-reputation {
+    color: var(--color-reputation);
+  }
+
+  .bg-reputation {
+    background-color: var(--color-reputation);
+  }
+
+  .border-reputation {
+    border-color: var(--color-reputation);
   }
 }
 

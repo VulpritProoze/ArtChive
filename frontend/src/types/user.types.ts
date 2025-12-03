@@ -8,6 +8,7 @@ export type User = {
   profile_picture: string;
   artist_types: string[];
   fullname: string;
-  brushdrips_count: string
+  brushdrips_count: string;
+  reputation: number;
   collective_memberships: CollectiveMember[];
 } | null;

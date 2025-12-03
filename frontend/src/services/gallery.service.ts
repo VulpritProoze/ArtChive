@@ -280,4 +280,51 @@ export const galleryService = {
     const response = await gallery.post<Comment>('comment/reply/create/', data);
     return response.data;
   },
+
+  /**
+   * Get awards for a gallery (paginated)
+   * GET /api/gallery/<galleryId>/awards/
+   */
+  async getGalleryAwards(
+    galleryId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{
+      id: number;
+      gallery_id: string;
+      author: number;
+      author_username: string;
+      author_picture: string | null;
+      gallery_title: string;
+      award_type: string;
+      brush_drip_value: number;
+      awarded_at: string;
+      is_deleted: boolean;
+    }>;
+  }> {
+    const response = await gallery.get(`${galleryId}/awards/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a gallery award
+   * POST /api/gallery/award/create/
+   */
+  async createGalleryAward(data: { gallery_id: string; award_type: string }): Promise<void> {
+    await gallery.post('award/create/', data);
+  },
+
+  /**
+   * Delete a gallery award
+   * DELETE /api/gallery/award/<awardId>/delete/
+   */
+  async deleteGalleryAward(awardId: number): Promise<void> {
+    await gallery.delete(`award/${awardId}/delete/`);
+  },
 };

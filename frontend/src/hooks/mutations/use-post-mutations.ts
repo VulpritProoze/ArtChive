@@ -302,12 +302,11 @@ export const useAwardTrophy = () => {
       // Note: No need to invalidate posts-meta - we update cache directly above
       // This prevents unnecessary bulk refetches that would happen on every trophy award
 
-      // Show toast after refetch
-      toast.success('Trophy awarded', `You have successfully awarded a ${trophyType} trophy!`);
+      // Toast is handled in the component that calls this mutation
     },
     onError: (error) => {
-      const message = handleApiError(error, {}, true, true);
-      toast.error('Failed to award trophy', formatErrorForToast(message));
+      // Error toast is handled in the component that calls this mutation
+      console.error('Failed to award trophy:', error);
     },
   });
 };
