@@ -30,13 +30,13 @@ from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from common.utils.choices import NOTIFICATION_TYPES
 from common.utils.profiling import silk_profile
+from notification.utils import create_notification
 
 from .cache_utils import get_dashboard_cache_key, get_user_info_cache_key
 from .friend_request_utils import send_friend_request_update_to_both_users
 from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
-from notification.utils import create_notification
-from common.utils.choices import NOTIFICATION_TYPES
 from .pagination import BrushDripsTransactionPagination
 from .permissions import IsAdminUser
 from .serializers import (
@@ -1149,6 +1149,125 @@ class FellowsListView(generics.ListAPIView):
 
 @extend_schema(
     tags=["Fellows"],
+    description="Get list of active (online) fellows for the current user",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class ActiveFellowsListView(generics.ListAPIView):
+    """
+    List all active (online) fellows for the current user.
+    Only returns fellows who are currently online/active.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        from core.models import UserFellow
+        from core.presence import is_user_active
+
+        user = self.request.user
+
+        # Get all accepted fellows
+        fellows = UserFellow.objects.filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        )
+
+        # Filter to only active fellows
+        active_fellows = []
+        for fellow in fellows:
+            # Determine which user is the fellow (not the current user)
+            fellow_user = fellow.fellow_user if fellow.user == user else fellow.user
+            fellow_is_active = is_user_active(fellow_user.id)
+
+            # Debug logging (can be removed in production)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                f'Checking fellow {fellow_user.id} ({fellow_user.username}): '
+                f'Active={fellow_is_active}, Fellow relationship ID={fellow.id}'
+            )
+
+            if fellow_is_active:
+                active_fellows.append(fellow)
+
+        return active_fellows
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Debug endpoint to check presence and fellows status",
+    responses={
+        200: OpenApiResponse(description="Debug information"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class DebugPresenceView(APIView):
+    """
+    Debug endpoint to check presence status and fellows relationships.
+    For development/testing only.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+
+        from core.models import UserFellow
+        from core.presence import get_user_last_activity, is_user_active
+
+        user = request.user
+        user_id = user.id
+
+        # Check if current user is active
+        current_user_active = is_user_active(user_id)
+        current_user_last_activity = get_user_last_activity(user_id)
+
+        # Get all fellows
+        all_fellows = UserFellow.objects.filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related('user', 'fellow_user')
+
+        fellows_info = []
+        for fellow in all_fellows:
+            fellow_user = fellow.fellow_user if fellow.user == user else fellow.user
+            fellow_active = is_user_active(fellow_user.id)
+            fellow_last_activity = get_user_last_activity(fellow_user.id)
+
+            fellows_info.append({
+                'user_id': fellow_user.id,
+                'username': fellow_user.username,
+                'is_active': fellow_active,
+                'last_activity': fellow_last_activity.isoformat() if fellow_last_activity else None,
+                'relationship_id': fellow.id,
+            })
+
+        return Response({
+            'current_user': {
+                'id': user_id,
+                'username': user.username,
+                'is_active': current_user_active,
+                'last_activity': current_user_last_activity.isoformat() if current_user_last_activity else None,
+            },
+            'total_fellows': len(fellows_info),
+            'active_fellows_count': sum(1 for f in fellows_info if f['is_active']),
+            'fellows': fellows_info,
+        })
+
+
+@extend_schema(
+    tags=["Fellows"],
     description="List all accepted fellows (friends) for a specific user by user ID (public endpoint)",
     responses={
         200: UserFellowSerializer(many=True),
@@ -1311,7 +1430,7 @@ class CreateFriendRequestView(generics.CreateAPIView):
 
         # Send WebSocket update to both users
         send_friend_request_update_to_both_users(fellow_relationship, 'created')
-        
+
         # Note: No cache invalidation needed for pending requests (not accepted yet)
 
         # Serialize with related user info
@@ -1360,7 +1479,7 @@ class AcceptFriendRequestView(APIView):
         try:
             requester = fellow_request.user
             accepter = fellow_request.fellow_user  # This is the current user who accepted
-            
+
             message = f"{accepter.username} accepted your friend request"
             create_notification(
                 message=message,
@@ -1379,7 +1498,7 @@ class AcceptFriendRequestView(APIView):
         from post.ranking import invalidate_user_calculations
         invalidate_user_calculations(fellow_request.user.id)
         invalidate_user_calculations(fellow_request.fellow_user.id)
-        
+
         serializer = UserFellowSerializer(fellow_request)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1648,7 +1767,7 @@ class UnfriendView(APIView):
         user_id = fellow_relationship.user.id
         fellow_user_id = fellow_relationship.fellow_user.id
         fellow_relationship.delete()
-        
+
         # Invalidate calculations for both users (fellows changed)
         from post.ranking import invalidate_user_calculations
         invalidate_user_calculations(user_id)

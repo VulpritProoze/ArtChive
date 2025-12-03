@@ -7,6 +7,10 @@ import useToggleTheme from "@hooks/use-theme";
 import NotificationDropdown from "@components/notifications/notification-dropdown.component";
 import PendingFriendRequestsButton from "@components/fellows/pending-requests-button.component";
 import { useTopPosts } from "@hooks/queries/use-posts";
+import { useFellows } from "@hooks/queries/use-fellows";
+import { useRealtime } from "@context/realtime-context";
+// DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
+import { useActiveFellows } from "@hooks/queries/use-active-fellows";
 import {
   Home,
   Images as GalleryIcon,
@@ -54,6 +58,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   // Fetch top 5 image posts
   const { data: topPostsData, isLoading: isLoadingTopPosts } = useTopPosts(5, 'image');
   const topPosts = topPostsData?.results || [];
+  
+  // Get active fellows from WebSocket realtime context
+  const { isFellowActive } = useRealtime();
+  
+  // Fetch all fellows and filter to show only active ones
+  const { data: allFellows = [], isLoading: isLoadingFellows } = useFellows();
+  
+  // DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
+  const { data: activeFellowsFromAPI = [], isLoading: isLoadingActiveFellowsFromAPI } = useActiveFellows();
+  const activeFellows = activeFellowsFromAPI;
+  const isLoadingActiveFellows = isLoadingActiveFellowsFromAPI;
+  
+  // Filter fellows to show only those who are active (WebSocket-based)
+  // const activeFellows = allFellows.filter(fellow => {
+  //   const fellowUserId = fellow.user === user?.id ? fellow.fellow_user : fellow.user;
+  //   return isFellowActive(fellowUserId);
+  // });
+  // const isLoadingActiveFellows = isLoadingFellows;
 
   useEffect(() => {
     if (!showRightSidebar) {
@@ -546,46 +568,52 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <Radio className="w-5 h-5 flex-shrink-0 text-success" />
                   Active Fellows
                 </h3>
-                <ul className="flex flex-col gap-3">
-                  <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
-                    <div className="avatar">
-                      <div className="w-10 h-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
-                        <img
-                          src="https://randomuser.me/api/portraits/women/1.jpg"
-                          alt="Lisa Wong"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-base-content truncate">
-                        Lisa Wong
-                      </p>
-                      <p className="text-xs text-base-content/60 truncate">
-                        Digital Artist
-                      </p>
-                    </div>
-                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                  </li>
-                  <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
-                    <div className="avatar">
-                      <div className="w-10 h-10 rounded-full ring ring-secondary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
-                        <img
-                          src="https://randomuser.me/api/portraits/men/2.jpg"
-                          alt="Michael Brown"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-base-content truncate">
-                        Michael Brown
-                      </p>
-                      <p className="text-xs text-base-content/60 truncate">
-                        3D Sculptor
-                      </p>
-                    </div>
-                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                  </li>
-                </ul>
+                {isLoadingActiveFellows ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="skeleton h-16 rounded-lg"></div>
+                    <div className="skeleton h-16 rounded-lg"></div>
+                  </div>
+                ) : activeFellows.length > 0 ? (
+                  <ul className="flex flex-col gap-3">
+                    {activeFellows.slice(0, 5).map((fellow) => {
+                      // Determine which user is the fellow (not the current user)
+                      const fellowUser = fellow.user === user?.id ? fellow.fellow_user_info : fellow.user_info;
+                      
+                      return (
+                        <li key={fellow.id}>
+                          <Link
+                            to={fellowUser.username ? `/profile/@${fellowUser.username}` : `/profile`}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group"
+                          >
+                            <div className="avatar">
+                              <div className="w-10 h-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
+                                <img
+                                  src={fellowUser.profile_picture || '/static/images/default-pic-min.jpg'}
+                                  alt={fellowUser.fullname || fellowUser.username}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-base-content truncate">
+                                {fellowUser.fullname || fellowUser.username}
+                              </p>
+                              <p className="text-xs text-base-content/60 truncate">
+                                {fellowUser.artist_types && fellowUser.artist_types.length > 0
+                                  ? fellowUser.artist_types.join(', ')
+                                  : 'Artist'}
+                              </p>
+                            </div>
+                            <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-base-content/50 text-center py-4">
+                    No active fellows at the moment
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -730,46 +758,52 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     <Radio className="w-5 h-5 flex-shrink-0 text-success" />
                     Active Fellows
                   </h3>
-                  <ul className="flex flex-col gap-3">
-                    <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
-                      <div className="avatar">
-                        <div className="w-10 h-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
-                          <img
-                            src="https://randomuser.me/api/portraits/women/1.jpg"
-                            alt="Lisa Wong"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-base-content truncate">
-                          Lisa Wong
-                        </p>
-                        <p className="text-xs text-base-content/60 truncate">
-                          Digital Artist
-                        </p>
-                      </div>
-                      <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                    </li>
-                    <li className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group">
-                      <div className="avatar">
-                        <div className="w-10 h-10 rounded-full ring ring-secondary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
-                          <img
-                            src="https://randomuser.me/api/portraits/men/2.jpg"
-                            alt="Michael Brown"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-base-content truncate">
-                          Michael Brown
-                        </p>
-                        <p className="text-xs text-base-content/60 truncate">
-                          3D Sculptor
-                        </p>
-                      </div>
-                      <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                    </li>
-                  </ul>
+                  {isLoadingActiveFellows ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="skeleton h-16 rounded-lg"></div>
+                      <div className="skeleton h-16 rounded-lg"></div>
+                    </div>
+                  ) : activeFellows.length > 0 ? (
+                    <ul className="flex flex-col gap-3">
+                      {activeFellows.slice(0, 5).map((fellow) => {
+                        // Determine which user is the fellow (not the current user)
+                        const fellowUser = fellow.user === user?.id ? fellow.fellow_user_info : fellow.user_info;
+                        
+                        return (
+                          <li key={fellow.id}>
+                            <Link
+                              to={fellowUser.username ? `/profile/@${fellowUser.username}` : `/profile`}
+                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-base-300 transition-colors cursor-pointer group"
+                            >
+                              <div className="avatar">
+                                <div className="w-10 h-10 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 group-hover:ring-offset-4 transition-all">
+                                  <img
+                                    src={fellowUser.profile_picture || '/static/images/default-pic-min.jpg'}
+                                    alt={fellowUser.fullname || fellowUser.username}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-base-content truncate">
+                                  {fellowUser.fullname || fellowUser.username}
+                                </p>
+                                <p className="text-xs text-base-content/60 truncate">
+                                  {fellowUser.artist_types && fellowUser.artist_types.length > 0
+                                    ? fellowUser.artist_types.join(', ')
+                                    : 'Artist'}
+                                </p>
+                              </div>
+                              <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-base-content/50 text-center py-4">
+                      No active fellows at the moment
+                    </p>
+                  )}
                 </div>
               </div>
               </aside>

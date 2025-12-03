@@ -10,7 +10,9 @@ from .views import (
     UserCountsAPIView,
     UserGrowthAPIView,
     AcceptFriendRequestView,
+    ActiveFellowsListView,
     BlockUserView,
+    DebugPresenceView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
     BrushDripTransactionDetailView,
@@ -150,6 +152,16 @@ urlpatterns = [
         "fellows/",
         FellowsListView.as_view(),
         name="fellows-list",
+    ),
+    path(
+        "fellows/active/",
+        ActiveFellowsListView.as_view(),
+        name="active-fellows-list",
+    ),
+    path(
+        "debug/presence/",
+        DebugPresenceView.as_view(),
+        name="debug-presence",
     ),
     path(
         "user/<int:user_id>/fellows/",

@@ -1,8 +1,10 @@
 import os
 
-from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.sessions import SessionMiddlewareStack
 from django.core.asgi import get_asgi_application
+
+from core.websocket_auth import JWTAuthMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'artchive.settings.production')
 
@@ -21,11 +23,13 @@ from notification.routing import (  # noqa: E402
 
 application = ProtocolTypeRouter({
     "http": django_application,
-    "websocket": AuthMiddlewareStack(
-        URLRouter(
-            notification_routes +
-            conversation_routes +
-            friend_request_routes
+    "websocket": SessionMiddlewareStack(
+        JWTAuthMiddlewareStack(
+            URLRouter(
+                notification_routes +
+                conversation_routes +
+                friend_request_routes
+            )
         )
     )
 })

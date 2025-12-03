@@ -65,6 +65,15 @@ export const userService = {
   },
 
   /**
+   * Get all active (online) fellows for the current user
+   * GET /api/core/fellows/active/
+   */
+  async getActiveFellows(): Promise<UserFellow[]> {
+    const response = await core.get('fellows/active/');
+    return response.data;
+  },
+
+  /**
    * Get all accepted fellows (friends) for a specific user by user ID (public endpoint)
    * GET /api/core/user/<user_id>/fellows/
    */
