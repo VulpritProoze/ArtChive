@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { avatarService, Avatar, CreateAvatarData, UpdateAvatarData, DuplicateAvatarData } from '@services/avatar.service';
+import { avatarService } from '@services/avatar.service';
+import type { CreateAvatarData, UpdateAvatarData, DuplicateAvatarData } from '@services/avatar.service';
 import { toast } from '@utils/toast.util';
 
 // Query Keys

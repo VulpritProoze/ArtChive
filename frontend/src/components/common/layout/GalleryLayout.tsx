@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useToggleTheme from "@hooks/use-theme";
-import { faMoon, faPalette, faSun, faBars, faTimes, faArrowLeft, faComment } from "@fortawesome/free-solid-svg-icons";
+import { faMoon, faPalette, faSun, faBars, faTimes, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 

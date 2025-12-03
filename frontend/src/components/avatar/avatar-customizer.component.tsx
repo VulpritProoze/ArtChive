@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faDice, faUndo } from '@fortawesome/free-solid-svg-icons';
+import type { AvatarOptions } from './avatar-options';
 import {
-  AvatarOptions,
   AVATAR_CATEGORIES,
   AVATAR_OPTIONS,
   skinTones,
@@ -104,7 +104,7 @@ const AvatarCustomizer: React.FC<AvatarCustomizerProps> = ({
                 className="w-8 h-8 rounded-full"
                 style={{ backgroundColor: style.color }}
               />
-              <span className="text-xs">{style.label}</span>
+              <span className="text-xs">{style.description}</span>
             </button>
           ))}
         </div>

@@ -8,8 +8,6 @@ import { useGalleryCommentReplies } from "@hooks/queries/use-gallery-comments";
 import {
   useCreateGalleryCommentReply,
   useDeleteGalleryComment,
-  useUpdateGalleryComment,
-  useUpdateGalleryCommentReply,
 } from "@hooks/mutations/use-gallery-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";

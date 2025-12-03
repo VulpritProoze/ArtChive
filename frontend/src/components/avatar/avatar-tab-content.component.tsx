@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAvatars } from '@hooks/queries/use-avatar';
-import { Avatar } from '@services/avatar.service';
+import type { Avatar } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import AvatarPreview from './avatar-preview.component';

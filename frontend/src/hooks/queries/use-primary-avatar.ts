@@ -25,7 +25,7 @@ export function usePrimaryAvatar(enabled = true) {
  * Note: This would require a backend endpoint that fetches avatars by user ID
  * For now, it returns null as we only have endpoints for current user
  */
-export function useUserPrimaryAvatar(userId: number, enabled = true) {
+export function useUserPrimaryAvatar(_userId: number, _enabled = true) {
   // TODO: Implement when backend supports fetching other users' avatars
   return {
     avatar: null,

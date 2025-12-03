@@ -11,7 +11,7 @@ export class FriendRequestHandler {
     this.queryClient = queryClient;
   }
 
-  handleMessage(message: RealtimeFriendRequestMessage): void {
+  handleMessage(_message: RealtimeFriendRequestMessage): void {
     // Invalidate friend request queries to trigger refetch
     this.queryClient.invalidateQueries({ queryKey: ['friend-request-count'] });
     this.queryClient.invalidateQueries({ queryKey: ['pending-friend-requests'] });

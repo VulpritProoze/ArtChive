@@ -1,6 +1,6 @@
 import React from 'react';
+import type { AvatarOptions } from './avatar-options';
 import {
-  AvatarOptions,
   skinTones,
   faceShapes,
   eyeStyles,
@@ -48,7 +48,6 @@ const AvatarRenderer: React.FC<AvatarRendererProps> = ({
 
   // Get darker shade for shadows
   const darkerSkin = `color-mix(in srgb, ${skinColor} 85%, black)`;
-  const lighterSkin = `color-mix(in srgb, ${skinColor} 95%, white)`;
 
   return (
     <svg

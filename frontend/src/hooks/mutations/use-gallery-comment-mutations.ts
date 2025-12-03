@@ -37,7 +37,7 @@ export const useCreateGalleryComment = () => {
       queryClient.setQueryData(['gallery-comment-creating', variables.gallery], true);
     },
     onSuccess: async (newComment) => {
-      const galleryId = newComment.gallery;
+      const galleryId = (newComment as any).gallery || (newComment as any).gallery_id;
       
       toast.success('Comment added', 'Your comment has been posted.');
 

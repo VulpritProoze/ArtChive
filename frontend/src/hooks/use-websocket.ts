@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { WS_BASE_URL } from '@lib/api';
 
 interface UseWebSocketOptions {
   url: string;
