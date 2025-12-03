@@ -6,6 +6,7 @@ import { LogoutButton } from "@components/account/logout";
 import useToggleTheme from "@hooks/use-theme";
 import NotificationDropdown from "@components/notifications/notification-dropdown.component";
 import PendingFriendRequestsButton from "@components/fellows/pending-requests-button.component";
+import { useTopPosts } from "@hooks/queries/use-posts";
 import {
   Home,
   Images as GalleryIcon,
@@ -25,7 +26,9 @@ import {
   TrendingUp,
   Radio,
   X,
-  PanelRightOpen
+  PanelRightOpen,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface MainLayoutProps {
@@ -46,6 +49,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [isMobileRightSidebarOpen, setIsMobileRightSidebarOpen] = useState(false);
   const [isDesktopRightSidebarCollapsed, setIsDesktopRightSidebarCollapsed] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  
+  // Fetch top 5 image posts
+  const { data: topPostsData, isLoading: isLoadingTopPosts } = useTopPosts(5, 'image');
+  const topPosts = topPostsData?.results || [];
 
   useEffect(() => {
     if (!showRightSidebar) {
@@ -53,7 +61,47 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     }
   }, [showRightSidebar]);
 
+  // Force expand right sidebar when screen width is >= 1025px
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1025 && showRightSidebar) {
+        setIsDesktopRightSidebarCollapsed(false);
+      }
+    };
+
+    // Check on mount
+    handleResize();
+
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [showRightSidebar]);
+
   const isActive = (path: string) => location.pathname === path;
+
+  // Carousel navigation handlers
+  const nextPost = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (topPosts.length > 0) {
+      setCarouselIndex((prev) => (prev + 1) % topPosts.length);
+    }
+  };
+
+  const prevPost = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (topPosts.length > 0) {
+      setCarouselIndex((prev) => (prev - 1 + topPosts.length) % topPosts.length);
+    }
+  };
 
 
   const navItems = [
@@ -207,35 +255,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
-                {/* Right Sidebar Toggle - Shows on medium screens (below lg) when right sidebar is hidden */}
+                {/* Right Sidebar Toggle - Visible below 1025px, hidden at 1025px and above */}
                 {showRightSidebar && (
-                  <>
-                    <button
-                      className="lg:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
-                      onClick={() => setIsMobileRightSidebarOpen(true)}
-                      title="Open sidebar"
-                    >
-                      <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
-                    </button>
-                    <button
-                      className="hidden lg:flex btn btn-ghost btn-circle btn-sm hover:bg-base-200"
-                      onClick={() =>
-                        setIsDesktopRightSidebarCollapsed((prev) => !prev)
-                      }
-                      title={
-                        isDesktopRightSidebarCollapsed
-                          ? "Expand discover panel"
-                          : "Collapse discover panel"
-                      }
-                      aria-pressed={isDesktopRightSidebarCollapsed}
-                    >
-                      <PanelRightOpen
-                        className={`w-5 h-5 flex-shrink-0 transition-transform ${
-                          isDesktopRightSidebarCollapsed ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
-                  </>
+                  <button
+                    className="flex max-[1024px]:flex min-[1025px]:hidden btn btn-ghost btn-circle btn-sm hover:bg-base-200"
+                    onClick={() => setIsMobileRightSidebarOpen(true)}
+                    title="Open sidebar"
+                  >
+                    <PanelRightOpen className="w-5 h-5 flex-shrink-0" />
+                  </button>
                 )}
 
                 <button
@@ -435,14 +463,74 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               {/* Popular This Week */}
-              <div className="bg-base-200/30 rounded-xl p-4 hover:shadow-lg transition-all border border-base-300/50 hover:border-primary/30">
-                <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+              <div className="flex flex-col gap-3">
+                <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 flex-shrink-0 text-primary" />
                   Popular This Week
                 </h3>
-                <div className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-                  <div className="w-full h-48 skeleton"></div>
-                </div>
+                {isLoadingTopPosts ? (
+                  <div className="rounded-lg overflow-hidden shadow-md">
+                    <div className="w-full h-64 skeleton"></div>
+                  </div>
+                ) : topPosts.length > 0 ? (
+                  <div className="relative rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow aspect-[4/3] w-full">
+                    <Link to={`/post/${topPosts[carouselIndex]?.post_id}`} className="block w-full h-full">
+                      {topPosts[carouselIndex]?.image_url ? (
+                        <img
+                          src={topPosts[carouselIndex].image_url}
+                          alt={topPosts[carouselIndex].description || 'Popular post'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-base-300 flex items-center justify-center">
+                          <p className="text-base-content/50 text-sm">No image</p>
+                        </div>
+                      )}
+                    </Link>
+                    {topPosts.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevPost}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="absolute left-2 top-1/2 -translate-y-[35%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                          type="button"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={nextPost}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="absolute right-2 top-1/2 -translate-y-[35%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                          type="button"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                          {topPosts.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCarouselIndex(index);
+                              }}
+                              className={`h-2 rounded-full transition-all ${
+                                index === carouselIndex ? 'bg-primary w-6' : 'bg-base-content/30 w-2'
+                              }`}
+                              type="button"
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-lg overflow-hidden shadow-md aspect-[4/3] w-full">
+                    <div className="w-full h-full bg-base-300 flex items-center justify-center">
+                      <p className="text-base-content/50 text-sm">No popular posts available</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Advertisement */}
@@ -453,8 +541,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               </div>
 
               {/* Active Fellows */}
-              <div className="bg-base-200/30 rounded-xl p-4 border border-base-300/50">
-                <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+              <div className="flex flex-col gap-3">
+                <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
                   <Radio className="w-5 h-5 flex-shrink-0 text-success" />
                   Active Fellows
                 </h3>
@@ -510,13 +598,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           {/* LEFT SIDEBAR - Columns 1-3 (shows on md and above) */}
           {showSidebar && (
             <aside
-              className={`hidden md:flex flex-col gap-4 relative pr-4 ${
+              className={`hidden md:flex flex-col gap-4 pr-4 sticky top-20 self-start h-[calc(100vh-5rem)] overflow-y-auto ${
                 showRightSidebar && !isDesktopRightSidebarCollapsed
                   ? "md:col-start-1 md:col-end-4 lg:col-start-1 lg:col-end-3"
                   : "md:col-start-1 md:col-end-4 lg:col-start-1 lg:col-end-4"
               }`}
             >
-              <nav className="flex flex-col gap-1 bg-base-200/30 rounded-xl p-3 border border-base-300/50">
+              <nav className="flex flex-col gap-1">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
                   return (
@@ -548,7 +636,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           {/* RIGHT SIDEBAR - Columns 11-13 (shows only on lg and above) */}
           {showRightSidebar && (
             <aside
-              className={`hidden lg:flex flex-col gap-6 relative pl-4 transition-all duration-300 ${
+              className={`hidden lg:flex flex-col pl-4 transition-all duration-300 sticky top-20 self-start h-[calc(100vh-5rem)] ${
                 isDesktopRightSidebarCollapsed
                   ? "lg:col-start-13 lg:col-end-13 opacity-0 pointer-events-none scale-95"
                   : "lg:col-start-10 lg:col-end-13"
@@ -556,15 +644,77 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             >
               {/* Vertical line on the left edge of right sidebar */}
               <div className="absolute top-0 left-0 bottom-0 w-px bg-base-300"></div>
+              {/* Scrollable content container */}
+              <div className="flex flex-col gap-6 overflow-y-auto overflow-x-hidden pr-2 h-full">
                 {/* Popular This Week */}
-                <div className="bg-base-200/30 rounded-xl p-4 hover:shadow-lg transition-all border border-base-300/50 hover:border-primary/30">
-                  <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 flex-shrink-0 text-primary" />
                     Popular This Week
                   </h3>
-                  <div className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-                    <div className="w-full h-48 skeleton"></div>
-                  </div>
+                  {isLoadingTopPosts ? (
+                    <div className="rounded-lg overflow-hidden shadow-md">
+                      <div className="w-full h-64 skeleton"></div>
+                    </div>
+                  ) : topPosts.length > 0 ? (
+                    <div className="relative rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow aspect-[4/3] w-full">
+                      <Link to={`/post/${topPosts[carouselIndex]?.post_id}`} className="block w-full h-full">
+                        {topPosts[carouselIndex]?.image_url ? (
+                          <img
+                            src={topPosts[carouselIndex].image_url}
+                            alt={topPosts[carouselIndex].description || 'Popular post'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-base-300 flex items-center justify-center">
+                            <p className="text-base-content/50 text-sm">No image</p>
+                          </div>
+                        )}
+                      </Link>
+                      {topPosts.length > 1 && (
+                        <>
+                          <button
+                            onClick={prevPost}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                            type="button"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={nextPost}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                            type="button"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                            {topPosts.map((_, index) => (
+                              <button
+                                key={index}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setCarouselIndex(index);
+                                }}
+                                className={`h-2 rounded-full transition-all ${
+                                  index === carouselIndex ? 'bg-primary w-6' : 'bg-base-content/30 w-2'
+                                }`}
+                                type="button"
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg overflow-hidden shadow-md aspect-[4/3] w-full">
+                      <div className="w-full h-full bg-base-300 flex items-center justify-center">
+                        <p className="text-base-content/50 text-sm">No popular posts available</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Advertisement */}
@@ -575,8 +725,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 </div>
 
                 {/* Active Fellows */}
-                <div className="bg-base-200/30 rounded-xl p-4 border border-base-300/50">
-                  <h3 className="text-lg font-bold mb-3 text-base-content flex items-center gap-2">
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-lg font-bold text-base-content flex items-center gap-2">
                     <Radio className="w-5 h-5 flex-shrink-0 text-success" />
                     Active Fellows
                   </h3>
@@ -621,6 +771,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                     </li>
                   </ul>
                 </div>
+              </div>
               </aside>
           )}
         </div>

@@ -4,13 +4,14 @@ import type { UserFellow, FriendRequestCount, FellowSearchParams } from '@types'
 
 /**
  * Hook to fetch pending friend request counts
+ * Note: Updates are handled via WebSocket realtime updates, so polling is not needed
  */
 export const useFriendRequestCount = () => {
   return useQuery<FriendRequestCount>({
     queryKey: ['friend-request-count'],
     queryFn: () => userService.getFriendRequestCount(),
     staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 60 * 1000, // Refetch every minute
+    // Removed refetchInterval - updates are handled via WebSocket realtime updates
   });
 };
 

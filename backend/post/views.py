@@ -2519,3 +2519,117 @@ class NovelCountsAPIView(APIView):
         return Response(data)
 
 
+class GlobalTopPostsView(APIView):
+    """
+    Fetch cached global top posts.
+    GET /api/posts/top/?limit=25&post_type=image
+    
+    Query Parameters:
+        limit: Number of posts to return (5, 10, 25, 50, 100). Default: 25
+        post_type: Optional filter by post type (default, novel, image, video)
+    
+    Returns:
+        List of top posts in ranked order
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request):
+        # Get limit from query params, default to 25
+        limit = request.query_params.get('limit', '25')
+        post_type = request.query_params.get('post_type', None)
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 25
+
+        # Validate limit (only allow specific values)
+        valid_limits = [5, 10, 25, 50, 100]
+        if limit not in valid_limits:
+            limit = 25  # Default to 25 if invalid
+
+        # Validate post_type if provided
+        if post_type:
+            from common.utils.choices import POST_TYPE_CHOICES
+            valid_types = [choice[0] for choice in POST_TYPE_CHOICES]
+            if post_type not in valid_types:
+                return Response(
+                    {'error': f'Invalid post_type. Valid types: {", ".join(valid_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Try to get from cache
+        from post.algorithm import get_cached_top_posts
+        cached_posts = get_cached_top_posts(limit=limit, post_type=post_type)
+
+        if cached_posts is None:
+            # For testing: return 404 if cache is not available
+            # In production, you might want to fallback to most hearted posts
+            return Response(
+                {
+                    'error': 'Top posts cache not available. Please run: python manage.py generate_top_posts'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'results': cached_posts[:limit],
+            'count': len(cached_posts[:limit]),
+            'limit': limit,
+            'post_type': post_type
+        }, status=status.HTTP_200_OK)
+
+
+class GenerateTopPostsView(APIView):
+    """
+    Manually trigger generation of top posts cache.
+    POST /api/posts/top/generate/?limit=100&post_type=image
+    
+    Query Parameters:
+        limit: Number of posts to generate (default: 100, max: 100)
+        post_type: Optional filter by post type (default, novel, image, video)
+    
+    Note: This endpoint can be called to refresh the cache manually.
+    """
+    permission_classes = [IsAuthenticated]  # Require authentication
+
+    def post(self, request):
+        # Get limit from query params
+        limit = request.query_params.get('limit', '100')
+        post_type = request.query_params.get('post_type', None)
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 100
+
+        # Cap at 100
+        limit = min(limit, 100)
+
+        # Validate post_type if provided
+        if post_type:
+            from common.utils.choices import POST_TYPE_CHOICES
+            valid_types = [choice[0] for choice in POST_TYPE_CHOICES]
+            if post_type not in valid_types:
+                return Response(
+                    {'error': f'Invalid post_type. Valid types: {", ".join(valid_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            from post.algorithm import generate_top_posts_cache
+            posts_data = generate_top_posts_cache(limit=limit, post_type=post_type)
+
+            return Response({
+                'message': f'Successfully generated {len(posts_data)} top posts',
+                'count': len(posts_data),
+                'limit': limit,
+                'post_type': post_type
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate top posts: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+

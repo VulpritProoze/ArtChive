@@ -34,6 +34,8 @@ from .views import (
     CritiqueReplyUpdateView,
     CritiqueSearchView,
     CritiqueUpdateView,
+    GenerateTopPostsView,
+    GlobalTopPostsView,
     OwnPostsListView,
     PostBulkMetaView,
     PostCommentsReplyDetailView,
@@ -71,6 +73,8 @@ Some notes:
 """
 urlpatterns = [
     path("", PostListView.as_view(), name="post-list"),
+    path("top/", GlobalTopPostsView.as_view(), name="global-top-posts"),
+    path("top/generate/", GenerateTopPostsView.as_view(), name="generate-top-posts"),
     path("search/", PostSearchView.as_view(), name="post-search"),
     path("bulk-meta/", PostBulkMetaView.as_view(), name="post-bulk-meta"),
     path("me/<int:id>/", OwnPostsListView.as_view(), name="post-list-me"),

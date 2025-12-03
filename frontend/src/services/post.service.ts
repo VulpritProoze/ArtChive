@@ -400,5 +400,18 @@ export const postService = {
     const response = await post.get(`/critique/${critiqueId}/with-context/`);
     return response.data;
   },
+
+  /**
+   * Get global top posts
+   * GET /api/posts/top/?limit=<limit>&post_type=<post_type>
+   */
+  async getTopPosts(limit: number = 25, postType?: string): Promise<{ results: Post[]; count: number; limit: number; post_type?: string }> {
+    const params: { limit: number; post_type?: string } = { limit };
+    if (postType) {
+      params.post_type = postType;
+    }
+    const response = await post.get('/top/', { params });
+    return response.data;
+  },
 };
 
