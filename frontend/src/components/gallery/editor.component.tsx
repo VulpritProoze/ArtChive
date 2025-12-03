@@ -242,7 +242,7 @@ export default function GalleryEditor() {
       const isEditingText = activeElement && (
         activeElement.tagName === 'INPUT' ||
         activeElement.tagName === 'TEXTAREA' ||
-        activeElement.isContentEditable
+        (activeElement instanceof HTMLElement && activeElement.isContentEditable)
       );
 
       // Copy (Ctrl+C / Cmd+C)
