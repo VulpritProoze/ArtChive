@@ -138,17 +138,19 @@ def create_critique_notification(critique, recipient):
         message = f"{critique.author.username} critiqued your post"
         # Format: "postId:critiqueId" for proper navigation
         notification_object_id = f"{critique.post_id.post_id}:{critique.critique_id}"
+        notification_type = NOTIFICATION_TYPES.post_critique
     elif critique.gallery_id:
         message = f"{critique.author.username} critiqued your gallery"
         # Format: "galleryId:critiqueId" for proper navigation
         notification_object_id = f"{critique.gallery_id.gallery_id}:{critique.critique_id}"
+        notification_type = NOTIFICATION_TYPES.gallery_critique
     else:
         # Should not happen, but handle gracefully
         return None
 
     return create_notification(
         message=message,
-        notification_object_type=NOTIFICATION_TYPES.post_critique,
+        notification_object_type=notification_type,
         notification_object_id=notification_object_id,
         notified_to=recipient,
         notified_by=critique.author

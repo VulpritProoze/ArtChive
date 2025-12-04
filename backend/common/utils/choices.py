@@ -104,6 +104,7 @@ TRANSACTION_OBJECT_CHOICES = [
     ('trophy', 'Trophy'),
     # ('brush_gradient', 'Brush Gradient'),
     ('critique', 'Critique'),
+    ('gallery_critique', 'Gallery Critique'),
     ('gallery_award', 'Gallery Award'),
     ('admin_override', 'Admin Override'),
 ]
@@ -113,6 +114,7 @@ TRANSACTION_TYPES = SimpleNamespace(
     trophy='Trophy',
     brush_gradient='Brush Gradient',
     critique='Critique',
+    gallery_critique='Gallery Critique',
     gallery_award='Gallery Award',
     admin_override='Admin Override',
 )
@@ -131,6 +133,7 @@ NOTIFICATION_OBJECT_CHOICES = [
     ('post_praise', 'Post Praise'),
     ('post_trophy', 'Post Trophy'),
     ('gallery_comment', 'Gallery Comment'),
+    ('gallery_critique', 'Gallery Critique'),
     ('gallery_award', 'Gallery Award'),
     ('friend_request_accepted', 'Friend Request Accepted'),
     ('join_request_accepted', 'Join Request Accepted'),
@@ -145,6 +148,7 @@ NOTIFICATION_TYPES = SimpleNamespace(
     post_praise='Post Praise',
     post_trophy='Post Trophy',
     gallery_comment='Gallery Comment',
+    gallery_critique='Gallery Critique',
     gallery_award='Gallery Award',
     friend_request_accepted='Friend Request Accepted',
     join_request_accepted='Join Request Accepted',

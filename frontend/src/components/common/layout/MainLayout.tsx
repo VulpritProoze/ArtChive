@@ -170,14 +170,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   })();
 
   const settingsItems = [
-    {
-      label: "Account",
-      icon: User,
-      action: () => {
-        setIsSettingsOpen(false);
-        // Navigate to account settings
-      }
-    },
+    // {
+    //   label: "Account",
+    //   icon: User,
+    //   action: () => {
+    //     setIsSettingsOpen(false);
+    //     // Navigate to account settings
+    //   }
+    // },
     {
       label: "Notifications",
       icon: Bell,

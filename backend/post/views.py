@@ -1077,15 +1077,17 @@ class CritiqueCreateView(APIView):
 
                 # Determine recipient for notification and transaction
                 recipient = None
+                transaction_type = "critique"
                 if post:
                     recipient = post.author
                 elif gallery:
                     recipient = gallery.creator
+                    transaction_type = "gallery_critique"
 
                 # Create transaction record (transacted_to is recipient for reputation)
                 BrushDripTransaction.objects.create(
                     amount=3,
-                    transaction_object_type="critique",
+                    transaction_object_type=transaction_type,
                     transaction_object_id=str(critique.critique_id),
                     transacted_by=user,
                     transacted_to=recipient,  # Recipient gets reputation, not BD

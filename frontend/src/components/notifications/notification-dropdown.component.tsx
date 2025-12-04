@@ -87,6 +87,15 @@ export default function NotificationDropdown() {
         return `/post/${objectId}`;
       case 'Post Trophy':
         return `/post/${objectId}`;
+      case 'Gallery Critique':
+        // objectId format: "galleryId:critiqueId"
+        if (objectId.includes(':')) {
+          const [galleryId, critiqueId] = objectId.split(':');
+          // Check if it's a critique reply
+          const isCritiqueReply = notification.message.includes('replied to your critique');
+          return `/gallery/${galleryId}#${isCritiqueReply ? 'critique-reply' : 'critique'}-${critiqueId}`;
+        }
+        return `/gallery/${objectId}`;
       case 'Friend Request Accepted':
         // objectId is the friend request ID, but we want to go to the user's profile
         // For now, navigate to fellows requests page
@@ -118,6 +127,8 @@ export default function NotificationDropdown() {
         return '👏';
       case 'Post Trophy':
         return '🏆';
+      case 'Gallery Critique':
+        return '🎨';
       case 'Friend Request Accepted':
         return '👥';
       case 'Join Request Created':
