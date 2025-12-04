@@ -154,7 +154,7 @@ export default function PublishedGalleryView() {
     <GalleryLayout
       sidebarMenuItems={[
         {
-          label: "Comments",
+          label: "Sidebar",
           icon: faComment,
           action: () => {
             setIsCommentsModalOpen(true);
@@ -176,13 +176,13 @@ export default function PublishedGalleryView() {
         {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
       </div>
 
-      {/* Sticky Comments Button */}
-      <div className="tooltip tooltip-left fixed bottom-6 right-6 z-40" data-tip="Open Comments">
+      {/* Sticky Sidebar Button */}
+      <div className="tooltip tooltip-left fixed bottom-6 right-6 z-40" data-tip="Open Sidebar">
         <button
           onClick={() => setIsCommentsModalOpen(true)}
           className="btn btn-circle btn-primary btn-lg shadow-2xl hover:scale-110 transition-transform"
-          aria-label="Open comments"
-          title="Open Comments"
+          aria-label="Open sidebar"
+          title="Open Sidebar"
         >
           <FontAwesomeIcon icon={faComment} className="w-6 h-6" />
         </button>

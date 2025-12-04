@@ -28,11 +28,11 @@ export default function GalleryCommentsModal({
       <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-base-100 shadow-2xl z-50 flex flex-col animate-slide-in-right">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-base-200/50 sticky top-0 z-10">
-          <h2 className="text-xl font-bold">Comments</h2>
+          <h2 className="text-xl font-bold">Sidebar</h2>
           <button
             onClick={onClose}
             className="btn btn-circle btn-ghost btn-sm"
-            aria-label="Close comments"
+            aria-label="Close sidebar"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

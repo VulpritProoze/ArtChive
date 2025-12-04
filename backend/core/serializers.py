@@ -52,6 +52,7 @@ class UserProfilePublicSerializer(ModelSerializer):
     """
     artist_types = serializers.SerializerMethodField()
     fullname = serializers.SerializerMethodField()
+    reputation = serializers.IntegerField()
 
     class Meta:
         model = User
@@ -61,8 +62,9 @@ class UserProfilePublicSerializer(ModelSerializer):
             'fullname',
             'profile_picture',
             'artist_types',
+            'reputation',
         ]
-        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types']
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'reputation']
 
     def get_artist_types(self, obj):
         """Fetch author's artist types"""
@@ -571,7 +573,9 @@ class ReputationLeaderboardEntrySerializer(ModelSerializer):
     def get_rank(self, obj):
         """Calculate rank based on position in queryset"""
         # Rank is calculated in the view based on offset + index
-        return getattr(obj, '_rank', None)
+        rank = getattr(obj, '_rank', None)
+        # Ensure we always return a number (fallback to 0 if not set)
+        return rank if rank is not None else 0
 
     def get_user_id(self, obj):
         """Return user ID (alias for id field)"""

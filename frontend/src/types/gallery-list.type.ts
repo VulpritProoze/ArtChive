@@ -9,6 +9,7 @@ export interface CreatorDetails {
   profile_picture: string | null;
   artist_types: string[];
   brush_drips_count: number;
+  reputation: number;
 }
 
 export interface GalleryListItem {

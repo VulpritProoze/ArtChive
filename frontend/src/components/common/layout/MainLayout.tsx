@@ -35,7 +35,8 @@ import {
   PanelRightOpen,
   ChevronLeft,
   ChevronRight,
-  CircleDot
+  CircleDot,
+  ArrowUpDown
 } from "lucide-react";
 
 interface MainLayoutProps {
@@ -212,7 +213,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     },
     {
       label: "Reputation",
-      icon: CircleDot,
+      icon: ArrowUpDown,
       action: () => {
         setIsSettingsOpen(false);
         // Navigate to Reputation page

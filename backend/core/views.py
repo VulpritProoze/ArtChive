@@ -390,6 +390,7 @@ class UserProfileByUsernameView(RetrieveAPIView):
             "last_name",
             "profile_picture",
             "artist__artist_types",
+            "reputation",
         )
 
 

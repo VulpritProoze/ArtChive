@@ -81,6 +81,42 @@ class GalleryListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class GalleryPublicDetailView(APIView):
+    """
+    GET /api/gallery/<gallery_id>/public/ - Retrieve a published gallery (public endpoint)
+    Excludes canvas_json, includes creator details and reputation
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+
+    def get(self, _request, gallery_id):  # noqa: ARG002
+        """Retrieve a published active gallery"""
+        try:
+            gallery = Gallery.objects.get_active_objects().select_related(
+                'creator',
+                'creator__artist',
+                'creator__user_wallet'
+            ).filter(
+                gallery_id=gallery_id,
+                status='active'
+            ).first()
+            
+            if not gallery:
+                return Response(
+                    {'error': 'Gallery not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            from .serializers import GalleryPublicSerializer
+            serializer = GalleryPublicSerializer(gallery)
+            return Response(serializer.data)
+        except (ObjectDoesNotExist, ValueError):
+            return Response(
+                {'error': 'Gallery not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
 class GalleryDetailView(APIView):
     """
     GET    /api/gallery/<gallery_id>/ - Retrieve a gallery
@@ -102,9 +138,22 @@ class GalleryDetailView(APIView):
         except ObjectDoesNotExist:
             return None
 
-    def get(self, _request, gallery_id):  # noqa: ARG002
+    def get(self, request, gallery_id):
         """Retrieve a single gallery"""
+        # First try to get user's own gallery
         gallery = self.get_object(gallery_id)
+        
+        # If not found, try to get any active published gallery (for viewing published galleries)
+        if not gallery:
+            try:
+                gallery = Gallery.objects.get_active_objects().filter(
+                    gallery_id=gallery_id,
+                    status='active'
+                ).first()
+            except (ObjectDoesNotExist, ValueError):
+                gallery = None
+        
+        # If still not found, return 404
         if not gallery:
             return Response(
                 {'error': 'Gallery not found'},

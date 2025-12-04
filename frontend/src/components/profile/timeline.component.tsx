@@ -20,6 +20,8 @@ import AvatarTabContent from '@components/avatar/avatar-tab-content.component';
 import { useQuery } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
 import { galleryService } from '@services/gallery.service';
+import { ArrowUp, ArrowDown } from 'lucide-react';
+import { formatNumber } from '@utils/format-number.util';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
@@ -473,6 +475,36 @@ const Timeline: React.FC = () => {
                   <h4 className="text-2xl font-bold text-base-content">{fellowsCount ?? "-"}</h4>
                   <p className="text-base-content/60 text-sm">Fellows</p>
                 </button>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    {(() => {
+                      const reputation = profileUser?.reputation ?? 0;
+                      const isPositive = reputation > 0;
+                      const isNegative = reputation < 0;
+                      return (
+                        <>
+                          {isPositive ? (
+                            <ArrowUp className="w-5 h-5 text-success flex-shrink-0" />
+                          ) : isNegative ? (
+                            <ArrowDown className="w-5 h-5 text-error flex-shrink-0" />
+                          ) : null}
+                          <h4
+                            className={`text-2xl font-bold ${
+                              isPositive
+                                ? 'text-success'
+                                : isNegative
+                                ? 'text-error'
+                                : 'text-base-content'
+                            }`}
+                          >
+                            {formatNumber(reputation)}
+                          </h4>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <p className="text-base-content/60 text-sm">Reputation</p>
+                </div>
               </div>
             </div>
           </div>

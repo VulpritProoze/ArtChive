@@ -47,9 +47,10 @@ const GallerySidebarSection = ({
   } = usePostUI();
   const [activeTab, setActiveTab] = useState<'comments' | 'critiques' | 'awards'>('comments');
   
-  // Fetch gallery details
+  // Fetch gallery details - use public endpoint for published galleries
   const { data: gallery, isLoading: isLoadingGallery } = useGallery(galleryId, {
     enabled: Boolean(galleryId),
+    usePublic: true, // Use public endpoint to allow viewing published galleries
   });
   
   const {
@@ -144,32 +145,43 @@ const GallerySidebarSection = ({
       {gallery && (
         <div className="mb-6 pb-6 border-b border-base-300">
           {/* Creator Info */}
-          <div className="flex items-center gap-3 mb-4">
-            <Link
-              to={gallery.creator ? `/profile/@${gallery.creator}` : '#'}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center overflow-hidden">
-                {gallery.creator ? (
-                  <span className="text-lg font-semibold text-base-content">
-                    {gallery.creator.charAt(0).toUpperCase()}
-                  </span>
-                ) : (
-                  <FontAwesomeIcon icon={faComment} className="text-base-content/50" />
-                )}
-              </div>
-              <div>
-                <p className="font-semibold text-base-content">
-                  {gallery.creator || 'Unknown'}
-                </p>
-                {gallery.created_at && (
-                  <p className="text-xs text-base-content/60">
-                    {formatDate(gallery.created_at)}
+          {gallery.creator_details && (
+            <div className="flex items-center gap-3 mb-4">
+              <Link
+                to={`/profile/@${gallery.creator_details.username}`}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
+                <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center overflow-hidden">
+                  {gallery.creator_details.profile_picture ? (
+                    <img
+                      src={gallery.creator_details.profile_picture}
+                      alt={gallery.creator_details.username}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-lg font-semibold text-base-content">
+                      {gallery.creator_details.username.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-base-content">
+                    {gallery.creator_details.first_name && gallery.creator_details.last_name
+                      ? `${gallery.creator_details.first_name} ${gallery.creator_details.last_name}`
+                      : gallery.creator_details.username}
                   </p>
-                )}
-              </div>
-            </Link>
-          </div>
+                  <p className="text-xs text-base-content/60">
+                    @{gallery.creator_details.username}
+                  </p>
+                  {gallery.created_at && (
+                    <p className="text-xs text-base-content/60">
+                      {formatDate(gallery.created_at)}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            </div>
+          )}
 
           {/* Gallery Title */}
           <h2 className="text-2xl font-bold text-base-content mb-2">
@@ -364,4 +376,5 @@ const GallerySidebarSection = ({
 };
 
 export default GallerySidebarSection;
+
 

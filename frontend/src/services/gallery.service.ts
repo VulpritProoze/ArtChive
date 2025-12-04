@@ -11,6 +11,18 @@ export interface CommentsResponse {
   results: Comment[];
 }
 
+export interface CreatorDetails {
+  id: number;
+  username: string;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  profile_picture: string | null;
+  artist_types: string[];
+  brush_drips_count: number;
+  reputation: number;
+}
+
 export interface Gallery {
   gallery_id: string;
   title: string;
@@ -24,6 +36,7 @@ export interface Gallery {
   created_at: string;
   updated_at: string;
   creator: string;
+  creator_details?: CreatorDetails;
 }
 
 export interface CreateGalleryData {
@@ -102,9 +115,18 @@ export const galleryService = {
 
   /**
    * Get a single gallery by ID
+   * For published galleries, use getPublicGallery instead
    */
   async getGallery(galleryId: string): Promise<Gallery> {
     const response = await gallery.get(`${galleryId}/`);
+    return response.data;
+  },
+
+  /**
+   * Get a published gallery by ID (public endpoint)
+   */
+  async getPublicGallery(galleryId: string): Promise<Gallery> {
+    const response = await gallery.get(`${galleryId}/public/`);
     return response.data;
   },
 

@@ -7,6 +7,7 @@ export interface UserProfilePublic {
   fullname: string;
   profile_picture: string | null;
   artist_types: string[];
+  reputation: number;
 }
 
 export interface UserSummary {
@@ -16,6 +17,7 @@ export interface UserSummary {
   profile_picture: string | null;
   artist_types: string[];
   brushdrips_count: number;
+  reputation: number;
 }
 
 export const userService = {

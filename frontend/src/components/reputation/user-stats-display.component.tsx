@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { formatNumber } from '@utils/format-number.util';
 
 interface UserStatsDisplayProps {
@@ -22,6 +23,7 @@ export const UserStatsDisplay: React.FC<UserStatsDisplayProps> = ({
   const brushdripsValue = brushdrips ?? 0;
   const reputationValue = reputation ?? 0;
   const isNegativeRep = reputationValue < 0;
+  const isPositiveRep = reputationValue > 0;
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
@@ -37,9 +39,19 @@ export const UserStatsDisplay: React.FC<UserStatsDisplayProps> = ({
         </div>
       )}
       <div className="flex items-center gap-1.5">
-        <div className={`w-2 h-2 rounded-full ${isNegativeRep ? 'bg-reputation' : 'bg-reputation'}`}></div>
+        {isPositiveRep ? (
+          <ArrowUp className="w-3 h-3 text-success flex-shrink-0" />
+        ) : isNegativeRep ? (
+          <ArrowDown className="w-3 h-3 text-error flex-shrink-0" />
+        ) : null}
         <p
-          className={`text-[10px] font-medium ${isNegativeRep ? 'text-reputation' : 'text-base-content/70'}`}
+          className={`text-[10px] font-medium ${
+            isPositiveRep
+              ? 'text-success'
+              : isNegativeRep
+              ? 'text-error'
+              : 'text-base-content/70'
+          }`}
           title={`${reputationValue} Reputation`}
         >
           {formatNumber(reputationValue)} Rep
@@ -48,4 +60,5 @@ export const UserStatsDisplay: React.FC<UserStatsDisplayProps> = ({
     </div>
   );
 };
+
 

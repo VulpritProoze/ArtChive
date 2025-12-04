@@ -53,7 +53,7 @@ export const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ className = '' }
     <div className={`space-y-6 ${className}`}>
       {/* My Position Card */}
       {myPosition && (
-        <div className="card bg-gradient-to-br from-reputation/20 to-reputation/10 border border-reputation/30 shadow-lg">
+        <div className="card bg-gradient-to-br from-reputation/20 to-reputation/10 shadow-lg">
           <div className="card-body">
             <div className="flex items-center justify-between">
               <div>

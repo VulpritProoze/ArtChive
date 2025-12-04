@@ -79,12 +79,15 @@ class ReputationLeaderboardView(generics.ListAPIView):
         if cached_data is not None:
             return cached_data
         
+        # Get total count first for proper ranking
+        total_count = User.objects.filter(is_deleted=False).count()
+        
         # Query users ordered by reputation
         queryset = User.objects.filter(
             is_deleted=False
         ).select_related('artist').order_by('-reputation', 'id')[offset:offset + limit]
         
-        # Add rank to each user
+        # Add rank to each user (1-based indexing)
         for index, user in enumerate(queryset):
             user._rank = offset + index + 1
         
@@ -92,6 +95,34 @@ class ReputationLeaderboardView(generics.ListAPIView):
         cache.set(cache_key, queryset, LEADERBOARD_CACHE_TTL)
         
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        """
+        Override list method to return paginated response format.
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        # Get total count for pagination
+        total_count = User.objects.filter(is_deleted=False).count()
+        
+        # Calculate pagination info
+        limit = int(request.query_params.get('limit', 25))
+        offset = int(request.query_params.get('offset', 0))
+        limit = min(limit, 100)
+        
+        # Build pagination response
+        next_offset = offset + limit
+        previous_offset = max(0, offset - limit)
+        
+        response_data = {
+            'count': total_count,
+            'next': f'?limit={limit}&offset={next_offset}' if next_offset < total_count else None,
+            'previous': f'?limit={limit}&offset={previous_offset}' if offset > 0 else None,
+            'results': serializer.data,
+        }
+        
+        return Response(response_data)
 
 
 class MyLeaderboardPositionView(APIView):
@@ -140,4 +171,5 @@ class MyLeaderboardPositionView(APIView):
             'reputation': user.reputation,
             'surrounding_users': serializer.data,
         })
+
 

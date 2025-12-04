@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Info, ArrowRight, Images } from "lucide-react";
+import { Info, ArrowRight, Images, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { MainLayout } from "../common/layout";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { galleryService } from "@services/gallery.service";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useGalleryList } from "@hooks/queries/use-gallery";
 import type { GalleryListItem } from "@types";
 import { SkeletonGalleryGridCard } from "@components/common/skeleton";
 
@@ -55,16 +55,19 @@ const GalleryIndex = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  // State for "Browse Other Galleries" section
-  const [galleries, setGalleries] = useState<GalleryListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    hasNext: false,
-    hasPrevious: false,
-    totalCount: 0,
-  });
+  // Fetch galleries using React Query for caching
+  const {
+    data: galleriesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loading,
+  } = useGalleryList(5); // 5 items per page
+
+  // Flatten pages into a single array
+  const galleries = useMemo(() => {
+    return galleriesData?.pages.flatMap((page) => page.results) ?? [];
+  }, [galleriesData]);
 
   // Scroll-based color shift effect (local to this component only)
   useEffect(() => {
@@ -232,59 +235,17 @@ const GalleryIndex = () => {
     );
   };
 
-  // Fetch galleries function
-  const fetchGalleries = useCallback(async (page: number = 1, append: boolean = false) => {
-    try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-
-      const response = await galleryService.listGalleries(page, 5); // 12 items per page for grid
-
-      if (append) {
-        setGalleries((prev) => [...prev, ...response.results]);
-      } else {
-        setGalleries(response.results);
-      }
-
-      setPagination({
-        currentPage: page,
-        hasNext: response.next !== null,
-        hasPrevious: response.previous !== null,
-        totalCount: response.count,
-      });
-    } catch (error) {
-      console.error('[GalleryIndex] Failed to fetch galleries:', error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchGalleries(1, false);
-  }, [fetchGalleries]);
-
   // Infinite scrolling behavior
   useEffect(() => {
-    let isFetching = false;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          pagination.hasNext &&
-          !loadingMore &&
-          !loading &&
-          !isFetching
+          hasNextPage &&
+          !isFetchingNextPage &&
+          !loading
         ) {
-          isFetching = true;
-          fetchGalleries(pagination.currentPage + 1, true).finally(() => {
-            isFetching = false;
-          });
+          fetchNextPage();
         }
       },
       { threshold: 0.5 }
@@ -300,13 +261,7 @@ const GalleryIndex = () => {
       }
       observer.disconnect();
     };
-  }, [
-    pagination.hasNext,
-    loadingMore,
-    loading,
-    fetchGalleries,
-    pagination.currentPage,
-  ]);
+  }, [hasNextPage, isFetchingNextPage, loading, fetchNextPage]);
 
   const GalleryGridCard = ({ gallery }: { gallery: GalleryListItem }) => {
     const imageSrc = gallery.picture || '/landing-page/artworks/artwork1.avif';
@@ -354,12 +309,31 @@ const GalleryIndex = () => {
               <p className="text-[10px] opacity-80 truncate mb-1">
                 @{creator.username} • {artistTypes}
               </p>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                <p className="text-[10px] opacity-90">
-                  {creator.brush_drips_count.toLocaleString()} Brush Drips
-                </p>
-              </div>
+              {(() => {
+                const reputation = creator.reputation ?? 0;
+                const isPositive = reputation > 0;
+                const isNegative = reputation < 0;
+                return (
+                  <div className="flex items-center gap-1.5">
+                    {isPositive ? (
+                      <ArrowUp className="w-3 h-3 text-success flex-shrink-0" />
+                    ) : isNegative ? (
+                      <ArrowDown className="w-3 h-3 text-error flex-shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-base-content/50 flex-shrink-0" />
+                    )}
+                    <p className={`text-[10px] opacity-90 ${
+                      isPositive
+                        ? 'text-success'
+                        : isNegative
+                        ? 'text-error'
+                        : ''
+                    }`}>
+                      {reputation.toLocaleString()} Rep
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -483,7 +457,7 @@ const GalleryIndex = () => {
               </div>
 
               {/* Loading more skeleton */}
-              {loadingMore && (
+              {isFetchingNextPage && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 lg:px-8 mt-6">
                   <SkeletonGalleryGridCard count={3} />
                 </div>
