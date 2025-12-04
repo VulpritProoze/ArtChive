@@ -11,10 +11,9 @@ from common.utils.constants import (
     MAX_FILE_SIZE_FOR_IMAGES,
 )
 from common.utils.defaults import DEFAULT_COLLECTIVE_CHANNELS
-from post.models import Post
 from post.serializers import PostListViewSerializer
 
-from .models import AdminRequest, Channel, Collective, CollectiveMember
+from .models import AdminRequest, Channel, Collective, CollectiveMember, JoinRequest
 
 
 class CollectiveSerializer(ModelSerializer):
@@ -58,6 +57,7 @@ class CollectiveDetailsSerializer(ModelSerializer):
     channels = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     brush_drips_count = serializers.SerializerMethodField()
+    reputation = serializers.SerializerMethodField()
 
     class Meta:
         model = Collective
@@ -101,6 +101,17 @@ class CollectiveDetailsSerializer(ModelSerializer):
             # Access prefetched user_wallet (OneToOneField, not a QuerySet)
             if hasattr(membership.member, 'user_wallet'):
                 total += membership.member.user_wallet.balance
+
+        return total
+
+    def get_reputation(self, obj):
+        """Get total reputation of all members using prefetched data."""
+        # Use prefetched collective_member to avoid extra queries
+        total = 0
+        for membership in obj.collective_member.all():
+            # Access reputation directly from User model
+            reputation = getattr(membership.member, 'reputation', 0)
+            total += reputation
 
         return total
 
@@ -163,7 +174,7 @@ class CollectiveCreateSerializer(serializers.ModelSerializer):
             img = Image.open(value)
             img.verify()  # Verify it's a real image
             value.seek(0)  # Reset file pointer
-            
+
             # 3. Process image: resize and compress
             from common.utils.image_processing import process_collective_picture
             return process_collective_picture(value)
@@ -427,7 +438,7 @@ class InsideCollectivePostsViewSerializer(PostListViewSerializer):
     # - total_comment_count, total_hearts_count, total_praise_count, total_trophy_count
     # - is_hearted_by_current_user, is_praised_by_current_user
     # - user_trophies_for_post
-    # 
+    #
     # However, PostListViewSerializer doesn't include count fields (per Phase 2 optimization).
     # If counts are needed, they should come from PostBulkMetaView like PostListView.
     # For now, keeping this lightweight to match PostListView pattern.
@@ -828,14 +839,38 @@ class AdminRequestCreateSerializer(Serializer):
         return data
 
     def create(self, validated_data):
-        """Create admin request."""
+        """Create admin request and notify all admins."""
         collective = validated_data["collective_id"]
         message = validated_data.get("message", "")
         user = self.context["request"].user
 
-        return AdminRequest.objects.create(
+        admin_request = AdminRequest.objects.create(
             collective=collective, requester=user, message=message, status="pending"
         )
+
+        # Notify all admins of the collective
+        from common.utils.choices import NOTIFICATION_TYPES
+        from notification.utils import create_notification
+
+        from .models import CollectiveMember
+
+        admins = CollectiveMember.objects.filter(
+            collective_id=collective,
+            collective_role="admin"
+        ).select_related('member')
+
+        for admin_member in admins:
+            # Don't notify the requester if they somehow become an admin
+            if admin_member.member != user:
+                create_notification(
+                    message=f"{user.username} has requested to become an admin of {collective.title}",
+                    notification_object_type=NOTIFICATION_TYPES.admin_request_created,
+                    notification_object_id=str(collective.collective_id),
+                    notified_to=admin_member.member,
+                    notified_by=user
+                )
+
+        return admin_request
 
 
 class AcceptAdminRequestSerializer(Serializer):
@@ -901,9 +936,275 @@ class AcceptAdminRequestSerializer(Serializer):
             member.collective_role = "admin"
             member.save(update_fields=["collective_role"])
 
+            # Send notification to requester
+            from common.utils.choices import NOTIFICATION_TYPES
+            from notification.utils import create_notification
+            create_notification(
+                message=f"Your admin request for {admin_request.collective.title} has been accepted",
+                notification_object_type=NOTIFICATION_TYPES.admin_request_accepted,
+                notification_object_id=str(admin_request.collective.collective_id),
+                notified_to=admin_request.requester,
+                notified_by=reviewer
+            )
+
         elif action == "reject":
             admin_request.status = "rejected"
             admin_request.reviewed_by = reviewer
             admin_request.save()
 
         return admin_request
+
+
+# ============================================================================
+# JOIN REQUEST SERIALIZERS
+# ============================================================================
+
+class JoinRequestSerializer(ModelSerializer):
+    """Serializer for join requests."""
+
+    requester_username = serializers.CharField(
+        source="requester.username", read_only=True
+    )
+    requester_first_name = serializers.CharField(
+        source="requester.first_name", read_only=True
+    )
+    requester_middle_name = serializers.CharField(
+        source="requester.middle_name", read_only=True
+    )
+    requester_last_name = serializers.CharField(
+        source="requester.last_name", read_only=True
+    )
+    requester_profile_picture = serializers.ImageField(
+        source="requester.profile_picture", read_only=True
+    )
+    collective_title = serializers.CharField(source="collective.title", read_only=True)
+
+    class Meta:
+        model = JoinRequest
+        fields = [
+            "request_id",
+            "collective",
+            "collective_title",
+            "requester",
+            "requester_username",
+            "requester_first_name",
+            "requester_middle_name",
+            "requester_last_name",
+            "requester_profile_picture",
+            "status",
+            "rules_accepted",
+            "message",
+            "created_at",
+            "updated_at",
+            "reviewed_by",
+        ]
+        read_only_fields = [
+            "request_id",
+            "requester",
+            "status",
+            "created_at",
+            "updated_at",
+            "reviewed_by",
+        ]
+
+
+class JoinRequestCreateSerializer(Serializer):
+    """Serializer for creating join requests."""
+
+    collective_id = serializers.UUIDField()
+    rules_accepted = serializers.BooleanField()
+    message = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+    def validate_collective_id(self, value):
+        """Validate that collective exists."""
+        try:
+            return Collective.objects.get(collective_id=value)
+        except Collective.DoesNotExist:
+            raise serializers.ValidationError("Collective not found.")
+
+    def validate_rules_accepted(self, value):
+        """Validate that user has accepted the rules."""
+        if not value:
+            raise serializers.ValidationError(
+                "You must accept the collective's rules to join."
+            )
+        return value
+
+    def validate(self, data):
+        """Validate that user is not already a member and hasn't already requested."""
+        user = self.context["request"].user
+        collective = data["collective_id"]
+
+        # Check if user is already a member
+        if CollectiveMember.objects.filter(member=user, collective_id=collective).exists():
+            raise serializers.ValidationError(
+                "You are already a member of this collective."
+            )
+
+        # Check if there's already a pending request
+        if JoinRequest.objects.filter(
+            collective=collective, requester=user, status="pending"
+        ).exists():
+            raise serializers.ValidationError(
+                "You already have a pending join request for this collective."
+            )
+
+        return data
+
+    def create(self, validated_data):
+        """Create join request and notify all admins."""
+        collective = validated_data["collective_id"]
+        message = validated_data.get("message", "")
+        rules_accepted = validated_data["rules_accepted"]
+        user = self.context["request"].user
+
+        join_request = JoinRequest.objects.create(
+            collective=collective,
+            requester=user,
+            message=message,
+            rules_accepted=rules_accepted,
+            status="pending"
+        )
+
+        # Notify all admins of the collective
+        from common.utils.choices import NOTIFICATION_TYPES
+        from notification.utils import create_notification
+
+        from .models import CollectiveMember
+
+        admins = CollectiveMember.objects.filter(
+            collective_id=collective,
+            collective_role="admin"
+        ).select_related('member')
+
+        for admin_member in admins:
+            create_notification(
+                message=f"{user.username} has requested to join {collective.title}",
+                notification_object_type=NOTIFICATION_TYPES.join_request_created,
+                notification_object_id=str(collective.collective_id),
+                notified_to=admin_member.member,
+                notified_by=user
+            )
+
+        return join_request
+
+
+class AcceptJoinRequestSerializer(Serializer):
+    """Serializer for accepting/rejecting join requests."""
+
+    request_id = serializers.UUIDField()
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+
+    def validate_request_id(self, value):
+        """Validate that request exists and is pending."""
+        try:
+            request = JoinRequest.objects.select_related(
+                "collective", "requester"
+            ).get(request_id=value)
+        except JoinRequest.DoesNotExist:
+            raise serializers.ValidationError("Join request not found.")
+
+        if request.status != "pending":
+            raise serializers.ValidationError(
+                f"This request has already been {request.status}."
+            )
+
+        self._join_request = request
+        return value
+
+    def validate(self, data):
+        """Validate that current user is an admin of the collective."""
+        user = self.context["request"].user
+        join_request = self._join_request
+
+        # Check if user is admin of the collective
+        try:
+            member = CollectiveMember.objects.get(
+                member=user, collective_id=join_request.collective
+            )
+            if member.collective_role != "admin":
+                raise serializers.ValidationError(
+                    "Only admins can approve/reject join requests."
+                )
+        except CollectiveMember.DoesNotExist:
+            raise serializers.ValidationError(
+                "You are not a member of this collective."
+            )
+
+        return data
+
+    def save(self):
+        """Process the join request."""
+        action = self.validated_data["action"]
+        join_request = self._join_request
+        reviewer = self.context["request"].user
+
+        if action == "approve":
+            # Update request status
+            join_request.status = "approved"
+            join_request.reviewed_by = reviewer
+            join_request.save()
+
+            # Add user as member
+            CollectiveMember.objects.create(
+                member=join_request.requester,
+                collective_id=join_request.collective,
+                collective_role="member"
+            )
+
+            # Send notification to requester
+            from common.utils.choices import NOTIFICATION_TYPES
+            from notification.utils import create_notification
+            create_notification(
+                message=f"Your join request to {join_request.collective.title} has been accepted",
+                notification_object_type=NOTIFICATION_TYPES.join_request_accepted,
+                notification_object_id=str(join_request.collective.collective_id),
+                notified_to=join_request.requester,
+                notified_by=reviewer
+            )
+
+            # Invalidate user calculations (collective membership changed)
+            from post.ranking import invalidate_user_calculations
+            invalidate_user_calculations(join_request.requester.id)
+
+        elif action == "reject":
+            join_request.status = "rejected"
+            join_request.reviewed_by = reviewer
+            join_request.save()
+
+        return join_request
+
+
+class CancelJoinRequestSerializer(Serializer):
+    """Serializer for canceling a join request."""
+
+    request_id = serializers.UUIDField()
+
+    def validate_request_id(self, value):
+        """Validate that request exists, is pending, and belongs to the user."""
+        try:
+            request = JoinRequest.objects.select_related(
+                "collective", "requester"
+            ).get(request_id=value)
+        except JoinRequest.DoesNotExist:
+            raise serializers.ValidationError("Join request not found.")
+
+        if request.status != "pending":
+            raise serializers.ValidationError(
+                "You can only cancel pending requests."
+            )
+
+        user = self.context["request"].user
+        if request.requester != user:
+            raise serializers.ValidationError(
+                "You can only cancel your own join requests."
+            )
+
+        self._join_request = request
+        return value
+
+    def save(self):
+        """Delete the join request."""
+        join_request = self._join_request
+        join_request.delete()
+        return None

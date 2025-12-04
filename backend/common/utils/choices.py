@@ -90,7 +90,7 @@ FACEBOOK_RULES = [
     "Stay on topic and keep discussions relevant.",
     "No hate speech or discriminatory language.",
     "Respect privacy — no sharing personal information without consent.",
-    "Follow Facebook Community Guidelines.",
+    "Follow ArtChive Community Rules.",
 ]
 
 FELLOW_STATUS = [
@@ -133,6 +133,10 @@ NOTIFICATION_OBJECT_CHOICES = [
     ('gallery_comment', 'Gallery Comment'),
     ('gallery_award', 'Gallery Award'),
     ('friend_request_accepted', 'Friend Request Accepted'),
+    ('join_request_accepted', 'Join Request Accepted'),
+    ('admin_request_accepted', 'Admin Request Accepted'),
+    ('join_request_created', 'Join Request Created'),
+    ('admin_request_created', 'Admin Request Created'),
 ]
 
 NOTIFICATION_TYPES = SimpleNamespace(
@@ -143,6 +147,10 @@ NOTIFICATION_TYPES = SimpleNamespace(
     gallery_comment='Gallery Comment',
     gallery_award='Gallery Award',
     friend_request_accepted='Friend Request Accepted',
+    join_request_accepted='Join Request Accepted',
+    admin_request_accepted='Admin Request Accepted',
+    join_request_created='Join Request Created',
+    admin_request_created='Admin Request Created',
 )
 
 AVATAR_STATUS_CHOICES = (

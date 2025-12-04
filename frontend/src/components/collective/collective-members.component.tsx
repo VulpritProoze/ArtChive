@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { collective } from "@lib/api";
 import { CollectiveLayout } from "@components/common/layout";
+import { MainLayout } from "@components/common/layout/MainLayout";
 import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
@@ -48,9 +49,11 @@ export default function CollectiveMembers() {
 
   if (loading) {
     return (
-      <CollectiveLayout>
-        <LoadingSpinner text="Loading members..." />
-      </CollectiveLayout>
+      <MainLayout showRightSidebar={false}>
+        <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
+          <LoadingSpinner text="Loading members..." />
+        </CollectiveLayout>
+      </MainLayout>
     );
   }
 
@@ -58,7 +61,8 @@ export default function CollectiveMembers() {
   const regularMembers = members.filter((m) => m.collective_role === "member");
 
   return (
-    <CollectiveLayout>
+    <MainLayout showRightSidebar={false}>
+      <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
@@ -117,13 +121,17 @@ export default function CollectiveMembers() {
           </div>
         </div>
       </div>
-    </CollectiveLayout>
+      </CollectiveLayout>
+    </MainLayout>
   );
 }
 
 function MemberCard({ member }: { member: Member }) {
   return (
-    <div className="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+    <Link
+      to={`/profile/@${member.username}`}
+      className="card bg-base-200 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+    >
       <div className="card-body p-4">
         <div className="flex items-center gap-3">
           {/* Avatar */}
@@ -173,6 +181,6 @@ function MemberCard({ member }: { member: Member }) {
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

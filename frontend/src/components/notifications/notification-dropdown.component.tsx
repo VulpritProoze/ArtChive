@@ -91,6 +91,18 @@ export default function NotificationDropdown() {
         // objectId is the friend request ID, but we want to go to the user's profile
         // For now, navigate to fellows requests page
         return '/fellows/requests';
+      case 'Join Request Created':
+        // objectId is the collective_id, navigate to admin panel -> membership requests tab
+        return `/collective/${objectId}/admin?tab=membership-requests`;
+      case 'Admin Request Created':
+        // objectId is the collective_id, navigate to admin panel -> admin requests tab
+        return `/collective/${objectId}/admin?tab=admin-requests`;
+      case 'Join Request Accepted':
+        // objectId is the collective_id, navigate to the collective
+        return `/collective/${objectId}`;
+      case 'Admin Request Accepted':
+        // objectId is the collective_id, navigate to the collective
+        return `/collective/${objectId}`;
       default:
         return '/notifications';
     }
@@ -108,6 +120,12 @@ export default function NotificationDropdown() {
         return '🏆';
       case 'Friend Request Accepted':
         return '👥';
+      case 'Join Request Created':
+      case 'Join Request Accepted':
+        return '👤';
+      case 'Admin Request Created':
+      case 'Admin Request Accepted':
+        return '🛡️';
       default:
         return '🔔';
     }

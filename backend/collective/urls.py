@@ -8,9 +8,15 @@ from .views import (
     CollectiveGrowthAPIView,
     CollectiveTypesAPIView,
     AcceptAdminRequestView,
+    AcceptJoinRequestView,
     AdminRequestCreateView,
     AdminRequestListView,
     BecomeCollectiveAdminView,
+    BulkPendingJoinRequestsView,
+    CancelJoinRequestView,
+    JoinRequestCreateView,
+    JoinRequestListView,
+    MyJoinRequestsView,
     ChangeMemberRoleView,
     ChannelCreateView,
     ChannelDeleteView,
@@ -20,8 +26,10 @@ from .views import (
     CollectiveDetailsView,
     CollectiveMembershipsView,
     CollectiveMembersListView,
+    CollectiveRequestCountsView,
     CollectiveSearchView,
     CollectiveUpdateView,
+    UserCollectivesView,
     DemoteAdminView,
     InsideCollectivePostsView,
     InsideCollectiveView,
@@ -39,8 +47,10 @@ urlpatterns = [
     path('<uuid:collective_id>/', InsideCollectiveView.as_view(), name='collective-main'),
     path('<uuid:collective_id>/leave/', LeaveCollectiveView.as_view(), name='collective-leave'),
     path('<uuid:collective_id>/update/', CollectiveUpdateView.as_view(), name='collective-update'),
+    path('<uuid:collective_id>/requests/counts/', CollectiveRequestCountsView.as_view(), name='collective-request-counts'),
     path('create/', CollectiveCreateView.as_view(), name='collective-create'),
     path('collective-memberships/', CollectiveMembershipsView.as_view(), name='fetch-collective-memberships'),
+    path('user/<int:user_id>/collectives/', UserCollectivesView.as_view(), name='user-collectives'),
 
     # Channel management
     path('channel/', ChannelListView.as_view(), name='channel-list'),   # This is probably an obsolete route
@@ -63,6 +73,14 @@ urlpatterns = [
     path('<uuid:collective_id>/admin/request/', AdminRequestCreateView.as_view(), name='admin-request-create'),
     path('<uuid:collective_id>/admin/requests/', AdminRequestListView.as_view(), name='admin-requests-list'),
     path('admin/requests/<uuid:request_id>/process/', AcceptAdminRequestView.as_view(), name='admin-request-process'),
+    
+    # Join request system
+    path('<uuid:collective_id>/join/request/', JoinRequestCreateView.as_view(), name='join-request-create'),
+    path('<uuid:collective_id>/join/requests/', JoinRequestListView.as_view(), name='join-requests-list'),
+    path('join/requests/<uuid:request_id>/process/', AcceptJoinRequestView.as_view(), name='join-request-process'),
+    path('join/requests/<uuid:request_id>/cancel/', CancelJoinRequestView.as_view(), name='join-request-cancel'),
+    path('join/requests/me/', MyJoinRequestsView.as_view(), name='my-join-requests'),
+    path('join/requests/bulk/', BulkPendingJoinRequestsView.as_view(), name='bulk-pending-join-requests'),
     
     # Dashboard API endpoints
     path(
