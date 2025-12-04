@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { userService, type LeaderboardEntry, type LeaderboardResponse, type ReputationHistoryEntry } from '@services/user.service';
+import { userService } from '@services/user.service';
 
 /**
  * Hook to fetch user reputation

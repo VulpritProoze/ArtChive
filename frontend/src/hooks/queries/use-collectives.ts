@@ -1,12 +1,11 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { collectiveService } from '@services/collective.service';
-import type { Collective } from '@types';
+import { collectiveService, type CollectiveListItem } from '@services/collective.service';
 
 export interface PaginatedCollectivesResponse {
   count: number;
   next: string | null;
   previous: string | null;
-  results: Collective[];
+  results: CollectiveListItem[];
 }
 
 /**

@@ -162,7 +162,7 @@ export const useProcessAdminRequest = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ requestId, action, collectiveId }: { requestId: string; action: 'approve' | 'reject'; collectiveId?: string }) => {
+    mutationFn: async ({ requestId, action }: { requestId: string; action: 'approve' | 'reject'; collectiveId?: string }) => {
       return collectiveService.processAdminRequest(requestId, action);
     },
     onSuccess: (_, variables) => {
@@ -189,7 +189,7 @@ export const useProcessJoinRequest = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ requestId, action, collectiveId }: { requestId: string; action: 'approve' | 'reject'; collectiveId?: string }) => {
+    mutationFn: async ({ requestId, action }: { requestId: string; action: 'approve' | 'reject'; collectiveId?: string }) => {
       return collectiveService.processJoinRequest(requestId, action);
     },
     onSuccess: (_, variables) => {

@@ -10,7 +10,6 @@ import { useTopPosts } from "@hooks/queries/use-posts";
 import { useFellows } from "@hooks/queries/use-fellows";
 import { useRealtime } from "@context/realtime-context";
 import { UserStatsDisplay } from "@components/reputation/user-stats-display.component";
-import { formatNumber } from "@utils/format-number.util";
 // DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
 // import { useActiveFellows } from "@hooks/queries/use-active-fellows";
 import {
@@ -35,7 +34,6 @@ import {
   PanelRightOpen,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
   ArrowUpDown
 } from "lucide-react";
 

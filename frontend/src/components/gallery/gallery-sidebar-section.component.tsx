@@ -344,7 +344,6 @@ const GallerySidebarSection = ({
       {/* Awards Tab */}
       {activeTab === 'awards' && (
         <GalleryAwardDisplay
-          galleryId={galleryId}
           awards={awards}
           onOpenAwardModal={handleOpenAwardModal}
           onOpenAwardList={handleOpenAwardList}

@@ -8,11 +8,11 @@ import { formatNumber } from "@utils/format-number.util";
 import { CollectiveJoinRequestModal } from "@components/common/collective-feature/modal";
 import { useBulkPendingJoinRequests } from "@hooks/queries/use-join-requests";
 import { useCollectives, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
-import type { Collective } from "@types";
+import type { CollectiveListItem } from "@services/collective.service";
 
 export default function Index() {
   const navigate = useNavigate();
-  const [selectedCollective, setSelectedCollective] = useState<Collective | null>(null);
+  const [selectedCollective, setSelectedCollective] = useState<CollectiveListItem | null>(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
   const { isMemberOfACollective, fetchCollectiveMemberDetails } =
@@ -51,7 +51,7 @@ export default function Index() {
     collectives.length > 0 && !isLoading
   );
 
-  const handleJoinClick = (collective: Collective, e: React.MouseEvent) => {
+  const handleJoinClick = (collective: CollectiveListItem, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedCollective(collective);
     setIsJoinModalOpen(true);
@@ -197,7 +197,7 @@ export default function Index() {
                         )}
 
                         {/* Channels */}
-                        {collective.channels.length > 0 && (
+                        {collective.channels && collective.channels.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {collective.channels.slice(0, 3).map((channel) => (
                               <div
@@ -213,7 +213,7 @@ export default function Index() {
                                 >{channel.posts_count ?? '?'}</span>
                               </div>
                             ))}
-                            {collective.channels.length > 3 && (
+                            {collective.channels && collective.channels.length > 3 && (
                               <span className="text-xs text-base-content/50">
                                 +{collective.channels.length - 3} more channels
                               </span>

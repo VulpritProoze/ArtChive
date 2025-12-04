@@ -195,7 +195,6 @@ const CritiqueCard: React.FC<{
   highlightedItemId,
 }) => {
   const finalTargetType = targetType || (postId ? 'post' : 'gallery');
-  const targetId = postId || galleryId || '';
   const { user } = useAuth();
   const {
     setShowCritiqueForm,

@@ -64,7 +64,6 @@ export const CritiqueFormModal: React.FC = () => {
     resetForm();
   };
 
-  const targetType = critiqueTargetType || (critiqueTargetPostId ? 'post' : 'gallery');
   const hasTarget = critiqueTargetPostId || critiqueTargetGalleryId;
 
   if (!showCritiqueForm || !hasTarget) {

@@ -5,7 +5,6 @@ import { useAuth } from '@context/auth-context';
 import type { GalleryAward } from '@hooks/queries/use-gallery-awards';
 
 interface GalleryAwardDisplayProps {
-  galleryId: string;
   awards: GalleryAward[];
   onOpenAwardModal: () => void;
   onOpenAwardList: () => void;
@@ -30,7 +29,6 @@ interface GroupedAward {
  * Displays gallery awards grouped by user
  */
 export default function GalleryAwardDisplay({
-  galleryId,
   awards,
   onOpenAwardModal,
   onOpenAwardList,
@@ -97,19 +95,6 @@ export default function GalleryAwardDisplay({
         return '🥇';
       default:
         return '🏆';
-    }
-  };
-
-  const getAwardColor = (awardType: string) => {
-    switch (awardType.toLowerCase()) {
-      case 'bronze_stroke':
-        return 'text-orange-700';
-      case 'golden_bristle':
-        return 'text-yellow-600';
-      case 'diamond_canvas':
-        return 'text-blue-600';
-      default:
-        return 'text-base-content';
     }
   };
 

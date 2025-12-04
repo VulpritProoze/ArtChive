@@ -1,7 +1,5 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { galleryService } from '@services/gallery.service';
-import { toast } from '@utils/toast.util';
-import { handleApiError, formatErrorForToast } from '@utils';
 
 export interface GalleryAward {
   id: number;

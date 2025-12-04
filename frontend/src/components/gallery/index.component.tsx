@@ -50,11 +50,6 @@ const fellowsGalleries: GalleryCard[] = Array.from({ length: 10 }, (_, i) => ({
   imageUrl: `/landing-page/artworks/${artworkImages[i % artworkImages.length]}`,
 }));
 
-const bestGalleries: GalleryCard[] = Array.from({ length: 8 }, (_, i) => ({
-  id: `best-${i}`,
-  title: `Featured Gallery ${i + 1}`,
-  imageUrl: `/landing-page/artworks/${artworkImages[(i + 2) % artworkImages.length]}`,
-}));
 
 const GalleryIndex = () => {
   const navigate = useNavigate();

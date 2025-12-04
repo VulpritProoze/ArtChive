@@ -17,7 +17,6 @@ import {
   faArrowUp,
   faArrowDown,
 } from "@fortawesome/free-solid-svg-icons";
-import { collectiveService } from "@services/collective.service";
 import CollectiveEditModal from "@components/common/collective-feature/modal/collective-edit.modal";
 import {
   useCollectiveMembers,

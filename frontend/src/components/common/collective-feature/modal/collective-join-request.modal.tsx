@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Collective } from "@types";
+import type { CollectiveListItem } from "@services/collective.service";
 import { collective as collectiveApi } from "@lib/api";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { defaultErrors } from "@errors";
 
 interface CollectiveJoinRequestModalProps {
-  collective: Collective;
+  collective: CollectiveListItem;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -120,10 +120,11 @@ export const CollectiveJoinRequestModal = ({
       queryClient.invalidateQueries({ queryKey: ['bulk-pending-join-requests'] });
 
       toast.success("Request Cancelled", "Your join request has been cancelled.");
+      const cancelledRequestId = submittedRequestId;
       setSubmittedRequestId(null);
       setRulesAccepted(false);
       setMessage("");
-      onCancelRequest?.();
+      onCancelRequest?.(cancelledRequestId);
     } catch (err) {
       console.error("Error cancelling join request: ", err);
       const errorMessage = handleApiError(err, defaultErrors, true, true);

@@ -109,7 +109,7 @@ export default function TrophyListModal({
           author: trophy.author,
           author_username: trophy.author_username,
           author_fullname: trophy.author_fullname,
-          author_picture: trophy.author_picture,
+          author_picture: trophy.author_picture ?? undefined,
           trophies: [{
             id: trophy.id,
             trophy_type_name: trophy.trophy_type_name,

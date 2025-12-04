@@ -18,25 +18,6 @@ export const BestGalleriesCarouselSingle = ({ galleries, isLoading }: BestGaller
   const [showAwardModal, setShowAwardModal] = useState(false);
   const [selectedGalleryId, setSelectedGalleryId] = useState<string | null>(null);
 
-  const getAwardEmoji = (awardType: string) => {
-    switch (awardType.toLowerCase()) {
-      case 'bronze_stroke':
-        return '🥉';
-      case 'golden_bristle':
-        return '🥈';
-      case 'diamond_canvas':
-        return '🥇';
-      default:
-        return '🏆';
-    }
-  };
-
-  const handleAwardClick = (e: React.MouseEvent, galleryId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSelectedGalleryId(galleryId);
-    setShowAwardModal(true);
-  };
 
   const handlePrev = () => {
     setSelectedIndex((prev) => (prev > 0 ? prev - 1 : galleries.length - 1));

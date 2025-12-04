@@ -4,7 +4,7 @@ import { useAuth } from '@context/auth-context';
 import { formatNumber } from '@utils/format-number.util';
 import { formatDate } from '@utils/format-date.util';
 import { LoadingSpinner } from '@components/loading-spinner';
-import { History, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { History, ChevronLeft, ChevronRight, ArrowUp, Minus } from 'lucide-react';
 
 interface HistoryTabProps {
   className?: string;
@@ -84,7 +84,6 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({ className = '' }) => {
             {history.map((entry, index) => {
               const isPositive = entry.amount > 0;
               const isNegative = entry.amount < 0;
-              const isNeutral = entry.amount === 0;
 
               return (
                 <div

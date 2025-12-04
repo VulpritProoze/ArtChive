@@ -31,6 +31,23 @@ export interface Collective {
   updated_at: string;
 }
 
+// Collective list item (simpler version for list views)
+export interface CollectiveListItem {
+  collective_id: string;
+  title: string;
+  description: string;
+  rules: string[];
+  artist_types: string[];
+  picture: string;
+  created_at: string;
+  updated_at: string;
+  channels?: any[];
+  members?: any[];
+  member_count?: number;
+  brush_drips_count?: number;
+  reputation?: number;
+}
+
 export const collectiveService = {
   /**
    * Get collective data by ID (detailed view with channels and members)
@@ -193,7 +210,7 @@ export const collectiveService = {
     count: number;
     next: string | null;
     previous: string | null;
-    results: Collective[];
+    results: CollectiveListItem[];
   }> {
     const response = await collective.get('details/', {
       params: { page, page_size: pageSize },
