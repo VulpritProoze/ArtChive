@@ -4,6 +4,7 @@ from .award_views import (
     GalleryAwardCreateView,
     GalleryAwardDeleteView,
     GalleryAwardListView,
+    GalleryAwardsBulkView,
 )
 from .views import (
     GalleryCommentCreateView,
@@ -24,6 +25,7 @@ from .views import (
     GalleryListView,
     GalleryStatusUpdateView,
     GalleryUserListView,
+    GlobalTopGalleriesView,
     MediaUploadView,
 )
 
@@ -31,6 +33,7 @@ urlpatterns = [
     # Gallery CRUD
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
     path('list/', GalleryListView.as_view(), name='gallery-list'),
+    path('top/', GlobalTopGalleriesView.as_view(), name='global-top-galleries'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
     path('<uuid:gallery_id>/public/', GalleryPublicDetailView.as_view(), name='gallery-public-detail'),
     path('<uuid:gallery_id>/status/', GalleryStatusUpdateView.as_view(), name='gallery-status-update'),
@@ -55,6 +58,7 @@ urlpatterns = [
     path('award/create/', GalleryAwardCreateView.as_view(), name='gallery-award-create'),
     path('award/<int:award_id>/delete/', GalleryAwardDeleteView.as_view(), name='gallery-award-delete'),
     path('<uuid:gallery_id>/awards/', GalleryAwardListView.as_view(), name='gallery-award-list'),
+    path('awards/bulk/', GalleryAwardsBulkView.as_view(), name='gallery-awards-bulk'),
     
     # Dashboard API endpoints
     path(

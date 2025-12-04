@@ -170,6 +170,7 @@ class CreatorDetailSerializer(serializers.Serializer):
 class GalleryListSerializer(ModelSerializer):
     """Serializer for gallery list view with creator details"""
     creator_details = serializers.SerializerMethodField()
+    awards = serializers.SerializerMethodField()
 
     class Meta:
         model = Gallery
@@ -184,6 +185,7 @@ class GalleryListSerializer(ModelSerializer):
             'created_at',
             'updated_at',
             'creator_details',
+            'awards',
         ]
         read_only_fields = ['gallery_id', 'created_at', 'updated_at']
 
@@ -220,6 +222,21 @@ class GalleryListSerializer(ModelSerializer):
             'brush_drips_count': brush_drips_count,
             'reputation': getattr(creator, 'reputation', 0),
         }
+
+    def get_awards(self, obj):
+        """Get unique award types for this gallery"""
+        # Get awards using prefetch_related if available
+        try:
+            awards = obj.gallery_award.filter(is_deleted=False).select_related('gallery_award_type')
+            award_types = {}
+            for award in awards:
+                award_type = award.gallery_award_type.award
+                if award_type not in award_types:
+                    award_types[award_type] = 0
+                award_types[award_type] += 1
+            return award_types
+        except AttributeError:
+            return {}
 
 
 # ============================================================================

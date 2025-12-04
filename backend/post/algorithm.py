@@ -199,12 +199,12 @@ def generate_top_posts_cache(limit: int = 100, post_type: str = None):
     # Build cache key with post_type if provided
     post_type_suffix = f":{post_type}" if post_type else ""
     cache_key = f"global_top_posts:{limit}{post_type_suffix}"
-    cache.set(cache_key, posts_data, CACHE_TTL_TOP_POSTS)
+    cache.set(cache_key, posts_data, None)  # No timeout - only invalidated manually
     
     # Also cache for limit=100 if we generated more than that (for efficient slicing)
     if limit >= 100 and len(posts_data) >= 100:
         cache_key_100 = f"global_top_posts:100{post_type_suffix}"
-        cache.set(cache_key_100, posts_data[:100], CACHE_TTL_TOP_POSTS)
+        cache.set(cache_key_100, posts_data[:100], None)  # No timeout - only invalidated manually
     
     return posts_data
 

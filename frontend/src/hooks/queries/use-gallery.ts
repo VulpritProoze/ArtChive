@@ -35,4 +35,15 @@ export const useGalleryList = (pageSize: number = 5) => {
   });
 };
 
+/**
+ * Hook to fetch top galleries (cached, ranked)
+ */
+export const useTopGalleries = (limit: number = 25) => {
+  return useQuery({
+    queryKey: ['top-galleries', limit],
+    queryFn: () => galleryService.getTopGalleries(limit),
+    staleTime: 5 * 60 * 1000, // 5 minutes - cache for 5 minutes
+  });
+};
+
 

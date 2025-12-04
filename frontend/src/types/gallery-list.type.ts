@@ -23,6 +23,9 @@ export interface GalleryListItem {
   created_at: string;
   updated_at: string;
   creator_details: CreatorDetails;
+  awards?: {
+    [key: string]: number; // award_type: count (e.g., "bronze_stroke": 2)
+  };
 }
 
 export interface PaginatedGalleryListResponse {

@@ -2,9 +2,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { Info, ArrowRight, Images, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { MainLayout } from "../common/layout";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useGalleryList } from "@hooks/queries/use-gallery";
+import { useGalleryList, useTopGalleries } from "@hooks/queries/use-gallery";
 import type { GalleryListItem } from "@types";
 import { SkeletonGalleryGridCard } from "@components/common/skeleton";
+import { formatNumber } from "@utils/format-number.util";
+import { BestGalleriesCarouselSingle } from "./best-galleries-carousel-single.component";
+import { BestGalleriesCarouselMulti } from "./best-galleries-carousel-multi.component";
+import { galleryService } from "@services/gallery.service";
+import TrophyListModal from "@components/common/posts-feature/modal/trophy-list.modal";
+import { GalleryCardMenu } from "./gallery-card-menu.component";
 
 interface GalleryCard {
   id: string;
@@ -54,6 +60,13 @@ const GalleryIndex = () => {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [animationIndex, setAnimationIndex] = useState(0);
+  const [awards, setAwards] = useState<Record<string, Record<string, number>>>({});
+  const [loadingAwards, setLoadingAwards] = useState(false);
+  const [showAwardModal, setShowAwardModal] = useState(false);
+  const [selectedGalleryId, setSelectedGalleryId] = useState<string | null>(null);
+  const [hoveredGalleryId, setHoveredGalleryId] = useState<string | null>(null);
 
   // Fetch galleries using React Query for caching
   const {
@@ -64,10 +77,74 @@ const GalleryIndex = () => {
     isLoading: loading,
   } = useGalleryList(5); // 5 items per page
 
+  // Fetch top galleries for "Best Galleries Recently"
+  const { data: topGalleriesData, isLoading: isLoadingTopGalleries } = useTopGalleries(25);
+
+  // Check screen size for carousel type
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsSmallScreen(window.innerWidth < 500);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Cycle through animations every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimationIndex((prev) => (prev + 1) % 3); // Cycle through 0, 1, 2
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Flatten pages into a single array
   const galleries = useMemo(() => {
     return galleriesData?.pages.flatMap((page) => page.results) ?? [];
   }, [galleriesData]);
+
+  // Fetch awards after galleries finish loading
+  useEffect(() => {
+    if (galleries.length > 0 && !loading && !loadingAwards) {
+      setLoadingAwards(true);
+      const galleryIds = galleries.map(g => g.gallery_id);
+      galleryService.getBulkGalleryAwards(galleryIds)
+        .then((awardsData) => {
+          setAwards(awardsData);
+          setLoadingAwards(false);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch awards:', error);
+          setLoadingAwards(false);
+        });
+    }
+  }, [galleries.length, loading]);
+
+  const getAwardEmoji = (awardType: string) => {
+    switch (awardType.toLowerCase()) {
+      case 'bronze_stroke':
+        return '🥉';
+      case 'golden_bristle':
+        return '🥈';
+      case 'diamond_canvas':
+        return '🥇';
+      default:
+        return '🏆';
+    }
+  };
+
+  const handleAwardClick = (e: React.MouseEvent, galleryId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedGalleryId(galleryId);
+    setShowAwardModal(true);
+  };
+
+  // Get top galleries list
+  const topGalleries = useMemo(() => {
+    return topGalleriesData?.results ?? [];
+  }, [topGalleriesData]);
 
   // Scroll-based color shift effect (local to this component only)
   useEffect(() => {
@@ -269,75 +346,138 @@ const GalleryIndex = () => {
     const artistTypes = creator.artist_types.length > 0 
       ? creator.artist_types.join(', ') 
       : 'Artist';
+    const reputation = creator.reputation ?? 0;
+    const isPositive = reputation > 0;
+    const isNegative = reputation < 0;
+    const isHovered = hoveredGalleryId === gallery.gallery_id;
+    const galleryAwards = awards[gallery.gallery_id] || {};
+    const hasAwards = Object.keys(galleryAwards).length > 0;
 
     return (
-      <Link
-        to={`/gallery/${gallery.creator_details.id}`}
-        className="card bg-base-100 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all group cursor-pointer"
+      <div
+        className="card bg-base-100 rounded-xl overflow-hidden shadow-lg transition-all duration-300 relative"
+        onMouseEnter={() => setHoveredGalleryId(gallery.gallery_id)}
+        onMouseLeave={() => setHoveredGalleryId(null)}
       >
-        <div className="relative h-64 bg-base-300 overflow-hidden">
-          <img
-            src={imageSrc}
-            alt={gallery.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              console.error(`[Gallery Grid Card] Failed to load image: ${imageSrc}`, e);
-              (e.target as HTMLImageElement).src = '/landing-page/artworks/artwork1.avif';
-            }}
-          />
-        </div>
-        <div className="bg-[var(--local-primary,var(--color-primary))] text-primary-content p-3">
-          <h3 className="font-semibold text-sm truncate mb-1.5">{gallery.title}</h3>
-          <div className="flex items-center gap-2">
-            {creator.profile_picture ? (
-              <img
-                src={creator.profile_picture}
-                alt={creator.username}
-                className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                }}
-              />
-            ) : null}
-            <div className={`w-6 h-6 rounded-full bg-base-200 skeleton flex-shrink-0 ${creator.profile_picture ? 'hidden' : ''}`}></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium truncate">
-                {creator.first_name} {creator.middle_name ? creator.middle_name + ' ' : ''}{creator.last_name}
-              </p>
-              <p className="text-[10px] opacity-80 truncate mb-1">
-                @{creator.username} • {artistTypes}
-              </p>
-              {(() => {
-                const reputation = creator.reputation ?? 0;
-                const isPositive = reputation > 0;
-                const isNegative = reputation < 0;
-                return (
-                  <div className="flex items-center gap-1.5">
-                    {isPositive ? (
-                      <ArrowUp className="w-3 h-3 text-success flex-shrink-0" />
-                    ) : isNegative ? (
-                      <ArrowDown className="w-3 h-3 text-error flex-shrink-0" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-base-content/50 flex-shrink-0" />
+        <Link
+          to={`/gallery/${gallery.creator_details.id}`}
+          className="block w-full h-full relative"
+        >
+          {/* Full height image */}
+          <div className="relative bg-base-300 overflow-hidden w-full" style={{ height: '400px' }}>
+            <img
+              src={imageSrc}
+              alt={gallery.title}
+              className="w-full h-full object-cover"
+              style={{ width: '100%', height: '100%' }}
+              loading="lazy"
+              onError={(e) => {
+                console.error(`[Gallery Grid Card] Failed to load image: ${imageSrc}`, e);
+                (e.target as HTMLImageElement).src = '/landing-page/artworks/artwork1.avif';
+              }}
+            />
+            
+            {/* Awards display - top left with blurred background */}
+            {hasAwards && !loadingAwards ? (
+              <div 
+                className="absolute top-2 left-4 backdrop-blur-md bg-black/40 rounded-lg px-1.5 py-1 flex items-center gap-1 cursor-pointer hover:bg-black/50 transition-colors z-20"
+                onClick={(e) => handleAwardClick(e, gallery.gallery_id)}
+                title="View awards"
+              >
+                {Object.entries(galleryAwards).map(([awardType, count]) => (
+                  <div key={awardType} className="flex items-center gap-0.5" title={`${awardType.replace('_', ' ')} (${count})`}>
+                    <span className="text-[10px] leading-none">{getAwardEmoji(awardType)}</span>
+                    {count > 1 && (
+                      <span className="text-[8px] text-white/90 font-medium leading-none">{count}</span>
                     )}
-                    <p className={`text-[10px] opacity-90 ${
-                      isPositive
-                        ? 'text-success'
-                        : isNegative
-                        ? 'text-error'
-                        : ''
-                    }`}>
-                      {reputation.toLocaleString()} Rep
-                    </p>
                   </div>
-                );
-              })()}
+                ))}
+              </div>
+            ) : loadingAwards ? (
+              <div className="absolute top-2 left-4 backdrop-blur-md bg-black/40 rounded-lg px-1.5 py-1 flex items-center gap-1 z-20">
+                <div className="w-3 h-3 skeleton rounded"></div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Details overlay with blurred background - positioned over image */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 transition-all duration-300 backdrop-blur-md bg-black/40 text-white"
+            style={{
+              maxHeight: isHovered ? '50%' : 'auto',
+            }}
+          >
+            <div className={`p-2 lg:p-3 flex flex-col transition-all duration-300`}>
+              {/* Title - always visible */}
+              <h3 className="font-bold text-xs mb-1 truncate text-white">{gallery.title}</h3>
+              
+              {/* Additional details - only visible on hover */}
+              {isHovered && (
+                <>
+                  <p className="text-[10px] opacity-90 mb-2 line-clamp-2 flex-1 overflow-hidden text-white">{gallery.description || 'No description'}</p>
+                  
+                  {/* Creator Info */}
+                  {creator && (
+                    <div className="flex items-center gap-2 mb-2">
+                      {creator.profile_picture ? (
+                        <img
+                          src={creator.profile_picture}
+                          alt={creator.username}
+                          className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-6 h-6 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0 ${creator.profile_picture ? 'hidden' : ''}`}>
+                        <span className="text-xs font-semibold text-base-content">
+                          {creator.username.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[10px] truncate text-white">
+                          {creator.first_name} {creator.middle_name ? creator.middle_name + ' ' : ''}{creator.last_name}
+                        </p>
+                        <p className="text-[9px] opacity-80 truncate text-white">
+                          @{creator.username} • {artistTypes}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reputation with backdrop blur */}
+                  {creator && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded backdrop-blur-sm bg-black/30 w-fit">
+                      {isPositive ? (
+                        <ArrowUp className="w-3 h-3 text-success flex-shrink-0" />
+                      ) : isNegative ? (
+                        <ArrowDown className="w-3 h-3 text-error flex-shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-white/70 flex-shrink-0" />
+                      )}
+                      <span className={`text-[10px] font-medium ${
+                        isPositive
+                          ? 'text-success'
+                          : isNegative
+                          ? 'text-error'
+                          : 'text-white/70'
+                      }`}>
+                        {formatNumber(reputation)} Rep
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+
+        {/* Menu Button - Show on hover */}
+        {isHovered && (
+          <GalleryCardMenu username={creator?.username || ''} />
+        )}
+      </div>
     );
   };
 
@@ -358,7 +498,7 @@ const GalleryIndex = () => {
   }) => (
     <section className="mb-12">
       {/* Purple Banner */}
-      <div className="bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] to-[var(--local-primary,var(--color-primary))]/90 text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md">
+      <div className={`bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] via-[var(--local-primary,var(--color-primary))]/90 to-[var(--local-primary,var(--color-primary))] text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md section-header-animated animation-${animationIndex}`}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="text-xl lg:text-2xl font-bold">{title}</h2>
           {showDropdowns && (
@@ -427,19 +567,23 @@ const GalleryIndex = () => {
           skeletonCount={5}
         />
 
-        {/* Best Galleries Recently Section */}
-        <HorizontalScrollSection
-          title="Best Galleries Recently"
-          galleries={bestGalleries}
-          showDropdowns={true}
-          useSkeleton={true}
-          skeletonCount={5}
-        />
+        {/* Best Galleries Recently Section - Carousel */}
+        {isSmallScreen ? (
+          <BestGalleriesCarouselSingle 
+            galleries={topGalleries}
+            isLoading={isLoadingTopGalleries}
+          />
+        ) : (
+          <BestGalleriesCarouselMulti 
+            galleries={topGalleries}
+            isLoading={isLoadingTopGalleries}
+          />
+        )}
 
         {/* Browse Other Galleries Section */}
         <section className="mb-12">
           {/* Purple Banner */}
-          <div className="bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] to-[var(--local-primary,var(--color-primary))]/90 text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md">
+          <div className={`bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] via-[var(--local-primary,var(--color-primary))]/90 to-[var(--local-primary,var(--color-primary))] text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md section-header-animated animation-${animationIndex}`}>
             <h2 className="text-xl lg:text-2xl font-bold">Browse Other Galleries</h2>
           </div>
 
@@ -470,7 +614,169 @@ const GalleryIndex = () => {
         </section>
       </div>
 
+      {/* Trophy List Modal */}
+      {showAwardModal && selectedGalleryId && (
+        <TrophyListModal
+          isOpen={showAwardModal}
+          onClose={() => {
+            setShowAwardModal(false);
+            setSelectedGalleryId(null);
+          }}
+          galleryId={selectedGalleryId}
+          targetType="gallery"
+        />
+      )}
+
       <style>{`
+        /* Animation 1: Moving squares pattern */
+        @keyframes float-squares {
+          0% {
+            transform: translateY(0) translateX(0) rotate(0deg);
+            opacity: 0.3;
+          }
+          25% {
+            transform: translateY(-20px) translateX(10px) rotate(90deg);
+            opacity: 0.5;
+          }
+          50% {
+            transform: translateY(-10px) translateX(-15px) rotate(180deg);
+            opacity: 0.4;
+          }
+          75% {
+            transform: translateY(-25px) translateX(5px) rotate(270deg);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translateY(0) translateX(0) rotate(360deg);
+            opacity: 0.3;
+          }
+        }
+
+        /* Animation 2: Floating circles */
+        @keyframes float-circles {
+          0% {
+            transform: translateY(0) translateX(0) scale(1);
+            opacity: 0.2;
+          }
+          33% {
+            transform: translateY(-30px) translateX(20px) scale(1.2);
+            opacity: 0.4;
+          }
+          66% {
+            transform: translateY(-15px) translateX(-25px) scale(0.8);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translateY(0) translateX(0) scale(1);
+            opacity: 0.2;
+          }
+        }
+
+        /* Animation 3: Wave pattern */
+        @keyframes wave-pattern {
+          0% {
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+          50% {
+            transform: translateX(-50px) translateY(-20px);
+            opacity: 0.5;
+          }
+          100% {
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+        }
+
+        .section-header-animated {
+          position: relative;
+          overflow: hidden;
+        }
+
+        /* Animation 1: Squares */
+        .section-header-animated.animation-0::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.1) 20px,
+              rgba(255, 255, 255, 0.1) 40px
+            ),
+            repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.05) 20px,
+              rgba(255, 255, 255, 0.05) 40px
+            );
+          animation: float-squares 20s linear infinite;
+          pointer-events: none;
+        }
+
+        /* Animation 2: Circles */
+        .section-header-animated.animation-1::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 2px, transparent 2px),
+            radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.1) 3px, transparent 3px),
+            radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.12) 2.5px, transparent 2.5px),
+            radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.08) 2px, transparent 2px);
+          background-size: 60px 60px, 80px 80px, 70px 70px, 90px 90px;
+          animation: float-circles 25s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        /* Animation 3: Waves */
+        .section-header-animated.animation-2::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            repeating-linear-gradient(
+              0deg,
+              transparent,
+              transparent 15px,
+              rgba(255, 255, 255, 0.08) 15px,
+              rgba(255, 255, 255, 0.08) 30px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              transparent,
+              transparent 15px,
+              rgba(255, 255, 255, 0.06) 15px,
+              rgba(255, 255, 255, 0.06) 30px
+            ),
+            repeating-linear-gradient(
+              30deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.05) 20px,
+              rgba(255, 255, 255, 0.05) 40px
+            );
+          animation: wave-pattern 18s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        .section-header-animated > * {
+          position: relative;
+          z-index: 1;
+        }
+
         /* Custom scrollbar for gallery sections - Cool design */
         .gallery-scroll-container {
           scrollbar-width: thin;

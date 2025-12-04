@@ -204,6 +204,16 @@ export const galleryService = {
   },
 
   /**
+   * Get top galleries (cached, ranked)
+   */
+  async getTopGalleries(limit: number = 25): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('top/', {
+      params: { limit },
+    });
+    return response.data;
+  },
+
+  /**
    * List all galleries for current user
    */
   async userListGalleries(): Promise<Gallery[]> {
@@ -348,5 +358,14 @@ export const galleryService = {
    */
   async deleteGalleryAward(awardId: number): Promise<void> {
     await gallery.delete(`award/${awardId}/delete/`);
+  },
+
+  /**
+   * Get awards for multiple galleries in bulk
+   * POST /api/gallery/awards/bulk/
+   */
+  async getBulkGalleryAwards(galleryIds: string[]): Promise<Record<string, Record<string, number>>> {
+    const response = await gallery.post('awards/bulk/', { gallery_ids: galleryIds });
+    return response.data;
   },
 };

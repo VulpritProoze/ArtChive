@@ -190,3 +190,61 @@ class GalleryAwardListView(generics.ListAPIView):
             .order_by("-awarded_at")
         )
 
+
+class GalleryAwardsBulkView(APIView):
+    """
+    Get awards for multiple galleries in bulk
+    POST /api/gallery/awards/bulk/
+    
+    Body: {
+        "gallery_ids": ["<uuid1>", "<uuid2>", ...]
+    }
+    
+    Returns: {
+        "<gallery_id>": {
+            "bronze_stroke": 2,
+            "golden_bristle": 1,
+            "diamond_canvas": 0
+        },
+        ...
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        gallery_ids = request.data.get('gallery_ids', [])
+        
+        if not gallery_ids or not isinstance(gallery_ids, list):
+            return Response(
+                {'error': 'gallery_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Fetch all awards for the given galleries
+        awards = GalleryAward.objects.filter(
+            gallery_id__in=gallery_ids,
+            is_deleted=False
+        ).select_related('gallery_award_type')
+        
+        # Group by gallery_id and award_type
+        result = {}
+        for award in awards:
+            gallery_id_str = str(award.gallery_id.gallery_id)
+            award_type = award.gallery_award_type.award
+            
+            if gallery_id_str not in result:
+                result[gallery_id_str] = {}
+            
+            if award_type not in result[gallery_id_str]:
+                result[gallery_id_str][award_type] = 0
+            
+            result[gallery_id_str][award_type] += 1
+        
+        # Ensure all requested gallery IDs are in the response (even if they have no awards)
+        for gallery_id in gallery_ids:
+            gallery_id_str = str(gallery_id)
+            if gallery_id_str not in result:
+                result[gallery_id_str] = {}
+        
+        return Response(result, status=status.HTTP_200_OK)
+

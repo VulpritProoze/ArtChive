@@ -316,6 +316,54 @@ class GalleryListView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+class GlobalTopGalleriesView(APIView):
+    """
+    Fetch cached global top galleries.
+    GET /api/gallery/top/?limit=25
+    
+    Query Parameters:
+        limit: Number of galleries to return (5, 10, 25, 50, 100). Default: 25
+    
+    Returns:
+        List of top galleries in ranked order
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request):
+        # Get limit from query params, default to 25
+        limit = request.query_params.get('limit', '25')
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 25
+
+        # Validate limit (only allow specific values)
+        valid_limits = [5, 10, 25, 50, 100]
+        if limit not in valid_limits:
+            limit = 25  # Default to 25 if invalid
+
+        # Try to get from cache
+        from gallery.ranking import get_cached_top_galleries
+        cached_galleries = get_cached_top_galleries(limit=limit)
+
+        if cached_galleries is None:
+            # For testing: return 404 if cache is not available
+            # In production, you might want to fallback to most awarded galleries
+            return Response(
+                {
+                    'error': 'Top galleries cache not available. Please run: python manage.py generate_top_galleries'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'results': cached_galleries[:limit],
+            'count': len(cached_galleries[:limit]),
+            'limit': limit,
+        }, status=status.HTTP_200_OK)
+
+
 class GalleryUserListView(APIView):
     """
     GET /api/gallery/user/ - Get all galleries owned by the current authenticated user
