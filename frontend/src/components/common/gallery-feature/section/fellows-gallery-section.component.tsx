@@ -10,7 +10,7 @@ interface FellowsGallerySectionProps {
   isFetchingNextPage?: boolean;
   hasNextPage?: boolean;
   fetchNextPage?: () => void;
-  observerTarget?: React.RefObject<HTMLDivElement>;
+  observerTarget?: React.RefObject<HTMLDivElement | null>;
 }
 
 // Skeleton version of HorizontalScrollCard

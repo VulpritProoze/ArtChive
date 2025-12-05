@@ -35,6 +35,13 @@ export const SearchResultPost = ({ post, query }: SearchResultPostProps) => {
         </div>
       )}
       <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {post.post_type && (
+            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-primary/20 text-primary capitalize">
+              {post.post_type}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-base-content line-clamp-2">
           {post.description || 'No description'}
         </p>

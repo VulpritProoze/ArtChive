@@ -17,7 +17,7 @@ interface OtherGalleriesSectionProps {
   awards: Record<string, Record<string, number>>;
   loadingAwards: boolean;
   animationIndex: number;
-  observerTarget: React.RefObject<HTMLDivElement>;
+  observerTarget: React.RefObject<HTMLDivElement | null>;
 }
 
 export const OtherGalleriesSection = ({

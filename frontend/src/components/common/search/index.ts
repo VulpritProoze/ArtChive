@@ -4,3 +4,4 @@ export { SearchResultPost } from './search-result-post.component';
 export { SearchResultCollective } from './search-result-collective.component';
 export { SearchResultGallery } from './search-result-gallery.component';
 
+

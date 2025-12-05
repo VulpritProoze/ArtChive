@@ -4,9 +4,9 @@ Global search views for searching across users, posts, collectives, and gallerie
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from collective.models import Collective
 from core.models import User
@@ -14,6 +14,7 @@ from gallery.models import Gallery
 from post.models import Post
 
 from .models import UserSearchHistory
+from .pagination import SearchPagination
 from .serializers import (
     CollectiveSearchSerializer,
     GallerySearchSerializer,
@@ -64,108 +65,117 @@ def save_search_history(user, query, search_type, result_counts, is_successful):
         400: "Bad Request",
     },
 )
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def global_search_view(request):
+class GlobalSearchView(APIView):
     """
     Unified search endpoint that searches across all content types.
     Returns results grouped by type.
     """
-    query = request.query_params.get('q', '').strip()
-    search_type = request.query_params.get('type', 'all').lower()
-    limit = int(request.query_params.get('limit', 10))
+    permission_classes = [AllowAny]
 
-    if not query or len(query) < 2:
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        search_type = request.query_params.get('type', 'all').lower()
+        limit = int(request.query_params.get('limit', 10))
+
+        if not query or len(query) < 2:
+            return Response({
+                'query': query,
+                'results': {
+                    'users': {'count': 0, 'items': []},
+                    'posts': {'count': 0, 'items': []},
+                    'collectives': {'count': 0, 'items': []},
+                    'galleries': {'count': 0, 'items': []},
+                },
+                'total_count': 0
+            }, status=status.HTTP_200_OK)
+
+        results = {}
+        result_counts = {}
+
+        # Search Users
+        if search_type in ('all', 'users'):
+            users_queryset = User.objects.filter(
+                Q(username__icontains=query) |
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(email__icontains=query)
+            ).exclude(is_deleted=True)
+            total_users_count = users_queryset.count()
+            users = users_queryset[:limit]
+            user_serializer = UserSearchSerializer(users, many=True)
+            results['users'] = {
+                'count': total_users_count,
+                'items': user_serializer.data
+            }
+            result_counts['users'] = total_users_count
+        else:
+            results['users'] = {'count': 0, 'items': []}
+            result_counts['users'] = 0
+
+        # Search Posts
+        if search_type in ('all', 'posts'):
+            posts_queryset = Post.objects.filter(
+                Q(description__icontains=query)
+            ).exclude(is_deleted=True)
+            total_posts_count = posts_queryset.count()
+            posts = posts_queryset.select_related('author')[:limit]
+            post_serializer = PostSearchSerializer(posts, many=True)
+            results['posts'] = {
+                'count': total_posts_count,
+                'items': post_serializer.data
+            }
+            result_counts['posts'] = total_posts_count
+        else:
+            results['posts'] = {'count': 0, 'items': []}
+            result_counts['posts'] = 0
+
+        # Search Collectives
+        if search_type in ('all', 'collectives'):
+            collectives_queryset = Collective.objects.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query)
+            )
+            total_collectives_count = collectives_queryset.count()
+            collectives = collectives_queryset.prefetch_related('collective_member')[:limit]
+            collective_serializer = CollectiveSearchSerializer(collectives, many=True)
+            results['collectives'] = {
+                'count': total_collectives_count,
+                'items': collective_serializer.data
+            }
+            result_counts['collectives'] = total_collectives_count
+        else:
+            results['collectives'] = {'count': 0, 'items': []}
+            result_counts['collectives'] = 0
+
+        # Search Galleries
+        if search_type in ('all', 'galleries'):
+            galleries_queryset = Gallery.objects.get_active_objects().filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query)
+            )
+            total_galleries_count = galleries_queryset.count()
+            galleries = galleries_queryset.select_related('creator')[:limit]
+            gallery_serializer = GallerySearchSerializer(galleries, many=True)
+            results['galleries'] = {
+                'count': total_galleries_count,
+                'items': gallery_serializer.data
+            }
+            result_counts['galleries'] = total_galleries_count
+        else:
+            results['galleries'] = {'count': 0, 'items': []}
+            result_counts['galleries'] = 0
+
+        total_count = sum(result_counts.values())
+        is_successful = total_count > 0
+
+        # Save search history if user is authenticated
+        save_search_history(request.user, query, search_type, result_counts, is_successful)
+
         return Response({
             'query': query,
-            'results': {
-                'users': {'count': 0, 'items': []},
-                'posts': {'count': 0, 'items': []},
-                'collectives': {'count': 0, 'items': []},
-                'galleries': {'count': 0, 'items': []},
-            },
-            'total_count': 0
+            'results': results,
+            'total_count': total_count
         }, status=status.HTTP_200_OK)
-
-    results = {}
-    result_counts = {}
-
-    # Search Users
-    if search_type in ('all', 'users'):
-        users = User.objects.filter(
-            Q(username__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query)
-        ).exclude(is_deleted=True)[:limit]
-        user_serializer = UserSearchSerializer(users, many=True)
-        results['users'] = {
-            'count': len(user_serializer.data),
-            'items': user_serializer.data
-        }
-        result_counts['users'] = len(user_serializer.data)
-    else:
-        results['users'] = {'count': 0, 'items': []}
-        result_counts['users'] = 0
-
-    # Search Posts
-    if search_type in ('all', 'posts'):
-        posts = Post.objects.filter(
-            Q(description__icontains=query)
-        ).exclude(is_deleted=True).select_related('author')[:limit]
-        post_serializer = PostSearchSerializer(posts, many=True)
-        results['posts'] = {
-            'count': len(post_serializer.data),
-            'items': post_serializer.data
-        }
-        result_counts['posts'] = len(post_serializer.data)
-    else:
-        results['posts'] = {'count': 0, 'items': []}
-        result_counts['posts'] = 0
-
-    # Search Collectives
-    if search_type in ('all', 'collectives'):
-        collectives = Collective.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query)
-        ).prefetch_related('collective_member')[:limit]
-        collective_serializer = CollectiveSearchSerializer(collectives, many=True)
-        results['collectives'] = {
-            'count': len(collective_serializer.data),
-            'items': collective_serializer.data
-        }
-        result_counts['collectives'] = len(collective_serializer.data)
-    else:
-        results['collectives'] = {'count': 0, 'items': []}
-        result_counts['collectives'] = 0
-
-    # Search Galleries
-    if search_type in ('all', 'galleries'):
-        galleries = Gallery.objects.get_active_objects().filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query)
-        ).select_related('creator')[:limit]
-        gallery_serializer = GallerySearchSerializer(galleries, many=True)
-        results['galleries'] = {
-            'count': len(gallery_serializer.data),
-            'items': gallery_serializer.data
-        }
-        result_counts['galleries'] = len(gallery_serializer.data)
-    else:
-        results['galleries'] = {'count': 0, 'items': []}
-        result_counts['galleries'] = 0
-
-    total_count = sum(result_counts.values())
-    is_successful = total_count > 0
-
-    # Save search history if user is authenticated
-    save_search_history(request.user, query, search_type, result_counts, is_successful)
-
-    return Response({
-        'query': query,
-        'results': results,
-        'total_count': total_count
-    }, status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -179,49 +189,55 @@ def global_search_view(request):
             required=True,
         ),
         OpenApiParameter(
-            name="limit",
-            description="Number of results (default: 10)",
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of results per page (default: 10, max: 50)",
             type=int,
             required=False,
         ),
     ],
 )
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def search_users_view(request):
+class SearchUsersView(APIView):
     """Search users only"""
-    query = request.query_params.get('q', '').strip()
-    limit = int(request.query_params.get('limit', 10))
+    permission_classes = [AllowAny]
+    pagination_class = SearchPagination
 
-    if not query or len(query) < 2:
-        return Response({
-            'results': [],
-            'count': 0
-        }, status=status.HTTP_200_OK)
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
 
-    users = User.objects.filter(
-        Q(username__icontains=query) |
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(email__icontains=query)
-    ).exclude(is_deleted=True)[:limit]
+        if not query or len(query) < 2:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
 
-    serializer = UserSearchSerializer(users, many=True)
-    result_count = len(serializer.data)
+        users_queryset = User.objects.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        ).exclude(is_deleted=True).order_by('-id')
 
-    # Save search history
-    save_search_history(
-        request.user,
-        query,
-        'users',
-        {'users': result_count},
-        result_count > 0
-    )
+        paginator = self.pagination_class()
+        paginated_users = paginator.paginate_queryset(users_queryset, request)
+        serializer = UserSearchSerializer(paginated_users, many=True)
 
-    return Response({
-        'results': serializer.data,
-        'count': result_count
-    }, status=status.HTTP_200_OK)
+        # Save search history
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        result_count = paginated_response.data.get('count', 0)
+
+        save_search_history(
+            request.user,
+            query,
+            'users',
+            {'users': result_count},
+            result_count > 0
+        )
+
+        return paginated_response
 
 
 @extend_schema(
@@ -235,46 +251,52 @@ def search_users_view(request):
             required=True,
         ),
         OpenApiParameter(
-            name="limit",
-            description="Number of results (default: 10)",
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of results per page (default: 10, max: 50)",
             type=int,
             required=False,
         ),
     ],
 )
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def search_posts_view(request):
+class SearchPostsView(APIView):
     """Search posts only"""
-    query = request.query_params.get('q', '').strip()
-    limit = int(request.query_params.get('limit', 10))
+    permission_classes = [AllowAny]
+    pagination_class = SearchPagination
 
-    if not query or len(query) < 2:
-        return Response({
-            'results': [],
-            'count': 0
-        }, status=status.HTTP_200_OK)
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
 
-    posts = Post.objects.filter(
-        Q(description__icontains=query)
-    ).exclude(is_deleted=True).select_related('author')[:limit]
+        if not query or len(query) < 2:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
 
-    serializer = PostSearchSerializer(posts, many=True)
-    result_count = len(serializer.data)
+        posts_queryset = Post.objects.filter(
+            Q(description__icontains=query)
+        ).exclude(is_deleted=True).select_related('author').order_by('-created_at')
 
-    # Save search history
-    save_search_history(
-        request.user,
-        query,
-        'posts',
-        {'posts': result_count},
-        result_count > 0
-    )
+        paginator = self.pagination_class()
+        paginated_posts = paginator.paginate_queryset(posts_queryset, request)
+        serializer = PostSearchSerializer(paginated_posts, many=True)
 
-    return Response({
-        'results': serializer.data,
-        'count': result_count
-    }, status=status.HTTP_200_OK)
+        # Save search history
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        result_count = paginated_response.data.get('count', 0)
+
+        save_search_history(
+            request.user,
+            query,
+            'posts',
+            {'posts': result_count},
+            result_count > 0
+        )
+
+        return paginated_response
 
 
 @extend_schema(
@@ -288,47 +310,53 @@ def search_posts_view(request):
             required=True,
         ),
         OpenApiParameter(
-            name="limit",
-            description="Number of results (default: 10)",
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of results per page (default: 10, max: 50)",
             type=int,
             required=False,
         ),
     ],
 )
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def search_collectives_view(request):
+class SearchCollectivesView(APIView):
     """Search collectives only"""
-    query = request.query_params.get('q', '').strip()
-    limit = int(request.query_params.get('limit', 10))
+    permission_classes = [AllowAny]
+    pagination_class = SearchPagination
 
-    if not query or len(query) < 2:
-        return Response({
-            'results': [],
-            'count': 0
-        }, status=status.HTTP_200_OK)
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
 
-    collectives = Collective.objects.filter(
-        Q(title__icontains=query) |
-        Q(description__icontains=query)
-    ).prefetch_related('collective_member')[:limit]
+        if not query or len(query) < 2:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
 
-    serializer = CollectiveSearchSerializer(collectives, many=True)
-    result_count = len(serializer.data)
+        collectives_queryset = Collective.objects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query)
+        ).prefetch_related('collective_member').order_by('-created_at')
 
-    # Save search history
-    save_search_history(
-        request.user,
-        query,
-        'collectives',
-        {'collectives': result_count},
-        result_count > 0
-    )
+        paginator = self.pagination_class()
+        paginated_collectives = paginator.paginate_queryset(collectives_queryset, request)
+        serializer = CollectiveSearchSerializer(paginated_collectives, many=True)
 
-    return Response({
-        'results': serializer.data,
-        'count': result_count
-    }, status=status.HTTP_200_OK)
+        # Save search history
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        result_count = paginated_response.data.get('count', 0)
+
+        save_search_history(
+            request.user,
+            query,
+            'collectives',
+            {'collectives': result_count},
+            result_count > 0
+        )
+
+        return paginated_response
 
 
 @extend_schema(
@@ -342,47 +370,53 @@ def search_collectives_view(request):
             required=True,
         ),
         OpenApiParameter(
-            name="limit",
-            description="Number of results (default: 10)",
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of results per page (default: 10, max: 50)",
             type=int,
             required=False,
         ),
     ],
 )
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def search_galleries_view(request):
+class SearchGalleriesView(APIView):
     """Search galleries only"""
-    query = request.query_params.get('q', '').strip()
-    limit = int(request.query_params.get('limit', 10))
+    permission_classes = [AllowAny]
+    pagination_class = SearchPagination
 
-    if not query or len(query) < 2:
-        return Response({
-            'results': [],
-            'count': 0
-        }, status=status.HTTP_200_OK)
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
 
-    galleries = Gallery.objects.get_active_objects().filter(
-        Q(title__icontains=query) |
-        Q(description__icontains=query)
-    ).select_related('creator')[:limit]
+        if not query or len(query) < 2:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
 
-    serializer = GallerySearchSerializer(galleries, many=True)
-    result_count = len(serializer.data)
+        galleries_queryset = Gallery.objects.get_active_objects().filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query)
+        ).select_related('creator').order_by('-created_at')
 
-    # Save search history
-    save_search_history(
-        request.user,
-        query,
-        'galleries',
-        {'galleries': result_count},
-        result_count > 0
-    )
+        paginator = self.pagination_class()
+        paginated_galleries = paginator.paginate_queryset(galleries_queryset, request)
+        serializer = GallerySearchSerializer(paginated_galleries, many=True)
 
-    return Response({
-        'results': serializer.data,
-        'count': result_count
-    }, status=status.HTTP_200_OK)
+        # Save search history
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        result_count = paginated_response.data.get('count', 0)
+
+        save_search_history(
+            request.user,
+            query,
+            'galleries',
+            {'galleries': result_count},
+            result_count > 0
+        )
+
+        return paginated_response
 
 
 @extend_schema(
@@ -403,28 +437,29 @@ def search_galleries_view(request):
         ),
     ],
 )
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def search_history_view(request):
+class SearchHistoryView(APIView):
     """Get user's search history"""
-    limit = int(request.query_params.get('limit', 10))
-    search_type = request.query_params.get('search_type', None)
+    permission_classes = [IsAuthenticated]
 
-    # Cap limit at 50
-    limit = min(limit, 50)
+    def get(self, request):
+        limit = int(request.query_params.get('limit', 10))
+        search_type = request.query_params.get('search_type', None)
 
-    queryset = UserSearchHistory.objects.filter(user=request.user)
+        # Cap limit at 50
+        limit = min(limit, 50)
 
-    if search_type:
-        queryset = queryset.filter(search_type=search_type)
+        queryset = UserSearchHistory.objects.filter(user=request.user)
 
-    history = queryset.order_by('-created_at')[:limit]
-    serializer = UserSearchHistorySerializer(history, many=True)
+        if search_type:
+            queryset = queryset.filter(search_type=search_type)
 
-    return Response({
-        'results': serializer.data,
-        'count': len(serializer.data)
-    }, status=status.HTTP_200_OK)
+        history = queryset.order_by('-created_at')[:limit]
+        serializer = UserSearchHistorySerializer(history, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
 
 
 @extend_schema(
@@ -435,14 +470,15 @@ def search_history_view(request):
         401: OpenApiResponse(description="Unauthorized"),
     },
 )
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def recent_search_history_view(request):
+class RecentSearchHistoryView(APIView):
     """Get user's recent search history using model's get_recent_searches method (no duplicates)"""
-    history = UserSearchHistory.get_recent_searches(request.user, limit=5)
-    serializer = UserSearchHistorySerializer(history, many=True)
+    permission_classes = [IsAuthenticated]
 
-    return Response({
-        'results': serializer.data,
-        'count': len(serializer.data)
-    }, status=status.HTTP_200_OK)
+    def get(self, request):
+        history = UserSearchHistory.get_recent_searches(request.user, limit=5)
+        serializer = UserSearchHistorySerializer(history, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)

@@ -268,9 +268,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <div className={`hidden md:flex flex-1 mx-8 transition-all duration-300 ${
               isSearchDropdownOpen ? 'max-w-2xl' : 'max-w-xl'
             }`}>
-              <div className="relative w-full">
+              <div 
+                ref={searchInputRef} 
+                className="relative w-full"
+                onClick={(e) => {
+                  // Prevent closing dropdown when clicking inside the input container
+                  e.stopPropagation();
+                }}
+              >
                 <input
-                  ref={searchInputRef}
                   type="text"
                   placeholder="Search artists, artworks, collectives..."
                   value={searchQuery}
@@ -278,9 +284,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   onFocus={() => {
                     setIsSearchDropdownOpen(true);
                   }}
-                  onBlur={() => {
-                    // Delay closing to allow clicks on dropdown items
-                    setTimeout(() => setIsSearchDropdownOpen(false), 200);
+                  onClick={(e) => {
+                    // Keep dropdown open when clicking the input
+                    e.stopPropagation();
+                    setIsSearchDropdownOpen(true);
                   }}
                   className="w-full px-4 py-2.5 pl-11 bg-base-200/50 rounded-full border border-base-300 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary focus:bg-base-200 transition-all"
                 />
@@ -290,6 +297,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   isOpen={isSearchDropdownOpen}
                   onClose={() => setIsSearchDropdownOpen(false)}
                   onQuerySelect={(selectedQuery) => setSearchQuery(selectedQuery)}
+                  inputRef={searchInputRef}
                 />
               </div>
             </div>
@@ -387,9 +395,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
         {/* Mobile Search */}
         <div className="md:hidden px-4 pb-3">
-          <div className="relative">
+          <div 
+            ref={mobileSearchInputRef} 
+            className="relative"
+            onClick={(e) => {
+              // Prevent closing dropdown when clicking inside the input container
+              e.stopPropagation();
+            }}
+          >
             <input
-              ref={mobileSearchInputRef}
               type="text"
               placeholder="Search..."
               value={searchQuery}
@@ -397,9 +411,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               onFocus={() => {
                 setIsSearchDropdownOpen(true);
               }}
-              onBlur={() => {
-                // Delay closing to allow clicks on dropdown items
-                setTimeout(() => setIsSearchDropdownOpen(false), 200);
+              onClick={(e) => {
+                // Keep dropdown open when clicking the input
+                e.stopPropagation();
+                setIsSearchDropdownOpen(true);
               }}
               className="w-full px-4 py-2 pl-10 bg-base-200/50 rounded-full border border-base-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
@@ -409,6 +424,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               isOpen={isSearchDropdownOpen}
               onClose={() => setIsSearchDropdownOpen(false)}
               onQuerySelect={(selectedQuery) => setSearchQuery(selectedQuery)}
+              inputRef={mobileSearchInputRef}
             />
           </div>
         </div>

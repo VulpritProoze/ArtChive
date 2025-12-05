@@ -1,7 +1,7 @@
 /**
  * React Query hooks for global search functionality
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { searchService, type SearchFilters, type SearchHistoryResponse } from '@services/search.service';
 
 /**
@@ -39,66 +39,106 @@ export const useGlobalSearchPreview = (
 };
 
 /**
- * Hook for searching users only
+ * Hook for searching users only (with pagination)
  */
 export const useSearchUsers = (
   query: string,
   filters: Omit<SearchFilters, 'type'> = {},
   options: { enabled?: boolean } = {}
 ) => {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['search-users', query, filters],
-    queryFn: () => searchService.searchUsers(query, filters),
+    queryFn: ({ pageParam = 1 }) => searchService.searchUsers(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.next) {
+        const url = new URL(lastPage.next);
+        const page = url.searchParams.get('page');
+        return page ? parseInt(page, 10) : undefined;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     enabled: options.enabled !== false && query.length >= 2,
     staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 };
 
 /**
- * Hook for searching posts only
+ * Hook for searching posts only (with pagination)
  */
 export const useSearchPosts = (
   query: string,
   filters: Omit<SearchFilters, 'type'> = {},
   options: { enabled?: boolean } = {}
 ) => {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['search-posts', query, filters],
-    queryFn: () => searchService.searchPosts(query, filters),
+    queryFn: ({ pageParam = 1 }) => searchService.searchPosts(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.next) {
+        const url = new URL(lastPage.next);
+        const page = url.searchParams.get('page');
+        return page ? parseInt(page, 10) : undefined;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     enabled: options.enabled !== false && query.length >= 2,
     staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 };
 
 /**
- * Hook for searching collectives only
+ * Hook for searching collectives only (with pagination)
  */
 export const useSearchCollectives = (
   query: string,
   filters: Omit<SearchFilters, 'type'> = {},
   options: { enabled?: boolean } = {}
 ) => {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['search-collectives', query, filters],
-    queryFn: () => searchService.searchCollectives(query, filters),
+    queryFn: ({ pageParam = 1 }) => searchService.searchCollectives(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.next) {
+        const url = new URL(lastPage.next);
+        const page = url.searchParams.get('page');
+        return page ? parseInt(page, 10) : undefined;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     enabled: options.enabled !== false && query.length >= 2,
     staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 };
 
 /**
- * Hook for searching galleries only
+ * Hook for searching galleries only (with pagination)
  */
 export const useSearchGalleries = (
   query: string,
   filters: Omit<SearchFilters, 'type'> = {},
   options: { enabled?: boolean } = {}
 ) => {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['search-galleries', query, filters],
-    queryFn: () => searchService.searchGalleries(query, filters),
+    queryFn: ({ pageParam = 1 }) => searchService.searchGalleries(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
+    getNextPageParam: (lastPage) => {
+      if (lastPage.next) {
+        const url = new URL(lastPage.next);
+        const page = url.searchParams.get('page');
+        return page ? parseInt(page, 10) : undefined;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     enabled: options.enabled !== false && query.length >= 2,
     staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new data
   });
 };
 

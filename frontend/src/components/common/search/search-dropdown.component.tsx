@@ -14,9 +14,10 @@ interface SearchDropdownProps {
   onClose: () => void;
   onViewAll?: (type?: string) => void;
   onQuerySelect?: (query: string) => void;
+  inputRef?: React.RefObject<HTMLDivElement>;
 }
 
-export const SearchDropdown = ({ query, isOpen, onClose, onViewAll, onQuerySelect }: SearchDropdownProps) => {
+export const SearchDropdown = ({ query, isOpen, onClose, onViewAll, onQuerySelect, inputRef }: SearchDropdownProps) => {
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error } = useGlobalSearchPreview(query, {}, { enabled: isOpen && query.length >= 2 });
@@ -34,19 +35,30 @@ export const SearchDropdown = ({ query, isOpen, onClose, onViewAll, onQuerySelec
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside both dropdown and input
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (!isOpen) return;
+      
+      const target = event.target as Node;
+      const isClickInsideDropdown = dropdownRef.current?.contains(target);
+      const isClickInsideInput = inputRef?.current?.contains(target);
+      
+      // Only close if click is outside both dropdown and input container
+      if (!isClickInsideDropdown && !isClickInsideInput) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      // Use click event (not capture phase) so stopPropagation works
+      document.addEventListener('click', handleClickOutside);
+      
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, inputRef]);
 
   const handleViewAll = (type?: string) => {
     onClose();

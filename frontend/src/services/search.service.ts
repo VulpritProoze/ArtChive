@@ -5,8 +5,10 @@ import { search } from '@lib/api';
 
 export interface SearchFilters {
   type?: 'all' | 'users' | 'posts' | 'collectives' | 'galleries';
-  limit?: number;
-  offset?: number;
+  page?: number;
+  page_size?: number;
+  limit?: number; // Deprecated, use page_size instead
+  offset?: number; // Deprecated, use page instead
   sort?: 'relevance' | 'date' | 'popularity';
   date_from?: string;
   date_to?: string;
@@ -108,13 +110,16 @@ class SearchService {
   /**
    * Search users only
    */
-  async searchUsers(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: UserSearchResult[]; count: number }> {
+  async searchUsers(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: UserSearchResult[]; count: number; next: string | null; previous: string | null }> {
     const params = new URLSearchParams({
       q: query,
-      ...(filters.limit && { limit: filters.limit.toString() }),
+      ...(filters.page && { page: filters.page.toString() }),
+      ...(filters.page_size && { page_size: filters.page_size.toString() }),
+      // Legacy support
+      ...(filters.limit && !filters.page_size && { limit: filters.limit.toString() }),
     });
 
-    const response = await search.get<{ results: UserSearchResult[]; count: number }>(
+    const response = await search.get<{ results: UserSearchResult[]; count: number; next: string | null; previous: string | null }>(
       `users/?${params.toString()}`
     );
     return response.data;
@@ -123,13 +128,16 @@ class SearchService {
   /**
    * Search posts only
    */
-  async searchPosts(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: PostSearchResult[]; count: number }> {
+  async searchPosts(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: PostSearchResult[]; count: number; next: string | null; previous: string | null }> {
     const params = new URLSearchParams({
       q: query,
-      ...(filters.limit && { limit: filters.limit.toString() }),
+      ...(filters.page && { page: filters.page.toString() }),
+      ...(filters.page_size && { page_size: filters.page_size.toString() }),
+      // Legacy support
+      ...(filters.limit && !filters.page_size && { limit: filters.limit.toString() }),
     });
 
-    const response = await search.get<{ results: PostSearchResult[]; count: number }>(
+    const response = await search.get<{ results: PostSearchResult[]; count: number; next: string | null; previous: string | null }>(
       `posts/?${params.toString()}`
     );
     return response.data;
@@ -138,13 +146,16 @@ class SearchService {
   /**
    * Search collectives only
    */
-  async searchCollectives(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: CollectiveSearchResult[]; count: number }> {
+  async searchCollectives(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: CollectiveSearchResult[]; count: number; next: string | null; previous: string | null }> {
     const params = new URLSearchParams({
       q: query,
-      ...(filters.limit && { limit: filters.limit.toString() }),
+      ...(filters.page && { page: filters.page.toString() }),
+      ...(filters.page_size && { page_size: filters.page_size.toString() }),
+      // Legacy support
+      ...(filters.limit && !filters.page_size && { limit: filters.limit.toString() }),
     });
 
-    const response = await search.get<{ results: CollectiveSearchResult[]; count: number }>(
+    const response = await search.get<{ results: CollectiveSearchResult[]; count: number; next: string | null; previous: string | null }>(
       `collectives/?${params.toString()}`
     );
     return response.data;
@@ -153,13 +164,16 @@ class SearchService {
   /**
    * Search galleries only
    */
-  async searchGalleries(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: GallerySearchResult[]; count: number }> {
+  async searchGalleries(query: string, filters: Omit<SearchFilters, 'type'> = {}): Promise<{ results: GallerySearchResult[]; count: number; next: string | null; previous: string | null }> {
     const params = new URLSearchParams({
       q: query,
-      ...(filters.limit && { limit: filters.limit.toString() }),
+      ...(filters.page && { page: filters.page.toString() }),
+      ...(filters.page_size && { page_size: filters.page_size.toString() }),
+      // Legacy support
+      ...(filters.limit && !filters.page_size && { limit: filters.limit.toString() }),
     });
 
-    const response = await search.get<{ results: GallerySearchResult[]; count: number }>(
+    const response = await search.get<{ results: GallerySearchResult[]; count: number; next: string | null; previous: string | null }>(
       `galleries/?${params.toString()}`
     );
     return response.data;
