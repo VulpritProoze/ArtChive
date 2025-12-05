@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { collective } from "@lib/api";
 import { CollectiveLayout } from "@components/common/layout";
-import { MainLayout } from "@components/common/layout/MainLayout";
-import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { useAuth } from "@context/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShield, faUser, faCrown } from "@fortawesome/free-solid-svg-icons";
-import type { Member } from "@types";
+import type { Member, Channel } from "@types";
+import { useCollectiveData } from "@hooks/queries/use-collective-data";
+import { SkeletonMemberCard } from "@components/common/skeleton";
 
 // Helper function to construct full name
 const getFullName = (member: Member) => {
@@ -23,10 +23,17 @@ export default function CollectiveMembers() {
   const { isAdminOfACollective } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collectiveTitle, setCollectiveTitle] = useState("");
+
+  // Fetch collective data for CollectiveLayout
+  const {
+    data: collectiveData,
+    isLoading: loadingCollective,
+  } = useCollectiveData(collectiveId);
 
   useEffect(() => {
-    fetchMembers();
+    if (collectiveId) {
+      fetchMembers();
+    }
   }, [collectiveId]);
 
   const fetchMembers = async () => {
@@ -34,10 +41,6 @@ export default function CollectiveMembers() {
       setLoading(true);
       const response = await collective.get(`/${collectiveId}/members/`);
       setMembers(response.data);
-
-      // Fetch collective details for title
-      const collectiveResponse = await collective.get(`/${collectiveId}/`);
-      setCollectiveTitle(collectiveResponse.data.title);
     } catch (error) {
       console.error("Error fetching members:", error);
       const message = handleApiError(error, {}, true, true);
@@ -47,41 +50,45 @@ export default function CollectiveMembers() {
     }
   };
 
-  if (loading) {
-    return (
-      <MainLayout showRightSidebar={false}>
-        <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
-          <LoadingSpinner text="Loading members..." />
-        </CollectiveLayout>
-      </MainLayout>
-    );
-  }
-
   const adminMembers = members.filter((m) => m.collective_role === "admin");
   const regularMembers = members.filter((m) => m.collective_role === "member");
 
+  const handleChannelClick = (_channel: Channel) => {
+    // Navigate to collective home page when channel is clicked
+    navigate(`/collective/${collectiveId}`);
+  };
+
+  const handleShowCreateChannelModal = () => {
+    // Navigate to collective home page where channel creation is available
+    navigate(`/collective/${collectiveId}`);
+  };
+
   return (
-    <MainLayout showRightSidebar={false}>
-      <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
+    <CollectiveLayout
+      skipMainLayout={false}
+      showSidebar={true}
+      showRightSidebar={false}
+      showCollectiveRightSidebar={false}
+      collectiveData={collectiveData}
+      loadingCollective={loadingCollective}
+      onChannelClick={handleChannelClick}
+      onShowCreateChannelModal={isAdminOfACollective(collectiveId) ? handleShowCreateChannelModal : undefined}
+    >
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate(`/collective/${collectiveId}`)}
-            className="btn btn-ghost btn-sm mb-4"
-          >
-            ← Back to Collective
-          </button>
           <h1 className="text-3xl font-bold mb-2">
-            {collectiveTitle} Members
+            {collectiveData?.title || 'Collective'} Members
           </h1>
-          <p className="text-base-content/70">
-            {members.length} member{members.length !== 1 ? "s" : ""}
-          </p>
+          {!loading && (
+            <p className="text-base-content/70">
+              {members.length} member{members.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
 
         {/* Admin Actions Button */}
-        {isAdminOfACollective(collectiveId) && (
+        {!loading && isAdminOfACollective(collectiveId) && (
           <div className="mb-6">
             <button
               onClick={() => navigate(`/collective/${collectiveId}/admin`)}
@@ -93,36 +100,51 @@ export default function CollectiveMembers() {
           </div>
         )}
 
-        {/* Admins Section */}
-        {adminMembers.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <FontAwesomeIcon icon={faCrown} className="text-warning" />
-              Admins ({adminMembers.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {adminMembers.map((member) => (
-                <MemberCard key={member.id} member={member} />
-              ))}
+        {/* Loading State - Skeleton Cards */}
+        {loading ? (
+          <>
+            <div className="mb-8">
+              <div className="skeleton h-7 w-32 mb-4"></div>
+              <SkeletonMemberCard count={3} />
             </div>
-          </div>
-        )}
+            <div>
+              <div className="skeleton h-7 w-32 mb-4"></div>
+              <SkeletonMemberCard count={6} />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Admins Section */}
+            {adminMembers.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <FontAwesomeIcon icon={faCrown} className="text-warning" />
+                  Admins ({adminMembers.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {adminMembers.map((member) => (
+                    <MemberCard key={member.id} member={member} />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Members Section */}
-        <div>
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={faUser} className="text-base-content/70" />
-            Members ({regularMembers.length})
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {regularMembers.map((member) => (
-              <MemberCard key={member.id} member={member} />
-            ))}
-          </div>
-        </div>
+            {/* Members Section */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <FontAwesomeIcon icon={faUser} className="text-base-content/70" />
+                Members ({regularMembers.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {regularMembers.map((member) => (
+                  <MemberCard key={member.id} member={member} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      </CollectiveLayout>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }
 

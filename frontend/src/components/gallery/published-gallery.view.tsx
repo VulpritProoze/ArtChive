@@ -5,7 +5,7 @@ import { GalleryLayout } from '@components/common/layout';
 import { LoadingSpinner } from '@components/loading-spinner';
 import handleApiError from '@utils/handle-api-error';
 import { renderCanvasObjectToHTML } from '@utils/canvas-to-html-renderer';
-import GalleryCommentsModal from './gallery-comments-modal.component';
+import GalleryCommentsModal from '@components/common/gallery-feature/modal/gallery-comments-modal.component';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComment } from '@fortawesome/free-solid-svg-icons';
 

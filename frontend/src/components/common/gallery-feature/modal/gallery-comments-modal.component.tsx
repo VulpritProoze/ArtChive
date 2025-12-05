@@ -1,4 +1,4 @@
-import GallerySidebarSection from './gallery-sidebar-section.component';
+import GallerySidebarSection from '../gallery-sidebar-section.component';
 
 interface GalleryCommentsModalProps {
   isOpen: boolean;

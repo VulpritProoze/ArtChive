@@ -368,4 +368,15 @@ export const galleryService = {
     const response = await gallery.post('awards/bulk/', { gallery_ids: galleryIds });
     return response.data;
   },
+
+  /**
+   * Get galleries from fellows (users the current user follows)
+   * GET /api/gallery/fellows/
+   */
+  async getFellowsGalleries(page: number = 1, pageSize: number = 10): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('fellows/', {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
 };

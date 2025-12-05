@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, MoreVertical, User, MessageCircle, Flag, Arr
 import type { GalleryListItem } from '@types';
 import { formatNumber } from '@utils/format-number.util';
 import TrophyListModal from '@components/common/posts-feature/modal/trophy-list.modal';
+import { optimizeGalleryPicture, optimizeProfilePicture } from '@utils/cloudinary-transform.util';
 
 interface BestGalleriesCarouselMultiProps {
   galleries: GalleryListItem[];
@@ -410,7 +411,7 @@ export const BestGalleriesCarouselMulti = ({ galleries, isLoading }: BestGalleri
                     {/* Full width image */}
                     <div className="relative bg-base-300 overflow-hidden w-full h-full">
                       <img
-                        src={gallery.picture || '/landing-page/artworks/artwork1.avif'}
+                        src={optimizeGalleryPicture(gallery.picture) || '/landing-page/artworks/artwork1.avif'}
                         alt={gallery.title}
                         className="w-full h-full object-cover"
                         style={{ width: '100%', height: '100%' }}
@@ -463,7 +464,7 @@ export const BestGalleriesCarouselMulti = ({ galleries, isLoading }: BestGalleri
                               <div className="flex items-center gap-2 mb-2">
                                 {creator.profile_picture ? (
                                   <img
-                                    src={creator.profile_picture}
+                                    src={optimizeProfilePicture(creator.profile_picture)}
                                     alt={creator.username}
                                     className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                                     onError={(e) => {

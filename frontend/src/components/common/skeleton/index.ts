@@ -5,4 +5,5 @@ export { SkeletonCollectiveInfo } from './skeleton-collective-info.component';
 export { SkeletonHeroImage } from './skeleton-hero-image.component';
 export { SkeletonCollectiveCard } from './skeleton-collective-card.component';
 export { SkeletonGalleryGridCard } from './skeleton-gallery-grid-card.component';
+export { SkeletonMemberCard } from './skeleton-member-card.component';
 

@@ -1,5 +1,5 @@
 import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save } from 'lucide-react';
-import { useUploadImage } from './hooks/use-upload-image.hook';
+import { useUploadImage } from '@hooks/gallery/editor/use-upload-image.hook';
 import { toast } from '@utils/toast.util';
 
 type EditorMode = 'pan' | 'move' | 'select';

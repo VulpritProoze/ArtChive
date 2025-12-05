@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { MainLayout } from "./MainLayout";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,7 +21,8 @@ import useCollective from "@hooks/use-collective";
 interface CollectiveLayoutProps {
   children: React.ReactNode;
   showSidebar?: boolean;
-  showRightSidebar?: boolean;
+  showRightSidebar?: boolean; // Controls MainLayout's right sidebar
+  showCollectiveRightSidebar?: boolean; // Controls CollectiveLayout's right sidebar
   skipMainLayout?: boolean;
   // Collective data
   collectiveData?: {
@@ -44,7 +45,8 @@ interface CollectiveLayoutProps {
 export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
   children,
   showSidebar = false,
-  showRightSidebar = false,
+  showRightSidebar = false, // MainLayout's right sidebar
+  showCollectiveRightSidebar = true, // CollectiveLayout's right sidebar
   skipMainLayout = false,
   collectiveData,
   loadingCollective = false,
@@ -56,8 +58,13 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
 }) => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdminOfACollective, isMemberOfACollective } = useAuth();
   const { handleLeaveCollective } = useCollective();
+
+  // Check if current route matches sidebar links
+  const isMembersPage = location.pathname.includes('/members');
+  const isAdminPage = location.pathname.includes('/admin');
   
   // Fetch request counts for admin badge
   const { data: requestCounts } = useCollectiveRequestCounts(
@@ -67,7 +74,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
 
   // Sidebar state - collapsed by default
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(true);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
+  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showRightSidebarState, setShowRightSidebarState] = useState(false);
   const [showChannelsDropdown, setShowChannelsDropdown] = useState(true);
@@ -159,7 +166,11 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
               navigate(`/collective/${collectiveId}/members`);
               if (isMobile) setShowMobileSidebar(false);
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
+              isMembersPage
+                ? 'bg-primary text-primary-content'
+                : 'hover:bg-base-300'
+            }`}
           >
             <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
             <span>Members</span>
@@ -170,7 +181,11 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                 navigate(`/collective/${collectiveId}/admin`);
                 if (isMobile) setShowMobileSidebar(false);
               }}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
+                isAdminPage
+                  ? 'bg-primary text-primary-content'
+                  : 'hover:bg-base-300'
+              }`}
             >
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
@@ -511,7 +526,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                 <span className="font-semibold">Menu</span>
               </button>
             )}
-            {showRightSidebar && (
+            {showCollectiveRightSidebar && (
               <button
                 className="btn btn-ghost btn-sm gap-2 lg:hidden"
                 onClick={() => setShowRightSidebarState(true)}
@@ -521,7 +536,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                 <span className="font-semibold">Info</span>
               </button>
             )}
-            {showRightSidebar && (
+            {showCollectiveRightSidebar && (
               <button
                 className="btn btn-ghost btn-sm gap-2 hidden lg:flex"
                 onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
@@ -544,7 +559,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
       )}
 
       {/* Mobile Right Sidebar Backdrop */}
-      {showRightSidebarState && (
+      {showCollectiveRightSidebar && showRightSidebarState && (
         <div
           className="fixed inset-0 bg-black/50 z-50 lg:hidden"
           onClick={() => setShowRightSidebarState(false)}
@@ -569,7 +584,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
         </main>
 
         {/* RIGHT SIDEBAR - Desktop */}
-        {showRightSidebar && collectiveData && (
+        {showCollectiveRightSidebar && collectiveData && (
           <>
             {!isRightSidebarCollapsed && (
               <aside className="w-80 flex-shrink-0 hidden xl:block">
@@ -590,7 +605,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
         )}
 
         {/* Mobile Right Sidebar - Slide-in drawer */}
-        {collectiveData && (
+        {showCollectiveRightSidebar && collectiveData && (
           <aside
             ref={rightSidebarRef}
             className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${showRightSidebarState ? 'translate-x-0' : 'translate-x-full'

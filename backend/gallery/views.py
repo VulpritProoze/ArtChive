@@ -382,6 +382,64 @@ class GalleryUserListView(APIView):
         return Response(serializer.data)
 
 
+class FellowsGalleriesView(APIView):
+    """
+    GET /api/gallery/fellows/ - Get active galleries from users the current user follows (fellows)
+    Returns galleries without canvas_json (paginated)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of galleries per page (default: 10, max: 50)
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get active galleries from fellows (accepted relationships)"""
+        user = request.user
+        
+        # Get all accepted fellows for the current user
+        from core.models import UserFellow
+        fellows = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        )
+        
+        # Extract fellow user IDs (the users that the current user follows)
+        fellow_user_ids = []
+        for fellow in fellows:
+            if fellow.user == user:
+                fellow_user_ids.append(fellow.fellow_user.id)
+            else:
+                fellow_user_ids.append(fellow.user.id)
+        
+        # If no fellows, return empty paginated response
+        if not fellow_user_ids:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
+        
+        # Get active galleries from fellows
+        galleries = Gallery.objects.get_active_objects().select_related(
+            'creator',
+            'creator__user_wallet',
+            'creator__artist'
+        ).filter(
+            creator_id__in=fellow_user_ids,
+            status='active'
+        ).order_by('-created_at')
+        
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_galleries = paginator.paginate_queryset(galleries, request)
+        
+        # Serialize with GalleryListSerializer (excludes canvas_json)
+        serializer = GalleryListSerializer(paginated_galleries, many=True)
+        
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
+
+
 class MediaUploadView(APIView):
     """
     POST /api/gallery/media/upload/ - Upload an image for gallery editor

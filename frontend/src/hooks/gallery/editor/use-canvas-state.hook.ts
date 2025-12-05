@@ -645,3 +645,4 @@ export function useCanvasState({
     findObject: (id: string) => findObject(state.objects, id),
   };
 }
+

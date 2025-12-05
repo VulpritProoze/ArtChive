@@ -399,3 +399,4 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     </div>
   );
 };
+

@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { collective } from "@lib/api";
 import { CollectiveLayout } from "@components/common/layout";
-import { MainLayout } from "@components/common/layout/MainLayout";
-import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { useCollectiveData } from "@hooks/queries/use-collective-data";
+import type { Channel } from "@types";
+import { SkeletonMemberCard } from "@components/common/skeleton";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faUserMinus,
@@ -57,10 +57,15 @@ export default function CollectiveAdmin() {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [collectiveTitle, setCollectiveTitle] = useState("");
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Fetch collective data for CollectiveLayout
+  const {
+    data: collectiveData,
+    isLoading: loadingCollective,
+  } = useCollectiveData(collectiveId);
 
   // Get active tab from URL query params
   const activeTab = (() => {
@@ -98,20 +103,15 @@ export default function CollectiveAdmin() {
   const promoteMemberMutation = usePromoteMember();
   const demoteMemberMutation = useDemoteMember();
 
-  // Fetch collective title on mount
-  useEffect(() => {
-    const fetchCollectiveTitle = async () => {
-      try {
-        const collectiveResponse = await collective.get(`/${collectiveId}/`);
-        setCollectiveTitle(collectiveResponse.data.title);
-      } catch (error) {
-        console.error("Error fetching collective title:", error);
-      }
-    };
-    if (collectiveId) {
-      fetchCollectiveTitle();
-    }
-  }, [collectiveId]);
+  const handleChannelClick = (_channel: Channel) => {
+    // Navigate to collective home page when channel is clicked
+    navigate(`/collective/${collectiveId}`);
+  };
+
+  const handleShowCreateChannelModal = () => {
+    // Navigate to collective home page where channel creation is available
+    navigate(`/collective/${collectiveId}`);
+  };
 
   const handleKickMember = async (memberId: number, username: string) => {
     if (
@@ -227,19 +227,17 @@ export default function CollectiveAdmin() {
     }
   };
 
-  if (loadingMembers && members.length === 0) {
-    return (
-      <MainLayout showRightSidebar={false}>
-        <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
-          <LoadingSpinner text="Loading admin panel..." />
-        </CollectiveLayout>
-      </MainLayout>
-    );
-  }
-
   return (
-    <MainLayout showRightSidebar={false}>
-      <CollectiveLayout skipMainLayout={true} showSidebar={false} showRightSidebar={false}>
+    <CollectiveLayout
+      skipMainLayout={false}
+      showSidebar={true}
+      showRightSidebar={false}
+      showCollectiveRightSidebar={false}
+      collectiveData={collectiveData}
+      loadingCollective={loadingCollective}
+      onChannelClick={handleChannelClick}
+      onShowCreateChannelModal={handleShowCreateChannelModal}
+    >
       {/* Edit Collective Modal */}
       {showEditModal && (
         <CollectiveEditModal
@@ -252,16 +250,10 @@ export default function CollectiveAdmin() {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate(`/collective/${collectiveId}`)}
-            className="btn btn-ghost btn-sm mb-4"
-          >
-            ← Back to Collective
-          </button>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Admin Management</h1>
-              <p className="text-base-content/70">{collectiveTitle}</p>
+              <p className="text-base-content/70">{collectiveData?.title || 'Collective'}</p>
             </div>
             <button
               onClick={() => setShowEditModal(true)}
@@ -322,112 +314,116 @@ export default function CollectiveAdmin() {
             </div>
 
             <div className="space-y-4">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="card bg-base-200 shadow-md"
-                >
-                  <div className="card-body p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        {/* Avatar */}
-                        <div className="avatar">
-                          <div className="w-12 h-12 rounded-full">
-                            {member.profile_picture ? (
-                              <img
-                                src={member.profile_picture}
-                                alt={member.username}
-                              />
-                            ) : (
-                              <div className="bg-primary flex items-center justify-center text-primary-content font-bold">
-                                {member.username[0]?.toUpperCase() || "?"}
+              {loadingMembers ? (
+                <SkeletonMemberCard count={5} containerClassName="space-y-4" />
+              ) : (
+                members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="card bg-base-200 shadow-md"
+                  >
+                    <div className="card-body p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div className="avatar">
+                            <div className="w-12 h-12 rounded-full">
+                              {member.profile_picture ? (
+                                <img
+                                  src={member.profile_picture}
+                                  alt={member.username}
+                                />
+                              ) : (
+                                <div className="bg-primary flex items-center justify-center text-primary-content font-bold">
+                                  {member.username[0]?.toUpperCase() || "?"}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Info */}
+                          <div>
+                            <h3 className="font-bold text-base">
+                              {getMemberFullName(member)}
+                            </h3>
+                            <p className="text-sm text-base-content/70">
+                              @{member.username}
+                            </p>
+                            {member.collective_role === "admin" && (
+                              <div className="badge badge-warning badge-sm mt-1">
+                                <FontAwesomeIcon
+                                  icon={faUserShield}
+                                  className="mr-1"
+                                />
+                                Admin
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Info */}
-                        <div>
-                          <h3 className="font-bold text-base">
-                            {getMemberFullName(member)}
-                          </h3>
-                          <p className="text-sm text-base-content/70">
-                            @{member.username}
-                          </p>
-                          {member.collective_role === "admin" && (
-                            <div className="badge badge-warning badge-sm mt-1">
-                              <FontAwesomeIcon
-                                icon={faUserShield}
-                                className="mr-1"
-                              />
-                              Admin
+                        {/* Actions Dropdown */}
+                        <div className="relative" ref={(el) => { dropdownRefs.current[member.id] = el; }}>
+                          
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() =>
+                              setOpenDropdownId(openDropdownId === member.id ? null : member.id)
+                            }
+                          >
+                            <FontAwesomeIcon icon={faEllipsisVertical} />
+                          </button>
+
+                          {openDropdownId === member.id && (
+                            <div className="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-10 border border-base-300">
+                              <ul className="menu p-2">
+                                {member.collective_role !== "admin" && (
+                                  <li>
+                                    <a
+                                      onClick={() =>
+                                        handlePromoteToAdmin(member.member_id, member.username)
+                                      }
+                                      className="text-success"
+                                    >
+                                      <FontAwesomeIcon icon={faArrowUp} className="mr-2" />
+                                      Promote to Admin
+                                    </a>
+                                  </li>
+                                )}
+                                {member.collective_role === "admin" && (
+                                  <li>
+                                    <a
+                                      onClick={() =>
+                                        handleDemoteMember(member.member_id, member.username)
+                                      }
+                                      className="text-warning"
+                                    >
+                                      <FontAwesomeIcon icon={faArrowDown} className="mr-2" />
+                                      Demote to Member
+                                    </a>
+                                  </li>
+                                )}
+                                <li>
+                                  <a
+                                    onClick={() =>
+                                      handleKickMember(member.member_id, member.username)
+                                    }
+                                    className="text-error"
+                                  >
+                                    <FontAwesomeIcon icon={faUserMinus} className="mr-2" />
+                                    Remove Member
+                                  </a>
+                                </li>
+                              </ul>
                             </div>
                           )}
                         </div>
                       </div>
-
-                      {/* Actions Dropdown */}
-                      <div className="relative" ref={(el) => { dropdownRefs.current[member.id] = el; }}>
-                        
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() =>
-                            setOpenDropdownId(openDropdownId === member.id ? null : member.id)
-                          }
-                        >
-                          <FontAwesomeIcon icon={faEllipsisVertical} />
-                        </button>
-
-                        {openDropdownId === member.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-10 border border-base-300">
-                            <ul className="menu p-2">
-                              {member.collective_role !== "admin" && (
-                                <li>
-                                  <a
-                                    onClick={() =>
-                                      handlePromoteToAdmin(member.member_id, member.username)
-                                    }
-                                    className="text-success"
-                                  >
-                                    <FontAwesomeIcon icon={faArrowUp} className="mr-2" />
-                                    Promote to Admin
-                                  </a>
-                                </li>
-                              )}
-                              {member.collective_role === "admin" && (
-                                <li>
-                                  <a
-                                    onClick={() =>
-                                      handleDemoteMember(member.member_id, member.username)
-                                    }
-                                    className="text-warning"
-                                  >
-                                    <FontAwesomeIcon icon={faArrowDown} className="mr-2" />
-                                    Demote to Member
-                                  </a>
-                                </li>
-                              )}
-                              <li>
-                                <a
-                                  onClick={() =>
-                                    handleKickMember(member.member_id, member.username)
-                                  }
-                                  className="text-error"
-                                >
-                                  <FontAwesomeIcon icon={faUserMinus} className="mr-2" />
-                                  Remove Member
-                                </a>
-                              </li>
-                            </ul>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
 
-              {members.length === 0 && (
+              {!loadingMembers && members.length === 0 && (
                 <div className="text-center py-12 bg-base-200/50 rounded-xl">
                   <p className="text-base-content/70">No members found.</p>
                 </div>
@@ -440,7 +436,9 @@ export default function CollectiveAdmin() {
         {activeTab === "membership-requests" && (
           <div>
             {loadingJoinRequests && joinRequests.length === 0 ? (
-              <LoadingSpinner text="Loading membership requests..." />
+              <div className="space-y-4">
+                <SkeletonMemberCard count={3} containerClassName="space-y-4" />
+              </div>
             ) : (
               <>
             <div className="alert alert-info mb-6">
@@ -568,7 +566,9 @@ export default function CollectiveAdmin() {
         {activeTab === "admin-requests" && (
           <div>
             {loadingAdminRequests && adminRequests.length === 0 ? (
-              <LoadingSpinner text="Loading admin requests..." />
+              <div className="space-y-4">
+                <SkeletonMemberCard count={3} containerClassName="space-y-4" />
+              </div>
             ) : (
               <>
                 <div className="alert alert-warning mb-6">
@@ -685,7 +685,6 @@ export default function CollectiveAdmin() {
           </div>
         )}
       </div>
-      </CollectiveLayout>
-    </MainLayout>
+    </CollectiveLayout>
   );
 }

@@ -27,6 +27,7 @@ from .views import (
     GalleryUserListView,
     GlobalTopGalleriesView,
     MediaUploadView,
+    FellowsGalleriesView,
 )
 
 urlpatterns = [
@@ -34,6 +35,7 @@ urlpatterns = [
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
     path('list/', GalleryListView.as_view(), name='gallery-list'),
     path('top/', GlobalTopGalleriesView.as_view(), name='global-top-galleries'),
+    path('fellows/', FellowsGalleriesView.as_view(), name='gallery-fellows'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
     path('<uuid:gallery_id>/public/', GalleryPublicDetailView.as_view(), name='gallery-public-detail'),
     path('<uuid:gallery_id>/status/', GalleryStatusUpdateView.as_view(), name='gallery-status-update'),
