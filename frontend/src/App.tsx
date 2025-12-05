@@ -22,6 +22,7 @@ import {
   NotFound,
   NavigateToOwnProfile,
   PendingFriendRequestsPage,
+  SearchPage,
 } from "@components";
 
 // Lazy load heavy components
@@ -90,6 +91,7 @@ function AppRoutes() {
               <Route path="/reputation" element={<ReputationPage />} />
               <Route path="/notifications" element={<NotificationIndex />} />
               <Route path="/fellows/requests" element={<PendingFriendRequestsPage />} />
+              <Route path="/search" element={<SearchPage />} />
 
               <Route path="/profile/:username" element={<Timeline />} />
               <Route path="/profile" element={<NavigateToOwnProfile />} />

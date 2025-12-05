@@ -1,5 +1,5 @@
 // artchive/frontend/src/common/layout/MainLayout.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@context/auth-context";
 import { LogoutButton } from "@components/account/logout";
@@ -10,6 +10,7 @@ import { useTopPosts } from "@hooks/queries/use-posts";
 import { useFellows } from "@hooks/queries/use-fellows";
 import { useRealtime } from "@context/realtime-context";
 import { UserStatsDisplay } from "@components/reputation/user-stats-display.component";
+import { SearchDropdown } from "@components/common/search/search-dropdown.component";
 // DEBUG ONLY: Uncomment to use API-based active fellows instead of WebSocket
 // import { useActiveFellows } from "@hooks/queries/use-active-fellows";
 import {
@@ -56,6 +57,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [isDesktopRightSidebarCollapsed, setIsDesktopRightSidebarCollapsed] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
   const [carouselIndex, setCarouselIndex] = useState(0);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Debounce search query (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
+  // Note: Dropdown stays open when query is cleared to show search history
   
   // Fetch top 5 image posts
   const { data: topPostsData, isLoading: isLoadingTopPosts } = useTopPosts(5, 'image');
@@ -246,22 +265,44 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
 
             {/* Search Bar - Desktop */}
-            <div className="hidden md:flex flex-1 max-w-xl mx-8">
+            <div className={`hidden md:flex flex-1 mx-8 transition-all duration-300 ${
+              isSearchDropdownOpen ? 'max-w-2xl' : 'max-w-xl'
+            }`}>
               <div className="relative w-full">
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search artists, artworks, collectives..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => {
+                    setIsSearchDropdownOpen(true);
+                  }}
+                  onBlur={() => {
+                    // Delay closing to allow clicks on dropdown items
+                    setTimeout(() => setIsSearchDropdownOpen(false), 200);
+                  }}
                   className="w-full px-4 py-2.5 pl-11 bg-base-200/50 rounded-full border border-base-300 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary focus:bg-base-200 transition-all"
                 />
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 flex-shrink-0 text-base-content/50" />
+                <SearchDropdown
+                  query={debouncedSearchQuery}
+                  isOpen={isSearchDropdownOpen}
+                  onClose={() => setIsSearchDropdownOpen(false)}
+                  onQuerySelect={(selectedQuery) => setSearchQuery(selectedQuery)}
+                />
               </div>
             </div>
 
             {/* Right Section */}
             <div className="flex items-center gap-4">
-              {/* User Profile Section - Hidden on small screens */}
+              {/* User Profile Section - Hidden on small screens, collapsed when search dropdown is open */}
               {user && (
-                <div className="hidden sm:flex items-center gap-3">
+                <div className={`hidden sm:flex items-center gap-3 transition-all duration-300 ${
+                  isSearchDropdownOpen 
+                    ? 'opacity-0 pointer-events-none w-0 overflow-hidden' 
+                    : 'opacity-100 pointer-events-auto'
+                }`}>
                   <Link
                     to={user.username ? `/profile/@${user.username}` : "/profile"}
                     className="flex items-center gap-3 hover:bg-base-200 p-2 rounded-xl transition-colors"
@@ -348,11 +389,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <div className="md:hidden px-4 pb-3">
           <div className="relative">
             <input
+              ref={mobileSearchInputRef}
               type="text"
               placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                setIsSearchDropdownOpen(true);
+              }}
+              onBlur={() => {
+                // Delay closing to allow clicks on dropdown items
+                setTimeout(() => setIsSearchDropdownOpen(false), 200);
+              }}
               className="w-full px-4 py-2 pl-10 bg-base-200/50 rounded-full border border-base-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex-shrink-0 text-base-content/50" />
+            <SearchDropdown
+              query={debouncedSearchQuery}
+              isOpen={isSearchDropdownOpen}
+              onClose={() => setIsSearchDropdownOpen(false)}
+              onQuerySelect={(selectedQuery) => setSearchQuery(selectedQuery)}
+            />
           </div>
         </div>
       </header>

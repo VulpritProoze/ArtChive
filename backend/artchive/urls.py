@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/gallery/", include("gallery.urls")),
     path("api/avatar/", include("avatar.urls")),
     path("api/notifications/", include("notification.urls")),
+    path("api/search/", include(("searchapp.urls", "search"), namespace="search")),
 ]
 
 # Only expose Swagger/Silk in development (DEBUG=True)

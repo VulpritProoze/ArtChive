@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "gallery",
     "avatar",
     "conversation",
+    "searchapp",
     "rest_framework",
     "silk",
     "drf_spectacular",

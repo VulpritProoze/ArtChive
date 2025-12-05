@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "gallery",
     "avatar",
     "conversation",
+    "searchapp",
     "rest_framework",
     # "silk",  # Only in development - see common/utils/profiling.py for no-op pattern
     "drf_spectacular",

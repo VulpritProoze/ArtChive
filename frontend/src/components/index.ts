@@ -52,3 +52,6 @@ export { default as PendingFriendRequestsPage } from './fellows/pending-requests
 
 // Error pages
 export { default as NotFound } from './error/not-found.component'
+
+// Search
+export { SearchPage } from './search/search-page.component'
