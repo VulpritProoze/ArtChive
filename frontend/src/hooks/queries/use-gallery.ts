@@ -16,13 +16,13 @@ export const useGallery = (galleryId: string, options: { enabled?: boolean; useP
 };
 
 /**
- * Hook to fetch paginated gallery list (for browse other galleries)
+ * Hook to fetch paginated gallery list (for browse other galleries) with optional search
  */
-export const useGalleryList = (pageSize: number = 5) => {
+export const useGalleryList = (pageSize: number = 5, searchQuery?: string) => {
   return useInfiniteQuery<PaginatedGalleryListResponse>({
-    queryKey: ['gallery-list', pageSize],
+    queryKey: ['gallery-list', pageSize, searchQuery],
     queryFn: ({ pageParam = 1 }) => {
-      return galleryService.listGalleries(pageParam as number, pageSize);
+      return galleryService.listGalleries(pageParam as number, pageSize, searchQuery);
     },
     getNextPageParam: (lastPage, pages) => {
       // Calculate if there's a next page
@@ -32,6 +32,7 @@ export const useGalleryList = (pageSize: number = 5) => {
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes - cache galleries for 5 minutes
+    enabled: !searchQuery || searchQuery.length >= 2 || searchQuery.length === 0, // Enable if no search or valid search
   });
 };
 

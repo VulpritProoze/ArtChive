@@ -195,11 +195,14 @@ export const galleryService = {
    */
   async listGalleries(
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
+    query?: string
   ): Promise<PaginatedGalleryListResponse> {
-    const response = await gallery.get('list/', {
-      params: { page, page_size: pageSize },
-    });
+    const params: { page: number; page_size: number; q?: string } = { page, page_size: pageSize };
+    if (query && query.length >= 2) {
+      params.q = query;
+    }
+    const response = await gallery.get('list/', { params });
     return response.data;
   },
 
@@ -245,6 +248,17 @@ export const galleryService = {
    */
   async hasActiveGallery(userId: number): Promise<{ has_active: boolean }> {
     const response = await gallery.get(`user/${userId}/has-active/`);
+    return response.data;
+  },
+
+  /**
+   * Get bulk gallery details by IDs
+   * POST /api/gallery/bulk/
+   */
+  async getBulkGalleries(galleryIds: string[]): Promise<{ results: Gallery[]; count: number }> {
+    const response = await gallery.post('bulk/', {
+      gallery_ids: galleryIds,
+    });
     return response.data;
   },
 

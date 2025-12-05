@@ -20,9 +20,10 @@ const getFullName = (member: Member) => {
 export default function CollectiveMembers() {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
-  const { isAdminOfACollective } = useAuth();
+  const { isAdminOfACollective, isMemberOfACollective } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const isNonMember = !isMemberOfACollective(collectiveId);
 
   // Fetch collective data for CollectiveLayout
   const {
@@ -73,6 +74,7 @@ export default function CollectiveMembers() {
       loadingCollective={loadingCollective}
       onChannelClick={handleChannelClick}
       onShowCreateChannelModal={isAdminOfACollective(collectiveId) ? handleShowCreateChannelModal : undefined}
+      isNonMember={isNonMember}
     >
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
@@ -87,7 +89,7 @@ export default function CollectiveMembers() {
           )}
         </div>
 
-        {/* Admin Actions Button */}
+        {/* Admin Actions Button - Only show for admins (not for non-members) */}
         {!loading && isAdminOfACollective(collectiveId) && (
           <div className="mb-6">
             <button

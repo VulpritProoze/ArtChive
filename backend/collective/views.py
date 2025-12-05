@@ -256,18 +256,24 @@ class ChannelDeleteView(APIView):
 
 class InsideCollectiveView(RetrieveAPIView):
     serializer_class = InsideCollectiveViewSerializer
-    permission_classes = [IsAuthenticated, IsCollectiveMember]
+    # permission_classes = [IsAuthenticated, IsCollectiveMember]   # Allow non members to access endpoint
+    permission_classes = [IsAuthenticated]
     lookup_field = 'collective_id'
 
     def get_queryset(self):
-        return Collective.objects.prefetch_related(
+        return Collective.objects.annotate(
+            member_count=Count('collective_member', distinct=True)
+        ).prefetch_related(
             Prefetch(
                 'collective_channel',
                 queryset=Channel.objects.annotate(
                     posts_count=Count('post', filter=Q(post__is_deleted=False), distinct=True)
                 )
             ),
-            'collective_member',
+            Prefetch(
+                'collective_member',
+                queryset=CollectiveMember.objects.select_related('member')
+            ),
             'collective_member__member'
         ).all()
 
@@ -513,13 +519,19 @@ class CollectiveMembersListView(ListAPIView):
     GET /api/collective/<collective_id>/members/
     """
     serializer_class = CollectiveMemberDetailSerializer
-    permission_classes = [IsAuthenticated, IsCollectiveMember]
+    # permission_classes = [IsAuthenticated, IsCollectiveMember]    # Allow non-members to access endpoint
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         collective_id = self.kwargs['collective_id']
         return CollectiveMember.objects.filter(
             collective_id=collective_id
-        ).select_related('member').order_by('-collective_role', 'member__username')
+            ).select_related(
+                'member'
+            ).order_by(
+                '-collective_role',
+                'member__username'
+            )
 
 class KickMemberView(APIView):
     """
@@ -1014,6 +1026,310 @@ class CollectiveSearchView(ListAPIView):
             'results': serializer.data,
             'count': len(serializer.data)
         })
+
+
+# ============================================================================
+# COLLECTIVE SEARCH VIEWS
+# ============================================================================
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Search posts within a collective",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query string",
+            type=str,
+            required=True,
+        ),
+        OpenApiParameter(
+            name="channel_id",
+            description="Filter by specific channel (optional)",
+            type=str,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="post_type",
+            description="Filter by post type (optional)",
+            type=str,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of results per page (default: 10, max: 50)",
+            type=int,
+            required=False,
+        ),
+    ],
+)
+class CollectiveSearchPostsView(APIView):
+    """Search posts within a collective's channels"""
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+    pagination_class = CollectivePostsPagination
+
+    def get(self, request, collective_id):
+        query = request.query_params.get('q', '').strip()
+        channel_id = request.query_params.get('channel_id', None)
+        post_type = request.query_params.get('post_type', None)
+
+        if not query or len(query) < 2:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
+
+        # Get collective and verify membership
+        collective = get_object_or_404(Collective, collective_id=collective_id)
+
+        # Build queryset - search posts in collective's channels
+        queryset = Post.objects.get_active_objects().filter(
+            channel__collective=collective,
+            description__icontains=query
+        ).prefetch_related(
+            'novel_post',
+            'channel',
+            'channel__collective',
+        ).select_related(
+            'author',
+            'author__artist',
+        )
+
+        # Filter by channel if provided
+        if channel_id:
+            try:
+                channel_uuid = uuid.UUID(channel_id)
+                queryset = queryset.filter(channel_id=channel_uuid)
+            except (ValueError, TypeError):
+                pass  # Invalid UUID, ignore filter
+
+        # Filter by post type if provided
+        if post_type:
+            queryset = queryset.filter(post_type=post_type)
+
+        queryset = queryset.order_by('-created_at')
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_posts = paginator.paginate_queryset(queryset, request)
+        serializer = InsideCollectivePostsViewSerializer(paginated_posts, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Search members within a collective",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query string (searches username, first_name, last_name)",
+            type=str,
+            required=True,
+        ),
+        OpenApiParameter(
+            name="role",
+            description="Filter by role (admin, member) - optional",
+            type=str,
+            required=False,
+        ),
+    ],
+)
+class CollectiveSearchMembersView(APIView):
+    """Search members within a collective"""
+    permission_classes = [IsAuthenticated, IsCollectiveMember]
+
+    def get(self, request, collective_id):
+        query = request.query_params.get('q', '').strip()
+        role = request.query_params.get('role', None)
+
+        if not query or len(query) < 2:
+            return Response({
+                'results': [],
+                'count': 0
+            }, status=status.HTTP_200_OK)
+
+        # Get collective and verify membership
+        collective = get_object_or_404(Collective, collective_id=collective_id)
+
+        # Build queryset - search members
+        queryset = CollectiveMember.objects.filter(
+            collective_id=collective
+        ).select_related('member').filter(
+            Q(member__username__icontains=query) |
+            Q(member__first_name__icontains=query) |
+            Q(member__last_name__icontains=query)
+        )
+
+        # Filter by role if provided
+        if role:
+            queryset = queryset.filter(collective_role=role)
+
+        queryset = queryset.order_by('member__username')
+
+        serializer = CollectiveMemberDetailSerializer(queryset, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Get bulk collective details by IDs",
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'collective_ids': {
+                    'type': 'array',
+                    'items': {'type': 'string', 'format': 'uuid'},
+                    'description': 'List of collective IDs to fetch'
+                }
+            },
+            'required': ['collective_ids']
+        }
+    },
+    responses={
+        200: CollectiveDetailsSerializer(many=True),
+        400: OpenApiResponse(description="Bad Request - Invalid input"),
+    },
+)
+class BulkCollectiveDetailsView(APIView):
+    """Get bulk collective details by list of IDs"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        collective_ids = request.data.get('collective_ids', [])
+
+        if not collective_ids or not isinstance(collective_ids, list):
+            return Response(
+                {'error': 'collective_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Limit to 100 collectives per request
+        if len(collective_ids) > 100:
+            return Response(
+                {'error': 'Maximum 100 collective IDs allowed per request'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Convert string IDs to UUIDs and filter
+        try:
+            uuid_ids = [uuid.UUID(cid) for cid in collective_ids]
+        except (ValueError, TypeError) as e:
+            return Response(
+                {'error': f'Invalid UUID format: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Fetch collectives with optimized queries
+        collectives = Collective.objects.filter(
+            collective_id__in=uuid_ids
+        ).prefetch_related(
+            Prefetch(
+                'collective_channel',
+                queryset=Channel.objects.annotate(
+                    posts_count=Count('post', distinct=True)
+                )
+            ),
+            'collective_member',
+            'collective_member__member',
+            'collective_member__member__user_wallet',
+        )
+
+        serializer = CollectiveDetailsSerializer(collectives, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Collectives"],
+    description="Get active member counts for multiple collectives",
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'collective_ids': {
+                    'type': 'array',
+                    'items': {'type': 'string', 'format': 'uuid'},
+                    'description': 'List of collective IDs to get active member counts for'
+                }
+            },
+            'required': ['collective_ids']
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description="Active member counts",
+            response={
+                'type': 'object',
+                'additionalProperties': {'type': 'integer'}
+            }
+        ),
+        400: OpenApiResponse(description="Bad Request - Invalid input"),
+    },
+)
+class BulkActiveMembersCountView(APIView):
+    """
+    Get active member counts for multiple collectives.
+    POST /api/collective/members/active-counts/
+    Body: { "collective_ids": ["uuid1", "uuid2", ...] }
+    Returns: { "collective_id_1": 5, "collective_id_2": 3, ... }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        collective_ids = request.data.get("collective_ids", [])
+        if not isinstance(collective_ids, list):
+            return Response(
+                {"error": "collective_ids must be a list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Filter for valid UUIDs and convert to UUID objects for database query
+        valid_collective_ids = []
+        uuid_collective_ids = []
+        for cid in collective_ids:
+            if isinstance(cid, str) and len(cid) == 36:
+                try:
+                    uuid_obj = uuid.UUID(cid)
+                    valid_collective_ids.append(cid)  # Keep string for response mapping
+                    uuid_collective_ids.append(uuid_obj)  # UUID object for database query
+                except ValueError:
+                    continue
+
+        if not valid_collective_ids:
+            return Response({}, status=status.HTTP_200_OK)
+
+        # Import presence utility
+        from core.presence import is_user_active
+
+        # Fetch all members for the given collectives (use UUID objects for query)
+        memberships = CollectiveMember.objects.filter(
+            collective_id__in=uuid_collective_ids
+        ).select_related('member', 'collective_id')
+
+        # Count active members per collective
+        result = {}
+        for collective_id_str in valid_collective_ids:
+            result[collective_id_str] = 0
+
+        for membership in memberships:
+            collective_id_str = str(membership.collective_id.collective_id)
+            if collective_id_str in result:
+                if is_user_active(membership.member.id):
+                    result[collective_id_str] = result.get(collective_id_str, 0) + 1
+
+        return Response(result, status=status.HTTP_200_OK)
 
 
 # ============================================================================

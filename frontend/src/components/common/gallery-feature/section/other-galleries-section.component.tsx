@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown, Search, X, SearchX } from 'lucide-react';
 import type { GalleryListItem } from '@types';
 import { SkeletonGalleryGridCard } from '@components/common/skeleton';
 import { formatNumber } from '@utils/format-number.util';
@@ -18,6 +18,8 @@ interface OtherGalleriesSectionProps {
   loadingAwards: boolean;
   animationIndex: number;
   observerTarget: React.RefObject<HTMLDivElement | null>;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export const OtherGalleriesSection = ({
@@ -30,10 +32,36 @@ export const OtherGalleriesSection = ({
   loadingAwards,
   animationIndex,
   observerTarget,
+  searchQuery: externalSearchQuery,
+  onSearchChange,
 }: OtherGalleriesSectionProps) => {
   const [hoveredGalleryId, setHoveredGalleryId] = useState<string | null>(null);
   const [showAwardModal, setShowAwardModal] = useState(false);
   const [selectedGalleryId, setSelectedGalleryId] = useState<string | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState(externalSearchQuery || '');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(externalSearchQuery || '');
+
+  // Use external search query if provided, otherwise use local
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : debouncedSearchQuery;
+
+  // Debounce search query (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(localSearchQuery);
+      if (onSearchChange) {
+        onSearchChange(localSearchQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [localSearchQuery, onSearchChange]);
+
+  // Sync with external search query if it changes
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setLocalSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
 
   const getAwardEmoji = (awardType: string) => {
     switch (awardType.toLowerCase()) {
@@ -199,15 +227,50 @@ export const OtherGalleriesSection = ({
   return (
     <>
       <section className="mb-12">
-        {/* Purple Banner */}
+        {/* Purple Banner with Search */}
         <div className={`bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] via-[var(--local-primary,var(--color-primary))]/90 to-[var(--local-primary,var(--color-primary))] text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md section-header-animated animation-${animationIndex}`}>
-          <h2 className="text-xl lg:text-2xl font-bold">Browse Other Galleries</h2>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl lg:text-2xl font-bold">Browse Other Galleries</h2>
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-content/70" />
+              <input
+                type="text"
+                placeholder="Search galleries..."
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 bg-primary-content/20 text-primary-content placeholder-primary-content/60 rounded-lg border border-primary-content/30 focus:outline-none focus:ring-2 focus:ring-primary-content/50 focus:border-primary-content/50"
+              />
+              {localSearchQuery && (
+                <button
+                  onClick={() => {
+                    setLocalSearchQuery('');
+                    if (onSearchChange) {
+                      onSearchChange('');
+                    }
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-content/70 hover:text-primary-content transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Gallery Grid */}
         {loading && galleries.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 lg:px-8">
             <SkeletonGalleryGridCard count={6} />
+          </div>
+        ) : searchQuery && galleries.length === 0 && !loading ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4">
+            <SearchX className="w-16 h-16 text-base-content/40 mb-4" />
+            <p className="text-lg font-semibold text-base-content/70 mb-2">
+              No galleries found
+            </p>
+            <p className="text-sm text-base-content/50 text-center max-w-md">
+              No galleries match your search for &quot;{searchQuery}&quot;. Try a different search term.
+            </p>
           </div>
         ) : (
           <>

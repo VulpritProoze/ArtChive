@@ -20,14 +20,17 @@ const GalleryIndex = () => {
   const [awards, setAwards] = useState<Record<string, Record<string, number>>>({});
   const [loadingAwards, setLoadingAwards] = useState(false);
 
-  // Fetch galleries using React Query for caching
+  // Search state for other galleries
+  const [otherGalleriesSearchQuery, setOtherGalleriesSearchQuery] = useState('');
+
+  // Fetch galleries using React Query for caching with search
   const {
     data: galleriesData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: loading,
-  } = useGalleryList(5); // 5 items per page
+  } = useGalleryList(5, otherGalleriesSearchQuery); // 5 items per page
 
   // Fetch top galleries for "Best Galleries Recently"
   const { data: topGalleriesData, isLoading: isLoadingTopGalleries } = useTopGalleries(25);
@@ -253,6 +256,8 @@ const GalleryIndex = () => {
 
         {/* Browse Other Galleries Section */}
         <OtherGalleriesSection
+          searchQuery={otherGalleriesSearchQuery}
+          onSearchChange={setOtherGalleriesSearchQuery}
           galleries={galleries}
           loading={loading}
           isFetchingNextPage={isFetchingNextPage}

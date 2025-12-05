@@ -378,9 +378,7 @@ class CollectiveMemberDetailSerializer(ModelSerializer):
 
 class InsideCollectiveViewSerializer(ModelSerializer):
     channels = serializers.SerializerMethodField()
-    members = CollectiveMemberDetailSerializer(
-        source="collective_member", many=True, read_only=True
-    )
+    members = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -412,10 +410,26 @@ class InsideCollectiveViewSerializer(ModelSerializer):
         }
         return channel_type_mapping.get(channel_type, channel_type)
 
+    def get_members(self, obj):
+        """Get first 10 members with only profile_picture and username."""
+        # Get first 10 members from prefetched data
+        members = obj.collective_member.all()[:10]
+
+        return [
+            {
+                "profile_picture": member.member.profile_picture.url if member.member.profile_picture else None,
+                "username": member.member.username,
+            }
+            for member in members
+        ]
+
     def get_member_count(self, obj):
-        """Get total member count using prefetched data."""
-        # Use prefetched collective_member to avoid extra query
-        return len(obj.collective_member.all())
+        """Get total member count using annotated count or separate query."""
+        # Use annotated member_count if available, otherwise do a separate count query
+        if hasattr(obj, 'member_count'):
+            return obj.member_count
+        # Fallback to count query if annotation not available
+        return CollectiveMember.objects.filter(collective_id=obj).count()
 
 
 class CollectiveSearchSerializer(ModelSerializer):

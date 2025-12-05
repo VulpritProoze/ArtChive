@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CollectiveListItem } from "@services/collective.service";
 import { collective as collectiveApi } from "@lib/api";
@@ -32,13 +32,21 @@ export const CollectiveJoinRequestModal = ({
   const queryClient = useQueryClient();
 
   // Initialize with existing request ID if provided
+  // Also reset when modal opens/closes to ensure proper state
   useEffect(() => {
-    if (existingRequestId) {
-      setSubmittedRequestId(existingRequestId);
+    if (isOpen) {
+      if (existingRequestId) {
+        setSubmittedRequestId(existingRequestId);
+      } else {
+        setSubmittedRequestId(null);
+      }
     } else {
+      // Reset state when modal closes
       setSubmittedRequestId(null);
+      setRulesAccepted(false);
+      setMessage("");
     }
-  }, [existingRequestId]);
+  }, [existingRequestId, isOpen]);
 
   const handleSubmit = async () => {
     if (!rulesAccepted) {
@@ -217,23 +225,25 @@ export const CollectiveJoinRequestModal = ({
           </div>
         </div>
 
-        {/* Rules Acceptance Checkbox */}
-        <div className="mb-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="checkbox checkbox-primary mt-1"
-              checked={rulesAccepted}
-              onChange={(e) => setRulesAccepted(e.target.checked)}
-              disabled={isSubmitting || isCancelling || !!submittedRequestId}
-            />
-            <span className="text-sm text-base-content">
-              I have read and accept the collective's rules
-            </span>
-          </label>
-        </div>
+        {/* Rules Acceptance Checkbox - Hidden when request is pending */}
+        {!submittedRequestId && (
+          <div className="mb-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-primary mt-1"
+                checked={rulesAccepted}
+                onChange={(e) => setRulesAccepted(e.target.checked)}
+                disabled={isSubmitting || isCancelling}
+              />
+              <span className="text-sm text-base-content">
+                I have read and accept the collective's rules
+              </span>
+            </label>
+          </div>
+        )}
 
-        {/* Optional Message */}
+        {/* Optional Message - Hidden when request is pending */}
         {!submittedRequestId && (
           <div className="mb-4">
             <label className="label">

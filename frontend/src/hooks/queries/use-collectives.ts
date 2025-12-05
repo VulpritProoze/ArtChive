@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { collectiveService, type CollectiveListItem } from '@services/collective.service';
 
 export interface PaginatedCollectivesResponse {
@@ -26,6 +26,23 @@ export const useCollectives = (pageSize: number = 10) => {
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes - cache collectives for 5 minutes
+  });
+};
+
+/**
+ * Hook to fetch active member counts for multiple collectives
+ * @param collectiveIds - Array of collective IDs to get active member counts for
+ * @param enabled - Whether the query should run (default: true)
+ */
+export const useBulkActiveMembersCount = (
+  collectiveIds: string[],
+  enabled: boolean = true
+) => {
+  return useQuery<Record<string, number>>({
+    queryKey: ['bulk-active-members-count', collectiveIds],
+    queryFn: () => collectiveService.getBulkActiveMembersCount(collectiveIds),
+    enabled: enabled && collectiveIds.length > 0,
+    staleTime: 60 * 1000, // 1 minute - cache active counts for 1 minute
   });
 };
 

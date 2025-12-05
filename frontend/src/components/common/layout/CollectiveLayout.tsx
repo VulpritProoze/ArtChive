@@ -40,6 +40,8 @@ interface CollectiveLayoutProps {
   onShowCreateChannelModal?: () => void;
   onSetEditingChannel?: (channel: Channel) => void;
   onDeleteChannel?: (collectiveId: string, channelId: string) => void;
+  // Non-member mode
+  isNonMember?: boolean;
 }
 
 export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
@@ -55,6 +57,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
   onShowCreateChannelModal,
   onSetEditingChannel,
   onDeleteChannel,
+  isNonMember = false,
 }) => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
@@ -65,6 +68,8 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
   // Check if current route matches sidebar links
   const isMembersPage = location.pathname.includes('/members');
   const isAdminPage = location.pathname.includes('/admin');
+  // Details page is the collective home page (not members or admin)
+  const isDetailsPage = !isMembersPage && !isAdminPage && location.pathname === `/collective/${collectiveId}`;
   
   // Fetch request counts for admin badge
   const { data: requestCounts } = useCollectiveRequestCounts(
@@ -161,6 +166,23 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
 
         {/* Navigation Links */}
         <div className="mb-4 space-y-1">
+          {/* Details/About link - shown for non-members */}
+          {isNonMember && (
+            <button
+              onClick={() => {
+                navigate(`/collective/${collectiveId}`);
+                if (isMobile) setShowMobileSidebar(false);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
+                isDetailsPage
+                  ? 'bg-primary text-primary-content'
+                  : 'hover:bg-base-300'
+              }`}
+            >
+              <FontAwesomeIcon icon={faInfoCircle} className="w-4 h-4" />
+              <span>Details</span>
+            </button>
+          )}
           <button
             onClick={() => {
               navigate(`/collective/${collectiveId}/members`);
@@ -175,7 +197,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
             <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
             <span>Members</span>
           </button>
-          {isAdminOfACollective(collectiveData.collective_id) && (
+          {!isNonMember && isAdminOfACollective(collectiveData.collective_id) && (
             <button
               onClick={() => {
                 navigate(`/collective/${collectiveId}/admin`);
@@ -200,155 +222,161 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
           )}
         </div>
 
-        {/* POST CHANNELS Section */}
-        <div className="mb-4">
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowChannelsDropdown(!showChannelsDropdown)}
-          >
-            <span>POST CHANNELS</span>
-            <svg className={`w-4 h-4 transition-transform ${showChannelsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showChannelsDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Post Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Post Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-              {isAdminOfACollective(collectiveData.collective_id) && onShowCreateChannelModal && (
-                <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded text-base-content/70"
-                  onClick={() => {
-                    onShowCreateChannelModal();
-                    if (isMobile) setShowMobileSidebar(false);
-                  }}
-                >
-                  <span>+</span>
-                  <span>Create Channel</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* POST CHANNELS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div className="mb-4">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowChannelsDropdown(!showChannelsDropdown)}
+            >
+              <span>POST CHANNELS</span>
+              <svg className={`w-4 h-4 transition-transform ${showChannelsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showChannelsDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Post Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Post Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          if (isMobile) setShowMobileSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+                {isAdminOfACollective(collectiveData.collective_id) && onShowCreateChannelModal && (
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded text-base-content/70"
+                    onClick={() => {
+                      onShowCreateChannelModal();
+                      if (isMobile) setShowMobileSidebar(false);
+                    }}
+                  >
+                    <span>+</span>
+                    <span>Create Channel</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* MEDIA CHANNELS Section */}
-        <div className="mb-4">
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowMediaDropdown(!showMediaDropdown)}
-          >
-            <span>MEDIA CHANNELS</span>
-            <svg className={`w-4 h-4 transition-transform ${showMediaDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showMediaDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Media Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Media Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* MEDIA CHANNELS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div className="mb-4">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowMediaDropdown(!showMediaDropdown)}
+            >
+              <span>MEDIA CHANNELS</span>
+              <svg className={`w-4 h-4 transition-transform ${showMediaDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showMediaDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Media Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Media Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          if (isMobile) setShowMobileSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* EVENTS Section */}
-        <div>
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowEventsDropdown(!showEventsDropdown)}
-          >
-            <span>EVENTS</span>
-            <svg className={`w-4 h-4 transition-transform ${showEventsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showEventsDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Event Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Event Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">88</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* EVENTS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div>
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowEventsDropdown(!showEventsDropdown)}
+            >
+              <span>EVENTS</span>
+              <svg className={`w-4 h-4 transition-transform ${showEventsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showEventsDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Event Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Event Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          if (isMobile) setShowMobileSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">88</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -410,8 +438,8 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
             </div>
           </div>
 
-          {/* Admin Actions */}
-          {isAdminOfACollective(collectiveData.collective_id) && (
+          {/* Admin Actions - Hidden for non-members */}
+          {!isNonMember && isAdminOfACollective(collectiveData.collective_id) && (
             <div className={`${isMobile ? "bg-base-100" : "bg-base-200/50"} rounded-xl p-4 border border-primary/20`}>
               <div className="flex items-center gap-2 mb-4">
                 <FontAwesomeIcon icon={faUserShield} className="w-5 h-5 text-primary" />
@@ -475,8 +503,8 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
             </div>
           )}
 
-          {/* Leave Collective */}
-          {isMemberOfACollective(collectiveData.collective_id) && (
+          {/* Leave Collective - Hidden for non-members */}
+          {!isNonMember && isMemberOfACollective(collectiveData.collective_id) && (
             <div className="bg-error/10 rounded-xl p-4 border border-error/30">
               <button
                 className="btn btn-error w-full gap-2"
@@ -506,6 +534,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
       {collectiveData && (
         <div className="sticky top-16 z-40 bg-base-100/80 backdrop-blur-sm border-b border-base-300 -mx-4 px-4">
           <div className="flex items-center justify-between gap-2 my-2">
+            {/* Search will be rendered here by children if needed */}
             {showSidebar && (
               <button
                 className="btn btn-ghost btn-sm gap-2 lg:hidden"

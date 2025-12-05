@@ -6,7 +6,7 @@ interface SearchResultCollectiveProps {
   query?: string;
 }
 
-export const SearchResultCollective = ({ collective, query }: SearchResultCollectiveProps) => {
+export const SearchResultCollective = ({ collective }: SearchResultCollectiveProps) => {
   // Add low quality transformation to collective picture
   const getLowQualityImage = (url: string | null | undefined): string | undefined => {
     if (!url || !url.includes('cloudinary.com')) {

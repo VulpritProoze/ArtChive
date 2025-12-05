@@ -3,11 +3,11 @@ import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { SkeletonCollectiveCard } from "@components/common/skeleton";
-import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Clock, UserPlus } from "lucide-react";
 import { formatNumber } from "@utils/format-number.util";
 import { CollectiveJoinRequestModal } from "@components/common/collective-feature/modal";
 import { useBulkPendingJoinRequests } from "@hooks/queries/use-join-requests";
-import { useCollectives, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
+import { useCollectives, useBulkActiveMembersCount, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
 import type { CollectiveListItem } from "@services/collective.service";
 
 export default function Index() {
@@ -47,6 +47,12 @@ export default function Index() {
 
   // Fetch pending join requests for all collectives
   const { data: pendingRequestsMap = {} } = useBulkPendingJoinRequests(
+    collectiveIds,
+    collectives.length > 0 && !isLoading
+  );
+
+  // Fetch active member counts for all collectives
+  const { data: activeMembersCountMap = {} } = useBulkActiveMembersCount(
     collectiveIds,
     collectives.length > 0 && !isLoading
   );
@@ -170,7 +176,9 @@ export default function Index() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-cyan-500 text-sm font-medium">? online</span>
+                            <span className="text-cyan-500 text-sm font-medium">
+                              {activeMembersCountMap[collective.collective_id] ?? 0} online
+                            </span>
                             <div className="text-xs text-base-content/50 mt-1">
                               Active {new Date(collective.created_at).toLocaleDateString()}
                             </div>
@@ -233,9 +241,10 @@ export default function Index() {
                             </button>
                           ) : pendingRequestsMap[collective.collective_id] ? (
                             <button
-                              className="btn btn-sm btn-warning"
+                              className="btn btn-sm"
                               onClick={(e) => handleJoinClick(collective, e)}
                             >
+                              <Clock className="w-4 h-4 mr-1" />
                               Pending
                             </button>
                           ) : (
@@ -243,6 +252,7 @@ export default function Index() {
                               className="btn btn-sm btn-primary"
                               onClick={(e) => handleJoinClick(collective, e)}
                             >
+                              <UserPlus className="w-4 h-4 mr-1" />
                               Join
                             </button>
                           )}

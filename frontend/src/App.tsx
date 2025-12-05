@@ -5,11 +5,11 @@ import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import {
   ThemeProvider,
   ProtectedRoute,
-  CollectiveProtectedRoute,
+  CollectiveAdminRoute,
   GuestRoute,
   Collective,
   CollectiveCreate,
-  CollectiveHome,
+  CollectiveViewWrapper,
   CollectiveMembers,
   Home,
   PublishedGalleryView,
@@ -111,17 +111,19 @@ function AppRoutes() {
                 <Route index element={<Collective />} />
                 <Route path="create" element={<CollectiveCreate />} />
 
-                {/* Nested protected route for specific collectives */}
-                <Route element={<CollectiveProtectedRoute />}>
-                  <Route
-                    path=":collectiveId"
-                    element={
-                      <CollectivePostProvider>
-                        <CollectiveHome />
-                      </CollectivePostProvider>
-                    }
-                  />
-                  <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                {/* Collective routes */}
+                <Route
+                  path=":collectiveId"
+                  element={
+                    <CollectivePostProvider>
+                      <CollectiveViewWrapper />
+                    </CollectivePostProvider>
+                  }
+                />
+                <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                
+                {/* Protected admin route */}
+                <Route element={<CollectiveAdminRoute />}>
                   <Route path=":collectiveId/admin" element={<CollectiveAdmin />} />
                 </Route>
               </Route>

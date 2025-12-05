@@ -5,7 +5,7 @@ export { default as Index } from './index/index.component'
 
 // Auth
 export { default as ProtectedRoute } from './auth/protected-route'
-export { default as CollectiveProtectedRoute } from './auth/collective-protected-route'
+export { default as CollectiveAdminRoute } from './auth/collective-admin-route'
 export { GuestRoute } from './auth/guest-route'
 
 // Account
@@ -25,6 +25,7 @@ export { default as NavigateToOwnProfile } from './profile/navigate-to-own-profi
 export { default as Collective } from './collective/index.component'
 export { default as CollectiveCreate } from './collective/collective-create.component'
 export { default as CollectiveHome } from './collective/inside-collective.component'
+export { default as CollectiveViewWrapper } from './collective/collective-view-wrapper.component'
 export { default as CollectiveMembers } from './collective/collective-members.component'
 export { default as CollectiveAdmin } from './collective/collective-admin.component'
 
@@ -55,3 +56,4 @@ export { default as NotFound } from './error/not-found.component'
 
 // Search
 export { SearchPage } from './search/search-page.component'
+export { CollectiveSearch } from './collective/collective-search.component'

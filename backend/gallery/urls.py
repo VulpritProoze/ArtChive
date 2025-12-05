@@ -19,6 +19,7 @@ from .views import (
     GalleryGrowthAPIView,
     GalleryActiveView,
     GalleryHasActiveView,
+    BulkGalleryDetailsView,
     GalleryDetailView,
     GalleryPublicDetailView,
     GalleryListCreateView,
@@ -34,6 +35,7 @@ urlpatterns = [
     # Gallery CRUD
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
     path('list/', GalleryListView.as_view(), name='gallery-list'),
+    path('bulk/', BulkGalleryDetailsView.as_view(), name='bulk-gallery-details'),
     path('top/', GlobalTopGalleriesView.as_view(), name='global-top-galleries'),
     path('fellows/', FellowsGalleriesView.as_view(), name='gallery-fellows'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
