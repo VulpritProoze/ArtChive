@@ -75,39 +75,46 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """
         Handle WebSocket disconnection.
-        Leave all channel groups.
+        Leave all channel groups quickly, then do cleanup in background.
         """
-        # Cancel periodic presence updates
+        # Store user info before disconnect (self.user might not be available later)
+        user_id = getattr(self.user, 'id', None)
+        username = getattr(self.user, 'username', None)
+
+        # Cancel periodic presence updates with short timeout
         if hasattr(self, 'presence_update_task'):
             self.presence_update_task.cancel()
             try:
-                await self.presence_update_task
-            except asyncio.CancelledError:
+                await asyncio.wait_for(self.presence_update_task, timeout=0.5)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
 
-        # Mark user as inactive
-        await self.mark_user_inactive()
-
-        # Notify all fellows that this user is now offline
-        await self.notify_fellows_presence_change('offline')
-
-        # Leave notification group
+        # Leave channel groups immediately (fast operations)
         if hasattr(self, 'notification_group_name'):
             await self.channel_layer.group_discard(
                 self.notification_group_name,
                 self.channel_name
             )
-        # Leave friend request group
         if hasattr(self, 'friend_request_group_name'):
             await self.channel_layer.group_discard(
                 self.friend_request_group_name,
                 self.channel_name
             )
-        # Leave presence group
         if hasattr(self, 'presence_group_name'):
             await self.channel_layer.group_discard(
                 self.presence_group_name,
                 self.channel_name
+            )
+
+        # Do heavy cleanup in background (don't await - let it run after disconnect)
+        if user_id and username:
+            asyncio.create_task(
+                self._cleanup_after_disconnect(user_id, username)
+            )
+        elif user_id:
+            # Fallback if username not available
+            asyncio.create_task(
+                self._cleanup_after_disconnect(user_id, f'user_{user_id}')
             )
 
     async def receive(self, text_data):
@@ -240,6 +247,71 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
                     'type': 'presence_update',
                     'user_id': self.user.id,
                     'username': self.user.username,
+                    'status': status,  # 'online' or 'offline'
+                    'timestamp': timezone.now().isoformat(),
+                }
+            )
+
+    async def _cleanup_after_disconnect(self, user_id: int, username: str):
+        """
+        Background cleanup that doesn't block disconnect.
+        This method handles heavy operations like marking user inactive
+        and notifying fellows, which can take time.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Mark user as inactive
+            await self._mark_user_inactive_by_id(user_id)
+
+            # Notify all fellows that this user is now offline
+            await self._notify_fellows_presence_change_by_id(user_id, username, 'offline')
+
+            logger.debug(f'Background cleanup completed for user {user_id}')
+        except Exception as e:
+            logger.error(f'Error during background cleanup for user {user_id}: {e}', exc_info=True)
+
+    @database_sync_to_async
+    def _mark_user_inactive_by_id(self, user_id: int):
+        """Mark user as inactive in Redis by user ID."""
+        from core.presence import mark_user_inactive
+        mark_user_inactive(user_id)
+
+    @database_sync_to_async
+    def _get_user_fellows_by_id(self, user_id: int):
+        """Get list of user IDs who are fellows with this user by user ID."""
+        from django.db.models import Q
+
+        from core.models import UserFellow
+
+        fellows = UserFellow.objects.filter(
+            (Q(user_id=user_id, status='accepted') |
+             Q(fellow_user_id=user_id, status='accepted')),
+            is_deleted=False
+        ).values_list('user_id', 'fellow_user_id')
+
+        fellow_ids = set()
+        for u_id, f_id in fellows:
+            if u_id == user_id:
+                fellow_ids.add(f_id)
+            else:
+                fellow_ids.add(u_id)
+
+        return list(fellow_ids)
+
+    async def _notify_fellows_presence_change_by_id(self, user_id: int, username: str, status: str):
+        """Notify all fellows about this user's presence change by user ID."""
+        fellow_ids = await self._get_user_fellows_by_id(user_id)
+
+        for fellow_id in fellow_ids:
+            # Send to each fellow's presence group
+            await self.channel_layer.group_send(
+                f'presence_{fellow_id}',
+                {
+                    'type': 'presence_update',
+                    'user_id': user_id,
+                    'username': username,
                     'status': status,  # 'online' or 'offline'
                     'timestamp': timezone.now().isoformat(),
                 }
