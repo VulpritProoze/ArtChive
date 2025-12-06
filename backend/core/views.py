@@ -110,10 +110,15 @@ class LoginView(APIView):
             )
 
         with silk_profile(name="Set cookies"):
+            # Determine SameSite based on secure setting
+            # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
+            cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
+            cookie_samesite = "None" if cookie_secure else "Lax"
+            
             cookie_kwargs = {
                 "httponly": True,
-                "secure": config("AUTH_COOKIE_SECURE", default=False),
-                "samesite": "None",
+                "secure": cookie_secure,
+                "samesite": cookie_samesite,
                 "path": "/",
             }
             response.set_cookie(key="access_token", value=access_token, **cookie_kwargs)
@@ -196,9 +201,11 @@ class LogoutView(APIView):
         with silk_profile(name="Delete cookies"):
             # Must match the exact same parameters used when setting cookies
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
+            cookie_samesite = "None" if cookie_secure else "Lax"
             cookie_kwargs = {
                 "path": "/",
-                "samesite": "None",
+                "samesite": cookie_samesite,
             }
             response.delete_cookie("access_token", **cookie_kwargs)
             response.delete_cookie("refresh_token", **cookie_kwargs)
@@ -244,10 +251,15 @@ class CookieTokenRefreshView(TokenRefreshView):
             )
 
             # Cookie settings
+            # Determine SameSite based on secure setting
+            # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
+            cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
+            cookie_samesite = "None" if cookie_secure else "Lax"
+            
             cookie_kwargs = {
                 "httponly": True,
-                "secure": config("AUTH_COOKIE_SECURE", default=False),
-                "samesite": "None",
+                "secure": cookie_secure,
+                "samesite": cookie_samesite,
                 "path": "/",
             }
 
@@ -271,9 +283,11 @@ class CookieTokenRefreshView(TokenRefreshView):
 
             # Clear both cookies with matching parameters
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
+            cookie_samesite = "None" if cookie_secure else "Lax"
             cookie_kwargs = {
                 "path": "/",
-                "samesite": "None",
+                "samesite": cookie_samesite,
             }
             response.delete_cookie("access_token", **cookie_kwargs)
             response.delete_cookie("refresh_token", **cookie_kwargs)
@@ -286,9 +300,11 @@ class CookieTokenRefreshView(TokenRefreshView):
             )
             # Clear both cookies with matching parameters
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
+            cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
+            cookie_samesite = "None" if cookie_secure else "Lax"
             cookie_kwargs = {
                 "path": "/",
-                "samesite": "None",
+                "samesite": cookie_samesite,
             }
             response.delete_cookie("access_token", **cookie_kwargs)
             response.delete_cookie("refresh_token", **cookie_kwargs)

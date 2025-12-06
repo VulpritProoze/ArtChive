@@ -196,8 +196,9 @@ def build_personalized_queryset(queryset, user: User):
 
     # 3. COLLECTIVE MEMBERSHIP SCORE (15% weight)
     # Posts from collectives you're a member of
+    # Use empty list instead of invalid UUID - Django's __in=[] returns no matches
     collective_score = Case(
-        When(channel__collective_id__in=collective_ids if collective_ids else ['-1'], then=Value(4.5)),
+        When(channel__collective_id__in=collective_ids if collective_ids else [], then=Value(4.5)),
         default=Value(0.0),
         output_field=FloatField()
     )
