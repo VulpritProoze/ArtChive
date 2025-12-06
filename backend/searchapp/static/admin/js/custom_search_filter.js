@@ -1,54 +1,22 @@
 (function() {
     'use strict';
     
-    // Filter configurations
-    const filterConfigs = [
-        {
-            paramName: 'author_id',
-            title: 'post author',
-            searchTerms: ['author', 'post author'],
-            apiUrl: '/api/core/users/search/',
-            modalTitle: 'Search User',
-            placeholder: 'Search by username, email, or ID...',
-            emptyText: 'Enter a search query to find users',
-            noResultsText: 'No users found',
-            errorText: 'Error searching users. Please try again.',
-            resultIdField: 'id',
-            resultDisplayField: 'username',
-            resultSecondaryField: 'email',
-            resultTertiaryField: 'fullname'
-        },
-        {
-            paramName: 'user_id',
-            title: 'filter by user',
-            searchTerms: ['filter by user', 'user filter'],
-            apiUrl: '/api/core/users/search/',
-            modalTitle: 'Search User',
-            placeholder: 'Search by username, email, or ID...',
-            emptyText: 'Enter a search query to find users',
-            noResultsText: 'No users found',
-            errorText: 'Error searching users. Please try again.',
-            resultIdField: 'id',
-            resultDisplayField: 'username',
-            resultSecondaryField: 'email',
-            resultTertiaryField: 'fullname'
-        },
-        {
-            paramName: 'collective_id',
-            title: 'collective',
-            searchTerms: ['collective'],
-            apiUrl: '/api/collective/search/',
-            modalTitle: 'Search Collective',
-            placeholder: 'Search by title or ID...',
-            emptyText: 'Enter a search query to find collectives',
-            noResultsText: 'No collectives found',
-            errorText: 'Error searching collectives. Please try again.',
-            resultIdField: 'collective_id',
-            resultDisplayField: 'title',
-            resultSecondaryField: 'description',
-            resultTertiaryField: null
-        }
-    ];
+    // Filter configuration for user search
+    const filterConfig = {
+        paramName: 'user_id',
+        title: 'filter by user',
+        searchTerms: ['filter by user', 'user filter'],
+        apiUrl: '/api/core/users/search/',
+        modalTitle: 'Search User',
+        placeholder: 'Search by username, email, or ID...',
+        emptyText: 'Enter a search query to find users',
+        noResultsText: 'No users found',
+        errorText: 'Error searching users. Please try again.',
+        resultIdField: 'id',
+        resultDisplayField: 'username',
+        resultSecondaryField: 'email',
+        resultTertiaryField: 'fullname'
+    };
     
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
@@ -63,10 +31,8 @@
             
             const container = filterSidebar || document.body;
             
-            // Initialize all filters
-            filterConfigs.forEach(function(config) {
-                initializeFilter(container, config);
-            });
+            // Initialize the filter
+            initializeFilter(container, filterConfig);
         }, 200);
     });
     

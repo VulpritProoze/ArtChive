@@ -73,3 +73,40 @@ class InactiveGallery(Gallery):
         proxy = True
         verbose_name = 'Inactive Gallery'
         verbose_name_plural = 'Inactive Galleries'
+
+
+# Proxy models - import at the end to avoid circular dependencies
+# These imports must be after all other models are defined
+from post.models import Comment, Critique  # noqa: E402
+
+
+class GalleryComment(Comment):
+    """Proxy model for gallery comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Gallery Comment'
+        verbose_name_plural = 'Gallery Comments'
+
+
+class GalleryCritique(Critique):
+    """Proxy model for gallery critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Gallery Critique'
+        verbose_name_plural = 'Gallery Critiques'
+
+
+class InactiveGalleryComment(Comment):
+    """Proxy model for inactive gallery comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Gallery Comment'
+        verbose_name_plural = 'Inactive Gallery Comments'
+
+
+class InactiveGalleryCritique(Critique):
+    """Proxy model for inactive gallery critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Gallery Critique'
+        verbose_name_plural = 'Inactive Gallery Critiques'
