@@ -488,7 +488,7 @@ class CommentSerializer(serializers.ModelSerializer):
         source="author.profile_picture", read_only=True
     )
     author_artist_types = serializers.SerializerMethodField()
-    post_title = serializers.CharField(source="post_id.title", read_only=True)
+    post_title = serializers.CharField(source="post_id.description", read_only=True)
     critique_author_username = serializers.CharField(
         source="critique_id.author.username", read_only=True, allow_null=True
     )
@@ -829,8 +829,8 @@ class CritiqueSerializer(ModelSerializer):
         fields = "__all__"
 
     def get_post_title(self, obj):
-        """Safely get post title, returning None if post_id is None"""
-        return obj.post_id.title if obj.post_id else None
+        """Safely get post description (used as title), returning None if post_id is None"""
+        return obj.post_id.description if obj.post_id else None
 
     def get_gallery_title(self, obj):
         """Safely get gallery title, returning None if gallery_id is None"""
