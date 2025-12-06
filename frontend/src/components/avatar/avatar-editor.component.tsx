@@ -80,11 +80,17 @@ const AvatarEditorPage: React.FC = () => {
       return;
     }
 
+    // Ensure avatarOptions are always included in canvas_json
+    const finalCanvasData = {
+      ...canvasData,
+      avatarOptions: avatarOptions, // Always include current avatarOptions
+    };
+
     if (isEditMode && avatarId) {
       const updateData: UpdateAvatarData = {
         name,
         description,
-        canvas_json: canvasData,
+        canvas_json: finalCanvasData,
         status,
       };
       updateAvatar(
@@ -99,7 +105,7 @@ const AvatarEditorPage: React.FC = () => {
       const createData: CreateAvatarData = {
         name,
         description,
-        canvas_json: canvasData,
+        canvas_json: finalCanvasData,
         status,
       };
       createAvatar(createData, {

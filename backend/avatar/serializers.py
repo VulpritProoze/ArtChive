@@ -4,8 +4,8 @@ from avatar.models import Avatar
 
 class AvatarListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for listing avatars.
-    Excludes canvas_json for performance.
+    Serializer for listing avatars.
+    Includes canvas_json to enable preview rendering from avatarOptions.
     """
     
     class Meta:
@@ -16,6 +16,7 @@ class AvatarListSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'is_primary',
+            'canvas_json',  # Include canvas_json for avatarOptions preview
             'rendered_image',
             'thumbnail',
             'created_at',
