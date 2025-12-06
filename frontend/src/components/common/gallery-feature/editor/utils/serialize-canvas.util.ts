@@ -62,3 +62,4 @@ export function validateCanvasObject(obj: any): obj is CanvasObject {
 export function cloneObject(obj: CanvasObject): CanvasObject {
   return JSON.parse(JSON.stringify(obj));
 }
+

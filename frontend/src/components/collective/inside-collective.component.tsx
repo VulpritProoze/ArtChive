@@ -14,6 +14,7 @@ import {
 import type { Channel } from "@types";
 import { CollectiveLayout } from "@components/common/layout/CollectiveLayout";
 import { PostCard, InfiniteScrolling } from "@components/common/posts-feature";
+import { CollectiveSearch } from "@components/collective/collective-search.component";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
@@ -289,7 +290,7 @@ const CollectiveHome = () => {
                   {collectiveData.artist_types.map((type, index) => (
                     <span
                       key={index}
-                      className="bg-primary text-primary-content px-3 py-1 bg-base-200 text-sm rounded-full"
+                      className="bg-base-200 px-3 py-1 text-sm rounded-full"
                     >
                       {type}
                     </span>
@@ -438,6 +439,14 @@ const CollectiveHome = () => {
             {/* Posts Feed - Only show for Post Channel */}
             {selectedChannel && selectedChannel.channel_type === 'Post Channel' && (
               <div className="space-y-6">
+                {/* Search Button */}
+                <div className="flex justify-end mb-4">
+                  <CollectiveSearch
+                    collectiveId={collectiveData?.collective_id || ''}
+                    selectedChannel={selectedChannel}
+                  />
+                </div>
+
                 {arePostsLoading && posts.length === 0 && (
                   <SkeletonPostCard
                     count={3}

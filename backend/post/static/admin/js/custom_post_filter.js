@@ -19,6 +19,21 @@
             resultTertiaryField: 'fullname'
         },
         {
+            paramName: 'user_id',
+            title: 'filter by user',
+            searchTerms: ['filter by user', 'user filter'],
+            apiUrl: '/api/core/users/search/',
+            modalTitle: 'Search User',
+            placeholder: 'Search by username, email, or ID...',
+            emptyText: 'Enter a search query to find users',
+            noResultsText: 'No users found',
+            errorText: 'Error searching users. Please try again.',
+            resultIdField: 'id',
+            resultDisplayField: 'username',
+            resultSecondaryField: 'email',
+            resultTertiaryField: 'fullname'
+        },
+        {
             paramName: 'collective_id',
             title: 'collective',
             searchTerms: ['collective'],
@@ -86,9 +101,13 @@
         });
         
         if (filterSection) {
-            // Intercept clicks on filter links to open modal instead
+            // Hide default filter links immediately
             const filterLinks = filterSection.querySelectorAll('a[href*="' + paramName + '"]');
+            filterLinks.forEach(function(link) {
+                link.style.display = 'none';
+            });
             
+            // Intercept clicks on filter links to open modal instead
             filterLinks.forEach(function(link) {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -170,9 +189,20 @@
     function createFilterButton(container, config) {
         const filterId = 'filter-' + config.paramName;
         
+        // Check if button already exists
+        if (document.getElementById(filterId + '-btn')) {
+            return;
+        }
+        
         // Check if filter is currently active in URL
         const urlParams = new URLSearchParams(window.location.search);
         const isFilterActive = urlParams.has(config.paramName) && urlParams.get(config.paramName) !== '__custom__';
+        
+        // Hide default filter links
+        const defaultLinks = container.querySelectorAll('a[href*="' + config.paramName + '"]');
+        defaultLinks.forEach(function(link) {
+            link.style.display = 'none';
+        });
         
         // Create and insert the search button
         const button = document.createElement('button');
@@ -180,12 +210,6 @@
         button.className = 'user-search-btn' + (isFilterActive ? ' active' : '');
         button.id = filterId + '-btn';
         button.innerHTML = '<span>Search</span><svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>';
-        
-        // Hide default filter links
-        const defaultLinks = container.querySelectorAll('a');
-        defaultLinks.forEach(function(link) {
-            link.style.display = 'none';
-        });
         
         // Insert button
         container.appendChild(button);

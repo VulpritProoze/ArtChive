@@ -36,13 +36,17 @@ export const useReputationLeaderboard = (params?: { limit?: number; offset?: num
   });
 };
 
+import { useUserId } from '@context/auth-context';
+
 /**
  * Hook to fetch current user's leaderboard position
  */
 export const useMyLeaderboardPosition = () => {
+  const userId = useUserId();
   return useQuery({
-    queryKey: ['my-leaderboard-position'],
+    queryKey: ['my-leaderboard-position', userId],
     queryFn: () => userService.getMyLeaderboardPosition(),
+    enabled: Boolean(userId),
   });
 };
 

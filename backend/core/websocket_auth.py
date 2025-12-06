@@ -68,8 +68,8 @@ class JWTAuthMiddleware(BaseMiddleware):
         cookie_string = headers.get(b'cookie', b'').decode() if b'cookie' in headers else ''
 
         logger.info(f'WebSocket connection attempt - Query: {query_string[:100]}, Has cookies: {bool(cookie_string)}')
-        if cookie_string:
-            logger.debug(f'Cookie string (first 200 chars): {cookie_string[:200]}')
+        # if cookie_string:
+        #     logger.debug(f'Cookie string (first 200 chars): {cookie_string[:200]}')
 
         user = None
 

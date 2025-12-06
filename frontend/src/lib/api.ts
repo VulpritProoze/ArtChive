@@ -42,6 +42,11 @@ export const gallery = axios.create({
   withCredentials: true,
 });
 
+export const search = axios.create({
+  baseURL: `${resolvedApiUrl}/api/search/`,
+  withCredentials: true,
+});
+
 // WebSocket Base URL
 export const WS_BASE_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
 
@@ -177,7 +182,7 @@ const createResponseInterceptor = (instance: typeof api) => {
 };
 
 // Apply same interceptors to all instances (including main api)
-const instances = [api, post, collective, core, notification, gallery];
+const instances = [api, post, collective, core, notification, gallery, search];
 
 instances.forEach((instance) => {
   // Request interceptor

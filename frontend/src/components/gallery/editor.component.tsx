@@ -4,16 +4,16 @@ import { toast } from '@utils/toast.util';
 import { Palette, Layers, Ungroup, Eye, LayoutTemplate } from 'lucide-react';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useCanvasState } from '@components/common/gallery-feature/hooks/use-canvas-state.hook';
+import { useCanvasState } from '@hooks/gallery/editor/use-canvas-state.hook';
 import { galleryService } from '@services/gallery.service';
 import type { CanvasObject, ImageObject, Template, SnapGuide } from '@types';
 import { LoadingOverlay } from '@components/loading-spinner';
-import { CanvasStage } from '@components/common/gallery-feature/canvas-stage.component';
-import { Toolbar } from '@components/common/gallery-feature/toolbar.component';
-import { LayerPanel } from '@components/common/gallery-feature/layer-panel.panel';
-import { PropertiesPanel } from '@components/common/gallery-feature/properties-panel.panel';
-import { TemplateLibrary } from '@components/common/gallery-feature/template-library.library';
-import { ShapesFloating } from '@components/common/gallery-feature/shapes-floating.component';
+import { CanvasStage } from '@components/common/gallery-feature/editor/canvas-stage.component';
+import { Toolbar } from '@components/common/gallery-feature/editor/toolbar.component';
+import { LayerPanel } from '@components/common/gallery-feature/editor/layer-panel.panel';
+import { PropertiesPanel } from '@components/common/gallery-feature/editor/properties-panel.panel';
+import { TemplateLibrary } from '@components/common/gallery-feature/editor/template-library.library';
+import { ShapesFloating } from '@components/common/gallery-feature/editor/shapes-floating.component';
 
 type EditorMode = 'pan' | 'move' | 'select';
 

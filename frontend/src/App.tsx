@@ -5,11 +5,11 @@ import { RouteLoadingFallback } from "./components/route-loading-fallback";
 import {
   ThemeProvider,
   ProtectedRoute,
-  CollectiveProtectedRoute,
+  CollectiveAdminRoute,
   GuestRoute,
   Collective,
   CollectiveCreate,
-  CollectiveHome,
+  CollectiveViewWrapper,
   CollectiveMembers,
   Home,
   PublishedGalleryView,
@@ -22,6 +22,7 @@ import {
   NotFound,
   NavigateToOwnProfile,
   PendingFriendRequestsPage,
+  SearchPage,
 } from "@components";
 
 // Lazy load heavy components
@@ -90,6 +91,7 @@ function AppRoutes() {
               <Route path="/reputation" element={<ReputationPage />} />
               <Route path="/notifications" element={<NotificationIndex />} />
               <Route path="/fellows/requests" element={<PendingFriendRequestsPage />} />
+              <Route path="/search" element={<SearchPage />} />
 
               <Route path="/profile/:username" element={<Timeline />} />
               <Route path="/profile" element={<NavigateToOwnProfile />} />
@@ -109,17 +111,19 @@ function AppRoutes() {
                 <Route index element={<Collective />} />
                 <Route path="create" element={<CollectiveCreate />} />
 
-                {/* Nested protected route for specific collectives */}
-                <Route element={<CollectiveProtectedRoute />}>
-                  <Route
-                    path=":collectiveId"
-                    element={
-                      <CollectivePostProvider>
-                        <CollectiveHome />
-                      </CollectivePostProvider>
-                    }
-                  />
-                  <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                {/* Collective routes */}
+                <Route
+                  path=":collectiveId"
+                  element={
+                    <CollectivePostProvider>
+                      <CollectiveViewWrapper />
+                    </CollectivePostProvider>
+                  }
+                />
+                <Route path=":collectiveId/members" element={<CollectiveMembers />} />
+                
+                {/* Protected admin route */}
+                <Route element={<CollectiveAdminRoute />}>
                   <Route path=":collectiveId/admin" element={<CollectiveAdmin />} />
                 </Route>
               </Route>

@@ -124,6 +124,7 @@ REPUTATION_SOURCE_CHOICES = (
     ('praise', 'Praise'),
     ('trophy', 'Trophy'),
     ('critique', 'Critique'),
+    ('gallery_critique', 'Gallery Critique'),
     ('gallery_award', 'Gallery Award'),
 )
 

@@ -1,19 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
 import { SkeletonCollectiveCard } from "@components/common/skeleton";
-import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, Clock, UserPlus, Settings, Plus, Search, X } from "lucide-react";
 import { formatNumber } from "@utils/format-number.util";
 import { CollectiveJoinRequestModal } from "@components/common/collective-feature/modal";
 import { useBulkPendingJoinRequests } from "@hooks/queries/use-join-requests";
-import { useCollectives, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
+import { useCollectives, useBulkActiveMembersCount, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
 import type { CollectiveListItem } from "@services/collective.service";
+import { searchService, type CollectiveSearchResult } from "@services/search.service";
 
 export default function Index() {
   const navigate = useNavigate();
   const [selectedCollective, setSelectedCollective] = useState<CollectiveListItem | null>(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<CollectiveSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const { isMemberOfACollective, fetchCollectiveMemberDetails } =
     useAuth();
@@ -39,18 +46,6 @@ export default function Index() {
     });
   }, [data]);
 
-  // Get collective IDs for bulk pending requests check
-  const collectiveIds = useMemo(() => 
-    collectives.map(c => c.collective_id),
-    [collectives]
-  );
-
-  // Fetch pending join requests for all collectives
-  const { data: pendingRequestsMap = {} } = useBulkPendingJoinRequests(
-    collectiveIds,
-    collectives.length > 0 && !isLoading
-  );
-
   const handleJoinClick = (collective: CollectiveListItem, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedCollective(collective);
@@ -72,49 +67,195 @@ export default function Index() {
     navigate(`/collective/${collectiveId}`);
   };
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  // Handle search with debounce
+  useEffect(() => {
+    const handleSearch = async (query: string) => {
+      if (!query || query.trim().length < 2) {
+        setSearchResults([]);
+        setIsSearching(false);
+        setSearchError(null);
+        return;
+      }
+
+      setIsSearching(true);
+      setSearchError(null);
+
+      try {
+        const response = await searchService.searchCollectives(query.trim(), {
+          page_size: 50
+        });
+        setSearchResults(response.results);
+      } catch (error: any) {
+        setSearchError(error?.response?.data?.detail || "Failed to search collectives");
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Determine which collectives to display
+  const displayCollectives = useMemo(() => {
+    if (searchQuery.trim().length >= 2) {
+      // Convert search results to CollectiveListItem format
+      return searchResults.map((result) => ({
+        collective_id: result.collective_id,
+        title: result.title,
+        description: result.description,
+        picture: result.picture || "",
+        created_at: result.created_at,
+        updated_at: result.created_at,
+        rules: [],
+        artist_types: [],
+        channels: [],
+        member_count: result.member_count,
+        reputation: 0,
+      })) as CollectiveListItem[];
+    }
+    return collectives;
+  }, [searchQuery, searchResults, collectives]);
+
+  // Get collective IDs for bulk operations
+  const collectiveIds = useMemo(() => 
+    displayCollectives.map(c => c.collective_id),
+    [displayCollectives]
+  );
+
+  // Fetch pending join requests for displayed collectives
+  const { data: pendingRequestsMap = {} } = useBulkPendingJoinRequests(
+    collectiveIds,
+    displayCollectives.length > 0 && !isLoading && !isSearching
+  );
+
+  // Fetch active member counts for displayed collectives
+  const { data: activeMembersCountMap = {} } = useBulkActiveMembersCount(
+    collectiveIds,
+    displayCollectives.length > 0 && !isLoading && !isSearching
+  );
+
   return (
     <MainLayout showSidebar={true} showRightSidebar={false}>
-      <div>
-        <button
-          onClick={() => navigate("create")}
-          className="btn btn-primary"
-        >
-          Create (+)
-        </button>
-      </div>
       <div className="space-y-6">
         {/* Page Header */}
-
         <div className="bg-base-200/50 rounded-xl p-6">
-          <h1 className="text-3xl font-bold text-base-content mb-2">
-            Discover Collectives
-          </h1>
+          <div className="flex items-start justify-between mb-2">
+            <h1 className="text-3xl font-bold text-base-content">
+              Discover Collectives
+            </h1>
+            {/* Gear Icon Button with Dropdown */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="btn btn-ghost btn-circle"
+                aria-label="Menu"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isMenuOpen && (
+                <div className="absolute top-12 right-0 bg-base-100 shadow-lg rounded-lg border border-base-300 z-50 min-w-[160px]">
+                  <div className="py-2">
+                    <button
+                      onClick={() => {
+                        navigate("create");
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-base-200 transition-colors flex items-center gap-2 text-xs"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Create Collective</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           <p className="text-base-content/70">
             Join artist communities and collaborate with fellow creators
           </p>
         </div>
 
+        {/* Search Bar */}
+        <div className="bg-base-200/50 rounded-xl p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-base-content/50 pointer-events-none z-10" />
+            <input
+              type="text"
+              placeholder="Search collectives..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input input-bordered w-full pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setSearchError(null);
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 btn btn-ghost btn-sm btn-circle"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-base-content/60 mt-2">
+              {isSearching ? "Searching..." : searchResults.length > 0 
+                ? `Found ${searchResults.length} collective${searchResults.length !== 1 ? 's' : ''}`
+                : searchError 
+                  ? `Error: ${searchError}`
+                  : "No collectives found"}
+            </p>
+          )}
+        </div>
+
         {/* Collectives Grid */}
         <div>
-          {isLoading ? (
+          {isLoading || isSearching ? (
             <SkeletonCollectiveCard
               count={6}
               containerClassName="grid grid-cols-1 gap-4"
             />
-          ) : collectives.length === 0 ? (
+          ) : displayCollectives.length === 0 ? (
             <div className="text-center my-16 bg-base-200/30 rounded-xl p-12">
               <div className="text-6xl mb-4">🎨</div>
               <p className="text-lg font-semibold text-base-content">
-                No collectives found.
+                {searchQuery ? "No collectives found." : "No collectives found."}
               </p>
               <p className="text-sm text-base-content/60 mt-2">
-                Be the first to create one!
+                {searchQuery ? "Try a different search term." : "Be the first to create one!"}
               </p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-1 gap-4">
-                {collectives.map((collective) => (
+                {displayCollectives.map((collective) => (
                 <div
                   key={collective.collective_id}
                   className="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 border border-base-300 cursor-pointer"
@@ -170,7 +311,9 @@ export default function Index() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-cyan-500 text-sm font-medium">? online</span>
+                            <span className="text-cyan-500 text-sm font-medium">
+                              {activeMembersCountMap[collective.collective_id] ?? 0} online
+                            </span>
                             <div className="text-xs text-base-content/50 mt-1">
                               Active {new Date(collective.created_at).toLocaleDateString()}
                             </div>
@@ -233,9 +376,10 @@ export default function Index() {
                             </button>
                           ) : pendingRequestsMap[collective.collective_id] ? (
                             <button
-                              className="btn btn-sm btn-warning"
+                              className="btn btn-sm"
                               onClick={(e) => handleJoinClick(collective, e)}
                             >
+                              <Clock className="w-4 h-4 mr-1" />
                               Pending
                             </button>
                           ) : (
@@ -243,6 +387,7 @@ export default function Index() {
                               className="btn btn-sm btn-primary"
                               onClick={(e) => handleJoinClick(collective, e)}
                             >
+                              <UserPlus className="w-4 h-4 mr-1" />
                               Join
                             </button>
                           )}
@@ -254,8 +399,8 @@ export default function Index() {
                 ))}
               </div>
 
-              {/* Load More Button */}
-              {hasNextPage && (
+              {/* Load More Button - Only show when not searching */}
+              {!searchQuery && hasNextPage && (
                 <div className="flex justify-center mt-6">
                   <button
                     onClick={() => fetchNextPage()}

@@ -36,7 +36,12 @@ ul.border.border-base-200 {
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
-    text-decoration: none;
+    text-decoration: none !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    font-family: inherit;
+    line-height: 1.5;
 }
 
 .user-search-btn:hover {

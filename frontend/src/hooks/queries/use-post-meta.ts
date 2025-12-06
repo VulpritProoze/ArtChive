@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { postService } from '@services/post.service';
+import { useUserId } from '@context/auth-context';
 
 export interface PostMeta {
   hearts_count: number;
@@ -23,11 +24,12 @@ export type PostMetaMap = Record<string, PostMeta>;
  * @returns TanStack Query result with PostMetaMap
  */
 export const usePostsMeta = (postIds: string[], enabled = true) => {
+  const userId = useUserId();
   // Sort post IDs for consistent cache keys (avoid duplicate queries for same set)
   const sortedIds = [...postIds].sort();
   
   return useQuery<PostMetaMap>({
-    queryKey: ['posts-meta', sortedIds],
+    queryKey: ['posts-meta', userId, sortedIds],
     queryFn: () => {
       if (!sortedIds.length) return Promise.resolve({});
       return postService.getBulkMeta(sortedIds);

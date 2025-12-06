@@ -4,10 +4,8 @@ from collections import deque
 from cloudinary_storage.storage import VideoMediaCloudinaryStorage
 from django.db import models
 
-from collective.models import Channel, Collective
 from common.utils import choices
 from core.models import User
-from gallery.models import Gallery
 
 from .manager import SoftDeleteManager
 
@@ -26,7 +24,7 @@ class Post(models.Model):
         help_text='Type of post: "default" for standard posts, "novel" for novel chapters (requires NovelPost), "image" for image galleries, "video" for video content.'
     )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post')
-    channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
+    channel = models.ForeignKey('collective.Channel', on_delete=models.CASCADE, related_name='post', default='00000000-0000-0000-0000-000000000001') # this id is the default id of channel of first collective 'public'
 
     objects = SoftDeleteManager()
 
@@ -102,6 +100,9 @@ class TrophyType(models.Model):
     trophy = models.CharField(max_length=100)
     brush_drip_value = models.IntegerField()
 
+    def __str__(self):
+        return f'{self.trophy} - {self.brush_drip_value} BD'
+
 class Comment(models.Model):
     comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text = models.TextField()
@@ -119,7 +120,7 @@ class Comment(models.Model):
     '''
     Gallery comment
     '''
-    gallery = models.ForeignKey(Gallery, on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_comment')
+    gallery = models.ForeignKey('gallery.Gallery', on_delete=models.SET_NULL, blank=True, null=True, related_name='gallery_comment')
 
     objects = SoftDeleteManager()
 
@@ -199,7 +200,7 @@ class Event(models.Model):
     start = models.DateTimeField()
     end = models.DateTimeField()
     details = models.TextField()
-    collective = models.ForeignKey(Collective, on_delete=models.CASCADE, related_name='event', default='00000000-0000-0000-0000-000000000001')
+    collective = models.ForeignKey('collective.Collective', on_delete=models.CASCADE, related_name='event', default='00000000-0000-0000-0000-000000000001')
 
 class EventComment(models.Model):
     event_comment_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

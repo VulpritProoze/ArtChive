@@ -203,6 +203,19 @@ export const collectiveService = {
   },
 
   /**
+   * Get active member counts for multiple collectives (bulk)
+   * POST /api/collective/members/active-counts/
+   * Body: { "collective_ids": ["uuid1", "uuid2", ...] }
+   * Returns: { "collective_id_1": 5, "collective_id_2": 3, ... }
+   */
+  async getBulkActiveMembersCount(collectiveIds: string[]): Promise<Record<string, number>> {
+    const response = await collective.post('members/active-counts/', {
+      collective_ids: collectiveIds,
+    });
+    return response.data;
+  },
+
+  /**
    * Get paginated list of collectives
    * GET /api/collective/details/?page=<page>&page_size=<pageSize>
    */
@@ -228,6 +241,67 @@ export const collectiveService = {
     total_pending_requests: number;
   }> {
     const response = await collective.get(`${collectiveId}/requests/counts/`);
+    return response.data;
+  },
+
+  /**
+   * Search posts within a collective
+   * GET /api/collective/<collective_id>/search/?q=<query>&channel_id=<channel_id>&post_type=<post_type>&page=<page>&page_size=<page_size>
+   */
+  async searchCollectivePosts(
+    collectiveId: string,
+    query: string,
+    filters?: {
+      channel_id?: string;
+      post_type?: string;
+      page?: number;
+      page_size?: number;
+    }
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: any[];
+  }> {
+    const params: { q: string; channel_id?: string; post_type?: string; page?: number; page_size?: number } = {
+      q: query,
+      ...filters,
+    };
+    const response = await collective.get(`${collectiveId}/search/`, { params });
+    return response.data;
+  },
+
+  /**
+   * Search members within a collective
+   * GET /api/collective/<collective_id>/members/search/?q=<query>&role=<role>
+   */
+  async searchCollectiveMembers(
+    collectiveId: string,
+    query: string,
+    role?: string
+  ): Promise<{
+    results: any[];
+    count: number;
+  }> {
+    const params: { q: string; role?: string } = { q: query };
+    if (role) {
+      params.role = role;
+    }
+    const response = await collective.get(`${collectiveId}/members/search/`, { params });
+    return response.data;
+  },
+
+  /**
+   * Get bulk collective details by IDs
+   * POST /api/collective/bulk/
+   */
+  async getBulkCollectives(collectiveIds: string[]): Promise<{
+    results: CollectiveListItem[];
+    count: number;
+  }> {
+    const response = await collective.post('bulk/', {
+      collective_ids: collectiveIds,
+    });
     return response.data;
   },
 

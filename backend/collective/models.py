@@ -179,3 +179,56 @@ class JoinRequest(models.Model):
         requester_username = getattr(self.requester, "username", str(self.requester))
         collective_title = getattr(self.collective, "title", str(self.collective))
         return f"{requester_username} -> {collective_title} ({self.status})"
+
+
+# Proxy models - import at the end to avoid circular dependencies
+# These imports must be after all other models are defined
+from post.models import Comment, Critique, Post  # noqa: E402
+
+
+class CollectivePost(Post):
+    """Proxy model for collective posts"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post'
+        verbose_name_plural = 'Collective Posts'
+
+
+class CollectivePostComment(Comment):
+    """Proxy model for collective post comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post Comment'
+        verbose_name_plural = 'Collective Post Comments'
+
+
+class CollectivePostCritique(Critique):
+    """Proxy model for collective post critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post Critique'
+        verbose_name_plural = 'Collective Post Critiques'
+
+
+class InactiveCollectivePost(Post):
+    """Proxy model for inactive collective posts"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post'
+        verbose_name_plural = 'Inactive Collective Posts'
+
+
+class InactiveCollectivePostComment(Comment):
+    """Proxy model for inactive collective post comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post Comment'
+        verbose_name_plural = 'Inactive Collective Post Comments'
+
+
+class InactiveCollectivePostCritique(Critique):
+    """Proxy model for inactive collective post critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post Critique'
+        verbose_name_plural = 'Inactive Collective Post Critiques'

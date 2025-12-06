@@ -1,28 +1,33 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { galleryService, type Gallery } from '@services/gallery.service';
+import { useUserId } from '@context/auth-context';
 import type { PaginatedGalleryListResponse } from '@types';
 
 /**
  * Hook to fetch a single gallery by ID
+ * Note: Gallery data may include user-specific information (e.g., following status)
  */
 export const useGallery = (galleryId: string, options: { enabled?: boolean; usePublic?: boolean } = {}) => {
   const { enabled = true, usePublic = false } = options;
+  const userId = useUserId();
 
   return useQuery<Gallery>({
-    queryKey: ['gallery', galleryId, usePublic ? 'public' : 'private'],
+    queryKey: ['gallery', galleryId, usePublic ? 'public' : 'private', userId],
     queryFn: () => usePublic ? galleryService.getPublicGallery(galleryId) : galleryService.getGallery(galleryId),
     enabled: enabled && Boolean(galleryId),
   });
 };
 
 /**
- * Hook to fetch paginated gallery list (for browse other galleries)
+ * Hook to fetch paginated gallery list (for browse other galleries) with optional search
+ * Personalized - shows galleries based on user's preferences/follows
  */
-export const useGalleryList = (pageSize: number = 5) => {
+export const useGalleryList = (pageSize: number = 5, searchQuery?: string) => {
+  const userId = useUserId();
   return useInfiniteQuery<PaginatedGalleryListResponse>({
-    queryKey: ['gallery-list', pageSize],
+    queryKey: ['gallery-list', userId, pageSize, searchQuery],
     queryFn: ({ pageParam = 1 }) => {
-      return galleryService.listGalleries(pageParam as number, pageSize);
+      return galleryService.listGalleries(pageParam as number, pageSize, searchQuery);
     },
     getNextPageParam: (lastPage, pages) => {
       // Calculate if there's a next page
@@ -32,6 +37,7 @@ export const useGalleryList = (pageSize: number = 5) => {
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes - cache galleries for 5 minutes
+    enabled: !searchQuery || searchQuery.length >= 2 || searchQuery.length === 0, // Enable if no search or valid search
   });
 };
 

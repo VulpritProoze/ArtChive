@@ -200,6 +200,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Logout failed: ", error);
     } finally {
+      // Clear React Query cache to prevent stale data for next user
+      // queryClient.clear();
+      
       setUser(null);
       setCollectiveMemberships(null)
       setInitialized(false)

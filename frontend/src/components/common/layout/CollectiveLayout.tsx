@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { MainLayout } from "./MainLayout";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,7 +21,8 @@ import useCollective from "@hooks/use-collective";
 interface CollectiveLayoutProps {
   children: React.ReactNode;
   showSidebar?: boolean;
-  showRightSidebar?: boolean;
+  showRightSidebar?: boolean; // Controls MainLayout's right sidebar
+  showCollectiveRightSidebar?: boolean; // Controls CollectiveLayout's right sidebar
   skipMainLayout?: boolean;
   // Collective data
   collectiveData?: {
@@ -39,12 +40,15 @@ interface CollectiveLayoutProps {
   onShowCreateChannelModal?: () => void;
   onSetEditingChannel?: (channel: Channel) => void;
   onDeleteChannel?: (collectiveId: string, channelId: string) => void;
+  // Non-member mode
+  isNonMember?: boolean;
 }
 
 export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
   children,
   showSidebar = false,
-  showRightSidebar = false,
+  showRightSidebar = false, // MainLayout's right sidebar
+  showCollectiveRightSidebar = true, // CollectiveLayout's right sidebar
   skipMainLayout = false,
   collectiveData,
   loadingCollective = false,
@@ -53,11 +57,19 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
   onShowCreateChannelModal,
   onSetEditingChannel,
   onDeleteChannel,
+  isNonMember = false,
 }) => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdminOfACollective, isMemberOfACollective } = useAuth();
   const { handleLeaveCollective } = useCollective();
+
+  // Check if current route matches sidebar links
+  const isMembersPage = location.pathname.includes('/members');
+  const isAdminPage = location.pathname.includes('/admin');
+  // Details page is the collective home page (not members or admin)
+  const isDetailsPage = !isMembersPage && !isAdminPage && location.pathname === `/collective/${collectiveId}`;
   
   // Fetch request counts for admin badge
   const { data: requestCounts } = useCollectiveRequestCounts(
@@ -65,10 +77,8 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
     isAdminOfACollective(collectiveData?.collective_id || '')
   );
 
-  // Sidebar state - collapsed by default
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(true);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
-  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  // Sidebar state - both sidebars use slide-in drawer pattern
+  const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showRightSidebarState, setShowRightSidebarState] = useState(false);
   const [showChannelsDropdown, setShowChannelsDropdown] = useState(true);
   const [showMediaDropdown, setShowMediaDropdown] = useState(false);
@@ -104,37 +114,33 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
     }
   };
 
-  const renderLeftSidebar = (isMobile = false) => {
+  const renderLeftSidebar = () => {
     if (loadingCollective) {
-      return <SkeletonCollectiveSidebar className={isMobile ? "" : "sticky top-20"} />;
+      return <SkeletonCollectiveSidebar className="" />;
     }
 
     if (!collectiveData) {
-      return <SkeletonCollectiveSidebar className={isMobile ? "" : "sticky top-20"} />;
+      return <SkeletonCollectiveSidebar className="" />;
     }
 
     return (
-      <div className={isMobile ? "p-4" : "bg-base-200/50 rounded-xl p-3 sticky top-20"}>
-        {isMobile && (
-          <>
-            {/* Close button */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">{collectiveData.title}</h2>
-              <button
-                className="btn btn-ghost btn-sm btn-circle"
-                onClick={() => setShowMobileSidebar(false)}
-              >
-                <FontAwesomeIcon icon={faTimes} className="text-xl" />
-              </button>
-            </div>
-          </>
-        )}
+      <div className="p-4">
+        {/* Close button */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">{collectiveData.title}</h2>
+          <button
+            className="btn btn-ghost btn-sm btn-circle"
+            onClick={() => setShowLeftSidebar(false)}
+          >
+            <FontAwesomeIcon icon={faTimes} className="text-xl" />
+          </button>
+        </div>
 
         {/* Back to Collectives Button */}
         <button
           onClick={() => {
             navigate('/collective');
-            if (isMobile) setShowMobileSidebar(false);
+            setShowLeftSidebar(false);
           }}
           className="w-full flex items-center gap-2 px-3 py-2 mb-2 text-sm hover:bg-base-300 rounded transition-colors"
         >
@@ -142,35 +148,50 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
           <span>Back to Collectives</span>
         </button>
 
-        {/* Collective Name Dropdown */}
-        {!isMobile && (
-          <button className="w-full flex items-center justify-between p-3 hover:bg-base-300 rounded-lg mb-2 font-bold text-lg">
-            <span>{collectiveData.title}</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        )}
-
         {/* Navigation Links */}
         <div className="mb-4 space-y-1">
+          {/* Details/About link - shown for non-members */}
+          {isNonMember && (
+            <button
+              onClick={() => {
+                navigate(`/collective/${collectiveId}`);
+                setShowLeftSidebar(false);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
+                isDetailsPage
+                  ? 'bg-primary text-primary-content'
+                  : 'hover:bg-base-300'
+              }`}
+            >
+              <FontAwesomeIcon icon={faInfoCircle} className="w-4 h-4" />
+              <span>Details</span>
+            </button>
+          )}
           <button
             onClick={() => {
               navigate(`/collective/${collectiveId}/members`);
-              if (isMobile) setShowMobileSidebar(false);
+              setShowLeftSidebar(false);
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
+              isMembersPage
+                ? 'bg-primary text-primary-content'
+                : 'hover:bg-base-300'
+            }`}
           >
             <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
             <span>Members</span>
           </button>
-          {isAdminOfACollective(collectiveData.collective_id) && (
+          {!isNonMember && isAdminOfACollective(collectiveData.collective_id) && (
             <button
               onClick={() => {
                 navigate(`/collective/${collectiveId}/admin`);
-                if (isMobile) setShowMobileSidebar(false);
+                setShowLeftSidebar(false);
               }}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-base-300 rounded transition-colors"
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
+                isAdminPage
+                  ? 'bg-primary text-primary-content'
+                  : 'hover:bg-base-300'
+              }`}
             >
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
@@ -185,179 +206,183 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
           )}
         </div>
 
-        {/* POST CHANNELS Section */}
-        <div className="mb-4">
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowChannelsDropdown(!showChannelsDropdown)}
-          >
-            <span>POST CHANNELS</span>
-            <svg className={`w-4 h-4 transition-transform ${showChannelsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showChannelsDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Post Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Post Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-              {isAdminOfACollective(collectiveData.collective_id) && onShowCreateChannelModal && (
-                <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded text-base-content/70"
-                  onClick={() => {
-                    onShowCreateChannelModal();
-                    if (isMobile) setShowMobileSidebar(false);
-                  }}
-                >
-                  <span>+</span>
-                  <span>Create Channel</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* POST CHANNELS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div className="mb-4">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowChannelsDropdown(!showChannelsDropdown)}
+            >
+              <span>POST CHANNELS</span>
+              <svg className={`w-4 h-4 transition-transform ${showChannelsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showChannelsDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Post Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Post Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          setShowLeftSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+                {isAdminOfACollective(collectiveData.collective_id) && onShowCreateChannelModal && (
+                  <button
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-base-300 rounded text-base-content/70"
+                    onClick={() => {
+                      onShowCreateChannelModal();
+                      setShowLeftSidebar(false);
+                    }}
+                  >
+                    <span>+</span>
+                    <span>Create Channel</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* MEDIA CHANNELS Section */}
-        <div className="mb-4">
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowMediaDropdown(!showMediaDropdown)}
-          >
-            <span>MEDIA CHANNELS</span>
-            <svg className={`w-4 h-4 transition-transform ${showMediaDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showMediaDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Media Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Media Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* MEDIA CHANNELS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div className="mb-4">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowMediaDropdown(!showMediaDropdown)}
+            >
+              <span>MEDIA CHANNELS</span>
+              <svg className={`w-4 h-4 transition-transform ${showMediaDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showMediaDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Media Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Media Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          setShowLeftSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">{channel.posts_count ?? '?'}</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* EVENTS Section */}
-        <div>
-          <button
-            className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
-            onClick={() => setShowEventsDropdown(!showEventsDropdown)}
-          >
-            <span>EVENTS</span>
-            <svg className={`w-4 h-4 transition-transform ${showEventsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {showEventsDropdown && (
-            <div className="mt-1 space-y-1">
-              {collectiveData.channels.filter(ch => ch.channel_type === 'Event Channel').length > 0 ? (
-                collectiveData.channels
-                  .filter(ch => ch.channel_type === 'Event Channel')
-                  .map((channel) => (
-                    <button
-                      key={channel.channel_id}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
-                        ? 'bg-primary text-primary-content'
-                        : 'hover:bg-base-300'
-                        }`}
-                      onClick={() => {
-                        handleChannelClick(channel);
-                        if (isMobile) setShowMobileSidebar(false);
-                      }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-base-content/50">#</span>
-                        {channel.title}
-                      </span>
-                      {selectedChannel?.channel_id === channel.channel_id && (
-                        <span className="badge badge-sm">88</span>
-                      )}
-                    </button>
-                  ))
-              ) : (
-                <div className="px-3 py-2 text-sm text-base-content/50">
-                  No channels
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* EVENTS Section - Disabled for non-members */}
+        {!isNonMember && (
+          <div>
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content/70 hover:text-base-content"
+              onClick={() => setShowEventsDropdown(!showEventsDropdown)}
+            >
+              <span>EVENTS</span>
+              <svg className={`w-4 h-4 transition-transform ${showEventsDropdown ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showEventsDropdown && (
+              <div className="mt-1 space-y-1">
+                {collectiveData.channels.filter(ch => ch.channel_type === 'Event Channel').length > 0 ? (
+                  collectiveData.channels
+                    .filter(ch => ch.channel_type === 'Event Channel')
+                    .map((channel) => (
+                      <button
+                        key={channel.channel_id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${selectedChannel?.channel_id === channel.channel_id
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-300'
+                          }`}
+                        onClick={() => {
+                          handleChannelClick(channel);
+                          setShowLeftSidebar(false);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-base-content/50">#</span>
+                          {channel.title}
+                        </span>
+                        {selectedChannel?.channel_id === channel.channel_id && (
+                          <span className="badge badge-sm">88</span>
+                        )}
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-base-content/50">
+                    No channels
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
 
-  const renderRightSidebar = (isMobile = false) => {
+  const renderRightSidebar = () => {
     if (!collectiveData) return null;
 
     return (
-      <div className={isMobile ? "p-4" : "sticky top-20 space-y-6"}>
-        {isMobile && (
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold">{collectiveData.title}</h2>
-            <button
-              className="btn btn-ghost btn-sm btn-circle"
-              onClick={() => setShowRightSidebarState(false)}
-            >
-              <FontAwesomeIcon icon={faTimes} className="text-xl" />
-            </button>
-          </div>
-        )}
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">{collectiveData.title}</h2>
+          <button
+            className="btn btn-ghost btn-sm btn-circle"
+            onClick={() => setShowRightSidebarState(false)}
+          >
+            <FontAwesomeIcon icon={faTimes} className="text-xl" />
+          </button>
+        </div>
 
-        <div className={isMobile ? "space-y-6" : ""}>
+        <div className="space-y-6">
           {/* About Section */}
-          <div className={`${isMobile ? "bg-base-100" : "bg-base-200/50"} rounded-xl p-4`}>
+          <div className="bg-base-100 rounded-xl p-4">
             <h3 className="text-lg font-bold mb-3">About</h3>
             <p className="text-sm text-base-content/80">
               {collectiveData.description}
@@ -365,7 +390,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
           </div>
 
           {/* Rules Section */}
-          <div className={`${isMobile ? "bg-base-100" : "bg-base-200/50"} rounded-xl p-4`}>
+          <div className="bg-base-100 rounded-xl p-4">
             <h3 className="text-lg font-bold mb-3">Rules</h3>
             <ol className="space-y-2 text-sm">
               {collectiveData.rules.map((rule, index) => (
@@ -377,7 +402,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
           </div>
 
           {/* Details Section */}
-          <div className={`${isMobile ? "bg-base-100" : "bg-base-200/50"} rounded-xl p-4`}>
+          <div className="bg-base-100 rounded-xl p-4">
             <h3 className="text-lg font-bold mb-3">Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-base-content/80">
@@ -395,9 +420,9 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
             </div>
           </div>
 
-          {/* Admin Actions */}
-          {isAdminOfACollective(collectiveData.collective_id) && (
-            <div className={`${isMobile ? "bg-base-100" : "bg-base-200/50"} rounded-xl p-4 border border-primary/20`}>
+          {/* Admin Actions - Hidden for non-members */}
+          {!isNonMember && isAdminOfACollective(collectiveData.collective_id) && (
+            <div className="bg-base-100 rounded-xl p-4 border border-primary/20">
               <div className="flex items-center gap-2 mb-4">
                 <FontAwesomeIcon icon={faUserShield} className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-bold">Admin Actions</h3>
@@ -406,7 +431,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                 <button
                   onClick={() => {
                     navigate(`/collective/${collectiveId}/admin`);
-                    if (isMobile) setShowRightSidebarState(false);
+                    setShowRightSidebarState(false);
                   }}
                   className="btn btn-sm btn-primary w-full justify-start gap-2"
                 >
@@ -429,7 +454,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                           className="btn btn-sm w-full justify-start gap-2"
                           onClick={() => {
                             onSetEditingChannel(selectedChannel);
-                            if (isMobile) setShowRightSidebarState(false);
+                            setShowRightSidebarState(false);
                           }}
                         >
                           <FontAwesomeIcon icon={faUserCog} className="w-4 h-4" />
@@ -441,7 +466,7 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
                           className="btn btn-sm btn-error w-full justify-start gap-2"
                           onClick={() => {
                             handleDeleteChannelClick(selectedChannel);
-                            if (isMobile) setShowRightSidebarState(false);
+                            setShowRightSidebarState(false);
                           }}
                         >
                           <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
@@ -460,8 +485,8 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
             </div>
           )}
 
-          {/* Leave Collective */}
-          {isMemberOfACollective(collectiveData.collective_id) && (
+          {/* Leave Collective - Hidden for non-members */}
+          {!isNonMember && isMemberOfACollective(collectiveData.collective_id) && (
             <div className="bg-error/10 rounded-xl p-4 border border-error/30">
               <button
                 className="btn btn-error w-full gap-2"
@@ -491,41 +516,22 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
       {collectiveData && (
         <div className="sticky top-16 z-40 bg-base-100/80 backdrop-blur-sm border-b border-base-300 -mx-4 px-4">
           <div className="flex items-center justify-between gap-2 my-2">
+            {/* Search will be rendered here by children if needed */}
             {showSidebar && (
               <button
-                className="btn btn-ghost btn-sm gap-2 lg:hidden"
-                onClick={() => setShowMobileSidebar(true)}
+                className="btn btn-ghost btn-sm gap-2"
+                onClick={() => setShowLeftSidebar(true)}
                 aria-label="Open sidebar menu"
               >
                 <FontAwesomeIcon icon={faBars} className="text-lg" />
                 <span className="font-semibold">Menu</span>
               </button>
             )}
-            {showSidebar && (
+            {showCollectiveRightSidebar && (
               <button
-                className="btn btn-ghost btn-sm gap-2 hidden lg:flex"
-                onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-                aria-label={isLeftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                <FontAwesomeIcon icon={faBars} className="text-lg" />
-                <span className="font-semibold">Menu</span>
-              </button>
-            )}
-            {showRightSidebar && (
-              <button
-                className="btn btn-ghost btn-sm gap-2 lg:hidden"
+                className="btn btn-ghost btn-sm gap-2"
                 onClick={() => setShowRightSidebarState(true)}
                 aria-label="Open right sidebar"
-              >
-                <FontAwesomeIcon icon={faInfoCircle} className="text-lg" />
-                <span className="font-semibold">Info</span>
-              </button>
-            )}
-            {showRightSidebar && (
-              <button
-                className="btn btn-ghost btn-sm gap-2 hidden lg:flex"
-                onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-                aria-label={isRightSidebarCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
               >
                 <FontAwesomeIcon icon={faInfoCircle} className="text-lg" />
                 <span className="font-semibold">Info</span>
@@ -535,68 +541,46 @@ export const CollectiveLayout: React.FC<CollectiveLayoutProps> = ({
         </div>
       )}
 
-      {/* Mobile Sidebar Backdrop */}
-      {showMobileSidebar && (
+      {/* Left Sidebar Backdrop */}
+      {showLeftSidebar && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 lg:hidden"
-          onClick={() => setShowMobileSidebar(false)}
+          className="fixed inset-0 bg-black/50 z-50"
+          onClick={() => setShowLeftSidebar(false)}
         />
       )}
 
-      {/* Mobile Right Sidebar Backdrop */}
-      {showRightSidebarState && (
+      {/* Right Sidebar Backdrop */}
+      {showCollectiveRightSidebar && showRightSidebarState && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-50"
           onClick={() => setShowRightSidebarState(false)}
         />
       )}
 
       <div className="flex gap-6">
-        {/* LEFT SIDEBAR - Desktop */}
-        {showSidebar && collectiveData && (
-          <>
-            {!isLeftSidebarCollapsed && (
-              <aside className="w-60 flex-shrink-0 hidden lg:block">
-                {renderLeftSidebar(false)}
-              </aside>
-            )}
-          </>
-        )}
-
         {/* MAIN CONTENT */}
         <main className="flex-1 min-w-0">
           {children}
         </main>
 
-        {/* RIGHT SIDEBAR - Desktop */}
-        {showRightSidebar && collectiveData && (
-          <>
-            {!isRightSidebarCollapsed && (
-              <aside className="w-80 flex-shrink-0 hidden xl:block">
-                {renderRightSidebar(false)}
-              </aside>
-            )}
-          </>
-        )}
-
-        {/* Mobile Left Sidebar - Slide-in drawer */}
-        {collectiveData && (
+        {/* Left Sidebar - Slide-in drawer */}
+        {showSidebar && collectiveData && (
           <aside
-            className={`fixed z-70 top-0 left-0 h-full w-72 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'
+            className={`fixed z-70 top-0 left-0 h-full w-72 bg-base-200 transform transition-transform duration-300 ease-in-out overflow-y-auto ${showLeftSidebar ? 'translate-x-0' : '-translate-x-full'
               }`}
           >
-            {renderLeftSidebar(true)}
+            {renderLeftSidebar()}
           </aside>
         )}
 
-        {/* Mobile Right Sidebar - Slide-in drawer */}
-        {collectiveData && (
+        {/* Right Sidebar - Slide-in drawer */}
+        {showCollectiveRightSidebar && collectiveData && (
           <aside
             ref={rightSidebarRef}
-            className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 lg:hidden transform transition-transform duration-300 ease-in-out overflow-y-auto ${showRightSidebarState ? 'translate-x-0' : 'translate-x-full'
+            className={`fixed z-70 top-0 right-0 h-full w-80 bg-base-200 transform transition-transform duration-300 ease-in-out overflow-y-auto ${showRightSidebarState ? 'translate-x-0' : 'translate-x-full'
               }`}
           >
-            {renderRightSidebar(true)}
+            {renderRightSidebar()}
           </aside>
         )}
       </div>

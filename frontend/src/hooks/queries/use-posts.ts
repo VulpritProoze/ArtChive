@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { postService } from '@services/post.service';
 import { collectiveService } from '@services/collective.service';
+import { useUserId } from '@context/auth-context';
 
 interface UsePostsOptions {
   channelId?: string;
@@ -9,20 +10,22 @@ interface UsePostsOptions {
   pageSize?: number;
 }
 
-export const buildPostsKey = (channelId?: string, userId?: number) =>
-  ['posts', { channelId, userId }] as const;
+export const buildPostsKey = (channelId?: string, userId?: number, currentUserId?: number | null) =>
+  ['posts', { channelId, userId, currentUserId }] as const;
 
 export const usePosts = (options: UsePostsOptions = {}) => {
   const { channelId, userId, enabled = true, pageSize = 10 } = options;
+  const currentUserId = useUserId(); // Get current logged-in user ID
 
   return useInfiniteQuery({
-    queryKey: buildPostsKey(channelId, userId),
+    queryKey: buildPostsKey(channelId, userId, currentUserId),
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       if (channelId) {
         return collectiveService.getChannelPosts(channelId, pageParam, pageSize);
       } else if (userId) {
         return postService.getUserPosts(userId, pageParam, pageSize);
       } else {
+        // Personalized feed - user-specific
         return postService.getPosts(pageParam, pageSize);
       }
     },

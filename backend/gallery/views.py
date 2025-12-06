@@ -275,6 +275,30 @@ class GalleryHasActiveView(APIView):
         return Response({'has_active': has_active}, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    tags=["Galleries"],
+    description="Get all galleries (paginated, public) with optional search",
+    parameters=[
+        OpenApiParameter(
+            name="page",
+            description="Page number (default: 1)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Number of galleries per page (default: 10, max: 50)",
+            type=int,
+            required=False,
+        ),
+        OpenApiParameter(
+            name="q",
+            description="Search query string (searches title, description, creator username)",
+            type=str,
+            required=False,
+        ),
+    ],
+)
 class GalleryListView(APIView):
     """
     GET /api/gallery/list/ - Get all galleries (paginated, public)
@@ -282,6 +306,7 @@ class GalleryListView(APIView):
     Query Parameters:
     - page: Page number (default: 1)
     - page_size: Number of galleries per page (default: 10, max: 50)
+    - q: Search query (optional) - searches title, description, creator username
 
     Returns paginated response with:
     - count: Total number of galleries
@@ -294,7 +319,9 @@ class GalleryListView(APIView):
     pagination_class = GalleryPagination
 
     def get(self, request):
-        """Get all active galleries (paginated)"""
+        """Get all active galleries (paginated) with optional search"""
+        query = request.query_params.get('q', '').strip()
+        
         # Get all active (non-deleted) galleries with optimized queries
         # Using select_related for OneToOne relationships (user_wallet and artist)
         galleries = Gallery.objects.get_active_objects().select_related(
@@ -303,7 +330,19 @@ class GalleryListView(APIView):
             'creator__artist'
         ).filter(
             status='active'
-        ).order_by('-created_at')
+        )
+
+        # Apply search filter if query provided
+        if query and len(query) >= 2:
+            galleries = galleries.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query) |
+                Q(creator__username__icontains=query) |
+                Q(creator__first_name__icontains=query) |
+                Q(creator__last_name__icontains=query)
+            )
+
+        galleries = galleries.order_by('-created_at')
 
         # Apply pagination
         paginator = self.pagination_class()
@@ -314,6 +353,73 @@ class GalleryListView(APIView):
 
         # Return paginated response
         return paginator.get_paginated_response(serializer.data)
+
+
+@extend_schema(
+    tags=["Galleries"],
+    description="Get bulk gallery details by IDs",
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'gallery_ids': {
+                    'type': 'array',
+                    'items': {'type': 'string', 'format': 'uuid'},
+                    'description': 'List of gallery IDs to fetch'
+                }
+            },
+            'required': ['gallery_ids']
+        }
+    },
+    responses={
+        200: GalleryListSerializer(many=True),
+        400: OpenApiResponse(description="Bad Request - Invalid input"),
+    },
+)
+class BulkGalleryDetailsView(APIView):
+    """Get bulk gallery details by list of IDs"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        gallery_ids = request.data.get('gallery_ids', [])
+
+        if not gallery_ids or not isinstance(gallery_ids, list):
+            return Response(
+                {'error': 'gallery_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Limit to 100 galleries per request
+        if len(gallery_ids) > 100:
+            return Response(
+                {'error': 'Maximum 100 gallery IDs allowed per request'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Convert string IDs to UUIDs and filter
+        try:
+            uuid_ids = [uuid.UUID(gid) for gid in gallery_ids]
+        except (ValueError, TypeError) as e:
+            return Response(
+                {'error': f'Invalid UUID format: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Fetch galleries with optimized queries
+        galleries = Gallery.objects.get_active_objects().select_related(
+            'creator',
+            'creator__user_wallet',
+            'creator__artist'
+        ).filter(
+            gallery_id__in=uuid_ids
+        ).order_by('-created_at')
+
+        serializer = GalleryListSerializer(galleries, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
 
 
 class GlobalTopGalleriesView(APIView):
@@ -380,6 +486,64 @@ class GalleryUserListView(APIView):
 
         serializer = GallerySerializer(galleries, many=True)
         return Response(serializer.data)
+
+
+class FellowsGalleriesView(APIView):
+    """
+    GET /api/gallery/fellows/ - Get active galleries from users the current user follows (fellows)
+    Returns galleries without canvas_json (paginated)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of galleries per page (default: 10, max: 50)
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get active galleries from fellows (accepted relationships)"""
+        user = request.user
+        
+        # Get all accepted fellows for the current user
+        from core.models import UserFellow
+        fellows = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        )
+        
+        # Extract fellow user IDs (the users that the current user follows)
+        fellow_user_ids = []
+        for fellow in fellows:
+            if fellow.user == user:
+                fellow_user_ids.append(fellow.fellow_user.id)
+            else:
+                fellow_user_ids.append(fellow.user.id)
+        
+        # If no fellows, return empty paginated response
+        if not fellow_user_ids:
+            paginator = self.pagination_class()
+            return paginator.get_paginated_response([])
+        
+        # Get active galleries from fellows
+        galleries = Gallery.objects.get_active_objects().select_related(
+            'creator',
+            'creator__user_wallet',
+            'creator__artist'
+        ).filter(
+            creator_id__in=fellow_user_ids,
+            status='active'
+        ).order_by('-created_at')
+        
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_galleries = paginator.paginate_queryset(galleries, request)
+        
+        # Serialize with GalleryListSerializer (excludes canvas_json)
+        serializer = GalleryListSerializer(paginated_galleries, many=True)
+        
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
 
 
 class MediaUploadView(APIView):
@@ -602,8 +766,8 @@ class GalleryCommentCreateView(generics.CreateAPIView):
             # Don't notify if the commenter is the gallery creator
             if comment.author.id != gallery_creator.id:
                 message = f"{comment.author.username} commented on your gallery"
-                # Format: "galleryId:commentId" for proper navigation
-                notification_object_id = f"{comment.gallery.gallery_id}:{comment.comment_id}"
+                # Use creator's user ID for navigation to /gallery/:userid
+                notification_object_id = str(gallery_creator.id)
                 create_notification(
                     message=message,
                     notification_object_type=NOTIFICATION_TYPES.gallery_comment,
@@ -698,8 +862,8 @@ class GalleryCommentReplyCreateView(generics.CreateAPIView):
             # Don't notify if replying to own comment
             if reply.author.id != parent_author.id:
                 message = f"{reply.author.username} replied to your comment"
-                # Format: "galleryId:replyId" for proper navigation
-                notification_object_id = f"{reply.gallery.gallery_id}:{reply.comment_id}"
+                # Use gallery creator's user ID for navigation to /gallery/:userid
+                notification_object_id = str(reply.gallery.creator.id)
                 create_notification(
                     message=message,
                     notification_object_type=NOTIFICATION_TYPES.gallery_comment,

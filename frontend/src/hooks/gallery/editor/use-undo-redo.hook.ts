@@ -89,3 +89,4 @@ export function useUndoRedo(maxHistorySize = 50): UseUndoRedoReturn {
     history,
   };
 }
+
