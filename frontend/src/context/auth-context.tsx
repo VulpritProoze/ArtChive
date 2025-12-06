@@ -7,6 +7,7 @@ import formatFieldName from '@utils/format-fieldname'
 import handleApiError from '@utils/handle-api-error';
 import formatErrorForToast from '@utils/format-error-for-toast';
 import { loginErrors } from '@errors';
+import { queryClient } from '@providers/query-provider';
 
 type CollectiveMemberType = CollectiveMember[] | null
 
@@ -200,6 +201,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Logout failed: ", error);
     } finally {
+      // Clear React Query cache to prevent stale data for next user
+      // queryClient.clear();
+      
       setUser(null);
       setCollectiveMemberships(null)
       setInitialized(false)

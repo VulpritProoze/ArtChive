@@ -766,8 +766,8 @@ class GalleryCommentCreateView(generics.CreateAPIView):
             # Don't notify if the commenter is the gallery creator
             if comment.author.id != gallery_creator.id:
                 message = f"{comment.author.username} commented on your gallery"
-                # Format: "galleryId:commentId" for proper navigation
-                notification_object_id = f"{comment.gallery.gallery_id}:{comment.comment_id}"
+                # Use creator's user ID for navigation to /gallery/:userid
+                notification_object_id = str(gallery_creator.id)
                 create_notification(
                     message=message,
                     notification_object_type=NOTIFICATION_TYPES.gallery_comment,
@@ -862,8 +862,8 @@ class GalleryCommentReplyCreateView(generics.CreateAPIView):
             # Don't notify if replying to own comment
             if reply.author.id != parent_author.id:
                 message = f"{reply.author.username} replied to your comment"
-                # Format: "galleryId:replyId" for proper navigation
-                notification_object_id = f"{reply.gallery.gallery_id}:{reply.comment_id}"
+                # Use gallery creator's user ID for navigation to /gallery/:userid
+                notification_object_id = str(reply.gallery.creator.id)
                 create_notification(
                     message=message,
                     notification_object_type=NOTIFICATION_TYPES.gallery_comment,

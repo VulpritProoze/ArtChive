@@ -15,7 +15,6 @@ interface OtherGalleriesSectionProps {
   hasNextPage: boolean;
   fetchNextPage: () => void;
   awards: Record<string, Record<string, number>>;
-  loadingAwards: boolean;
   animationIndex: number;
   observerTarget: React.RefObject<HTMLDivElement | null>;
   searchQuery?: string;
@@ -29,7 +28,6 @@ export const OtherGalleriesSection = ({
   hasNextPage: _hasNextPage,
   fetchNextPage: _fetchNextPage,
   awards,
-  loadingAwards,
   animationIndex,
   observerTarget,
   searchQuery: externalSearchQuery,
@@ -121,7 +119,7 @@ export const OtherGalleriesSection = ({
             />
             
             {/* Awards display - top left with blurred background */}
-            {hasAwards && !loadingAwards ? (
+            {hasAwards && (
               <div 
                 className="absolute top-2 left-4 backdrop-blur-md bg-black/40 rounded-lg px-1.5 py-1 flex items-center gap-1 cursor-pointer hover:bg-black/50 transition-colors z-20"
                 onClick={(e) => handleAwardClick(e, gallery.gallery_id)}
@@ -136,18 +134,15 @@ export const OtherGalleriesSection = ({
                   </div>
                 ))}
               </div>
-            ) : loadingAwards ? (
-              <div className="absolute top-2 left-4 backdrop-blur-md bg-black/40 rounded-lg px-1.5 py-1 flex items-center gap-1 z-20">
-                <div className="w-3 h-3 skeleton rounded"></div>
-              </div>
-            ) : null}
+            )}
           </div>
 
           {/* Details overlay with blurred background - positioned over image */}
           <div 
-            className="absolute bottom-0 left-0 right-0 transition-all duration-300 backdrop-blur-md bg-black/40 text-white"
+            className="absolute bottom-0 left-0 right-0 transition-all duration-300 backdrop-blur-md text-white"
             style={{
               maxHeight: isHovered ? '50%' : 'auto',
+              backgroundColor: 'color-mix(in srgb, var(--local-primary, var(--color-primary)) 40%, transparent)',
             }}
           >
             <div className={`p-2 lg:p-3 flex flex-col transition-all duration-300`}>

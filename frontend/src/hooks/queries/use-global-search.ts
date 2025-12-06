@@ -3,6 +3,7 @@
  */
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { searchService, type SearchFilters, type SearchHistoryResponse } from '@services/search.service';
+import { useUserId } from '@context/auth-context';
 
 /**
  * Hook for unified global search (all types)
@@ -150,10 +151,11 @@ export const useSearchHistory = (
   searchType?: string,
   options: { enabled?: boolean } = {}
 ) => {
+  const userId = useUserId();
   return useQuery<SearchHistoryResponse>({
-    queryKey: ['search-history', limit, searchType],
+    queryKey: ['search-history', userId, limit, searchType],
     queryFn: () => searchService.getSearchHistory(limit, searchType),
-    enabled: options.enabled !== false,
+    enabled: options.enabled !== false && Boolean(userId),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
@@ -164,10 +166,11 @@ export const useSearchHistory = (
 export const useRecentSearchHistory = (
   options: { enabled?: boolean } = {}
 ) => {
+  const userId = useUserId();
   return useQuery<SearchHistoryResponse>({
-    queryKey: ['recent-search-history'],
+    queryKey: ['recent-search-history', userId],
     queryFn: () => searchService.getRecentSearchHistory(),
-    enabled: options.enabled !== false,
+    enabled: options.enabled !== false && Boolean(userId),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

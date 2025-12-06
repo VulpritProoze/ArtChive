@@ -18,7 +18,6 @@ const GalleryIndex = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [animationIndex, setAnimationIndex] = useState(0);
   const [awards, setAwards] = useState<Record<string, Record<string, number>>>({});
-  const [loadingAwards, setLoadingAwards] = useState(false);
 
   // Search state for other galleries
   const [otherGalleriesSearchQuery, setOtherGalleriesSearchQuery] = useState('');
@@ -75,17 +74,14 @@ const GalleryIndex = () => {
 
   // Fetch awards after galleries finish loading
   useEffect(() => {
-    if (galleries.length > 0 && !loading && !loadingAwards) {
-      setLoadingAwards(true);
+    if (galleries.length > 0 && !loading) {
       const galleryIds = galleries.map(g => g.gallery_id);
       galleryService.getBulkGalleryAwards(galleryIds)
         .then((awardsData) => {
           setAwards(awardsData);
-          setLoadingAwards(false);
         })
         .catch((error) => {
           console.error('Failed to fetch awards:', error);
-          setLoadingAwards(false);
         });
     }
   }, [galleries.length, loading]);
@@ -264,7 +260,6 @@ const GalleryIndex = () => {
           hasNextPage={hasNextPage}
           fetchNextPage={fetchNextPage}
           awards={awards}
-          loadingAwards={loadingAwards}
           animationIndex={animationIndex}
           observerTarget={observerTarget}
         />

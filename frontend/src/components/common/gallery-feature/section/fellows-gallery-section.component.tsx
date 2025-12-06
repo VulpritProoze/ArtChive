@@ -19,8 +19,6 @@ const HorizontalScrollSkeletonCard = () => {
     <div className="flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-lg">
       <div className="relative h-48 bg-base-300 overflow-hidden">
         <div className="w-full h-full skeleton"></div>
-        {/* Fading black background overlay */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/90 via-black/70 to-transparent"></div>
         {/* Avatar skeleton */}
         <div className="absolute bottom-2.5 left-2.5 z-20">
           <div className="w-8 h-8 rounded-full bg-base-200 border-2 border-white/20 skeleton shadow-md"></div>
@@ -43,7 +41,7 @@ const HorizontalScrollCard = ({ gallery }: { gallery: GalleryListItem }) => {
 
   return (
     <Link
-      to={`/gallery/${gallery.gallery_id}`}
+      to={`/gallery/${creator?.id || gallery.gallery_id}`}
       className="flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-[1.02]"
     >
       <div className="relative h-48 bg-base-300 overflow-hidden">

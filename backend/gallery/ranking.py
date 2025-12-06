@@ -138,9 +138,10 @@ def generate_top_galleries_cache(limit: int = 100):
     Returns:
         List of gallery data in ranked order
     """
-    from .serializers import GalleryListSerializer
     from django.http import HttpRequest
-    
+
+    from .serializers import GalleryListSerializer
+
     # Build base queryset - only active galleries
     queryset = Gallery.objects.get_active_objects().filter(
         status='active'
@@ -151,27 +152,27 @@ def generate_top_galleries_cache(limit: int = 100):
     ).prefetch_related(
         'gallery_award__gallery_award_type',
     )
-    
+
     # Apply global ranking algorithm
     ranked_queryset = build_global_top_galleries_queryset(queryset, limit)
-    
+
     # Serialize galleries
     # Create a mock request for serializer context
     request = HttpRequest()
     request.method = 'GET'
-    
+
     serializer = GalleryListSerializer(ranked_queryset, many=True, context={'request': request})
     galleries_data = serializer.data
-    
+
     # Build cache key
     cache_key = f"global_top_galleries:{limit}"
     cache.set(cache_key, galleries_data, None)  # No timeout - only invalidated manually
-    
+
     # Also cache for limit=100 if we generated more than that (for efficient slicing)
     if limit >= 100 and len(galleries_data) >= 100:
         cache_key_100 = "global_top_galleries:100"
         cache.set(cache_key_100, galleries_data[:100], None)  # No timeout - only invalidated manually
-    
+
     return galleries_data
 
 
@@ -189,22 +190,22 @@ def get_cached_top_galleries(limit: int = 100):
     valid_limits = [5, 10, 25, 50, 100]
     if limit not in valid_limits:
         limit = 100  # Default to 100
-    
+
     # Always check cache for limit=100 first (most comprehensive)
     # If smaller limit requested, we can slice from the larger cache
     cache_key_100 = "global_top_galleries:100"
     cached_data = cache.get(cache_key_100)
-    
+
     if cached_data:
         # Return only the requested number
         return cached_data[:limit]
-    
+
     # If limit=100 cache not found, try the specific limit cache
     if limit != 100:
         cache_key = f"global_top_galleries:{limit}"
         cached_data = cache.get(cache_key)
         if cached_data:
             return cached_data[:limit]
-    
+
     return None
 

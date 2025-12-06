@@ -141,8 +141,8 @@ def create_critique_notification(critique, recipient):
         notification_type = NOTIFICATION_TYPES.post_critique
     elif critique.gallery_id:
         message = f"{critique.author.username} critiqued your gallery"
-        # Format: "galleryId:critiqueId" for proper navigation
-        notification_object_id = f"{critique.gallery_id.gallery_id}:{critique.critique_id}"
+        # Use creator's user ID for navigation to /gallery/:userid
+        notification_object_id = str(critique.gallery_id.creator.id)
         notification_type = NOTIFICATION_TYPES.gallery_critique
     else:
         # Should not happen, but handle gracefully
@@ -222,7 +222,7 @@ def create_gallery_award_notification(gallery_award, gallery_creator):
     return create_notification(
         message=message,
         notification_object_type=NOTIFICATION_TYPES.gallery_award,
-        notification_object_id=str(gallery_award.gallery_id.gallery_id),
+        notification_object_id=str(gallery_award.gallery_id.creator.id),
         notified_to=gallery_creator,
         notified_by=gallery_award.author
     )

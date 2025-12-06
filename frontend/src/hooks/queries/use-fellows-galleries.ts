@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { galleryService } from '@services/gallery.service';
+import { useUserId } from '@context/auth-context';
 import type { PaginatedGalleryListResponse } from '@types';
 
 /**
@@ -7,9 +8,11 @@ import type { PaginatedGalleryListResponse } from '@types';
  * Supports infinite scrolling with pagination
  */
 export const useFellowsGalleries = (pageSize: number = 10) => {
+  const userId = useUserId();
   return useInfiniteQuery<PaginatedGalleryListResponse>({
-    queryKey: ['fellows-galleries', pageSize],
+    queryKey: ['fellows-galleries', userId, pageSize],
     queryFn: ({ pageParam = 1 }) => galleryService.getFellowsGalleries(pageParam as number, pageSize),
+    enabled: Boolean(userId),
     getNextPageParam: (lastPage, pages) => {
       // Calculate if there's a next page
       const totalPages = Math.ceil(lastPage.count / pageSize);

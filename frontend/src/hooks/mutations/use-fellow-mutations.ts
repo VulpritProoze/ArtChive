@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
+import { useUserId } from '@context/auth-context';
 import type { UserFellow, CreateFriendRequestPayload } from '@types';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
@@ -9,6 +10,7 @@ import { handleApiError, formatErrorForToast } from '@utils';
  */
 export const useCreateFriendRequest = () => {
   const queryClient = useQueryClient();
+  const userId = useUserId();
 
   return useMutation({
     mutationFn: ({ payload, userId: _userId }: { payload: CreateFriendRequestPayload; userId: number }): Promise<UserFellow> => {
@@ -16,8 +18,11 @@ export const useCreateFriendRequest = () => {
     },
     onSuccess: async (_, variables) => {
       try {
-        // Invalidate relevant queries
-        queryClient.invalidateQueries({ queryKey: ['friend-request-status'], refetchType: 'active' });
+        // Invalidate relevant queries with user ID
+        if (userId) {
+          queryClient.invalidateQueries({ queryKey: ['friend-request-status', variables.userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['friend-request-count', userId], refetchType: 'active' });
+        }
         
         // Wait for friend-request-status to refetch before showing toast
         await queryClient.refetchQueries({ queryKey: ['friend-request-status', variables.userId], exact: true });
@@ -41,6 +46,7 @@ export const useCreateFriendRequest = () => {
  */
 export const useAcceptFriendRequest = () => {
   const queryClient = useQueryClient();
+  const userId = useUserId();
 
   return useMutation({
     mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<UserFellow> => {
@@ -48,12 +54,13 @@ export const useAcceptFriendRequest = () => {
     },
     onSuccess: async (_, variables) => {
       try {
-        // Invalidate relevant queries
-        queryClient.invalidateQueries({ queryKey: ['friend-request-count'], refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['pending-friend-requests'], refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['fellows'], refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['pending-friend-request'], refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['friend-request-status'], refetchType: 'active' });
+        // Invalidate relevant queries with user ID
+        if (userId) {
+          queryClient.invalidateQueries({ queryKey: ['friend-request-count', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['pending-friend-requests', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['fellows', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['friend-request-status', variables.userId], refetchType: 'active' });
+        }
         
         // Wait for the friend-request-status query to refetch before showing toast
         await queryClient.refetchQueries({ 
@@ -80,6 +87,7 @@ export const useAcceptFriendRequest = () => {
  */
 export const useRejectFriendRequest = () => {
   const queryClient = useQueryClient();
+  const userId = useUserId();
 
   return useMutation({
     mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<void> => {
@@ -87,9 +95,12 @@ export const useRejectFriendRequest = () => {
     },
     onSuccess: async (_, variables) => {
       try {
-        // Invalidate relevant queries
-        queryClient.invalidateQueries({ queryKey: ['pending-friend-request'], refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: ['friend-request-status'], refetchType: 'active' });
+        // Invalidate relevant queries with user ID
+        if (userId) {
+          queryClient.invalidateQueries({ queryKey: ['friend-request-count', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['pending-friend-requests', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['friend-request-status', variables.userId], refetchType: 'active' });
+        }
         
         // Wait for the friend-request-status query to refetch before showing toast
         await queryClient.refetchQueries({ 
@@ -116,6 +127,7 @@ export const useRejectFriendRequest = () => {
  */
 export const useCancelFriendRequest = () => {
   const queryClient = useQueryClient();
+  const userId = useUserId();
 
   return useMutation({
     mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<void> => {
@@ -123,8 +135,12 @@ export const useCancelFriendRequest = () => {
     },
     onSuccess: async (_, variables) => {
       try {
-        // Invalidate relevant queries
-        queryClient.invalidateQueries({ queryKey: ['friend-request-status'], refetchType: 'active' });
+        // Invalidate relevant queries with user ID
+        if (userId) {
+          queryClient.invalidateQueries({ queryKey: ['friend-request-count', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['pending-friend-requests', userId], refetchType: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['friend-request-status', variables.userId], refetchType: 'active' });
+        }
         
         // Wait for the friend-request-status query to refetch before showing toast
         await queryClient.refetchQueries({ 
@@ -151,16 +167,20 @@ export const useCancelFriendRequest = () => {
  */
 export const useUnfriend = () => {
   const queryClient = useQueryClient();
+  const userId = useUserId();
 
   return useMutation({
     mutationFn: (relationshipId: number): Promise<void> => {
       return userService.unfriend(relationshipId);
     },
     onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['fellows'] });
-      queryClient.invalidateQueries({ queryKey: ['search-fellows'] });
-      queryClient.invalidateQueries({ queryKey: ['friend-request-status'] });
+      // Invalidate relevant queries with user ID
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ['fellows', userId] });
+        queryClient.invalidateQueries({ queryKey: ['search-fellows', userId] });
+        queryClient.invalidateQueries({ queryKey: ['friend-request-count', userId] });
+        queryClient.invalidateQueries({ queryKey: ['pending-friend-requests', userId] });
+      }
       toast.success('Unfriended successfully');
     },
     onError: (error) => {

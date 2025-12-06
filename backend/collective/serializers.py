@@ -1166,15 +1166,21 @@ class AcceptJoinRequestSerializer(Serializer):
                 collective_role="member"
             )
 
-            # Send notification to requester
+            # Send notification to requester (the person who requested to join)
+            # NOT to the reviewer (admin who approved it)
             from common.utils.choices import NOTIFICATION_TYPES
             from notification.utils import create_notification
+
+            # Ensure we're sending to the requester, not the reviewer
+            requester = join_request.requester
+            admin_reviewer = reviewer
+
             create_notification(
                 message=f"Your join request to {join_request.collective.title} has been accepted",
                 notification_object_type=NOTIFICATION_TYPES.join_request_accepted,
                 notification_object_id=str(join_request.collective.collective_id),
-                notified_to=join_request.requester,
-                notified_by=reviewer
+                notified_to=requester,  # Send to the person who requested to join
+                notified_by=admin_reviewer  # The admin who approved the request
             )
 
             # Invalidate user calculations (collective membership changed)

@@ -1,8 +1,10 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { collectiveService } from '@services/collective.service';
+import { useUserId } from '@context/auth-context';
 
 /**
  * Hook for searching posts within a collective
+ * User-specific - only members can search posts in a collective
  */
 export const useCollectiveSearchPosts = (
   collectiveId: string | undefined,
@@ -14,8 +16,9 @@ export const useCollectiveSearchPosts = (
   },
   options: { enabled?: boolean } = {}
 ) => {
+  const userId = useUserId();
   return useInfiniteQuery({
-    queryKey: ['collective-search-posts', collectiveId, query, filters],
+    queryKey: ['collective-search-posts', collectiveId, userId, query, filters],
     queryFn: ({ pageParam = 1 }) => {
       if (!collectiveId) throw new Error('Collective ID is required');
       return collectiveService.searchCollectivePosts(collectiveId, query, {
@@ -33,7 +36,7 @@ export const useCollectiveSearchPosts = (
       return undefined;
     },
     initialPageParam: 1,
-    enabled: (options.enabled !== false) && Boolean(collectiveId) && query.length >= 2,
+    enabled: (options.enabled !== false) && Boolean(collectiveId) && Boolean(userId) && query.length >= 2,
     staleTime: 2 * 60 * 1000, // 2 minutes
     placeholderData: (previousData) => previousData,
   });
@@ -41,6 +44,7 @@ export const useCollectiveSearchPosts = (
 
 /**
  * Hook for searching members within a collective
+ * User-specific - only members can search members in a collective
  */
 export const useCollectiveSearchMembers = (
   collectiveId: string | undefined,
@@ -48,13 +52,14 @@ export const useCollectiveSearchMembers = (
   role?: string,
   options: { enabled?: boolean } = {}
 ) => {
+  const userId = useUserId();
   return useQuery({
-    queryKey: ['collective-search-members', collectiveId, query, role],
+    queryKey: ['collective-search-members', collectiveId, userId, query, role],
     queryFn: () => {
       if (!collectiveId) throw new Error('Collective ID is required');
       return collectiveService.searchCollectiveMembers(collectiveId, query, role);
     },
-    enabled: (options.enabled !== false) && Boolean(collectiveId) && query.length >= 2,
+    enabled: (options.enabled !== false) && Boolean(collectiveId) && Boolean(userId) && query.length >= 2,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 };
