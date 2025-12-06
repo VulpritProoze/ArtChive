@@ -14,7 +14,7 @@ interface SearchDropdownProps {
   onClose: () => void;
   onViewAll?: (type?: string) => void;
   onQuerySelect?: (query: string) => void;
-  inputRef?: React.RefObject<HTMLDivElement>;
+  inputRef?: React.RefObject<HTMLInputElement | HTMLDivElement | null>;
 }
 
 export const SearchDropdown = ({ query, isOpen, onClose, onViewAll, onQuerySelect, inputRef }: SearchDropdownProps) => {

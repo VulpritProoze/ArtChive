@@ -15,7 +15,7 @@ export { GalleryCard } from './cards/gallery-card.card';
 export { GalleryCardMenu } from './cards/gallery-card-menu.component';
 
 // Modals
-export { default as GalleryCreationModal, type GalleryFormData } from './modal/gallery-creation.modal';
+export { GalleryCreationModal, type GalleryFormData } from './modal/gallery-creation.modal';
 export { PublishGalleryModal } from './modal/publish-gallery.modal';
 export { default as GalleryCommentsModal } from './modal/gallery-comments-modal.component';
 export { default as GalleryCommentFormModal } from './modal/gallery-comment-form.modal';

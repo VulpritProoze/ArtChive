@@ -7,7 +7,7 @@ interface SearchResultPostProps {
   query?: string;
 }
 
-export const SearchResultPost = ({ post, query }: SearchResultPostProps) => {
+export const SearchResultPost = ({ post }: SearchResultPostProps) => {
   // Add low quality transformation to post image
   const getLowQualityImage = (url: string | null | undefined): string | undefined => {
     if (!url || !url.includes('cloudinary.com')) {

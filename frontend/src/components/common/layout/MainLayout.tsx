@@ -17,7 +17,6 @@ import {
   Home,
   Images as GalleryIcon,
   Users,
-  User,
   Search,
   MessageCircle,
   Settings,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Clock } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CollectiveListItem } from "@services/collective.service";
 import { collective as collectiveApi } from "@lib/api";

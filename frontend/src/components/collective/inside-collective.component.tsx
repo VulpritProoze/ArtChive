@@ -60,7 +60,6 @@ const CollectiveHome = () => {
   const [heroImageError, setHeroImageError] = useState(false);
   const [isApplyingAsAdmin, setIsApplyingAsAdmin] = useState(false);
   const [isLeavingCollective, setIsLeavingCollective] = useState(false);
-  const [isSearchMode, setIsSearchMode] = useState(false);
   const joinedButtonRef = useRef<HTMLDivElement>(null);
   const hasAutoSelectedChannel = useRef(false);
 

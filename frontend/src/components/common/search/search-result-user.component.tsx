@@ -7,7 +7,7 @@ interface SearchResultUserProps {
   query?: string;
 }
 
-export const SearchResultUser = ({ user, query }: SearchResultUserProps) => {
+export const SearchResultUser = ({ user }: SearchResultUserProps) => {
   return (
     <Link
       to={`/profile/@${user.username}`}

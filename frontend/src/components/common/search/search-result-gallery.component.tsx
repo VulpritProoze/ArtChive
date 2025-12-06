@@ -7,7 +7,7 @@ interface SearchResultGalleryProps {
   query?: string;
 }
 
-export const SearchResultGallery = ({ gallery, query }: SearchResultGalleryProps) => {
+export const SearchResultGallery = ({ gallery }: SearchResultGalleryProps) => {
   // Add low quality transformation to gallery images
   const getLowQualityImage = (url: string | null | undefined): string | undefined => {
     if (!url || !url.includes('cloudinary.com')) {

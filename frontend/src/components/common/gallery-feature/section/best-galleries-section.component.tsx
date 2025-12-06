@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { BestGalleriesCarouselSingle } from './best-galleries-carousel-single.component';
 import { BestGalleriesCarouselMulti } from './best-galleries-carousel-multi.component';
 import type { GalleryListItem } from '@types';

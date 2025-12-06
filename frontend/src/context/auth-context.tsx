@@ -7,7 +7,6 @@ import formatFieldName from '@utils/format-fieldname'
 import handleApiError from '@utils/handle-api-error';
 import formatErrorForToast from '@utils/format-error-for-toast';
 import { loginErrors } from '@errors';
-import { queryClient } from '@providers/query-provider';
 
 type CollectiveMemberType = CollectiveMember[] | null
 
