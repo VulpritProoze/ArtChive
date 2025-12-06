@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { avatarService } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
+import AvatarRenderer from './avatar-renderer.component';
+import type { AvatarOptions } from './avatar-options';
+import { defaultAvatarOptions } from './avatar-options';
 
 interface AvatarDisplayProps {
   userId?: number;
@@ -30,6 +33,15 @@ const iconSizes = {
   '2xl': 'text-4xl',
 };
 
+const sizePixels = {
+  xs: 24,
+  sm: 32,
+  md: 48,
+  lg: 64,
+  xl: 96,
+  '2xl': 128,
+};
+
 /**
  * AvatarDisplay Component
  * Displays user's primary avatar or fallback profile picture
@@ -54,13 +66,23 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
   const primaryAvatar = avatars?.find(avatar => avatar.is_primary);
   const avatarSrc = primaryAvatar?.rendered_image || primaryAvatar?.thumbnail;
 
+  // Extract avatar options from canvas_json if available
+  const avatarOptions: AvatarOptions | null = React.useMemo(() => {
+    if (primaryAvatar?.canvas_json && (primaryAvatar.canvas_json as any).avatarOptions) {
+      return (primaryAvatar.canvas_json as any).avatarOptions as AvatarOptions;
+    }
+    return null;
+  }, [primaryAvatar?.canvas_json]);
+
+  const shouldRenderSVG = !avatarSrc && !fallbackSrc && avatarOptions;
+
   // Determine what to display
   const displaySrc = avatarSrc || fallbackSrc;
 
   return (
     <div className={`avatar ${showRing ? 'avatar-ring' : ''} ${className}`}>
       <div
-        className={`${sizeClasses[size]} rounded-full bg-base-300 ${
+        className={`${sizeClasses[size]} rounded-full bg-base-300 overflow-hidden ${
           showRing ? 'ring ring-primary ring-offset-base-100 ring-offset-2' : ''
         }`}
       >
@@ -70,6 +92,14 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
             alt="Avatar"
             className="w-full h-full object-cover"
           />
+        ) : shouldRenderSVG && avatarOptions ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <AvatarRenderer
+              options={avatarOptions}
+              size={sizePixels[size]}
+              className="w-full h-full"
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center w-full h-full text-base-content/50">
             <FontAwesomeIcon icon={faUser} className={iconSizes[size]} />

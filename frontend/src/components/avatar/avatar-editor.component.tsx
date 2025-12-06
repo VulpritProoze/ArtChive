@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@components/common/layout';
 import { useAvatar, useCreateAvatar, useUpdateAvatar } from '@hooks/queries/use-avatar';
 import type { CreateAvatarData, UpdateAvatarData } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSave, faArrowLeft, faDownload } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';
 import AvatarCustomizer from './avatar-customizer.component';
 import type { AvatarOptions } from './avatar-options';
@@ -29,6 +29,9 @@ const AvatarEditorPage: React.FC = () => {
 
   // Avatar customization options
   const [avatarOptions, setAvatarOptions] = useState<AvatarOptions>(defaultAvatarOptions);
+  
+  // Ref for the avatar SVG to enable download
+  const avatarSvgRef = useRef<SVGSVGElement>(null);
 
   // Canvas data (for backward compatibility with API)
   const [canvasData, setCanvasData] = useState({
@@ -163,6 +166,62 @@ const AvatarEditorPage: React.FC = () => {
     setAvatarOptions(defaultAvatarOptions);
   };
 
+  const handleDownloadSVG = () => {
+    if (!avatarSvgRef.current) return;
+    
+    const svgData = new XMLSerializer().serializeToString(avatarSvgRef.current);
+    const blob = new Blob([svgData], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${name || 'avatar'}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPNG = async () => {
+    if (!avatarSvgRef.current) return;
+    
+    try {
+      const svgData = new XMLSerializer().serializeToString(avatarSvgRef.current);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      canvas.width = 512;
+      canvas.height = 512;
+      
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      img.onload = () => {
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const downloadUrl = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = downloadUrl;
+              link.download = `${name || 'avatar'}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(downloadUrl);
+            }
+          });
+        }
+        URL.revokeObjectURL(url);
+      };
+      
+      img.src = url;
+    } catch (error) {
+      console.error('Error downloading PNG:', error);
+      alert('Failed to download PNG. Please try downloading as SVG instead.');
+    }
+  };
+
   if (isEditMode && isLoading) {
     return (
       <MainLayout>
@@ -176,29 +235,30 @@ const AvatarEditorPage: React.FC = () => {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Simple Header */}
-        <div className="bg-base-200 rounded-xl p-6 mb-6 border border-base-300">
+        {/* Header */}
+        <div className="bg-base-200 rounded-xl p-5 mb-6 border border-base-300 shadow-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleCancel}
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm hover:bg-base-300 transition-all"
+                title="Go back"
               >
                 <FontAwesomeIcon icon={faArrowLeft} />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </button>
               <div>
-                <h1 className="text-3xl font-bold">
+                <h1 className="text-2xl sm:text-3xl font-bold">
                   {isEditMode ? 'Edit Avatar' : 'Create Avatar'}
                 </h1>
-                <p className="text-base-content/60 mt-1">
-                  Customize your avatar
+                <p className="text-sm text-base-content/60 mt-0.5">
+                  {isEditMode ? 'Update your avatar design' : 'Design your unique avatar'}
                 </p>
               </div>
             </div>
             <button
               onClick={handleSave}
-              className="btn btn-primary gap-2"
+              className="btn btn-primary gap-2 shadow-md hover:shadow-lg transition-all"
               disabled={isCreating || isUpdating}
             >
               {(isCreating || isUpdating) ? (
@@ -216,45 +276,67 @@ const AvatarEditorPage: React.FC = () => {
           </div>
         </div>
 
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           {/* Avatar Preview */}
-           <div>
+         {/* Main Layout: Preview Left, Customizer Right */}
+         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+           {/* Left Column: Preview and Form - WIDER NOW */}
+           <div className="xl:col-span-1 space-y-6">
+             {/* Preview Card */}
              <div className="sticky top-6">
                <div className="bg-gradient-to-br from-base-200 to-base-300 rounded-2xl border-2 border-base-300 p-6 shadow-xl">
-                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                   <span className="text-primary">👁️</span>
-                   Live Preview
-                 </h2>
+                 <div className="flex items-center justify-between mb-4">
+                   <h2 className="text-xl font-bold flex items-center gap-2">
+                     <span className="text-primary">👁️</span>
+                     Live Preview
+                   </h2>
+                   {/* Download Button - Better positioned */}
+                   <div className="dropdown dropdown-bottom dropdown-end">
+                     <label tabIndex={0} className="btn btn-sm btn-ghost gap-2 hover:btn-primary transition-all">
+                       <FontAwesomeIcon icon={faDownload} />
+                     </label>
+                     <ul tabIndex={0} className="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-48 border border-base-300 z-50">
+                       <li>
+                         <button onClick={handleDownloadSVG} className="text-sm">
+                           Download as SVG
+                         </button>
+                       </li>
+                       <li>
+                         <button onClick={handleDownloadPNG} className="text-sm">
+                           Download as PNG
+                         </button>
+                       </li>
+                     </ul>
+                   </div>
+                 </div>
                    
-                 {/* Preview Container with better styling */}
-                 <div className="bg-base-100 rounded-2xl p-8 flex items-center justify-center border-2 border-base-300 shadow-inner">
-                   <div className="relative">
-                     <AvatarRenderer 
-                       options={avatarOptions}
-                       size={Math.min(400, typeof window !== 'undefined' ? window.innerWidth - 100 : 400)}
-                       className="rounded-2xl shadow-2xl"
-                     />
-                     <div className="absolute -bottom-3 -right-3 bg-success text-success-content rounded-full w-12 h-12 flex items-center justify-center shadow-lg">
-                       <span className="text-2xl">✓</span>
+                 {/* Preview Container - MUCH LARGER, FULL WIDTH */}
+                 <div className="bg-base-100 rounded-xl p-4 flex items-center justify-center border border-base-300 shadow-inner w-full">
+                   <div className="relative w-full" style={{ aspectRatio: '1 / 1' }}>
+                     <div className="absolute inset-0 flex items-center justify-center transition-transform duration-300 hover:scale-[1.02]">
+                       <AvatarRenderer 
+                         ref={avatarSvgRef}
+                         options={avatarOptions}
+                         size={512}
+                         className="w-full h-full rounded-xl shadow-lg"
+                       />
                      </div>
                    </div>
                  </div>
 
-                 {/* Avatar Details */}
+                 {/* Avatar Details Form - Compact */}
                  <div className="mt-6 space-y-4">
-                   <div className="divider my-4">
-                     <span className="text-sm font-semibold">Avatar Details</span>
+                   <div className="divider my-2">
+                     <span className="text-xs font-semibold">Details</span>
                    </div>
                    
                    <div className="form-control">
-                     <label className="label">
-                       <span className="label-text font-semibold text-base">Name *</span>
-                       <span className="label-text-alt text-xs badge badge-ghost">{name.length}/255</span>
+                     <label className="label py-2">
+                       <span className="label-text text-sm font-semibold">Name *</span>
+                       <span className="label-text-alt text-xs">{name.length}/255</span>
                      </label>
                      <input
                        type="text"
-                       placeholder="My Awesome Avatar"
-                       className="input input-bordered w-full focus:input-primary transition-all"
+                       placeholder="My Avatar"
+                       className="input input-bordered input-sm w-full focus:input-primary transition-all"
                        value={name}
                        onChange={(e) => setName(e.target.value)}
                        maxLength={255}
@@ -262,13 +344,13 @@ const AvatarEditorPage: React.FC = () => {
                    </div>
 
                    <div className="form-control">
-                     <label className="label">
-                       <span className="label-text font-semibold text-base">Description</span>
-                       <span className="label-text-alt text-xs badge badge-ghost">{description.length}/1000</span>
+                     <label className="label py-2">
+                       <span className="label-text text-sm font-semibold">Description</span>
+                       <span className="label-text-alt text-xs">{description.length}/1000</span>
                      </label>
                      <textarea
-                       className="textarea textarea-bordered h-24 focus:textarea-primary transition-all"
-                       placeholder="Describe your avatar's personality or style..."
+                       className="textarea textarea-bordered textarea-sm h-20 focus:textarea-primary transition-all resize-none"
+                       placeholder="Add a description..."
                        value={description}
                        onChange={(e) => setDescription(e.target.value)}
                        maxLength={1000}
@@ -276,11 +358,11 @@ const AvatarEditorPage: React.FC = () => {
                    </div>
 
                    <div className="form-control">
-                     <label className="label">
-                       <span className="label-text font-semibold text-base">Status</span>
+                     <label className="label py-2">
+                       <span className="label-text text-sm font-semibold">Status</span>
                      </label>
                      <select
-                       className="select select-bordered w-full focus:select-primary transition-all"
+                       className="select select-bordered select-sm w-full focus:select-primary transition-all"
                        value={status}
                        onChange={(e) => setStatus(e.target.value as 'draft' | 'active' | 'archived')}
                      >
@@ -294,9 +376,9 @@ const AvatarEditorPage: React.FC = () => {
              </div>
            </div>
 
-           {/* Customization Panel */}
-           <div className="bg-base-200 rounded-2xl border-2 border-base-300 shadow-xl overflow-hidden">
-             <div className="h-[calc(100vh-180px)]">
+           {/* Right Column: Customization Panel */}
+           <div className="xl:col-span-1">
+             <div className="bg-base-200 rounded-2xl border-2 border-base-300 shadow-xl overflow-hidden h-[calc(100vh-160px)]">
                <AvatarCustomizer
                  options={avatarOptions}
                  onChange={setAvatarOptions}

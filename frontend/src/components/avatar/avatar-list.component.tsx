@@ -11,6 +11,9 @@ import {
   faStar,
   faEllipsisV
 } from '@fortawesome/free-solid-svg-icons';
+import AvatarRenderer from './avatar-renderer.component';
+import type { AvatarOptions } from './avatar-options';
+import { defaultAvatarOptions } from './avatar-options';
 
 const AvatarListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -121,14 +124,29 @@ const AvatarListPage: React.FC = () => {
               {avatars.map((avatar) => (
                 <div
                   key={avatar.avatar_id}
-                  className="card bg-base-200 border border-base-300 hover:border-primary transition-all"
+                  className="card bg-base-200 border border-base-300 hover:border-primary transition-all duration-300 group hover:shadow-xl"
                 >
-                  <figure className="px-6 pt-6">
-                    <img
-                      src={avatar.thumbnail || avatar.rendered_image || '/placeholder-avatar.png'}
-                      alt={avatar.name}
-                      className="rounded-lg w-full h-48 object-cover"
-                    />
+                  <figure className="px-6 pt-6 bg-base-100 rounded-lg flex items-center justify-center min-h-[12rem] transition-all duration-300 group-hover:bg-base-200">
+                    {avatar.rendered_image || avatar.thumbnail ? (
+                      <img
+                        src={avatar.thumbnail || avatar.rendered_image}
+                        alt={avatar.name}
+                        className="rounded-lg w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : avatar.canvas_json && (avatar.canvas_json as any).avatarOptions ? (
+                      <div className="w-full h-48 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                        <AvatarRenderer
+                          options={(avatar.canvas_json as any).avatarOptions as AvatarOptions}
+                          size={192}
+                          className="rounded-lg"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-base-content/30 py-8">
+                        <div className="text-6xl mb-2">🎭</div>
+                        <p className="text-sm">No Preview</p>
+                      </div>
+                    )}
                   </figure>
                   <div className="card-body p-4">
                     <div className="flex items-start justify-between gap-2">
