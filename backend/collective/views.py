@@ -23,7 +23,7 @@ from rest_framework.generics import (
     UpdateAPIView,
 )
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -34,13 +34,15 @@ from core.permissions import IsAdminUser, IsCollectiveAdmin, IsCollectiveMember
 from post.models import Post
 
 from .cache_utils import get_collective_memberships_cache_key
-from .models import AdminRequest, Channel, Collective, CollectiveMember
+from .models import AdminRequest, Channel, Collective, CollectiveMember, JoinRequest
 from .pagination import CollectiveDetailsPagination, CollectivePostsPagination
 from .serializers import (
     AcceptAdminRequestSerializer,
+    AcceptJoinRequestSerializer,
     AdminRequestCreateSerializer,
     AdminRequestSerializer,
     BecomeCollectiveAdminSerializer,
+    CancelJoinRequestSerializer,
     ChangeMemberToAdminSerializer,
     ChannelCreateSerializer,
     ChannelDeleteSerializer,
@@ -55,7 +57,8 @@ from .serializers import (
     DemoteAdminSerializer,
     InsideCollectivePostsViewSerializer,
     InsideCollectiveViewSerializer,
-    JoinCollectiveSerializer,
+    JoinRequestCreateSerializer,
+    JoinRequestSerializer,
     KickMemberSerializer,
     LeaveCollectiveSerializer,
     PromoteMemberSerializer,
@@ -76,7 +79,7 @@ class CollectiveDetailsView(ListAPIView):
             ),
             'collective_member',
             'collective_member__member__user_wallet',
-        ).all()
+        ).order_by('-created_at')
 
 class CollectiveCreateView(APIView):
     """
@@ -305,27 +308,38 @@ class InsideCollectivePostsView(ListAPIView):
         return queryset
 
 class JoinCollectiveView(APIView):
+    """
+    DEPRECATED: Use JoinRequestCreateView instead.
+    This endpoint now creates a join request instead of directly joining.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = JoinCollectiveSerializer(data=request.data, context={'request': request})
+        # Redirect to join request creation
+        collective_id = request.data.get('collective_id')
+        if not collective_id:
+            return Response(
+                {'error': 'collective_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # Create join request (requires rules_accepted)
+        data = {
+            'collective_id': collective_id,
+            'rules_accepted': request.data.get('rules_accepted', False),
+            'message': request.data.get('message', '')
+        }
+
+        serializer = JoinRequestCreateSerializer(data=data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        member = serializer.save()
-        username = request.user.username
-        
-        # Invalidate user calculations (collective membership changed)
-        from post.ranking import invalidate_user_calculations
-        invalidate_user_calculations(request.user.id)
+        join_request = serializer.save()
+
+        response_serializer = JoinRequestSerializer(join_request)
 
         return Response({
-            'message': f'{username} has successfully joined this collective',
-            'collective_id': str(member.collective_id),
-        }, status=status.HTTP_200_OK)
-
-'''
- Simple implementation (will have to change to sending request, and then admin on other side will accept)
- '''
+            'message': 'Join request submitted successfully. Waiting for admin approval.',
+            'request': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
 class BecomeCollectiveAdminView(APIView):
     permission_classes = [IsAuthenticated, IsCollectiveMember]
 
@@ -418,7 +432,7 @@ class LeaveCollectiveView(APIView):
             member=request.user,
             collective_id=collective.collective_id
         ).delete()
-        
+
         # Invalidate user calculations (collective membership changed)
         from post.ranking import invalidate_user_calculations
         invalidate_user_calculations(request.user.id)
@@ -699,6 +713,255 @@ class AcceptAdminRequestView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+# ============================================================================
+# JOIN REQUEST VIEWS
+# ============================================================================
+
+class JoinRequestCreateView(APIView):
+    """
+    Create a join request for a collective.
+    POST /api/collective/<collective_id>/join/request/
+    Body: { "rules_accepted": true, "message": "optional message" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, collective_id):
+        data = {
+            'collective_id': collective_id,
+            'rules_accepted': request.data.get('rules_accepted', False),
+            'message': request.data.get('message', '')
+        }
+
+        serializer = JoinRequestCreateSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        join_request = serializer.save()
+
+        # Return the created request
+        response_serializer = JoinRequestSerializer(join_request)
+
+        return Response({
+            'message': 'Join request submitted successfully.',
+            'request': response_serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+
+class JoinRequestListView(ListAPIView):
+    """
+    List all pending join requests for a collective (admin only).
+    GET /api/collective/<collective_id>/join/requests/
+    """
+    serializer_class = JoinRequestSerializer
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def get_queryset(self):
+        collective_id = self.kwargs['collective_id']
+        status_filter = self.request.query_params.get('status', 'pending')
+
+        queryset = JoinRequest.objects.filter(
+            collective_id=collective_id
+        ).select_related('requester', 'collective', 'reviewed_by')
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        return queryset.order_by('-created_at')
+
+
+class AcceptJoinRequestView(APIView):
+    """
+    Accept or reject a join request (admin only).
+    POST /api/collective/join/requests/<request_id>/process/
+    Body: { "action": "approve" | "reject" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        data = {
+            'request_id': request_id,
+            'action': request.data.get('action')
+        }
+
+        serializer = AcceptJoinRequestSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        join_request = serializer.save()
+
+        response_serializer = JoinRequestSerializer(join_request)
+
+        action = data['action']
+        message = f'Join request has been {action}d successfully.'
+
+        return Response({
+            'message': message,
+            'request': response_serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class CancelJoinRequestView(APIView):
+    """
+    Cancel a pending join request (requester only).
+    DELETE /api/collective/join/requests/<request_id>/cancel/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, request_id):
+        data = {'request_id': request_id}
+
+        serializer = CancelJoinRequestSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            'message': 'Join request has been cancelled successfully.'
+        }, status=status.HTTP_200_OK)
+
+
+class MyJoinRequestsView(ListAPIView):
+    """
+    List all join requests made by the current user.
+    GET /api/collective/join/requests/me/
+    """
+    serializer_class = JoinRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        status_filter = self.request.query_params.get('status', None)
+
+        queryset = JoinRequest.objects.filter(
+            requester=user
+        ).select_related('requester', 'collective', 'reviewed_by')
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        return queryset.order_by('-created_at')
+
+
+class BulkPendingJoinRequestsView(APIView):
+    """
+    Get pending join requests for multiple collectives (for current user).
+    POST /api/collective/join/requests/bulk/
+    Body: { "collective_ids": ["uuid1", "uuid2", ...] }
+    Returns: { "collective_id_1": "request_id", "collective_id_2": "request_id", ... }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        collective_ids = request.data.get("collective_ids", [])
+        if not isinstance(collective_ids, list):
+            return Response(
+                {"error": "collective_ids must be a list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Filter for valid UUIDs
+        valid_collective_ids = []
+        for cid in collective_ids:
+            if isinstance(cid, str) and len(cid) == 36:
+                try:
+                    uuid.UUID(cid)
+                    valid_collective_ids.append(cid)
+                except ValueError:
+                    continue
+
+        if not valid_collective_ids:
+            return Response({}, status=status.HTTP_200_OK)
+
+        # Fetch pending join requests for the current user and the given collectives
+        pending_requests = JoinRequest.objects.filter(
+            requester=request.user,
+            collective_id__in=valid_collective_ids,
+            status="pending"
+        ).select_related('collective')
+
+        # Build response: collective_id -> request_id mapping
+        result = {}
+        for request_obj in pending_requests:
+            result[str(request_obj.collective.collective_id)] = str(request_obj.request_id)
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class CollectiveRequestCountsView(APIView):
+    """
+    Get counts of pending join requests and admin requests for a collective (admin only).
+    GET /api/collective/<collective_id>/requests/counts/
+    Returns: { "join_requests_count": 5, "admin_requests_count": 2 }
+    """
+    permission_classes = [IsAuthenticated, IsCollectiveAdmin]
+
+    def get(self, request, collective_id):
+        # Count pending join requests
+        join_requests_count = JoinRequest.objects.filter(
+            collective_id=collective_id,
+            status="pending"
+        ).count()
+
+        # Count pending admin requests
+        admin_requests_count = AdminRequest.objects.filter(
+            collective_id=collective_id,
+            status="pending"
+        ).count()
+
+        return Response({
+            "join_requests_count": join_requests_count,
+            "admin_requests_count": admin_requests_count,
+            "total_pending_requests": join_requests_count + admin_requests_count,
+        }, status=status.HTTP_200_OK)
+
+
+class UserCollectivesView(APIView):
+    """
+    Get collectives that a user is a member of (public endpoint).
+    GET /api/collective/user/<user_id>/collectives/
+    Returns: List of collectives with basic details
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request, user_id):
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Invalid user ID"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get all collectives the user is a member of
+        # Use prefetch_related to get member counts efficiently
+        memberships = CollectiveMember.objects.filter(
+            member_id=user_id_int
+        ).select_related('collective_id').prefetch_related(
+            'collective_id__collective_member'
+        ).order_by('-created_at')
+
+        collectives = []
+        for membership in memberships:
+            # Get member count from prefetched data
+            member_count = len(membership.collective_id.collective_member.all())
+
+            # Get picture URL - ImageField has .url property for the URL string
+            picture_url = None
+            if membership.collective_id.picture:
+                try:
+                    picture_url = membership.collective_id.picture.url
+                except (ValueError, AttributeError):
+                    # If .url fails, try converting to string
+                    picture_url = str(membership.collective_id.picture)
+
+            collectives.append({
+                'collective_id': str(membership.collective_id.collective_id),
+                'title': str(membership.collective_id.title),
+                'picture': picture_url,
+                'description': str(membership.collective_id.description) if membership.collective_id.description else '',
+                'member_count': member_count,
+                'collective_role': str(membership.collective_role),
+                'created_at': membership.created_at.isoformat(),
+            })
+
+        return Response(collectives, status=status.HTTP_200_OK)
+
+
 @extend_schema(
     tags=["Collectives"],
     description="Search collectives by title or ID (case-insensitive, partial matches)",
@@ -796,12 +1059,6 @@ class CollectiveDashboardView(UserPassesTestMixin, TemplateView):
 # ============================================================================
 # Admin Dashboard Statistics API Views
 # ============================================================================
-
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    OpenApiResponse,
-    extend_schema,
-)
 
 
 @extend_schema(

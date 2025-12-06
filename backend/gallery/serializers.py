@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
-from core.models import Artist
+from core.models import Artist, BrushDripWallet
 from post.models import Comment
 
-from .models import Gallery
+from .models import Gallery, GalleryAward, AwardType
 
 
 class GallerySerializer(ModelSerializer):
@@ -92,24 +92,8 @@ class GallerySerializer(ModelSerializer):
         return value
 
 
-class CreatorDetailSerializer(serializers.Serializer):
-    """Nested serializer for creator details in gallery list"""
-    id = serializers.IntegerField()
-    username = serializers.CharField()
-    first_name = serializers.CharField()
-    middle_name = serializers.CharField(allow_null=True)
-    last_name = serializers.CharField()
-    profile_picture = serializers.ImageField()
-    artist_types = serializers.ListField(
-        child=serializers.CharField(),
-        allow_null=True,
-        required=False
-    )
-    brush_drips_count = serializers.IntegerField()
-
-
-class GalleryListSerializer(ModelSerializer):
-    """Serializer for gallery list view with creator details"""
+class GalleryPublicSerializer(ModelSerializer):
+    """Serializer for public gallery endpoint - excludes canvas_json, includes creator details and reputation"""
     creator_details = serializers.SerializerMethodField()
 
     class Meta:
@@ -125,6 +109,83 @@ class GalleryListSerializer(ModelSerializer):
             'created_at',
             'updated_at',
             'creator_details',
+        ]
+        read_only_fields = ['gallery_id', 'created_at', 'updated_at']
+
+    def get_creator_details(self, obj):
+        """Get creator details including artist types, brush drips count, and reputation"""
+        creator = obj.creator
+
+        # Get artist types if artist profile exists
+        artist_types = []
+        try:
+            artist = getattr(creator, 'artist', None)
+            if artist and artist.artist_types:
+                artist_types = artist.artist_types
+        except AttributeError:
+            artist_types = []
+
+        # Get brush drips balance (count)
+        brush_drips_count = 0
+        try:
+            wallet = getattr(creator, 'user_wallet', None)
+            if wallet:
+                brush_drips_count = wallet.balance
+        except AttributeError:
+            brush_drips_count = 0
+
+        # Get reputation
+        reputation = getattr(creator, 'reputation', 0)
+
+        return {
+            'id': creator.id,
+            'username': creator.username,
+            'first_name': creator.first_name or '',
+            'middle_name': creator.middle_name or None,
+            'last_name': creator.last_name or '',
+            'profile_picture': creator.profile_picture.url if creator.profile_picture else None,
+            'artist_types': artist_types,
+            'brush_drips_count': brush_drips_count,
+            'reputation': reputation,
+        }
+
+
+class CreatorDetailSerializer(serializers.Serializer):
+    """Nested serializer for creator details in gallery list"""
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    first_name = serializers.CharField()
+    middle_name = serializers.CharField(allow_null=True)
+    last_name = serializers.CharField()
+    profile_picture = serializers.ImageField()
+    artist_types = serializers.ListField(
+        child=serializers.CharField(),
+        allow_null=True,
+        required=False
+    )
+    brush_drips_count = serializers.IntegerField()
+    reputation = serializers.IntegerField()
+
+
+class GalleryListSerializer(ModelSerializer):
+    """Serializer for gallery list view with creator details"""
+    creator_details = serializers.SerializerMethodField()
+    awards = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Gallery
+        fields = [
+            'gallery_id',
+            'title',
+            'description',
+            'status',
+            'picture',
+            'canvas_width',
+            'canvas_height',
+            'created_at',
+            'updated_at',
+            'creator_details',
+            'awards',
         ]
         read_only_fields = ['gallery_id', 'created_at', 'updated_at']
 
@@ -159,7 +220,23 @@ class GalleryListSerializer(ModelSerializer):
             'profile_picture': creator.profile_picture.url if creator.profile_picture else None,
             'artist_types': artist_types,
             'brush_drips_count': brush_drips_count,
+            'reputation': getattr(creator, 'reputation', 0),
         }
+
+    def get_awards(self, obj):
+        """Get unique award types for this gallery"""
+        # Get awards using prefetch_related if available
+        try:
+            awards = obj.gallery_award.filter(is_deleted=False).select_related('gallery_award_type')
+            award_types = {}
+            for award in awards:
+                award_type = award.gallery_award_type.award
+                if award_type not in award_types:
+                    award_types[award_type] = 0
+                award_types[award_type] += 1
+            return award_types
+        except AttributeError:
+            return {}
 
 
 # ============================================================================

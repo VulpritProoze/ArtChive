@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .award_views import (
+    GalleryAwardCreateView,
+    GalleryAwardDeleteView,
+    GalleryAwardListView,
+    GalleryAwardsBulkView,
+)
 from .views import (
     GalleryCommentCreateView,
     GalleryCommentDeleteView,
@@ -14,10 +20,12 @@ from .views import (
     GalleryActiveView,
     GalleryHasActiveView,
     GalleryDetailView,
+    GalleryPublicDetailView,
     GalleryListCreateView,
     GalleryListView,
     GalleryStatusUpdateView,
     GalleryUserListView,
+    GlobalTopGalleriesView,
     MediaUploadView,
 )
 
@@ -25,7 +33,9 @@ urlpatterns = [
     # Gallery CRUD
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
     path('list/', GalleryListView.as_view(), name='gallery-list'),
+    path('top/', GlobalTopGalleriesView.as_view(), name='global-top-galleries'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
+    path('<uuid:gallery_id>/public/', GalleryPublicDetailView.as_view(), name='gallery-public-detail'),
     path('<uuid:gallery_id>/status/', GalleryStatusUpdateView.as_view(), name='gallery-status-update'),
     path('user/<int:user_id>/active/', GalleryActiveView.as_view(), name='gallery-active-by-user'),
     path('user/<int:user_id>/has-active/', GalleryHasActiveView.as_view(), name='gallery-has-active-by-user'),
@@ -43,6 +53,12 @@ urlpatterns = [
     path('comment/reply/create/', GalleryCommentReplyCreateView.as_view(), name='gallery-comment-reply-create'),
     path('comment/<uuid:comment_id>/replies/', GalleryCommentsReplyDetailView.as_view(), name='gallery-comment-replies'),
     path('comments/', GalleryCommentListView.as_view(), name='gallery-comment-list'),
+    
+    # Gallery Awards
+    path('award/create/', GalleryAwardCreateView.as_view(), name='gallery-award-create'),
+    path('award/<int:award_id>/delete/', GalleryAwardDeleteView.as_view(), name='gallery-award-delete'),
+    path('<uuid:gallery_id>/awards/', GalleryAwardListView.as_view(), name='gallery-award-list'),
+    path('awards/bulk/', GalleryAwardsBulkView.as_view(), name='gallery-awards-bulk'),
     
     # Dashboard API endpoints
     path(

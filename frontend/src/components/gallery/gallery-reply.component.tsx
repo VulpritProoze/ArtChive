@@ -4,12 +4,11 @@ import { Link } from "react-router-dom";
 import type { Comment } from "@types";
 import formatArtistTypesArrToString from "@utils/format-artisttypes-arr-to-string";
 import { useAuth } from "@context/auth-context";
+import { usePostUI } from "@context/post-ui-context";
 import { useGalleryCommentReplies } from "@hooks/queries/use-gallery-comments";
 import {
   useCreateGalleryCommentReply,
   useDeleteGalleryComment,
-  useUpdateGalleryComment,
-  useUpdateGalleryCommentReply,
 } from "@hooks/mutations/use-gallery-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
@@ -32,6 +31,12 @@ const GalleryReplyComponent: React.FC<GalleryReplyComponentProps> = ({
   onEditComment,
 }) => {
   const { user } = useAuth();
+  const {
+    setSelectedComment,
+    setCommentTargetGalleryId,
+    setEditingComment,
+    setShowCommentForm,
+  } = usePostUI();
   const [localReplyText, setLocalReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(comment.is_replying ?? false);
   const [showReplies, setShowReplies] = useState(depth > 0 ? true : Boolean(comment.show_replies));
@@ -147,9 +152,10 @@ const GalleryReplyComponent: React.FC<GalleryReplyComponentProps> = ({
   };
 
   const handleEdit = () => {
-    if (onEditComment) {
-      onEditComment(comment);
-    }
+    setSelectedComment(comment);
+    setCommentTargetGalleryId(galleryId);
+    setEditingComment(true);
+    setShowCommentForm(true);
   };
 
   return (
@@ -182,7 +188,7 @@ const GalleryReplyComponent: React.FC<GalleryReplyComponentProps> = ({
             <div className="flex-1">
               <div
                 ref={userInfoRef}
-                className="relative"
+                className="relative -m-2 p-2"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               >

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@components/common/layout';
 import { useAvatar, useCreateAvatar, useUpdateAvatar } from '@hooks/queries/use-avatar';
-import { CreateAvatarData, UpdateAvatarData } from '@services/avatar.service';
+import type { CreateAvatarData, UpdateAvatarData } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';
 import AvatarCustomizer from './avatar-customizer.component';
-import { AvatarOptions, defaultAvatarOptions, skinTones, hairColors, clothingStyles } from './avatar-options';
+import type { AvatarOptions } from './avatar-options';
+import { defaultAvatarOptions, skinTones, hairColors, clothingStyles } from './avatar-options';
 
 const AvatarEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -45,10 +46,17 @@ const AvatarEditorPage: React.FC = () => {
       setDescription(avatar.description || '');
       setStatus(avatar.status);
       if (avatar.canvas_json) {
-        setCanvasData(avatar.canvas_json);
+        const canvasJson = avatar.canvas_json as any;
+        setCanvasData({
+          width: canvasJson.width || 512,
+          height: canvasJson.height || 512,
+          background: canvasJson.background || defaultAvatarOptions.background,
+          objects: canvasJson.objects || [],
+          avatarOptions: canvasJson.avatarOptions || defaultAvatarOptions,
+        });
         // Load avatar options if they exist
-        if ((avatar.canvas_json as any).avatarOptions) {
-          setAvatarOptions((avatar.canvas_json as any).avatarOptions);
+        if (canvasJson.avatarOptions) {
+          setAvatarOptions(canvasJson.avatarOptions);
         }
       }
     }

@@ -60,7 +60,7 @@ export default function Index() {
 
     return (
         <>
-            <MainLayout>
+            <MainLayout showRightSidebar={false}>
                 {loading ? (
                     <LoadingSpinner text={"Your hard-earned brush drips is currently loading... "} />
                 ) : (

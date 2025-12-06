@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .reputation_views import (
+    MyLeaderboardPositionView,
+    ReputationLeaderboardView,
+    UserReputationHistoryView,
+    UserReputationView,
+)
 from .views import (
     ArtistCountsAPIView,
     ArtistGrowthAPIView,
@@ -10,7 +16,9 @@ from .views import (
     UserCountsAPIView,
     UserGrowthAPIView,
     AcceptFriendRequestView,
+    ActiveFellowsListView,
     BlockUserView,
+    DebugPresenceView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
     BrushDripTransactionDetailView,
@@ -152,6 +160,16 @@ urlpatterns = [
         name="fellows-list",
     ),
     path(
+        "fellows/active/",
+        ActiveFellowsListView.as_view(),
+        name="active-fellows-list",
+    ),
+    path(
+        "debug/presence/",
+        DebugPresenceView.as_view(),
+        name="debug-presence",
+    ),
+    path(
         "user/<int:user_id>/fellows/",
         UserFellowsListView.as_view(),
         name="user-fellows-list",
@@ -216,5 +234,26 @@ urlpatterns = [
         "dashboard/core/transactions/volume/",
         TransactionVolumeAPIView.as_view(),
         name="dashboard-core-transactions-volume",
+    ),
+    # Reputation endpoints
+    path(
+        "users/<int:pk>/reputation/",
+        UserReputationView.as_view(),
+        name="user-reputation",
+    ),
+    path(
+        "users/<int:user_id>/reputation/history/",
+        UserReputationHistoryView.as_view(),
+        name="user-reputation-history",
+    ),
+    path(
+        "reputation/leaderboard/",
+        ReputationLeaderboardView.as_view(),
+        name="reputation-leaderboard",
+    ),
+    path(
+        "reputation/leaderboard/me/",
+        MyLeaderboardPositionView.as_view(),
+        name="my-leaderboard-position",
     ),
 ]

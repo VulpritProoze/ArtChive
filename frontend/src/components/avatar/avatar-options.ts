@@ -175,7 +175,7 @@ export const AVATAR_OPTIONS = {
   hairColor: Object.keys(hairColors).map(key => ({ value: key, label: key.charAt(0).toUpperCase() + key.slice(1) })),
   facialHair: Object.keys(facialHairStyles).map(key => ({ value: key, label: key.charAt(0).toUpperCase() + key.slice(1) })),
   accessories: Object.keys(accessories).map(key => ({ value: key, label: key.charAt(0).toUpperCase() + key.slice(1) })),
-  clothing: Object.keys(clothingStyles).map(key => ({ value: key, label: clothingStyles[key as keyof typeof clothingStyles].label })),
+  clothing: Object.keys(clothingStyles).map(key => ({ value: key, label: clothingStyles[key as keyof typeof clothingStyles].description })),
   background: [],
 };
 

@@ -3,13 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 interface CritiqueFormState {
   text: string;
   impression: string;
-  post_id: string;
+  post_id?: string;
+  gallery_id?: string;
 }
 
 const buildInitialForm = (initial?: Partial<CritiqueFormState>): CritiqueFormState => ({
   text: '',
   impression: 'positive',
   post_id: '',
+  gallery_id: '',
   ...initial,
 });
 

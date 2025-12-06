@@ -969,7 +969,10 @@ class PostHeartsListView(ListAPIView):
 
 class CritiqueListView(ListAPIView):
     """
-    List all critiques for a specific post
+    List all critiques for a specific post or gallery
+    Supports both:
+    - GET /api/post/<post_id>/critiques/ (for posts)
+    - GET /api/post/critique/list/?gallery_id=<gallery_id> (for galleries, via query param)
     """
 
     serializer_class = CritiqueSerializer
@@ -977,36 +980,55 @@ class CritiqueListView(ListAPIView):
     pagination_class = CritiquePagination
 
     def get_queryset(self):
-        post_id = self.kwargs["post_id"]
+        # Check if post_id is in URL kwargs (for post critiques)
+        post_id = self.kwargs.get("post_id")
+        # Check if gallery_id is in query params (for gallery critiques)
+        gallery_id = self.request.query_params.get("gallery_id")
+
+        queryset = Critique.objects.get_active_objects()
+
+        if post_id:
+            # Filter by post_id
+            queryset = queryset.filter(post_id=post_id)
+        elif gallery_id:
+            # Filter by gallery_id
+            queryset = queryset.filter(gallery_id=gallery_id)
+        else:
+            # No filter provided, return empty queryset
+            return Critique.objects.none()
+
         return (
-            Critique.objects.get_active_objects()
-            .filter(post_id=post_id)
+            queryset
             .annotate(
                 reply_count=Count(
                     "critique_reply", filter=Q(critique_reply__is_deleted=False)
                 )
             )
-            .select_related("author", "post_id")
+            .select_related("author", "post_id", "gallery_id")
             .order_by("-created_at")
         )
 
 
 class CritiqueCreateView(APIView):
     """
-    Create a new critique for a post (costs 1 Brush Drip)
+    Create a new critique for a post or gallery (costs 3 Brush Drips)
     POST /api/posts/critique/create/
 
     Body: {
         "text": "<text>",
         "impression": "positive" | "negative" | "neutral",
-        "post_id": "<uuid>"
+        "post_id": "<uuid>" (optional, if critiquing a post)
+        "gallery_id": "<uuid>" (optional, if critiquing a gallery)
     }
 
+    Note: Either post_id OR gallery_id must be provided, but not both.
+
     This endpoint:
-    1. Validates user has 1 Brush Drip
+    1. Validates user has 3 Brush Drips
     2. Creates Critique record
-    3. Deducts 1 Brush Drip from user (no refund on deletion)
+    3. Deducts 3 Brush Drips from user (no refund on deletion)
     4. Creates transaction record
+    5. Sends notification to post author or gallery creator
 
     All operations are atomic (either all succeed or all fail)
     """
@@ -1021,7 +1043,8 @@ class CritiqueCreateView(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = request.user
-        post = serializer.validated_data["post_id"]
+        post = serializer.validated_data.get("post_id")
+        gallery = serializer.validated_data.get("gallery_id")
         text = serializer.validated_data["text"]
         impression = serializer.validated_data["impression"]
 
@@ -1039,31 +1062,40 @@ class CritiqueCreateView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Deduct 1 Brush Drip from user (no transfer to post author)
+                # Deduct 3 Brush Drips from user (no transfer to recipient)
                 user_wallet.balance -= 3
                 user_wallet.save()
 
                 # Create Critique
                 critique = Critique.objects.create(
                     post_id=post,
+                    gallery_id=gallery,
                     author=user,
                     text=text,
                     impression=impression,
                 )
 
-                # Create transaction record (transacted_to is None for critiques)
+                # Determine recipient for notification and transaction
+                recipient = None
+                transaction_type = "critique"
+                if post:
+                    recipient = post.author
+                elif gallery:
+                    recipient = gallery.creator
+                    transaction_type = "gallery_critique"
+
+                # Create transaction record (transacted_to is recipient for reputation)
                 BrushDripTransaction.objects.create(
-                    amount=1,
-                    transaction_object_type="critique",
+                    amount=3,
+                    transaction_object_type=transaction_type,
                     transaction_object_id=str(critique.critique_id),
                     transacted_by=user,
-                    transacted_to=None,  # No transfer, just deduction
+                    transacted_to=recipient,  # Recipient gets reputation, not BD
                 )
 
-                # Send notification to post author
-                if post:
-                    post_author = post.author
-                    create_critique_notification(critique, post_author)
+                # Send notification to recipient
+                if recipient:
+                    create_critique_notification(critique, recipient)
 
             # Return serialized response
             response_serializer = CritiqueSerializer(
@@ -2517,5 +2549,119 @@ class NovelCountsAPIView(APIView):
         cache.set(cache_key, data, 300)
 
         return Response(data)
+
+
+class GlobalTopPostsView(APIView):
+    """
+    Fetch cached global top posts.
+    GET /api/posts/top/?limit=25&post_type=image
+    
+    Query Parameters:
+        limit: Number of posts to return (5, 10, 25, 50, 100). Default: 25
+        post_type: Optional filter by post type (default, novel, image, video)
+    
+    Returns:
+        List of top posts in ranked order
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request):
+        # Get limit from query params, default to 25
+        limit = request.query_params.get('limit', '25')
+        post_type = request.query_params.get('post_type', None)
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 25
+
+        # Validate limit (only allow specific values)
+        valid_limits = [5, 10, 25, 50, 100]
+        if limit not in valid_limits:
+            limit = 25  # Default to 25 if invalid
+
+        # Validate post_type if provided
+        if post_type:
+            from common.utils.choices import POST_TYPE_CHOICES
+            valid_types = [choice[0] for choice in POST_TYPE_CHOICES]
+            if post_type not in valid_types:
+                return Response(
+                    {'error': f'Invalid post_type. Valid types: {", ".join(valid_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Try to get from cache
+        from post.algorithm import get_cached_top_posts
+        cached_posts = get_cached_top_posts(limit=limit, post_type=post_type)
+
+        if cached_posts is None:
+            # For testing: return 404 if cache is not available
+            # In production, you might want to fallback to most hearted posts
+            return Response(
+                {
+                    'error': 'Top posts cache not available. Please run: python manage.py generate_top_posts'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'results': cached_posts[:limit],
+            'count': len(cached_posts[:limit]),
+            'limit': limit,
+            'post_type': post_type
+        }, status=status.HTTP_200_OK)
+
+
+class GenerateTopPostsView(APIView):
+    """
+    Manually trigger generation of top posts cache.
+    POST /api/posts/top/generate/?limit=100&post_type=image
+    
+    Query Parameters:
+        limit: Number of posts to generate (default: 100, max: 100)
+        post_type: Optional filter by post type (default, novel, image, video)
+    
+    Note: This endpoint can be called to refresh the cache manually.
+    """
+    permission_classes = [IsAuthenticated]  # Require authentication
+
+    def post(self, request):
+        # Get limit from query params
+        limit = request.query_params.get('limit', '100')
+        post_type = request.query_params.get('post_type', None)
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 100
+
+        # Cap at 100
+        limit = min(limit, 100)
+
+        # Validate post_type if provided
+        if post_type:
+            from common.utils.choices import POST_TYPE_CHOICES
+            valid_types = [choice[0] for choice in POST_TYPE_CHOICES]
+            if post_type not in valid_types:
+                return Response(
+                    {'error': f'Invalid post_type. Valid types: {", ".join(valid_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            from post.algorithm import generate_top_posts_cache
+            posts_data = generate_top_posts_cache(limit=limit, post_type=post_type)
+
+            return Response({
+                'message': f'Successfully generated {len(posts_data)} top posts',
+                'count': len(posts_data),
+                'limit': limit,
+                'post_type': post_type
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate top posts: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 

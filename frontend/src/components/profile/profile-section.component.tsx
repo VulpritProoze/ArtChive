@@ -30,7 +30,7 @@ const ProfileComponent: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [hasActiveGallery, setHasActiveGallery] = useState<boolean | null>(null);
-  const [isCheckingGallery, setIsCheckingGallery] = useState(false);
+  const [_isCheckingGallery, setIsCheckingGallery] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { user, refreshUser } = useAuth();

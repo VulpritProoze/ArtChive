@@ -7,11 +7,14 @@ import { useAuth } from './auth-context';
 import { useWebSocket } from '../hooks/use-websocket';
 import { NotificationHandler } from './handlers/notification-handler';
 import { FriendRequestHandler } from './handlers/friend-request-handler';
+import { PresenceHandler } from './handlers/presence-handler';
 import type { RealtimeMessage } from '@/types/realtime';
 
-// Extend NotificationContextType to include realtime connection status
+// Extend NotificationContextType to include realtime connection status and active fellows
 interface RealtimeContextType extends NotificationContextType {
   // Connection status is already in NotificationContextType as isConnected
+  activeFellows: number[]; // Array of active fellow user IDs
+  isFellowActive: (userId: number) => boolean;
 }
 
 const RealtimeContext = createContext<RealtimeContextType | undefined>(undefined);
@@ -21,10 +24,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activeFellows, setActiveFellows] = useState<number[]>([]);
   
   // Initialize handlers
   const notificationHandlerRef = useRef<NotificationHandler | null>(null);
   const friendRequestHandlerRef = useRef<FriendRequestHandler | null>(null);
+  const presenceHandlerRef = useRef<PresenceHandler | null>(null);
 
   // Initialize handlers once
   if (!notificationHandlerRef.current) {
@@ -32,6 +37,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   }
   if (!friendRequestHandlerRef.current) {
     friendRequestHandlerRef.current = new FriendRequestHandler(queryClient);
+  }
+  if (!presenceHandlerRef.current) {
+    presenceHandlerRef.current = new PresenceHandler(setActiveFellows);
   }
 
   const isAuthenticated = !!user;
@@ -103,6 +111,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         notificationHandlerRef.current?.handleMessage(data);
       } else if (data.type === 'friend_request_update') {
         friendRequestHandlerRef.current?.handleMessage(data);
+      } else if (data.type === 'presence_update') {
+        // Handle presence updates via WebSocket
+        console.log('[RealtimeContext] Received presence_update message:', data);
+        presenceHandlerRef.current?.handleMessage(data);
       }
     } catch (error) {
       console.error('Failed to parse WebSocket message:', error);
@@ -153,6 +165,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       disconnectWebSocket();
       setNotifications([]);
       setUnreadCount(0);
+      presenceHandlerRef.current?.clear();
     }
 
     return () => {
@@ -176,6 +189,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, user, connectWebSocket]);
 
+  const isFellowActive = useCallback((userId: number): boolean => {
+    return presenceHandlerRef.current?.isUserActive(userId) ?? false;
+  }, []);
+
   const value: RealtimeContextType = {
     notifications,
     unreadCount,
@@ -187,6 +204,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     fetchUnreadCount,
     connectWebSocket,
     disconnectWebSocket,
+    activeFellows,
+    isFellowActive,
   };
 
   return (

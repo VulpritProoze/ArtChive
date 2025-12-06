@@ -59,7 +59,7 @@ export default function PostHeader({
       >
         <div
           ref={userInfoRef}
-          className="relative flex items-center gap-3"
+          className="relative flex items-center gap-3 -m-2 p-2"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >

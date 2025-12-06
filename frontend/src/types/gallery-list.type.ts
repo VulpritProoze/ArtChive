@@ -9,6 +9,7 @@ export interface CreatorDetails {
   profile_picture: string | null;
   artist_types: string[];
   brush_drips_count: number;
+  reputation: number;
 }
 
 export interface GalleryListItem {
@@ -22,6 +23,9 @@ export interface GalleryListItem {
   created_at: string;
   updated_at: string;
   creator_details: CreatorDetails;
+  awards?: {
+    [key: string]: number; // award_type: count (e.g., "bronze_stroke": 2)
+  };
 }
 
 export interface PaginatedGalleryListResponse {

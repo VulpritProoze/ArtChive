@@ -132,6 +132,7 @@ class NotificationNotifierAdmin(ModelAdmin):
             'post_praise': NOTIFICATION_TYPES.post_praise,
             'post_trophy': NOTIFICATION_TYPES.post_trophy,
             'gallery_comment': NOTIFICATION_TYPES.gallery_comment,
+            'gallery_award': NOTIFICATION_TYPES.gallery_award,
         }
 
         return type_mapping.get(stored_value, obj.notification_id.notification_object_type)
@@ -171,6 +172,10 @@ class NotificationNotifierAdmin(ModelAdmin):
                     gallery_id, comment_id = object_id.split(':', 1)
                     url = reverse('admin:post_comment_change', args=[comment_id])
                     return format_html('<a href="{}">{}</a>', url, object_id)
+            elif object_type == 'gallery_award':
+                # Format: "galleryId"
+                url = reverse('admin:gallery_gallery_change', args=[object_id])
+                return format_html('<a href="{}">{}</a>', url, object_id)
         except Exception:
             # If reverse fails or object doesn't exist, just return the ID
             pass

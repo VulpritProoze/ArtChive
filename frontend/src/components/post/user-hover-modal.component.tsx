@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useUserSummary } from '@hooks/queries/use-user-summary';
+import { formatNumber } from '@utils/format-number.util';
 
 interface UserHoverModalProps {
   userId: number;
@@ -77,13 +79,36 @@ export default function UserHoverModal({
             <div className="border-t border-base-300 pt-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-primary"></div>
-                  <div>
-                    <p className="text-xs text-base-content/60">Brush Drips</p>
-                    <p className="text-sm font-semibold text-base-content">
-                      {userSummary.brushdrips_count || 0}
-                    </p>
-                  </div>
+                  {(() => {
+                    const reputation = userSummary.reputation ?? 0;
+                    const isPositive = reputation > 0;
+                    const isNegative = reputation < 0;
+                    return (
+                      <>
+                        {isPositive ? (
+                          <ArrowUp className="w-4 h-4 text-success flex-shrink-0" />
+                        ) : isNegative ? (
+                          <ArrowDown className="w-4 h-4 text-error flex-shrink-0" />
+                        ) : (
+                          <div className="w-4 h-4"></div>
+                        )}
+                        <div>
+                          <p className="text-xs text-base-content/60">Reputation</p>
+                          <p
+                            className={`text-sm font-semibold ${
+                              isPositive
+                                ? 'text-success'
+                                : isNegative
+                                ? 'text-error'
+                                : 'text-base-content'
+                            }`}
+                          >
+                            {formatNumber(reputation)}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

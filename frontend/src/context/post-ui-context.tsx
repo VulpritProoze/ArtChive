@@ -48,10 +48,16 @@ interface PostUIContextValue {
   setSelectedPostTrophyAwards: Dispatch<SetStateAction<string[]>>;
   commentTargetPostId: string | null;
   setCommentTargetPostId: (postId: string | null) => void;
+  commentTargetGalleryId: string | null;
+  setCommentTargetGalleryId: (galleryId: string | null) => void;
   editingComment: boolean;
   setEditingComment: (value: boolean) => void;
   critiqueTargetPostId: string | null;
   setCritiqueTargetPostId: (postId: string | null) => void;
+  critiqueTargetGalleryId: string | null;
+  setCritiqueTargetGalleryId: (galleryId: string | null) => void;
+  critiqueTargetType: 'post' | 'gallery' | null;
+  setCritiqueTargetType: (type: 'post' | 'gallery' | null) => void;
   editingCritiqueForm: boolean;
   setEditingCritiqueForm: (value: boolean) => void;
 
@@ -94,8 +100,11 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
   const [selectedPostForHeartList, setSelectedPostForHeartList] = useState<string | null>(null);
   const [selectedPostTrophyAwards, setSelectedPostTrophyAwards] = useState<string[]>([]);
   const [commentTargetPostId, setCommentTargetPostId] = useState<string | null>(null);
+  const [commentTargetGalleryId, setCommentTargetGalleryId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState(false);
   const [critiqueTargetPostId, setCritiqueTargetPostId] = useState<string | null>(null);
+  const [critiqueTargetGalleryId, setCritiqueTargetGalleryId] = useState<string | null>(null);
+  const [critiqueTargetType, setCritiqueTargetType] = useState<'post' | 'gallery' | null>(null);
   const [editingCritiqueForm, setEditingCritiqueForm] = useState(false);
 
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
@@ -125,6 +134,7 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
     setSelectedComment(null);
     setEditingComment(false);
     setCommentTargetPostId(null);
+    setCommentTargetGalleryId(null);
   };
 
   const value = useMemo<PostUIContextValue>(
@@ -163,10 +173,16 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
       setSelectedPostTrophyAwards,
       commentTargetPostId,
       setCommentTargetPostId,
+      commentTargetGalleryId,
+      setCommentTargetGalleryId,
       editingComment,
       setEditingComment,
       critiqueTargetPostId,
       setCritiqueTargetPostId,
+      critiqueTargetGalleryId,
+      setCritiqueTargetGalleryId,
+      critiqueTargetType,
+      setCritiqueTargetType,
       editingCritiqueForm,
       setEditingCritiqueForm,
       dropdownOpen,
@@ -205,8 +221,11 @@ export function PostUIProvider({ children }: { children: ReactNode }) {
       editingCritique,
       selectedPostTrophyAwards,
       commentTargetPostId,
+      commentTargetGalleryId,
       editingComment,
       critiqueTargetPostId,
+      critiqueTargetGalleryId,
+      critiqueTargetType,
       editingCritiqueForm,
     ],
   );

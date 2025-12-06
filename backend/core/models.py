@@ -30,7 +30,15 @@ class User(AbstractUser):
     # profile
     profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/')
 
+    # reputation
+    reputation = models.IntegerField(default=0, help_text='User reputation score based on interactions')
+
     objects = CustomUserManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['reputation', 'id'], name='user_reputation_id_idx'),
+        ]
 
     def __str__(self):
         return self.username
@@ -195,3 +203,52 @@ class UserPreference(models.Model):
     def get_preferred_artist_types(self):
         """Get preferred artist types, return empty list if None"""
         return self.preferred_artist_types or []
+
+
+class ReputationHistory(models.Model):
+    """
+    Audit trail for all reputation changes.
+    Tracks every reputation update with source information.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reputation_history'
+    )
+    amount = models.IntegerField(
+        help_text='Reputation change amount (positive or negative)'
+    )
+    source_type = models.CharField(
+        max_length=50,
+        choices=choices.REPUTATION_SOURCE_CHOICES,
+        help_text='Type of interaction that caused the reputation change'
+    )
+    source_id = models.CharField(
+        max_length=2000,
+        help_text='ID of the source object (praise_id, trophy_id, critique_id, award_id)'
+    )
+    source_object_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Type of object the source belongs to (post, gallery)'
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Human-readable description of the reputation change'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Reputation History'
+        verbose_name_plural = 'Reputation Histories'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at'], name='rep_history_user_created_idx'),
+            models.Index(fields=['source_type', 'source_id'], name='rep_history_source_idx'),
+            models.Index(fields=['created_at'], name='rep_history_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.amount:+d} reputation from {self.source_type} at {self.created_at}"

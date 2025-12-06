@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { galleryService } from '@services/gallery.service';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
+import { usePostUI } from '@context/post-ui-context';
 import type { Comment } from '@types';
 
 // Helper to update comment in infinite query cache
@@ -27,6 +28,7 @@ const updateGalleryCommentInCache = (
 
 export const useCreateGalleryComment = () => {
   const queryClient = useQueryClient();
+  const { setShowCommentForm, setSelectedComment, setEditingComment, setCommentTargetGalleryId } = usePostUI();
 
   return useMutation({
     mutationFn: (data: { text: string; gallery: string }) => {
@@ -37,20 +39,28 @@ export const useCreateGalleryComment = () => {
       queryClient.setQueryData(['gallery-comment-creating', variables.gallery], true);
     },
     onSuccess: async (newComment) => {
-      const galleryId = newComment.gallery;
+      const galleryId = (newComment as any).gallery || (newComment as any).gallery_id;
       
+      // Close modal FIRST to stop loading state
+      setShowCommentForm(false);
+      setSelectedComment(null);
+      setEditingComment(false);
+      setCommentTargetGalleryId(null);
+      
+      // Show toast immediately after closing modal
       toast.success('Comment added', 'Your comment has been posted.');
 
-      // Invalidate to refetch
+      // Invalidate to refetch (skeleton will show while refetching)
       await queryClient.invalidateQueries({ queryKey: ['gallery-comments', galleryId] });
     },
     onError: (error) => {
+      // Don't close form on error - user might want to retry
       const message = handleApiError(error, {}, true, true);
       toast.error('Failed to add comment', formatErrorForToast(message));
     },
     onSettled: (_data, _error, variables) => {
       if (variables) {
-        // Clear loading state
+        // Clear loading state after refetch completes
         queryClient.setQueryData(['gallery-comment-creating', variables.gallery], false);
       }
     }
@@ -59,6 +69,7 @@ export const useCreateGalleryComment = () => {
 
 export const useUpdateGalleryComment = () => {
   const queryClient = useQueryClient();
+  const { setShowCommentForm, setSelectedComment, setEditingComment, setCommentTargetGalleryId } = usePostUI();
 
   return useMutation({
     mutationFn: async (input: { commentId: string; text: string; galleryId: string }) => {
@@ -71,7 +82,13 @@ export const useUpdateGalleryComment = () => {
       queryClient.setQueryData(['gallery-comment-updating', commentId], true);
     },
     onSuccess: async ({ galleryId, commentId }) => {
-      // Show toast immediately
+      // Close modal FIRST
+      setShowCommentForm(false);
+      setSelectedComment(null);
+      setEditingComment(false);
+      setCommentTargetGalleryId(null);
+      
+      // Show toast immediately after closing modal
       toast.success('Comment updated', 'Your comment has been updated.');
       
       // Keep loading state active while refetching
@@ -83,6 +100,7 @@ export const useUpdateGalleryComment = () => {
     },
     onError: (error, { commentId }) => {
       // Clear loading state on error
+      // Don't close form on error - user might want to retry
       queryClient.setQueryData(['gallery-comment-updating', commentId], false);
       const message = handleApiError(error, {}, true, true);
       toast.error('Failed to update comment', formatErrorForToast(message));
@@ -148,6 +166,7 @@ export const useCreateGalleryCommentReply = () => {
 
 export const useUpdateGalleryCommentReply = () => {
   const queryClient = useQueryClient();
+  const { setShowCommentForm, setSelectedComment, setEditingComment, setCommentTargetGalleryId } = usePostUI();
 
   return useMutation({
     mutationFn: async (input: { replyId: string; text: string; galleryId: string; parentCommentId: string }) => {
@@ -160,7 +179,13 @@ export const useUpdateGalleryCommentReply = () => {
       queryClient.setQueryData(['gallery-reply-updating', replyId], true);
     },
     onSuccess: async ({ replyId, parentCommentId }) => {
-      // Show toast immediately
+      // Close modal FIRST
+      setShowCommentForm(false);
+      setSelectedComment(null);
+      setEditingComment(false);
+      setCommentTargetGalleryId(null);
+      
+      // Show toast immediately after closing modal
       toast.success('Reply updated', 'Your reply has been updated.');
       
       // Keep loading state active while refetching
@@ -172,6 +197,7 @@ export const useUpdateGalleryCommentReply = () => {
     },
     onError: (error, { replyId }) => {
       // Clear loading state on error
+      // Don't close form on error - user might want to retry
       queryClient.setQueryData(['gallery-reply-updating', replyId], false);
       const message = handleApiError(error, {}, true, true);
       toast.error('Failed to update reply', formatErrorForToast(message));

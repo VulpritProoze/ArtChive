@@ -6,7 +6,8 @@ import type { Notification } from './notification';
 
 export type RealtimeMessageType = 
   | 'notification'
-  | 'friend_request_update';
+  | 'friend_request_update'
+  | 'presence_update';
 
 export interface RealtimeNotificationMessage {
   type: 'notification';
@@ -24,5 +25,13 @@ export interface RealtimeFriendRequestMessage {
   };
 }
 
-export type RealtimeMessage = RealtimeNotificationMessage | RealtimeFriendRequestMessage;
+export interface RealtimePresenceMessage {
+  type: 'presence_update';
+  user_id: number;
+  username: string;
+  status: 'online' | 'offline';
+  timestamp: string;
+}
+
+export type RealtimeMessage = RealtimeNotificationMessage | RealtimeFriendRequestMessage | RealtimePresenceMessage;
 

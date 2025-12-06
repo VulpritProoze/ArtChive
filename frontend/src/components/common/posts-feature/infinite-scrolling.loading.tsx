@@ -9,6 +9,8 @@ interface InfiniteScrollingProps {
   hasNextPage?: boolean;
   totalCount?: number;
   itemCount?: number;
+  itemName?: string; // e.g., "post", "collective", "member"
+  itemNamePlural?: string; // e.g., "posts", "collectives", "members"
 }
 
 const endMessages = [
@@ -50,6 +52,8 @@ const InfiniteScrolling = ({
   hasNextPage = false,
   totalCount = 0,
   itemCount = 0,
+  itemName = 'post',
+  itemNamePlural = 'posts',
 }: InfiniteScrollingProps) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
@@ -64,13 +68,13 @@ const InfiniteScrolling = ({
   }, [hasNextPage, itemCount]);
 
   const currentMessage = endMessages[currentMessageIndex];
-  const postCount = totalCount || itemCount;
-  const postText = postCount === 1 ? 'post' : 'posts';
+  const itemCountValue = totalCount || itemCount;
+  const itemText = itemCountValue === 1 ? itemName : itemNamePlural;
   
   // Split subtext to highlight the count
   const subtextParts = currentMessage.subtext.split('{count}');
   const beforeCount = subtextParts[0];
-  const afterCount = subtextParts[1]?.replace('{posts}', postText) || '';
+  const afterCount = subtextParts[1]?.replace('{posts}', itemText) || '';
 
   return (
     <>
@@ -106,7 +110,7 @@ const InfiniteScrolling = ({
               </p>
               <p className="text-sm text-base-content/60">
                 {beforeCount}
-                <span className="font-bold text-primary">{postCount}</span>
+                <span className="font-bold text-primary">{itemCountValue}</span>
                 {afterCount}
               </p>
             </motion.div>

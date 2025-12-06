@@ -1,27 +1,71 @@
-import { useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@context/auth-context";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@components/common/layout";
-import { useCollectiveContext } from "@context/collective-context";
 import { SkeletonCollectiveCard } from "@components/common/skeleton";
+import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { formatNumber } from "@utils/format-number.util";
+import { CollectiveJoinRequestModal } from "@components/common/collective-feature/modal";
+import { useBulkPendingJoinRequests } from "@hooks/queries/use-join-requests";
+import { useCollectives, type PaginatedCollectivesResponse } from "@hooks/queries/use-collectives";
+import type { CollectiveListItem } from "@services/collective.service";
 
 export default function Index() {
   const navigate = useNavigate();
+  const [selectedCollective, setSelectedCollective] = useState<CollectiveListItem | null>(null);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
   const { isMemberOfACollective, fetchCollectiveMemberDetails } =
     useAuth();
-  const { fetchCollectives, collectives, handleJoinCollectiveAsync, loading } =
-    useCollectiveContext();
 
-  useEffect(() => {
-    fetchCollectives();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only fetch once on mount
+  // Fetch paginated collectives
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+  } = useCollectives(10);
 
-  const handleJoinCollective = async (collectiveId: string) => {
-    await handleJoinCollectiveAsync(collectiveId);
-    await fetchCollectiveMemberDetails();
-    navigate(`/collective/${collectiveId}`);
+  // Flatten all pages into a single array
+  const collectives = useMemo(() => {
+    if (!data?.pages) return [];
+    return (data.pages as PaginatedCollectivesResponse[]).flatMap((page) => {
+      // Filter out the public collective indicator
+      return page.results.filter(
+        (item) => item.collective_id !== "00000000-0000-0000-0000-000000000001"
+      );
+    });
+  }, [data]);
+
+  // Get collective IDs for bulk pending requests check
+  const collectiveIds = useMemo(() => 
+    collectives.map(c => c.collective_id),
+    [collectives]
+  );
+
+  // Fetch pending join requests for all collectives
+  const { data: pendingRequestsMap = {} } = useBulkPendingJoinRequests(
+    collectiveIds,
+    collectives.length > 0 && !isLoading
+  );
+
+  const handleJoinClick = (collective: CollectiveListItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedCollective(collective);
+    setIsJoinModalOpen(true);
+  };
+
+  const handleJoinSuccess = () => {
+    // Refresh collectives list
+    refetch();
+    fetchCollectiveMemberDetails();
+  };
+
+  const handleCancelRequest = async () => {
+    // Refresh collectives list to update pending status
+    refetch();
   };
 
   const handleCollectiveClick = (collectiveId: string) => {
@@ -52,7 +96,7 @@ export default function Index() {
 
         {/* Collectives Grid */}
         <div>
-          {loading ? (
+          {isLoading ? (
             <SkeletonCollectiveCard
               count={6}
               containerClassName="grid grid-cols-1 gap-4"
@@ -68,8 +112,9 @@ export default function Index() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {collectives.map((collective) => (
+            <>
+              <div className="grid grid-cols-1 gap-4">
+                {collectives.map((collective) => (
                 <div
                   key={collective.collective_id}
                   className="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 border border-base-300 cursor-pointer"
@@ -100,10 +145,25 @@ export default function Index() {
                             </h2>
                             <div className="flex items-center gap-3 text-sm text-base-content/70">
                               <span>{collective.member_count || 0} members</span>
-                              <span className="flex items-center gap-1" title="Total Brush Drips">
-                                <span className="w-3 h-3 rounded-full bg-primary"></span>
-                                {collective.brush_drips_count || 0}
-                              </span>
+                              {(() => {
+                                const reputation = collective.reputation ?? 0;
+                                const isPositive = reputation > 0;
+                                const isNegative = reputation < 0;
+                                return (
+                                  <span className="flex items-center gap-1" title="Total Reputation">
+                                    {isPositive ? (
+                                      <ArrowUp className="w-3 h-3 text-success flex-shrink-0" />
+                                    ) : isNegative ? (
+                                      <ArrowDown className="w-3 h-3 text-error flex-shrink-0" />
+                                    ) : (
+                                      <ArrowUpDown className="w-3 h-3 text-base-content/50 flex-shrink-0" />
+                                    )}
+                                    <span className={isPositive ? 'text-success' : isNegative ? 'text-error' : 'text-base-content/70'}>
+                                      {formatNumber(reputation)} Rep
+                                    </span>
+                                  </span>
+                                );
+                              })()}
                               <span className="flex items-center gap-1" title="Total Posts">
                                 💬 {collective.channels?.reduce((sum, ch) => sum + (ch.posts_count || 0), 0) || 0}
                               </span>
@@ -137,7 +197,7 @@ export default function Index() {
                         )}
 
                         {/* Channels */}
-                        {collective.channels.length > 0 && (
+                        {collective.channels && collective.channels.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {collective.channels.slice(0, 3).map((channel) => (
                               <div
@@ -153,7 +213,7 @@ export default function Index() {
                                 >{channel.posts_count ?? '?'}</span>
                               </div>
                             ))}
-                            {collective.channels.length > 3 && (
+                            {collective.channels && collective.channels.length > 3 && (
                               <span className="text-xs text-base-content/50">
                                 +{collective.channels.length - 3} more channels
                               </span>
@@ -171,13 +231,17 @@ export default function Index() {
                             >
                               ✓ Joined
                             </button>
+                          ) : pendingRequestsMap[collective.collective_id] ? (
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={(e) => handleJoinClick(collective, e)}
+                            >
+                              Pending
+                            </button>
                           ) : (
                             <button
                               className="btn btn-sm btn-primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleJoinCollective(collective.collective_id);
-                              }}
+                              onClick={(e) => handleJoinClick(collective, e)}
                             >
                               Join
                             </button>
@@ -187,11 +251,46 @@ export default function Index() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {/* Load More Button */}
+              {hasNextPage && (
+                <div className="flex justify-center mt-6">
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="btn btn-primary"
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More'
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {selectedCollective && (
+        <CollectiveJoinRequestModal
+          collective={selectedCollective}
+          isOpen={isJoinModalOpen}
+          onClose={() => {
+            setIsJoinModalOpen(false);
+            setSelectedCollective(null);
+          }}
+          onSuccess={handleJoinSuccess}
+          onCancelRequest={handleCancelRequest}
+          existingRequestId={pendingRequestsMap[selectedCollective.collective_id] || null}
+        />
+      )}
     </MainLayout>
   );
 }

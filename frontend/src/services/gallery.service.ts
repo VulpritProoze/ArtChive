@@ -11,6 +11,18 @@ export interface CommentsResponse {
   results: Comment[];
 }
 
+export interface CreatorDetails {
+  id: number;
+  username: string;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  profile_picture: string | null;
+  artist_types: string[];
+  brush_drips_count: number;
+  reputation: number;
+}
+
 export interface Gallery {
   gallery_id: string;
   title: string;
@@ -24,6 +36,7 @@ export interface Gallery {
   created_at: string;
   updated_at: string;
   creator: string;
+  creator_details?: CreatorDetails;
 }
 
 export interface CreateGalleryData {
@@ -102,9 +115,18 @@ export const galleryService = {
 
   /**
    * Get a single gallery by ID
+   * For published galleries, use getPublicGallery instead
    */
   async getGallery(galleryId: string): Promise<Gallery> {
     const response = await gallery.get(`${galleryId}/`);
+    return response.data;
+  },
+
+  /**
+   * Get a published gallery by ID (public endpoint)
+   */
+  async getPublicGallery(galleryId: string): Promise<Gallery> {
+    const response = await gallery.get(`${galleryId}/public/`);
     return response.data;
   },
 
@@ -177,6 +199,16 @@ export const galleryService = {
   ): Promise<PaginatedGalleryListResponse> {
     const response = await gallery.get('list/', {
       params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get top galleries (cached, ranked)
+   */
+  async getTopGalleries(limit: number = 25): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('top/', {
+      params: { limit },
     });
     return response.data;
   },
@@ -278,6 +310,62 @@ export const galleryService = {
    */
   async createGalleryCommentReply(data: { text: string; replies_to: string }): Promise<Comment> {
     const response = await gallery.post<Comment>('comment/reply/create/', data);
+    return response.data;
+  },
+
+  /**
+   * Get awards for a gallery (paginated)
+   * GET /api/gallery/<galleryId>/awards/
+   */
+  async getGalleryAwards(
+    galleryId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{
+      id: number;
+      gallery_id: string;
+      author: number;
+      author_username: string;
+      author_picture: string | null;
+      gallery_title: string;
+      award_type: string;
+      brush_drip_value: number;
+      awarded_at: string;
+      is_deleted: boolean;
+    }>;
+  }> {
+    const response = await gallery.get(`${galleryId}/awards/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Create a gallery award
+   * POST /api/gallery/award/create/
+   */
+  async createGalleryAward(data: { gallery_id: string; award_type: string }): Promise<void> {
+    await gallery.post('award/create/', data);
+  },
+
+  /**
+   * Delete a gallery award
+   * DELETE /api/gallery/award/<awardId>/delete/
+   */
+  async deleteGalleryAward(awardId: number): Promise<void> {
+    await gallery.delete(`award/${awardId}/delete/`);
+  },
+
+  /**
+   * Get awards for multiple galleries in bulk
+   * POST /api/gallery/awards/bulk/
+   */
+  async getBulkGalleryAwards(galleryIds: string[]): Promise<Record<string, Record<string, number>>> {
+    const response = await gallery.post('awards/bulk/', { gallery_ids: galleryIds });
     return response.data;
   },
 };

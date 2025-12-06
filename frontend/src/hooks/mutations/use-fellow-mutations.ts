@@ -11,7 +11,7 @@ export const useCreateFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ payload, userId }: { payload: CreateFriendRequestPayload; userId: number }): Promise<UserFellow> => {
+    mutationFn: ({ payload, userId: _userId }: { payload: CreateFriendRequestPayload; userId: number }): Promise<UserFellow> => {
       return userService.createFriendRequest(payload);
     },
     onSuccess: async (_, variables) => {
@@ -43,7 +43,7 @@ export const useAcceptFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ requestId, userId }: { requestId: number; userId: number }): Promise<UserFellow> => {
+    mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<UserFellow> => {
       return userService.acceptFriendRequest(requestId);
     },
     onSuccess: async (_, variables) => {
@@ -82,7 +82,7 @@ export const useRejectFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ requestId, userId }: { requestId: number; userId: number }): Promise<void> => {
+    mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<void> => {
       return userService.rejectFriendRequest(requestId);
     },
     onSuccess: async (_, variables) => {
@@ -118,7 +118,7 @@ export const useCancelFriendRequest = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ requestId, userId }: { requestId: number; userId: number }): Promise<void> => {
+    mutationFn: ({ requestId, userId: _userId }: { requestId: number; userId: number }): Promise<void> => {
       return userService.cancelFriendRequest(requestId);
     },
     onSuccess: async (_, variables) => {

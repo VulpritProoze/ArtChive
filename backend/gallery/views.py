@@ -27,9 +27,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
-from common.utils.choices import NOTIFICATION_TYPES
+from common.utils.choices import NOTIFICATION_TYPES, GALLERY_AWARD_BRUSH_DRIP_COSTS
 from core.cache_utils import get_dashboard_cache_key
-from core.models import User
+from core.models import User, BrushDripWallet, BrushDripTransaction
 from core.permissions import IsAuthorOrSuperUser
 from notification.utils import create_notification
 from post.models import Comment
@@ -81,6 +81,42 @@ class GalleryListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class GalleryPublicDetailView(APIView):
+    """
+    GET /api/gallery/<gallery_id>/public/ - Retrieve a published gallery (public endpoint)
+    Excludes canvas_json, includes creator details and reputation
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+
+    def get(self, _request, gallery_id):  # noqa: ARG002
+        """Retrieve a published active gallery"""
+        try:
+            gallery = Gallery.objects.get_active_objects().select_related(
+                'creator',
+                'creator__artist',
+                'creator__user_wallet'
+            ).filter(
+                gallery_id=gallery_id,
+                status='active'
+            ).first()
+            
+            if not gallery:
+                return Response(
+                    {'error': 'Gallery not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            from .serializers import GalleryPublicSerializer
+            serializer = GalleryPublicSerializer(gallery)
+            return Response(serializer.data)
+        except (ObjectDoesNotExist, ValueError):
+            return Response(
+                {'error': 'Gallery not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
 class GalleryDetailView(APIView):
     """
     GET    /api/gallery/<gallery_id>/ - Retrieve a gallery
@@ -102,9 +138,22 @@ class GalleryDetailView(APIView):
         except ObjectDoesNotExist:
             return None
 
-    def get(self, _request, gallery_id):  # noqa: ARG002
+    def get(self, request, gallery_id):
         """Retrieve a single gallery"""
+        # First try to get user's own gallery
         gallery = self.get_object(gallery_id)
+        
+        # If not found, try to get any active published gallery (for viewing published galleries)
+        if not gallery:
+            try:
+                gallery = Gallery.objects.get_active_objects().filter(
+                    gallery_id=gallery_id,
+                    status='active'
+                ).first()
+            except (ObjectDoesNotExist, ValueError):
+                gallery = None
+        
+        # If still not found, return 404
         if not gallery:
             return Response(
                 {'error': 'Gallery not found'},
@@ -265,6 +314,54 @@ class GalleryListView(APIView):
 
         # Return paginated response
         return paginator.get_paginated_response(serializer.data)
+
+
+class GlobalTopGalleriesView(APIView):
+    """
+    Fetch cached global top galleries.
+    GET /api/gallery/top/?limit=25
+    
+    Query Parameters:
+        limit: Number of galleries to return (5, 10, 25, 50, 100). Default: 25
+    
+    Returns:
+        List of top galleries in ranked order
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request):
+        # Get limit from query params, default to 25
+        limit = request.query_params.get('limit', '25')
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 25
+
+        # Validate limit (only allow specific values)
+        valid_limits = [5, 10, 25, 50, 100]
+        if limit not in valid_limits:
+            limit = 25  # Default to 25 if invalid
+
+        # Try to get from cache
+        from gallery.ranking import get_cached_top_galleries
+        cached_galleries = get_cached_top_galleries(limit=limit)
+
+        if cached_galleries is None:
+            # For testing: return 404 if cache is not available
+            # In production, you might want to fallback to most awarded galleries
+            return Response(
+                {
+                    'error': 'Top galleries cache not available. Please run: python manage.py generate_top_galleries'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'results': cached_galleries[:limit],
+            'count': len(cached_galleries[:limit]),
+            'limit': limit,
+        }, status=status.HTTP_200_OK)
 
 
 class GalleryUserListView(APIView):

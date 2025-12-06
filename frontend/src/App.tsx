@@ -31,6 +31,7 @@ const GalleryEditor = lazy(() => import("@components/gallery/editor.component"))
 const MyGalleries = lazy(() => import("@components/gallery/galleries.component"));
 const AvatarListPage = lazy(() => import("@components/avatar/avatar-list.component"));
 const AvatarEditorPage = lazy(() => import("@components/avatar/avatar-editor.component"));
+const ReputationPage = lazy(() => import("@components/reputation/reputation.component"));
 
 import { PostUIProvider } from "@context/post-ui-context";
 import { CollectivePostProvider } from "@context/collective-post-context";
@@ -86,6 +87,7 @@ function AppRoutes() {
               <Route path="/profile/me" element={<Profile />} />
               <Route path="/drips" element={<BrushDripsPage />} />
               <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
+              <Route path="/reputation" element={<ReputationPage />} />
               <Route path="/notifications" element={<NotificationIndex />} />
               <Route path="/fellows/requests" element={<PendingFriendRequestsPage />} />
 

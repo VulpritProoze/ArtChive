@@ -20,6 +20,9 @@ import AvatarTabContent from '@components/avatar/avatar-tab-content.component';
 import { useQuery } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
 import { galleryService } from '@services/gallery.service';
+import { ArrowUp, ArrowDown } from 'lucide-react';
+import { formatNumber } from '@utils/format-number.util';
+import { useUserCollectives } from '@hooks/queries/use-collective-data';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
@@ -473,6 +476,36 @@ const Timeline: React.FC = () => {
                   <h4 className="text-2xl font-bold text-base-content">{fellowsCount ?? "-"}</h4>
                   <p className="text-base-content/60 text-sm">Fellows</p>
                 </button>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    {(() => {
+                      const reputation = profileUser?.reputation ?? 0;
+                      const isPositive = reputation > 0;
+                      const isNegative = reputation < 0;
+                      return (
+                        <>
+                          {isPositive ? (
+                            <ArrowUp className="w-5 h-5 text-success flex-shrink-0" />
+                          ) : isNegative ? (
+                            <ArrowDown className="w-5 h-5 text-error flex-shrink-0" />
+                          ) : null}
+                          <h4
+                            className={`text-2xl font-bold ${
+                              isPositive
+                                ? 'text-success'
+                                : isNegative
+                                ? 'text-error'
+                                : 'text-base-content'
+                            }`}
+                          >
+                            {formatNumber(reputation)}
+                          </h4>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <p className="text-base-content/60 text-sm">Reputation</p>
+                </div>
               </div>
             </div>
           </div>
@@ -599,7 +632,11 @@ const Timeline: React.FC = () => {
           />
         )}
 
-        {activeTab !== 'timeline' && activeTab !== 'fellows' && activeTab !== 'avatar' && (
+        {activeTab === 'collectives' && (
+          <UserCollectivesTab userId={profileUser?.id} />
+        )}
+
+        {activeTab !== 'timeline' && activeTab !== 'fellows' && activeTab !== 'avatar' && activeTab !== 'collectives' && (
           <div className="text-center py-16 text-base-content/60">
             <div className="text-6xl mb-4">🚧</div>
             <p>Coming soon...</p>
@@ -609,5 +646,79 @@ const Timeline: React.FC = () => {
     </MainLayout>
   );
 };
+
+function UserCollectivesTab({ userId }: { userId?: number }) {
+  const { data: collectives, isLoading, isError } = useUserCollectives(
+    userId,
+    { enabled: Boolean(userId) } // Only fetch when userId is available
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="loading loading-spinner loading-lg"></div>
+        <p className="mt-4 text-base-content/60">Loading collectives...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="text-6xl mb-4">⚠️</div>
+        <p className="text-base-content/60">Failed to load collectives</p>
+      </div>
+    );
+  }
+
+  if (!collectives || collectives.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="text-6xl mb-4">👥</div>
+        <h3 className="text-2xl font-bold text-base-content mb-2">No Collectives</h3>
+        <p className="text-base-content/60 text-center max-w-md">
+          This user is not a member of any collectives yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {collectives.map((collective) => (
+        <div
+          key={collective.collective_id}
+          className="card bg-base-200 shadow-md hover:shadow-lg transition-shadow"
+        >
+          <div className="card-body p-4">
+            <div className="flex items-center gap-3 mb-3">
+              {collective.picture && (
+                <div className="avatar">
+                  <div className="w-12 h-12 rounded-full ring ring-primary ring-offset-base-200 ring-offset-2">
+                    <img src={collective.picture} alt={collective.title} />
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base truncate">{collective.title}</h3>
+                {collective.collective_role === 'admin' && (
+                  <span className="badge badge-warning badge-sm mt-1">Admin</span>
+                )}
+              </div>
+            </div>
+            {collective.description && (
+              <p className="text-sm text-base-content/70 line-clamp-2 mb-2">
+                {collective.description}
+              </p>
+            )}
+            <div className="flex items-center gap-4 text-xs text-base-content/60">
+              <span>👥 {collective.member_count} members</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default Timeline;

@@ -144,6 +144,12 @@ export default function Transactions() {
         return faHandsClapping;
       case "trophy":
         return faTrophy;
+      case "gallery_award":
+        return faTrophy; // Use trophy icon for gallery awards
+      case "critique":
+        return faExchangeAlt;
+      case "gallery_critique":
+        return faExchangeAlt; // Use exchange icon for gallery critiques
       default:
         return faExchangeAlt;
     }
@@ -237,7 +243,9 @@ export default function Transactions() {
                       <option value="all">All Types</option>
                       <option value="praise">Praise</option>
                       <option value="trophy">Trophy</option>
+                      <option value="gallery_award">Gallery Award</option>
                       <option value="critique">Critique</option>
+                      <option value="gallery_critique">Gallery Critique</option>
                     </select>
 
                     {/* Export Button (Future feature) */}
