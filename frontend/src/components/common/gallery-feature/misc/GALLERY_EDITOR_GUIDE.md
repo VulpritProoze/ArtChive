@@ -1,4 +1,4 @@
-# Gallery Editor - Developer Guide
+# GALLERY EDITOR PLAN
 
 ## Overview
 
@@ -15,21 +15,28 @@ The Gallery Editor is a full-featured virtual gallery editor built with React-Ko
 ### Key Components
 
 ```
-gallery-editor/
-├── CanvasStage.tsx          # Main Konva canvas with zoom/pan
-├── CanvasTransformer.tsx    # Object transformation handles
-├── Toolbar.tsx              # Editing tools (rect, circle, text, etc.)
-├── LayerPanel.tsx           # Layer management sidebar
-├── PropertiesPanel.tsx      # Property editing sidebar
-├── TemplateLibrary.tsx      # Template selection modal
-└── GalleryEditor.tsx        # Main orchestrator component
+gallery-feature/editor/
+├── canvas-stage.component.tsx          # Main Konva canvas with zoom/pan
+├── canvas-transformer.component.tsx    # Object transformation handles
+├── toolbar.component.tsx               # Editing tools (rect, circle, text, etc.)
+├── layer-panel.panel.tsx               # Layer management sidebar
+├── properties-panel.panel.tsx          # Property editing sidebar
+├── template-library.library.tsx        # Template selection modal
+├── objects-library.modal.tsx           # Objects library modal
+└── utils/
+    ├── snap.util.ts                    # Snapping utilities
+    ├── shape-factory.util.ts           # Shape factory functions
+    └── serialize-canvas.util.ts        # Canvas serialization
+
+Main Editor Component:
+└── frontend/src/components/gallery/editor.component.tsx  # Main orchestrator component
 ```
 
 ## State Management
 
 ### useCanvasState Hook
 
-Located at: `src/hooks/useCanvasState.ts`
+Located at: `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts`
 
 This is the central state management hook for the entire editor.
 
@@ -94,7 +101,7 @@ All canvas objects follow a discriminated union pattern with a `type` field.
 
 ### Object Types
 
-Located at: `src/types/canvas.ts`
+Located at: `frontend/src/types/canvas.ts`
 
 ```typescript
 type CanvasObject =
@@ -147,7 +154,7 @@ export type CanvasObject =
   // ...
 ```
 
-3. **Render in `CanvasStage.tsx`**:
+3. **Render in `canvas-stage.component.tsx`**:
 ```typescript
 {obj.type === 'mynew' && (
   <MyNewComponent
@@ -158,7 +165,7 @@ export type CanvasObject =
 )}
 ```
 
-4. **Add tool to `Toolbar.tsx`**:
+4. **Add tool to `toolbar.component.tsx`**:
 ```typescript
 const handleAddMyNew = () => {
   onAddObject({
@@ -175,7 +182,7 @@ const handleAddMyNew = () => {
 
 ### Command Pattern
 
-Located at: `src/hooks/useUndoRedo.ts`
+Located at: `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` (integrated into useCanvasState)
 
 All state-changing operations use the command pattern:
 
@@ -297,7 +304,7 @@ class Gallery(models.Model):
 
 ## Gallery Service
 
-Located at: `src/services/gallery.service.ts`
+Located at: `frontend/src/services/gallery.service.ts`
 
 ```typescript
 // Load gallery with canvas data
@@ -356,7 +363,7 @@ Located at: `backend/gallery/views.py` → `MediaUploadView`
 
 ## Templates
 
-Located at: `src/data/templates.ts`
+Located at: `frontend/src/data/templates.ts`
 
 Templates are pre-configured `GalleryItemObject` instances.
 
@@ -391,11 +398,11 @@ export const templates: Template[] = [
 
 1. Create the template object in `templates.ts`
 2. Design the layout with appropriate children
-3. Template will automatically appear in `TemplateLibrary` component
+3. Template will automatically appear in `template-library.library.tsx` component
 
 ## Keyboard Shortcuts
 
-Defined in `GalleryEditor.tsx`:
+Defined in `frontend/src/components/gallery/editor.component.tsx`:
 
 ```typescript
 Ctrl+Z / Cmd+Z         # Undo
@@ -441,7 +448,7 @@ useEffect(() => {
 
 ### Implementation
 
-Located in `CanvasStage.tsx`:
+Located in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`:
 
 ```typescript
 const handleWheel = (e: any) => {
@@ -485,7 +492,7 @@ const handleWheel = (e: any) => {
 
 ### Utility Functions
 
-Located at: `src/utils/snapUtils.ts`:
+Located at: `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts`:
 
 ```typescript
 snapPosition(
@@ -595,9 +602,9 @@ The panels are now functioning correctly. If issues persist, ensure:
 - Tailwind/DaisyUI classes are properly applied
 
 **Files**:
-- `GalleryEditor.tsx` - Main layout structure
-- `LayerPanel.tsx` - Layer panel component
-- `PropertiesPanel.tsx` - Properties panel component
+- `frontend/src/components/gallery/editor.component.tsx` - Main layout structure
+- `frontend/src/components/common/gallery-feature/editor/layer-panel.panel.tsx` - Layer panel component
+- `frontend/src/components/common/gallery-feature/editor/properties-panel.panel.tsx` - Properties panel component
 
 ---
 
@@ -608,7 +615,7 @@ The panels are now functioning correctly. If issues persist, ensure:
 **Description**: In preview mode, objects should be non-interactive (not draggable, not selectable). Previously, users could still move objects around when preview mode was enabled.
 
 **Resolution**:
-Fixed in [CanvasStage.tsx:28,49,273,375,392,449,568-569,604,788-789,803,830](frontend/src/components/gallery-editor/CanvasStage.tsx) and [GalleryEditor.tsx:423](frontend/src/components/gallery-editor/GalleryEditor.tsx)
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` and `frontend/src/components/gallery/editor.component.tsx`
 
 **Implementation**:
 1. Added `isPreviewMode?: boolean` prop to `CanvasStageProps` interface
@@ -628,8 +635,8 @@ Fixed in [CanvasStage.tsx:28,49,273,375,392,449,568-569,604,788-789,803,830](fro
 - Preview mode provides true read-only view
 
 **Files Modified**:
-- `CanvasStage.tsx` - Added isPreviewMode prop and updated draggable logic for all object types
-- `GalleryEditor.tsx` - Pass isPreviewMode prop to CanvasStage
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Added isPreviewMode prop and updated draggable logic for all object types
+- `frontend/src/components/gallery/editor.component.tsx` - Pass isPreviewMode prop to CanvasStage
 
 ---
 
@@ -645,7 +652,7 @@ Fixed in [CanvasStage.tsx:28,49,273,375,392,449,568-569,604,788-789,803,830](fro
 - Smooth panning within canvas bounds
 
 **Resolution**:
-Fixed in [CanvasStage.tsx:72-115](frontend/src/components/gallery-editor/CanvasStage.tsx#L72-L115)
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 
 The issue was that the mouse down handler only detected clicks on the Stage itself (`e.target === e.target.getStage()`), but not on the white background Rect.
 
@@ -729,12 +736,12 @@ const handleMouseUp = () => {
 
 **Implementation Details**:
 
-The snapping system in [snapUtils.ts](frontend/src/utils/snapUtils.ts) uses a priority system:
+The snapping system in `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts` uses a priority system:
 1. **Canvas center** (highest priority) - 10px threshold
 2. **Grid snapping** - 10px grid with 10px threshold
 3. **Object alignment** - Edges and centers with 10px threshold
 
-All snapping types generate visual guide lines that render in [CanvasStage.tsx:176-195](frontend/src/components/gallery-editor/CanvasStage.tsx#L176-L195).
+All snapping types generate visual guide lines that render in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`.
 
 **Snapping Modes**:
 - **Grid + Snap enabled**: All snapping modes active
@@ -743,11 +750,8 @@ All snapping types generate visual guide lines that render in [CanvasStage.tsx:1
 - **Both disabled**: No snapping
 
 **Files Modified**:
-- [snapUtils.ts:61-100](frontend/src/utils/snapUtils.ts#L61-L100) - Enhanced grid snapping to prioritize center alignment
-- [snapUtils.ts:44-59](frontend/src/utils/snapUtils.ts#L44-L59) - Canvas center snapping
-- [snapUtils.ts:104-161](frontend/src/utils/snapUtils.ts#L104-L161) - Object-to-object edge and center alignment
-- [CanvasStage.tsx:262-301](frontend/src/components/gallery-editor/CanvasStage.tsx#L262-L301) - Updated drag handlers with special handling for circles
-- [CanvasStage.tsx:492-526](frontend/src/components/gallery-editor/CanvasStage.tsx#L492-L526) - Updated ImageRenderer drag handlers
+- `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts` - Enhanced grid snapping to prioritize center alignment, canvas center snapping, and object-to-object edge and center alignment
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Updated drag handlers with special handling for circles and ImageRenderer drag handlers
 
 ---
 
@@ -823,7 +827,7 @@ All snapping types generate visual guide lines that render in [CanvasStage.tsx:1
 
 **Issue**: Every slider `onChange` event was calling `onUpdate`, which triggered the undo/redo system and caused expensive state updates during continuous dragging.
 
-**Fix Applied** in [PropertiesPanel.tsx:45-54](frontend/src/components/gallery-editor/PropertiesPanel.tsx#L45-L54):
+**Fix Applied** in `frontend/src/components/common/gallery-feature/editor/properties-panel.panel.tsx`:
 
 The slider now uses a two-phase update pattern:
 1. **During drag** (`onInput`): Updates only local state for smooth visual feedback
@@ -883,7 +887,7 @@ const handleSliderCommit = (key: string, value: any) => {
 **Description**: When a group object is selected, the transformer does not allow rescaling. Users cannot resize grouped objects.
 
 **Resolution**:
-Fixed in [CanvasTransformer.tsx:104-117](frontend/src/components/gallery-editor/CanvasTransformer.tsx#L104-L117)
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-transformer.component.tsx`
 
 The transformer now properly handles group scaling:
 - Uses average of scaleX and scaleY to maintain aspect ratio
@@ -914,7 +918,7 @@ if (currentObject && currentObject.type === 'group') {
 **Description**: Grouped objects cannot be dragged/moved as a unit. Only individual objects within the group can be moved.
 
 **Resolution**:
-Fixed in [CanvasStage.tsx:601-717](frontend/src/components/gallery-editor/CanvasStage.tsx#L601-L717)
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 
 The key fix was setting `listening={false}` on all child elements within groups. This makes children non-interactive, so only the parent group handles mouse/touch events.
 
@@ -964,7 +968,7 @@ All templates have been converted from `type: 'gallery-item'` to `type: 'group'`
 - Removed unnecessary `background`, `borderColor`, `borderWidth` properties (not part of GroupObject interface)
 - Templates now use the same rendering and interaction logic as manually created groups
 
-**Note**: The `gallery-item` case in CanvasStage.tsx can now be removed if no longer needed, or kept for backward compatibility with existing saved galleries.
+**Note**: The `gallery-item` case in `canvas-stage.component.tsx` can now be removed if no longer needed, or kept for backward compatibility with existing saved galleries.
 
 ---
 
@@ -975,7 +979,7 @@ All templates have been converted from `type: 'gallery-item'` to `type: 'group'`
 **Description**: Grid should be visible by default when opening the editor to help with alignment.
 
 **Resolution**:
-Fixed in [useCanvasState.ts:49](frontend/src/hooks/useCanvasState.ts#L49)
+Fixed in `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts`
 
 Changed default state from `gridEnabled: false` to `gridEnabled: true`:
 
@@ -1006,7 +1010,7 @@ Now when users open the gallery editor, the grid will be visible immediately to 
 **Description**: Snap guide lines were not appearing at the visual center of rotated objects and circles. For circles, the guide appeared at the bottom-right instead of the center. For rotated objects, the guide didn't account for the rotation transformation.
 
 **Resolution**:
-Fixed in [snapUtils.ts:47-69](frontend/src/utils/snapUtils.ts#L47-L69) and [CanvasStage.tsx:414,770](frontend/src/components/gallery-editor/CanvasStage.tsx)
+Fixed in `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts` and `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 
 **Key Changes**:
 1. **Circle Handling**: Circles in Konva have their position at the center (not top-left like rectangles). Updated all snap calculations to recognize circles and use their position directly as the center.
@@ -1026,28 +1030,37 @@ Fixed in [snapUtils.ts:47-69](frontend/src/utils/snapUtils.ts#L47-L69) and [Canv
 4. **Unified Snap Application**: Updated canvas center, grid, and object-to-object snapping to apply both X and Y snaps together, maintaining rotational consistency.
 
 **Files Modified**:
-- `snapUtils.ts` - Added rotation parameter, circle detection, and rotation-aware calculations
-- `CanvasStage.tsx` - Pass rotation data to snapPosition function
+- `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts` - Added rotation parameter, circle detection, and rotation-aware calculations
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Pass rotation data to snapPosition function
 
 ---
 
 #### 14. Text Box Double-Click Editing Not Working
 
-**Status**: ❌ UNRESOLVED
+**Status**: ✅ RESOLVED
 
-**Description**: Double-clicking a text object should allow in-place editing with an HTML textarea overlay, but it's currently not working as expected.
+**Description**: Double-clicking a text object should allow in-place editing with an HTML textarea overlay.
 
-**Expected Behavior**:
-- Double-click any text object to edit
-- Textarea should match font size, family, color, and alignment
-- Press Enter (without Shift) to save
-- Press Escape to cancel
-- Click outside (blur) to save
+**Resolution**:
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 
-**Current Issue**: The double-click editing functionality is not functioning properly.
+**Implementation**:
+1. Added `editingTextId` state to track which text object is being edited
+2. Added `onTextEdit` prop handler for double-click events on text objects
+3. Created `TextEditor` overlay component that renders an HTML textarea positioned over the text object
+4. Textarea matches font size, family, color, and alignment of the text object
+5. Supports Enter (without Shift) to save, Escape to cancel, and blur to save
 
-**Attempted Solution**:
-Previously attempted fix in CanvasStage.tsx with `editingTextId` state and TextEditor overlay component, but requires debugging and proper implementation.
+**Features**:
+- Double-click any text object to edit in-place
+- Textarea automatically positioned and sized to match text object
+- Font properties (size, family, color, style) are preserved
+- Text alignment is maintained
+- Keyboard shortcuts: Enter to save, Escape to cancel
+- Blur (click outside) automatically saves changes
+
+**Files Modified**:
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Added TextEditor component and double-click handler
 
 ---
 
@@ -1078,9 +1091,9 @@ Previously attempted fix in CanvasStage.tsx with `editingTextId` state and TextE
 - For rotation: add visual indicators at snap angles or temporary angle display
 
 **Files to Investigate**:
-- `snapUtils.ts` - Snapping logic and thresholds
-- `CanvasTransformer.tsx` - Rotation snapping implementation
-- `CanvasStage.tsx` - Drag behavior and snap application
+- `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts` - Snapping logic and thresholds
+- `frontend/src/components/common/gallery-feature/editor/canvas-transformer.component.tsx` - Rotation snapping implementation
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Drag behavior and snap application
 
 ---
 
@@ -1091,7 +1104,7 @@ Previously attempted fix in CanvasStage.tsx with `editingTextId` state and TextE
 **Description**: In preview mode, objects should be non-interactive and non-draggable. Previously, objects could still be moved even when not selected in preview mode, which shouldn't happen.
 
 **Resolution**:
-Fixed in [CanvasStage.tsx:28,49,282,399,416,478,634](frontend/src/components/gallery-editor/CanvasStage.tsx)
+Fixed in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 
 **Implementation**:
 1. Added `isPreviewMode?: boolean` prop to `CanvasStageProps` interface
@@ -1109,7 +1122,7 @@ Fixed in [CanvasStage.tsx:28,49,282,399,416,478,634](frontend/src/components/gal
 - Works for all object types including groups and their children
 
 **Files Modified**:
-- `CanvasStage.tsx` - Added isPreviewMode prop and updated draggable logic
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Added isPreviewMode prop and updated draggable logic
 
 ---
 
@@ -1120,7 +1133,7 @@ Fixed in [CanvasStage.tsx:28,49,282,399,416,478,634](frontend/src/components/gal
 **Description**: The right sidebar (containing Layers and Properties panels) is now resizable via a drag handle on its left border. Users can adjust the sidebar width to their preference or collapse it entirely.
 
 **Implementation**:
-Fixed in [GalleryEditor.tsx:27-28,310-354,379-381,488-512](frontend/src/components/gallery-editor/GalleryEditor.tsx)
+Fixed in `frontend/src/components/gallery/editor.component.tsx`
 
 **Features**:
 1. **Drag to Resize**: Click and drag the left border of the sidebar to resize
@@ -1173,7 +1186,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - Smooth, intuitive interaction
 
 **Files Modified**:
-- `GalleryEditor.tsx` - Added resize state, handlers, and dynamic sidebar width
+- `frontend/src/components/gallery/editor.component.tsx` - Added resize state, handlers, and dynamic sidebar width
 
 #### 18. Text Object Not Included in Group Center Calculation
 
@@ -1181,7 +1194,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 - **Issue**: When changing textbox dimensions in the canvas (both X and Y directions), the changes don't affect the group's center calculation
 - **Impact**: Snap guides show the center at the wrong position when text objects are resized within groups
-- **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
+- **Location**: `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts`
 - **Root Cause**: The `getGroupVisualBounds()` function doesn't properly handle text objects' width/height
 - **Fix Applied**: Added proper text bounds calculation in `getGroupVisualBounds()` - text objects now use actual rendered width/height
 
@@ -1191,14 +1204,14 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 - **Issue**: Changing the Y direction of a line gets calculated for the group center, but X direction changes do not
 - **Impact**: Horizontal line movements/changes don't update group center correctly
-- **Location**: `frontend/src/components/common/gallery-feature/utils/snap.util.ts`
+- **Location**: `frontend/src/components/common/gallery-feature/editor/utils/snap.util.ts`
 - **Root Cause**: Line objects use `points` array instead of width/height, and the bounds calculation only considers Y values properly
 - **Fix Applied**: Updated `getGroupVisualBounds()` to calculate line bounds from the `points` array correctly for both X and Y directions
 
 #### 20. Grouped Objects with Lines Disappear
 - **Issue**: When grouping objects that include a line, the other objects disappear from the canvas (but remain visible in layers panel). Only the line remains visible on canvas
 - **Impact**: Major visual bug - users can't see their grouped objects
-- **Location**: Likely in `frontend/src/components/common/gallery-feature/canvas-stage.component.tsx` or group rendering logic
+- **Location**: Likely in `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` or group rendering logic
 - **Symptoms**:
   - Objects disappear from canvas view
   - Objects still appear in layers panel
@@ -1212,7 +1225,7 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 - **Issue**: When dragging text objects, snap guides don't appear. Console shows error: `Uncaught TypeError: node.textWidth is not a function at Text2.handleDragMove (canvas-stage.component.tsx:550:39)`
 - **Impact**: Text objects cannot use snap guides for alignment
-- **Location**: `frontend/src/components/common/gallery-feature/canvas-stage.component.tsx:548-551`
+- **Location**: `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`
 - **Root Cause**: Code calls `node.textWidth?.()` and `node.textHeight?.()` as functions, but in Konva they are properties (getters), not methods
 - **Error Count**: 80+ times during a single drag operation
 - **Fix Applied**:
@@ -1255,9 +1268,9 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 3. Use `width` property on Konva Text to control wrapping instead of scaling
 
 **Files to Investigate**:
-- `canvas-transformer.component.tsx` - Transformer bounds update logic for text
-- `canvas-stage.component.tsx` - Text object rendering
-- Text object type definition
+- `frontend/src/components/common/gallery-feature/editor/canvas-transformer.component.tsx` - Transformer bounds update logic for text
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Text object rendering
+- `frontend/src/types/canvas.ts` - Text object type definition
 
 ---
 
@@ -1288,60 +1301,196 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 3. Prevent text editor overlay from appearing in preview mode
 
 **Files to Investigate**:
-- `canvas-stage.component.tsx` - Text object double-click handler and text editing logic
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Text object double-click handler and text editing logic
 - Text editor overlay component (if separate)
-- Preview mode state management
+- Preview mode state management in `frontend/src/components/gallery/editor.component.tsx`
 
 ---
 
 #### 24. Hotkeys Not Disabled When Editing Textarea
 
-**Status**: ⚠️ MINOR - NEEDS FIX
+**Status**: ✅ RESOLVED
 
-**Description**: When editing text in a textarea (both in properties panel and on canvas), keyboard shortcuts are still active. For example, typing "M" in a textbox triggers the move tool instead of inserting the letter "M".
+**Description**: When editing text in a textarea (both in properties panel and on canvas), keyboard shortcuts were still active, preventing users from typing certain characters that conflict with shortcuts.
 
-**Impact**: Users cannot type certain letters or characters that conflict with keyboard shortcuts when editing text.
+**Resolution**:
+Fixed in `frontend/src/components/gallery/editor.component.tsx`
 
-**Steps to Reproduce**:
-1. Select a text object
-2. Start editing text in properties panel textarea or on canvas
-3. Type "M" (or any other keyboard shortcut key)
-4. Tool switches instead of inserting the character
+**Implementation**:
+1. Added detection for active input/textarea/contentEditable elements before handling shortcuts
+2. All keyboard shortcut handlers check `isEditingText` flag before executing
+3. When text editing is active, shortcuts are bypassed and characters are typed normally
 
-**Expected Behavior**:
-- Keyboard shortcuts should be disabled when focus is on a text input/textarea
-- All characters should be typeable in text fields
-- Shortcuts should only work when not editing text
+**Code Changes**:
+```typescript
+// Check if user is editing text
+const activeElement = document.activeElement;
+const isEditingText = activeElement && (
+  activeElement.tagName === 'INPUT' ||
+  activeElement.tagName === 'TEXTAREA' ||
+  (activeElement instanceof HTMLElement && activeElement.isContentEditable)
+);
 
-**Suggested Fix**:
-- Detect when a text input/textarea has focus
-- Disable global keyboard shortcut handlers when text editing is active
-- Re-enable shortcuts when text editing loses focus
+// All shortcuts check !isEditingText before executing
+if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isEditingText) {
+  // Handle copy...
+}
+```
 
-**Files to Investigate**:
-- `GalleryEditor.tsx` - Keyboard shortcut handlers
-- `properties-panel.panel.tsx` - Textarea focus/blur handlers
-- `CanvasStage.tsx` - Text editing handlers
+**Result**:
+- All keyboard shortcuts are disabled when editing text in inputs or textareas
+- Users can now type any character including "M", "G", "P", etc. without triggering shortcuts
+- Shortcuts resume automatically when focus leaves text inputs
+- Works for both properties panel textareas and canvas text editing overlay
+
+**Files Modified**:
+- `frontend/src/components/gallery/editor.component.tsx` - Added isEditingText detection in keyboard shortcut handler
 
 ---
 
 #### 25. Template Image Frames Should Use Implemented Frame Object
 
-**Status**: ⚠️ MINOR - NEEDS FIX
+**Status**: ✅ RESOLVED
 
-**Description**: Template image frames (in templates like "Classic Frame" and "Info Card") should use the Frame object type that has been implemented in the shapes system, rather than using a different implementation.
+**Description**: Template image frames (in templates like "Classic Frame" and "Info Card") should use the Frame object type that has been implemented in the shapes system, rather than using RectObject placeholders.
 
-**Impact**: Inconsistency in how frames are handled across the application. Templates may not benefit from frame-specific features like placeholder text, proper image cropping, etc.
+**Impact**: Inconsistency in how frames are handled across the application. Templates may not benefit from frame-specific features like placeholder text, proper image cropping, fill modes, etc.
+
+**Current State**:
+- Templates currently use `RectObject` for image placeholders
+- "Classic Frame" template has a rect at position (10, 10) with size 280x280
+- "Info Card" template has a rect at position (20, 20) with size 280x280
+- These rects serve as visual placeholders but don't have frame functionality
 
 **Expected Behavior**:
 - All template image frames should use the `FrameObject` type
-- Templates should leverage frame-specific features (placeholder, image constraints, etc.)
+- Templates should leverage frame-specific features:
+  - Placeholder text when empty ("Drop image here" by default)
+  - Image drag-and-drop attachment
+  - Fill modes (fit/fill)
+  - Dashed border option
+  - Automatic image resizing
 - Consistent behavior between manually created frames and template frames
 
-**Files to Investigate**:
-- `template-library.library.tsx` - Template definitions
-- Template data structure and object types
-- Frame object implementation in shapes
+**Implementation Plan**:
+
+**1. FrameObject Type Definition** (already exists in `frontend/src/types/canvas.ts`):
+```typescript
+export interface FrameObject extends BaseCanvasObject {
+  type: 'frame';
+  width: number;
+  height: number;
+  stroke?: string;
+  strokeWidth?: number;
+  fill?: string;
+  dashEnabled?: boolean;
+  children: CanvasObject[]; // Can only contain one image object
+  placeholder?: string; // Placeholder text when empty
+}
+```
+
+**2. Convert Templates** (`frontend/src/data/templates.ts`):
+
+**Classic Frame Template** - Replace the rect child (lines 29-45) with:
+```typescript
+{
+  id: generateId(),
+  type: 'frame',
+  x: 10,
+  y: 10,
+  width: 280,
+  height: 280,
+  fill: '#f0f0f0',
+  stroke: '#cccccc',
+  strokeWidth: 1,
+  dashEnabled: true,
+  placeholder: 'Drop image here',
+  children: [], // Empty initially, will contain image when attached
+  draggable: false, // Frames are typically not draggable within templates
+  rotation: 0,
+  scaleX: 1,
+  scaleY: 1,
+  opacity: 1,
+  visible: true,
+}
+```
+
+**Info Card Template** - Replace the rect child (lines 339-355) with:
+```typescript
+{
+  id: generateId(),
+  type: 'frame',
+  x: 20,
+  y: 20,
+  width: 280,
+  height: 280,
+  fill: '#f8f8f8',
+  stroke: '#e0e0e0',
+  strokeWidth: 1,
+  dashEnabled: true,
+  placeholder: 'Drop image here',
+  children: [],
+  draggable: false,
+  rotation: 0,
+  scaleX: 1,
+  scaleY: 1,
+  opacity: 1,
+  visible: true,
+}
+```
+
+**3. Benefits of Conversion**:
+- **Consistent UX**: Templates will work exactly like manually created frames
+- **Better Image Management**: Users can drag-and-drop images onto template frames
+- **Fill Modes**: Templates can leverage fit/fill modes for proper image display
+- **Placeholder Text**: Clear indication of where images should be placed
+- **Visual Consistency**: Dashed borders and placeholder styling match frame objects
+- **Easier Updates**: Frame properties can be edited via properties panel
+
+**4. Considerations**:
+- Existing saved galleries using old template format will need backward compatibility
+- Frame rendering is already implemented in `canvas-stage.component.tsx`
+- Image attachment logic already supports frames
+- No changes needed to template library component
+
+**5. Testing Checklist**:
+- [ ] Insert "Classic Frame" template - frame should render correctly
+- [ ] Insert "Info Card" template - frame should render correctly
+- [ ] Drag image onto template frame - should attach and resize
+- [ ] Edit frame properties in properties panel
+- [ ] Change fill mode (fit/fill) - image should resize accordingly
+- [ ] Save and reload gallery - frames should persist correctly
+
+**Implementation**:
+Fixed in `frontend/src/data/templates.ts`
+
+**Changes Made**:
+1. **Classic Frame Template**: Replaced RectObject placeholder (lines 29-45) with FrameObject
+   - Changed `type: 'rect'` to `type: 'frame'`
+   - Added `dashEnabled: true` for dashed border
+   - Added `placeholder: 'Drop image here'` for empty state
+   - Added `children: []` for image attachment
+   - Changed `draggable: false` to prevent dragging frame within template
+
+2. **Info Card Template**: Replaced RectObject placeholder (lines 339-355) with FrameObject
+   - Same changes as Classic Frame template
+
+**Result**:
+- Templates now use FrameObject for image placeholders
+- Users can drag-and-drop images onto template frames
+- Frames support fill modes (fit/fill) via properties panel
+- Placeholder text displays when frames are empty
+- Dashed borders provide visual indication of frame objects
+- Consistent behavior between manually created frames and template frames
+
+**Files Modified**:
+- `frontend/src/data/templates.ts` - Converted RectObject placeholders to FrameObject in "Classic Frame" and "Info Card" templates
+
+**Files Already Supporting This**:
+- `frontend/src/types/canvas.ts` - FrameObject type definition exists
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Frame rendering implemented
+- `frontend/src/components/common/gallery-feature/editor/properties-panel.panel.tsx` - Frame properties panel implemented
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - `attachImageToFrame()` method exists
 
 ---
 
@@ -1368,7 +1517,113 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 
 ### Priority Features
 
-#### 1. Resizable Separator Between Layers and Properties Panels
+#### 1. Layer Ordering/Reordering Feature
+
+**Status**: ⚠️ NEEDS IMPLEMENTATION
+
+**Description**: Implement layer ordering functionality that allows users to adjust the z-index/stacking order of objects via the layers panel using up/down arrow buttons.
+
+**Current State**:
+- Layer panel has up/down arrow buttons for reordering
+- `handleReorder` function exists but only shows "Coming soon" toast
+- Objects are rendered in array order (no z-index support yet)
+- No actual reordering logic implemented
+
+**Expected Behavior**:
+- Click up arrow → Move object one layer up (bring to front)
+- Click down arrow → Move object one layer down (send to back)
+- Objects should reorder immediately on canvas
+- Visual feedback in layers panel showing new position
+- Update z-index or array order based on implementation approach
+
+**Implementation Approaches**:
+
+**Approach A: Array Reordering (Recommended)**
+- Reorder objects array in `useCanvasState`
+- Objects rendered in array order (simpler, already working)
+- Direct array manipulation
+
+**Approach B: Z-Index Property**
+- Use `zIndex` property on `BaseCanvasObject`
+- Sort objects by zIndex when rendering
+- More flexible but requires sorting logic
+
+**Recommended Implementation** (Approach A):
+
+**1. Add `reorderObject` method to `use-canvas-state.hook.ts`**:
+```typescript
+const reorderObject = useCallback((id: string, direction: 'up' | 'down') => {
+  const currentIndex = state.objects.findIndex(o => o.id === id);
+  if (currentIndex === -1) return;
+
+  const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  if (newIndex < 0 || newIndex >= state.objects.length) return;
+
+  const command: Command = {
+    execute: () => {
+      setState((prev) => {
+        const newObjects = [...prev.objects];
+        const [movedObject] = newObjects.splice(currentIndex, 1);
+        newObjects.splice(newIndex, 0, movedObject);
+        
+        return {
+          ...prev,
+          objects: newObjects,
+        };
+      });
+    },
+    undo: () => {
+      // Reverse the operation
+      setState((prev) => {
+        const newObjects = [...prev.objects];
+        const [movedObject] = newObjects.splice(newIndex, 1);
+        newObjects.splice(currentIndex, 0, movedObject);
+        
+        return {
+          ...prev,
+          objects: newObjects,
+        };
+      });
+    },
+    description: `Move object ${direction === 'up' ? 'forward' : 'backward'}`,
+  };
+  undoRedo.execute(command);
+}, [state.objects, undoRedo]);
+```
+
+**2. Export from hook**:
+- Add `reorderObject` to `UseCanvasStateReturn` interface
+- Export in return statement
+
+**3. Update `editor.component.tsx`**:
+```typescript
+const handleReorder = useCallback((id: string, direction: 'up' | 'down') => {
+  editorState.reorderObject(id, direction);
+}, [editorState]);
+```
+
+**4. Considerations**:
+- Only reorder top-level objects (not children within groups)
+- Disable buttons at top/bottom of list
+- Support undo/redo for reordering
+- Update visual feedback in layers panel
+
+**Testing Checklist**:
+- [ ] Move object up one layer
+- [ ] Move object down one layer
+- [ ] Test at boundaries (top/bottom of list)
+- [ ] Verify undo/redo works
+- [ ] Check visual updates on canvas
+- [ ] Ensure group children are not affected
+
+**Files to Modify**:
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - Add `reorderObject` method
+- `frontend/src/components/gallery/editor.component.tsx` - Update `handleReorder` implementation
+- `frontend/src/components/common/gallery-feature/editor/layer-panel.panel.tsx` - Already has UI, no changes needed
+
+---
+
+#### 2. Resizable Separator Between Layers and Properties Panels
 
 **Description**: Add a draggable separator between the Layers panel and Properties panel in the right sidebar.
 
@@ -1379,11 +1634,11 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - Store user preference in local state
 
 **Files to Modify**:
-- `GalleryEditor.tsx` - Add resize logic similar to sidebar resizing
+- `frontend/src/components/gallery/editor.component.tsx` - Add resize logic similar to sidebar resizing
 
 ---
 
-#### 2. Expandable Grouped Objects in Layers Panel ✅ **COMPLETED** (not really, still has issues)
+#### 3. Expandable Grouped Objects in Layers Panel ✅ **COMPLETED** (not really, still has issues)
 
 **Description**: Users should be able to see and edit individual children within grouped objects directly from the layers panel.
 
@@ -1412,13 +1667,13 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - Consider performance for groups with many children
 
 **Files to Modify**:
-- `LayerPanel.tsx` - Add tree structure rendering
-- `useCanvasState.ts` - Add method to update individual child and recalculate group
-- `CanvasStage.tsx` - Handle selection of child objects within groups
+- `frontend/src/components/common/gallery-feature/editor/layer-panel.panel.tsx` - Add tree structure rendering
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - Add method to update individual child and recalculate group
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Handle selection of child objects within groups
 
 ---
 
-#### 3. Enhanced Gallery Creation UI ✅ **COMPLETED**
+#### 4. Enhanced Gallery Creation UI ✅ **COMPLETED**
 
 **Description**: Improve the my-galleries component with a better UI and more options when creating new galleries.
 
@@ -1455,15 +1710,15 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - Redesign gallery card component with cover image support
 
 **Files to Create/Modify**:
-- `my-galleries.component.tsx` - Redesign UI
-- `GalleryCreationModal.tsx` - New modal component
-- `gallery.service.ts` - Update create gallery API call
+- `frontend/src/components/gallery/galleries.component.tsx` - Redesign UI
+- `frontend/src/components/common/gallery-feature/modal/gallery-creation.modal.tsx` - Gallery creation modal component
+- `frontend/src/services/gallery.service.ts` - Update create gallery API call
 - `backend/gallery/models.py` - Ensure canvas dimensions are stored
 - `backend/gallery/serializers.py` - Add picture field validation
 
 ---
 
-#### 4. Objects Library Modal ✅ **COMPLETED**
+#### 5. Objects Library Modal ✅ **COMPLETED**
 
 **Description**: Replace individual toolbar buttons for shapes with a unified "Objects" button that opens a modal with categorized object types.
 
@@ -1504,22 +1759,22 @@ const handleResizeMove = useCallback((e: MouseEvent) => {
 - Click to add object to canvas center
 
 **Implementation Notes**:
-- Create new `ObjectsLibraryModal.tsx` component
-- Move template selection logic from `TemplateLibrary.tsx`
+- Create new `objects-library.modal.tsx` component
+- Move template selection logic from `template-library.library.tsx`
 - Add SVG icons or preview images for each shape type
 - Create factory functions for each shape type
 - Update toolbar to have single "Objects" button
 
 **Files to Create/Modify**:
-- `ObjectsLibraryModal.tsx` - New modal component
-- `Toolbar.tsx` - Replace individual shape buttons with "Objects" button
-- `GalleryEditor.tsx` - Add modal state and handlers
-- `shapeFactory.ts` - New utility file for creating shape objects
-- `types/canvas.ts` - Add new shape object type interfaces
+- `frontend/src/components/common/gallery-feature/editor/objects-library.modal.tsx` - Objects library modal component (already created)
+- `frontend/src/components/common/gallery-feature/editor/toolbar.component.tsx` - Replace individual shape buttons with "Objects" button
+- `frontend/src/components/gallery/editor.component.tsx` - Add modal state and handlers
+- `frontend/src/components/common/gallery-feature/editor/utils/shape-factory.util.ts` - Shape factory utility file
+- `frontend/src/types/canvas.ts` - Add new shape object type interfaces
 
 ---
 
-#### 5. Media Library Panel
+#### 6. Media Library Panel
 
 **Description**: Add a "Media" button in the left sidebar that displays all of the user's uploaded media files, allowing easy reuse of previously uploaded images.
 
@@ -1609,9 +1864,9 @@ DELETE /api/gallery/media/{filename}/  # Delete a media file
 - `useMediaLibrary.ts` - Hook for fetching and managing media
 
 **Files to Modify**:
-- `GalleryEditor.tsx` - Add media panel state and toggle button
-- `gallery.service.ts` - Add methods for listing and deleting media
-- `Toolbar.tsx` or left sidebar - Add "Media" button
+- `frontend/src/components/gallery/editor.component.tsx` - Add media panel state and toggle button
+- `frontend/src/services/gallery.service.ts` - Add methods for listing and deleting media
+- `frontend/src/components/common/gallery-feature/editor/toolbar.component.tsx` or left sidebar - Add "Media" button
 
 **User Flow**:
 1. User clicks "Media" button in left sidebar
@@ -1654,7 +1909,7 @@ DELETE /api/gallery/media/{filename}/  # Delete a media file
 
 ---
 
-#### 6. Copy and Paste Functionality ✅ **COMPLETED**
+#### 7. Copy and Paste Functionality ✅ **COMPLETED**
 
 **Description**: Implement copy and paste functionality for objects and grouped objects using keyboard shortcuts (Ctrl+C / Ctrl+V on Windows, Cmd+C / Cmd+V on Mac) and right-click context menus.
 
@@ -1682,7 +1937,7 @@ DELETE /api/gallery/media/{filename}/  # Delete a media file
 
 **State Management**:
 ```typescript
-// In useCanvasState.ts or GalleryEditor.tsx
+// In use-canvas-state.hook.ts or editor.component.tsx
 const [clipboard, setClipboard] = useState<CanvasObject[]>([]);
 
 const handleCopy = () => {
@@ -1777,9 +2032,9 @@ const calculatePastePosition = (originalX: number, originalY: number, index: num
 5. **Undo/Redo**: Paste should be undoable using the command pattern
 
 **Files to Modify**:
-- `GalleryEditor.tsx` - Add keyboard event handlers for copy/paste
-- `useCanvasState.ts` - Add clipboard state and copy/paste methods (if using hook)
-- May need utility function for deep cloning objects: `utils/objectClone.ts`
+- `frontend/src/components/gallery/editor.component.tsx` - Add keyboard event handlers for copy/paste
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - Add clipboard state and copy/paste methods
+- May need utility function for deep cloning objects: `frontend/src/utils/objectClone.ts`
 
 **Keyboard Shortcuts Documentation Update**:
 Add to existing keyboard shortcuts list:
@@ -1810,9 +2065,9 @@ Ctrl+V / Cmd+V         # Paste copied object(s)
 - Undo/Redo support for paste operations
 
 **Files Modified**:
-- `use-canvas-state.hook.ts` - Added `copyObjects()` and `pasteObjects()` methods with deep cloning
-- `editor.component.tsx` - Added keyboard shortcuts and context menu handlers
-- `canvas-stage.component.tsx` - Added `onCanvasContextMenu` prop and handler
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - Added `copyObjects()` and `pasteObjects()` methods with deep cloning
+- `frontend/src/components/gallery/editor.component.tsx` - Added keyboard shortcuts and context menu handlers
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Added `onCanvasContextMenu` prop and handler
 
 **Future Enhancement**:
 - Copy/Paste in layers panel (right-click objects in layers panel to copy/paste)
@@ -1855,11 +2110,11 @@ Ctrl+V / Cmd+V         # Paste copied object(s)
 - Undo/Redo support for frame attachments
 
 **Files Created/Modified**:
-- `types/canvas.ts` - Added `FrameObject` interface with properties
-- `canvas-stage.component.tsx` - Added frame rendering with Group, Rect, and placeholder Text
-- `shape-factory.util.ts` - Added frame to shape definitions and factory
-- `use-canvas-state.hook.ts` - Added `attachImageToFrame()` method with fit/fill logic
-- `properties-panel.panel.tsx` - Added frame-specific properties section
+- `frontend/src/types/canvas.ts` - Added `FrameObject` interface with properties
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx` - Added frame rendering with Group, Rect, and placeholder Text
+- `frontend/src/components/common/gallery-feature/editor/utils/shape-factory.util.ts` - Added frame to shape definitions and factory
+- `frontend/src/hooks/gallery/editor/use-canvas-state.hook.ts` - Added `attachImageToFrame()` method with fit/fill logic
+- `frontend/src/components/common/gallery-feature/editor/properties-panel.panel.tsx` - Added frame-specific properties section
 
 **How to Use**:
 1. Click "Shapes" button in toolbar
@@ -1880,7 +2135,7 @@ Ctrl+V / Cmd+V         # Paste copied object(s)
 - **State Management**: Tracks `draggedImageId` and `hoveredFrameId` for drag state
 
 **Files Modified for Drag-and-Drop**:
-- `canvas-stage.component.tsx`:
+- `frontend/src/components/common/gallery-feature/editor/canvas-stage.component.tsx`:
   - Added `draggedImageId` and `hoveredFrameId` state
   - Added `onAttachImageToFrame` prop
   - Updated `ImageRenderer` with drag handlers and collision detection

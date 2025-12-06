@@ -658,6 +658,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -680,6 +691,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -707,6 +729,17 @@ function CanvasObjectRenderer({
           onDblClick={() => onTextEdit?.(object.id)}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -741,6 +774,7 @@ function CanvasObjectRenderer({
           previewImageId={previewImageId}
           setPreviewImageId={setPreviewImageId}
           onAttachImageToFrame={onAttachImageToFrame}
+          onContextMenu={onContextMenu}
         />
       );
 
@@ -765,6 +799,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -799,6 +844,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -996,6 +1052,36 @@ function CanvasObjectRenderer({
                     listening={true}
                   />
                 );
+              case 'frame':
+                // Render frame using CanvasObjectRenderer recursively
+                // Frames in groups can still accept image drag-and-drop and be selected via layers panel
+                // Clicking frame in group will select the parent group (standard group behavior)
+                return (
+                  <CanvasObjectRenderer
+                    key={child.id}
+                    object={child}
+                    allObjects={allObjects}
+                    isSelected={selectedIds.includes(child.id)}
+                    selectedIds={selectedIds}
+                    onSelect={onSelect} // This will select parent group when clicked (standard group behavior)
+                    onUpdate={onUpdate}
+                    gridEnabled={gridEnabled}
+                    snapEnabled={snapEnabled}
+                    canvasWidth={canvasWidth}
+                    canvasHeight={canvasHeight}
+                    onSnapGuidesChange={onSnapGuidesChange}
+                    isTransforming={isTransforming}
+                    editorMode={editorMode}
+                    isPreviewMode={isPreviewMode}
+                    draggedImageId={draggedImageId}
+                    setDraggedImageId={setDraggedImageId}
+                    hoveredFrameId={hoveredFrameId}
+                    setHoveredFrameId={setHoveredFrameId}
+                    previewImageId={previewImageId}
+                    setPreviewImageId={setPreviewImageId}
+                    onAttachImageToFrame={onAttachImageToFrame}
+                  />
+                );
               case 'image':
                 // For images in groups, render simple placeholder
                 return (
@@ -1053,15 +1139,38 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         >
           {/* Frame rectangle with dashed border */}
           <Rect
             width={object.width}
             height={object.height}
             fill={isHovered ? 'rgba(79, 70, 229, 0.2)' : (object.fill || 'rgba(200, 200, 255, 0.1)')}
-            stroke={isHovered ? '#6366F1' : (object.stroke || '#4F46E5')}
-            strokeWidth={isHovered ? 3 : (object.strokeWidth || 2)}
-            dash={object.dashEnabled !== false ? [10, 5] : undefined}
+            stroke={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? undefined // Hide border when strokeWidth is 0
+                : (isHovered ? '#6366F1' : (object.stroke || '#4F46E5'))
+            }
+            strokeWidth={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? 0 // Set to 0 when strokeWidth is 0
+                : (isHovered ? 3 : (object.strokeWidth || 2))
+            }
+            dash={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? undefined // No dash when border is hidden
+                : (object.dashEnabled !== false ? [10, 5] : undefined)
+            }
             cornerRadius={4}
           />
 
@@ -1224,6 +1333,7 @@ function ImageRenderer({
   hoveredFrameId,
   setPreviewImageId,
   onAttachImageToFrame,
+  onContextMenu,
 }: CanvasObjectRendererProps & {
   draggedImageId?: string | null;
   setDraggedImageId?: (id: string | null) => void;
@@ -1241,6 +1351,31 @@ function ImageRenderer({
     }
   };
 
+  // Helper function to recursively find frames and calculate their absolute positions
+  const findFramesRecursively = (objects: CanvasObject[], parentX = 0, parentY = 0): Array<{ frame: FrameObject; absX: number; absY: number }> => {
+    const frames: Array<{ frame: FrameObject; absX: number; absY: number }> = [];
+    
+    for (const obj of objects) {
+      if (obj.type === 'frame') {
+        frames.push({
+          frame: obj as FrameObject,
+          absX: parentX + obj.x,
+          absY: parentY + obj.y,
+        });
+      } else if (obj.type === 'group') {
+        // Recursively check children in groups
+        const groupFrames = findFramesRecursively(
+          obj.children || [],
+          parentX + obj.x,
+          parentY + obj.y
+        );
+        frames.push(...groupFrames);
+      }
+    }
+    
+    return frames;
+  };
+
   // Helper function to check frame overlap (needs access to allObjects from parent scope)
   const checkFrameOverlapForImage = (imageNode: any) => {
     if (!setHoveredFrameId || !setPreviewImageId || draggedImageId !== object.id) return;
@@ -1251,29 +1386,28 @@ function ImageRenderer({
     const imageWidth = imageNode.width() * (imageNode.scaleX() || 1);
     const imageHeight = imageNode.height() * (imageNode.scaleY() || 1);
 
+    // Find all frames (including those inside groups) with their absolute positions
+    const allFrames = findFramesRecursively(allObjects);
+    
     let foundFrame: string | null = null;
-    for (const obj of allObjects) {
-      if (obj.type === 'frame') {
-        const frameX = obj.x;
-        const frameY = obj.y;
-        const frameWidth = obj.width;
-        const frameHeight = obj.height;
+    for (const { frame, absX: frameX, absY: frameY } of allFrames) {
+      const frameWidth = frame.width;
+      const frameHeight = frame.height;
 
-        // AABB collision detection using canvas coordinates
-        const overlap =
-          imageX < frameX + frameWidth &&
-          imageX + imageWidth > frameX &&
-          imageY < frameY + frameHeight &&
-          imageY + imageHeight > frameY;
+      // AABB collision detection using absolute canvas coordinates
+      const overlap =
+        imageX < frameX + frameWidth &&
+        imageX + imageWidth > frameX &&
+        imageY < frameY + frameHeight &&
+        imageY + imageHeight > frameY;
 
-        if (overlap) {
-          foundFrame = obj.id;
-          // Set preview image ID when hovering over frame
-          if (draggedImageId) {
-            setPreviewImageId(draggedImageId);
-          }
-          break;
+      if (overlap) {
+        foundFrame = frame.id;
+        // Set preview image ID when hovering over frame
+        if (draggedImageId) {
+          setPreviewImageId(draggedImageId);
         }
+        break;
       }
     }
 
@@ -1392,6 +1526,17 @@ function ImageRenderer({
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
+      onContextMenu={(e: any) => {
+        if (onContextMenu) {
+          e.evt.preventDefault();
+          const syntheticEvent = {
+            preventDefault: () => e.evt.preventDefault(),
+            clientX: e.evt.clientX,
+            clientY: e.evt.clientY,
+          } as React.MouseEvent;
+          onContextMenu(syntheticEvent, object.id);
+        }
+      }}
     />
   );
 }
