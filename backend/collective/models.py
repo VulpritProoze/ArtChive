@@ -39,6 +39,9 @@ class Collective(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.title
+
 
 class CollectiveMember(models.Model):
     collective_id = models.ForeignKey(
@@ -52,6 +55,12 @@ class CollectiveMember(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['member', 'collective_id'], name='cmember_member_coll_idx'),
+            models.Index(fields=['collective_id', 'member'], name='cmember_coll_member_idx'),
+        ]
 
     def __str__(self):
         member_instance = getattr(self, "member", None)
@@ -74,6 +83,10 @@ class Channel(models.Model):
     collective = models.ForeignKey(
         Collective, on_delete=models.CASCADE, related_name="collective_channel"
     )
+
+    def __str__(self):
+        collective_title = getattr(self.collective, "title", str(self.collective))
+        return f"{self.title} ({collective_title})"
 
 
 class AdminRequest(models.Model):
@@ -116,3 +129,106 @@ class AdminRequest(models.Model):
         requester_username = getattr(self.requester, "username", str(self.requester))
         collective_title = getattr(self.collective, "title", str(self.collective))
         return f"{requester_username} -> {collective_title} ({self.status})"
+
+
+class JoinRequest(models.Model):
+    """
+    Model to track join requests for collectives.
+    Users who are not yet members can request to join a collective.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    request_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    collective = models.ForeignKey(
+        Collective, on_delete=models.CASCADE, related_name="join_requests"
+    )
+    requester = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="join_requests"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    rules_accepted = models.BooleanField(
+        default=False, help_text="Flag indicating user has accepted the collective's rules"
+    )
+    message = models.TextField(
+        max_length=500, blank=True, help_text="Optional message from requester"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_join_requests",
+    )
+
+    class Meta:
+        unique_together = ("collective", "requester", "status")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=['collective', 'status'], name='join_req_coll_status_idx'),
+            models.Index(fields=['requester', 'status'], name='join_req_req_status_idx'),
+        ]
+
+    def __str__(self):
+        requester_username = getattr(self.requester, "username", str(self.requester))
+        collective_title = getattr(self.collective, "title", str(self.collective))
+        return f"{requester_username} -> {collective_title} ({self.status})"
+
+
+# Proxy models - import at the end to avoid circular dependencies
+# These imports must be after all other models are defined
+from post.models import Comment, Critique, Post  # noqa: E402
+
+
+class CollectivePost(Post):
+    """Proxy model for collective posts"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post'
+        verbose_name_plural = 'Collective Posts'
+
+
+class CollectivePostComment(Comment):
+    """Proxy model for collective post comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post Comment'
+        verbose_name_plural = 'Collective Post Comments'
+
+
+class CollectivePostCritique(Critique):
+    """Proxy model for collective post critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Collective Post Critique'
+        verbose_name_plural = 'Collective Post Critiques'
+
+
+class InactiveCollectivePost(Post):
+    """Proxy model for inactive collective posts"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post'
+        verbose_name_plural = 'Inactive Collective Posts'
+
+
+class InactiveCollectivePostComment(Comment):
+    """Proxy model for inactive collective post comments"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post Comment'
+        verbose_name_plural = 'Inactive Collective Post Comments'
+
+
+class InactiveCollectivePostCritique(Critique):
+    """Proxy model for inactive collective post critiques"""
+    class Meta:
+        proxy = True
+        verbose_name = 'Inactive Collective Post Critique'
+        verbose_name_plural = 'Inactive Collective Post Critiques'

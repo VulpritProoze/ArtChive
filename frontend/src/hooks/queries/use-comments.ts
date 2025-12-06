@@ -1,5 +1,5 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { post } from '@lib/api';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { postService } from '@services/post.service';
 import type { Comment } from '@types';
 
 interface CommentsResponse {
@@ -32,13 +32,10 @@ export const useComments = (postId: string, options: UseCommentsOptions = {}) =>
   return useInfiniteQuery<CommentsResponse>({
     queryKey: ['comments', postId],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/comment/${postId}/`, {
-        params: { page: pageParam, page_size: pageSize },
-      });
-
+      const data = await postService.getComments(postId, pageParam as number, pageSize);
       return {
-        ...response.data,
-        results: normalizeComments(response.data.results || []),
+        ...data,
+        results: normalizeComments(data.results || []),
       };
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
@@ -51,12 +48,10 @@ export const useReplies = (commentId: string, enabled = false) => {
   return useInfiniteQuery({
     queryKey: ['replies', commentId],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await post.get(`/comment/${commentId}/replies/`, {
-        params: { page: pageParam, page_size: 10 },
-      });
+      const data = await postService.getReplies(commentId, pageParam, 10);
       return {
-        ...response.data,
-        results: normalizeComments(response.data.results || []),
+        ...data,
+        results: normalizeComments(data.results || []),
         comment_id: commentId, // Include parent comment ID in response
       };
     },
@@ -66,80 +61,3 @@ export const useReplies = (commentId: string, enabled = false) => {
     staleTime: Infinity,
   });
 };
-
-export const useCreateComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { text: string; post_id: string }) => {
-      await post.post('/comment/create/', data);
-      return data.post_id;
-    },
-    onSuccess: (postId) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useUpdateComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { commentId: string; text: string; postId: string }) => {
-      const { commentId, text } = input;
-      await post.put(`/comment/update/${commentId}/`, { text });
-      return input;
-    },
-    onSuccess: ({ postId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useDeleteComment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { commentId: string; postId: string }) => {
-      const { commentId } = input;
-      await post.delete(`/comment/delete/${commentId}/`, { data: { confirm: true } });
-      return input;
-    },
-    onSuccess: ({ postId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-    },
-  });
-};
-
-export const useCreateReply = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { text: string; replies_to: string; post_id: string }) => {
-      await post.post('/comment/reply/create/', data);
-      return { commentId: data.replies_to, postId: data.post_id };
-    },
-    onSuccess: ({ postId, commentId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-      queryClient.invalidateQueries({ queryKey: ['replies', commentId] });
-    },
-  });
-};
-
-export const useUpdateReply = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: { replyId: string; text: string; postId: string }) => {
-      const { replyId, text } = input;
-      await post.put(`/comment/reply/update/${replyId}/`, { text });
-      return input;
-    },
-    onSuccess: ({ postId, replyId }) => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
-      queryClient.invalidateQueries({ queryKey: ['replies', replyId] });
-    },
-  });
-};
-
-

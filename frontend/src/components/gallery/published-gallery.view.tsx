@@ -5,6 +5,9 @@ import { GalleryLayout } from '@components/common/layout';
 import { LoadingSpinner } from '@components/loading-spinner';
 import handleApiError from '@utils/handle-api-error';
 import { renderCanvasObjectToHTML } from '@utils/canvas-to-html-renderer';
+import GalleryCommentsModal from '@components/common/gallery-feature/modal/gallery-comments-modal.component';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faComment } from '@fortawesome/free-solid-svg-icons';
 
 export default function PublishedGalleryView() {
   const { userId } = useParams<{ userId: string }>();
@@ -13,6 +16,7 @@ export default function PublishedGalleryView() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string[] | null>(null);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -147,7 +151,17 @@ export default function PublishedGalleryView() {
   console.log('=== START RENDERING ===');
 
   return (
-    <GalleryLayout>
+    <GalleryLayout
+      sidebarMenuItems={[
+        {
+          label: "Sidebar",
+          icon: faComment,
+          action: () => {
+            setIsCommentsModalOpen(true);
+          },
+        },
+      ]}
+    >
       <div
         ref={containerRef}
         style={{
@@ -161,6 +175,25 @@ export default function PublishedGalleryView() {
       >
         {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}
       </div>
+
+      {/* Sticky Sidebar Button */}
+      <div className="tooltip tooltip-left fixed bottom-6 right-6 z-40" data-tip="Open Sidebar">
+        <button
+          onClick={() => setIsCommentsModalOpen(true)}
+          className="btn btn-circle btn-primary btn-lg shadow-2xl hover:scale-110 transition-transform"
+          aria-label="Open sidebar"
+          title="Open Sidebar"
+        >
+          <FontAwesomeIcon icon={faComment} className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Comments Modal */}
+      <GalleryCommentsModal
+        isOpen={isCommentsModalOpen}
+        onClose={() => setIsCommentsModalOpen(false)}
+        galleryId={gallery.gallery_id}
+      />
     </GalleryLayout>
   );
 }

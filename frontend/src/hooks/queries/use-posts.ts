@@ -1,6 +1,7 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { post, collective } from '@lib/api';
-import type { PostsResponse } from '@types';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { postService } from '@services/post.service';
+import { collectiveService } from '@services/collective.service';
+import { useUserId } from '@context/auth-context';
 
 interface UsePostsOptions {
   channelId?: string;
@@ -9,34 +10,41 @@ interface UsePostsOptions {
   pageSize?: number;
 }
 
-export const buildPostsKey = (channelId?: string, userId?: number) =>
-  ['posts', { channelId, userId }] as const;
+export const buildPostsKey = (channelId?: string, userId?: number, currentUserId?: number | null) =>
+  ['posts', { channelId, userId, currentUserId }] as const;
 
 export const usePosts = (options: UsePostsOptions = {}) => {
   const { channelId, userId, enabled = true, pageSize = 10 } = options;
+  const currentUserId = useUserId(); // Get current logged-in user ID
 
-  return useInfiniteQuery<PostsResponse>({
-    queryKey: buildPostsKey(channelId, userId),
-    queryFn: async ({ pageParam = 1 }) => {
-      let url = '/';
-      let client = post;
-
+  return useInfiniteQuery({
+    queryKey: buildPostsKey(channelId, userId, currentUserId),
+    queryFn: async ({ pageParam }: { pageParam: number }) => {
       if (channelId) {
-        url = `channel/${channelId}/posts/`;
-        client = collective;
+        return collectiveService.getChannelPosts(channelId, pageParam, pageSize);
       } else if (userId) {
-        url = `me/${userId}/`;
+        return postService.getUserPosts(userId, pageParam, pageSize);
+      } else {
+        // Personalized feed - user-specific
+        return postService.getPosts(pageParam, pageSize);
       }
-
-      const response = await client.get(url, {
-        params: { page: pageParam, page_size: pageSize },
-      });
-
-      return response.data;
     },
     getNextPageParam: (lastPage, pages) => (lastPage.next ? pages.length + 1 : undefined),
     initialPageParam: 1,
     enabled: enabled && (!!channelId || !!userId || channelId === undefined),
+  });
+};
+
+/**
+ * Hook to fetch global top posts
+ * @param limit Number of posts to fetch (5, 10, 25, 50, 100)
+ * @param postType Optional post type filter ('default', 'novel', 'image', 'video')
+ */
+export const useTopPosts = (limit: number = 25, postType?: string) => {
+  return useQuery({
+    queryKey: ['top-posts', limit, postType],
+    queryFn: () => postService.getTopPosts(limit, postType),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 

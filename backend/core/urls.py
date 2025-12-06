@@ -1,6 +1,24 @@
 from django.urls import path
 
+from .reputation_views import (
+    MyLeaderboardPositionView,
+    ReputationLeaderboardView,
+    UserReputationHistoryView,
+    UserReputationView,
+)
 from .views import (
+    ArtistCountsAPIView,
+    ArtistGrowthAPIView,
+    ArtistTypesAPIView,
+    TransactionCountsAPIView,
+    TransactionTypesAPIView,
+    TransactionVolumeAPIView,
+    UserCountsAPIView,
+    UserGrowthAPIView,
+    AcceptFriendRequestView,
+    ActiveFellowsListView,
+    BlockUserView,
+    DebugPresenceView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
     BrushDripTransactionDetailView,
@@ -8,34 +26,234 @@ from .views import (
     BrushDripTransactionStatsView,
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
+    CancelFriendRequestView,
+    CheckFriendRequestStatusView,
     CookieTokenRefreshView,
+    CreateFriendRequestView,
+    FellowsListView,
+    FriendRequestCountView,
+    GetCSRFTokenView,
     LoginView,
     LogoutView,
+    PendingFriendRequestsListView,
     ProfileRetrieveUpdateView,
     RegistrationView,
+    RejectFriendRequestView,
+    SearchFellowsView,
+    UnfriendView,
+    UserFellowsListView,
     UserInfoView,
+    UserProfileByUsernameView,
+    UserSearchView,
+    UserSummaryView,
 )
 
 urlpatterns = [
     # Authentication endpoints
-    path('auth/login/', LoginView.as_view(), name='auth-login'),
-    path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
-    path('auth/token/refresh/', CookieTokenRefreshView.as_view(), name='auth-token_refresh'),
-    path('auth/me/', UserInfoView.as_view(), name='auth-current_user'),
-    path('auth/register/', RegistrationView.as_view(), name='auth-register'),
-
+    path("auth/csrf/", GetCSRFTokenView.as_view(), name="get-csrf-token"),
+    path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path(
+        "auth/token/refresh/",
+        CookieTokenRefreshView.as_view(),
+        name="auth-token_refresh",
+    ),
+    path("auth/me/", UserInfoView.as_view(), name="auth-current_user"),
+    path("auth/register/", RegistrationView.as_view(), name="auth-register"),
     # Profile endpoints
-    path('profile/get/<int:id>/', ProfileRetrieveUpdateView.as_view(), name='profile-retrieve'),
-    path('profile/update/<int:id>/', ProfileRetrieveUpdateView.as_view(), name='profile-update'),
-
+    path(
+        "profile/get/<int:id>/",
+        ProfileRetrieveUpdateView.as_view(),
+        name="profile-retrieve",
+    ),
+    path(
+        "profile/update/<int:id>/",
+        ProfileRetrieveUpdateView.as_view(),
+        name="profile-update",
+    ),
+    path(
+        "profile/by-username/<str:username>/",
+        UserProfileByUsernameView.as_view(),
+        name="profile-by-username",
+    ),
+    path(
+        "user/<int:user_id>/summary/",
+        UserSummaryView.as_view(),
+        name="user-summary",
+    ),
+    path(
+        "users/search/",
+        UserSearchView.as_view(),
+        name="user-search",
+    ),
     # Brush Drip Wallet endpoints
-    path('brushdrips/wallet/', BrushDripWalletRetrieveView.as_view(), name='brushdrip-wallet'),
-    path('brushdrips/wallet/<int:user_id>/', BrushDripWalletDetailView.as_view(), name='brushdrip-wallet-detail'),
-
+    path(
+        "brushdrips/wallet/",
+        BrushDripWalletRetrieveView.as_view(),
+        name="brushdrip-wallet",
+    ),
+    path(
+        "brushdrips/wallet/<int:user_id>/",
+        BrushDripWalletDetailView.as_view(),
+        name="brushdrip-wallet-detail",
+    ),
     # Brush Drip Transaction endpoints
-    path('brushdrips/transactions/', BrushDripTransactionListView.as_view(), name='brushdrip-transaction-list'),
-    path('brushdrips/transactions/my/', BrushDripMyTransactionsView.as_view(), name='brushdrip-my-transactions'),
-    path('brushdrips/transactions/create/', BrushDripTransactionCreateView.as_view(), name='brushdrip-transaction-create'),
-    path('brushdrips/transactions/<uuid:drip_id>/', BrushDripTransactionDetailView.as_view(), name='brushdrip-transaction-detail'),
-    path('brushdrips/transactions/stats/', BrushDripTransactionStatsView.as_view(), name='brushdrip-transaction-stats'),
+    path(
+        "brushdrips/transactions/",
+        BrushDripTransactionListView.as_view(),
+        name="brushdrip-transaction-list",
+    ),
+    path(
+        "brushdrips/transactions/my/",
+        BrushDripMyTransactionsView.as_view(),
+        name="brushdrip-my-transactions",
+    ),
+    path(
+        "brushdrips/transactions/create/",
+        BrushDripTransactionCreateView.as_view(),
+        name="brushdrip-transaction-create",
+    ),
+    path(
+        "brushdrips/transactions/<uuid:drip_id>/",
+        BrushDripTransactionDetailView.as_view(),
+        name="brushdrip-transaction-detail",
+    ),
+    path(
+        "brushdrips/transactions/stats/",
+        BrushDripTransactionStatsView.as_view(),
+        name="brushdrip-transaction-stats",
+    ),
+    # Fellows (Friends) endpoints
+    path(
+        "fellows/requests/count/",
+        FriendRequestCountView.as_view(),
+        name="fellow-request-count",
+    ),
+    path(
+        "fellows/requests/",
+        PendingFriendRequestsListView.as_view(),
+        name="pending-friend-requests-list",
+    ),
+    path(
+        "fellows/requests/<int:id>/accept/",
+        AcceptFriendRequestView.as_view(),
+        name="accept-friend-request",
+    ),
+    path(
+        "fellows/requests/<int:id>/reject/",
+        RejectFriendRequestView.as_view(),
+        name="reject-friend-request",
+    ),
+    path(
+        "fellows/requests/<int:id>/cancel/",
+        CancelFriendRequestView.as_view(),
+        name="cancel-friend-request",
+    ),
+    path(
+        "fellows/check-status/",
+        CheckFriendRequestStatusView.as_view(),
+        name="check-friend-request-status",
+    ),
+    path(
+        "fellows/",
+        FellowsListView.as_view(),
+        name="fellows-list",
+    ),
+    path(
+        "fellows/active/",
+        ActiveFellowsListView.as_view(),
+        name="active-fellows-list",
+    ),
+    path(
+        "debug/presence/",
+        DebugPresenceView.as_view(),
+        name="debug-presence",
+    ),
+    path(
+        "user/<int:user_id>/fellows/",
+        UserFellowsListView.as_view(),
+        name="user-fellows-list",
+    ),
+    path(
+        "fellows/search/",
+        SearchFellowsView.as_view(),
+        name="search-fellows",
+    ),
+    path(
+        "fellows/request/",
+        CreateFriendRequestView.as_view(),
+        name="create-friend-request",
+    ),
+    path(
+        "fellows/<int:id>/",
+        UnfriendView.as_view(),
+        name="unfriend",
+    ),
+    path(
+        "fellows/<int:id>/block/",
+        BlockUserView.as_view(),
+        name="block-user",
+    ),
+    # Dashboard API endpoints
+    path(
+        "dashboard/core/users/counts/",
+        UserCountsAPIView.as_view(),
+        name="dashboard-core-users-counts",
+    ),
+    path(
+        "dashboard/core/users/growth/",
+        UserGrowthAPIView.as_view(),
+        name="dashboard-core-users-growth",
+    ),
+    path(
+        "dashboard/core/artists/counts/",
+        ArtistCountsAPIView.as_view(),
+        name="dashboard-core-artists-counts",
+    ),
+    path(
+        "dashboard/core/artists/growth/",
+        ArtistGrowthAPIView.as_view(),
+        name="dashboard-core-artists-growth",
+    ),
+    path(
+        "dashboard/core/artists/types/",
+        ArtistTypesAPIView.as_view(),
+        name="dashboard-core-artists-types",
+    ),
+    path(
+        "dashboard/core/transactions/counts/",
+        TransactionCountsAPIView.as_view(),
+        name="dashboard-core-transactions-counts",
+    ),
+    path(
+        "dashboard/core/transactions/types/",
+        TransactionTypesAPIView.as_view(),
+        name="dashboard-core-transactions-types",
+    ),
+    path(
+        "dashboard/core/transactions/volume/",
+        TransactionVolumeAPIView.as_view(),
+        name="dashboard-core-transactions-volume",
+    ),
+    # Reputation endpoints
+    path(
+        "users/<int:pk>/reputation/",
+        UserReputationView.as_view(),
+        name="user-reputation",
+    ),
+    path(
+        "users/<int:user_id>/reputation/history/",
+        UserReputationHistoryView.as_view(),
+        name="user-reputation-history",
+    ),
+    path(
+        "reputation/leaderboard/",
+        ReputationLeaderboardView.as_view(),
+        name="reputation-leaderboard",
+    ),
+    path(
+        "reputation/leaderboard/me/",
+        MyLeaderboardPositionView.as_view(),
+        name="my-leaderboard-position",
+    ),
 ]

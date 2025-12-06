@@ -116,14 +116,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // Set timeout for connection handshake
       connectionTimeoutRef.current = setTimeout(() => {
         if (ws.readyState !== WebSocket.OPEN) {
-          console.warn('⏱️ WebSocket connection timeout - closing connection');
           ws.close();
         }
       }, connectionTimeout);
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected');
-
         // Clear connection timeout
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
@@ -162,35 +159,72 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             }
           }
         } catch (error) {
+          // Only log parsing errors - these indicate actual problems with message format
+          // This is important enough to log as it suggests backend issues
           console.error('Failed to parse WebSocket message:', error);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+      ws.onerror = () => {
+        // WebSocket onerror fires before onclose for connection failures
+        // Most errors are expected during reconnection attempts, so we don't log them
+        // The onclose handler will handle logging of actual connection failures
+        // Connection errors are normal (network interruptions, server restarts, etc.)
       };
 
       ws.onclose = (event) => {
-        console.log('🔴 WebSocket disconnected', event.code, event.reason);
         setIsConnected(false);
         wsRef.current = null;
+
+        // WebSocket close codes:
+        // 1000 = Normal closure
+        // 1001 = Going away (e.g., server restart, navigator navigating away)
+        // 1006 = Abnormal closure (connection lost without close frame)
+        // 1008 = Policy violation
+        // 1011 = Internal server error
+        // 1012 = Service restart
+        // Other codes indicate actual problems
+
+        const normalCloseCodes = [1000, 1001, 1006]; // Normal/expected closure codes
+        const isNormalClosure = normalCloseCodes.includes(event.code);
+
+        // Only log unexpected/error close codes or if max reconnects exceeded
+        if (!isNormalClosure && event.code !== 1000) {
+          // Abnormal closure or error code - log only if we're not going to reconnect
+          if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+            console.error(
+              `WebSocket connection closed with error code ${event.code}:`,
+              event.reason || 'Connection failed',
+              `(Max reconnection attempts reached)`
+            );
+          }
+        }
 
         // Only attempt to reconnect if user is still authenticated
         // and we haven't exceeded max attempts
         if (isAuthenticated && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          // console.log(`🔄 Reconnecting in ${delay}ms... (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++;
             connectWebSocket();
           }, delay);
+        } else if (isAuthenticated && reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          // Max reconnects reached - log this once as it's an important state
+          console.error(
+            'WebSocket: Maximum reconnection attempts reached. Connection will not retry.',
+            `Close code: ${event.code}, Reason: ${event.reason || 'Unknown'}`
+          );
         }
       };
 
       wsRef.current = ws;
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+      // Only log if this is the first attempt or after max reconnects
+      // Avoids spam during normal reconnection attempts
+      if (reconnectAttemptsRef.current === 0 || reconnectAttemptsRef.current >= maxReconnectAttempts) {
+        console.error('Failed to create WebSocket connection:', error);
+      }
     }
   }, [user, isAuthenticated]);
 
@@ -243,21 +277,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, [isAuthenticated, user, fetchNotifications, disconnectWebSocket]);
 
-  // Separate effect for WebSocket - deferred to avoid blocking
+  // Separate effect for WebSocket - deferred to avoid blocking initial load
+  // Only connect after a delay to prioritize initial page load
   useEffect(() => {
     if (!isAuthenticated || !user) {
       return;
     }
 
-    // Defer WebSocket connection by 1 second to allow critical data fetching first
+    // Defer WebSocket connection by 2 seconds to allow page to load first
     // This prevents WebSocket handshake from blocking API calls
-    const deferredConnectionTimeout = setTimeout(() => {
-      // console.log('🔌 Initiating deferred WebSocket connection...');
+    const connectTimeout = setTimeout(() => {
       connectWebSocket();
-    }, 1000); // 1 second delay
+    }, 2000);
 
     return () => {
-      clearTimeout(deferredConnectionTimeout);
+      clearTimeout(connectTimeout);
     };
   }, [isAuthenticated, user, connectWebSocket]);
 
@@ -288,3 +322,7 @@ export function useNotifications() {
   }
   return context;
 }
+
+// Re-export from realtime context for backward compatibility
+// When using unified WebSocket, components can import from either location
+export { useRealtime as useNotificationsUnified } from './realtime-context';

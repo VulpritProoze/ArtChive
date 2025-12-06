@@ -22,5 +22,29 @@
             "trophy": "diamond_canvas",
             "brush_drip_value": 20
         }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 1,
+        "fields": {
+            "award": "bronze_stroke",
+            "brush_drip_value": 5
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 2,
+        "fields": {
+            "award": "golden_bristle",
+            "brush_drip_value": 10
+        }
+    },
+    {
+        "model": "gallery.awardtype",
+        "pk": 3,
+        "fields": {
+            "award": "diamond_canvas",
+            "brush_drip_value": 20
+        }
     }
 ]

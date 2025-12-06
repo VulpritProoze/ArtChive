@@ -5,7 +5,7 @@ export { default as Index } from './index/index.component'
 
 // Auth
 export { default as ProtectedRoute } from './auth/protected-route'
-export { default as CollectiveProtectedRoute } from './auth/collective-protected-route'
+export { default as CollectiveAdminRoute } from './auth/collective-admin-route'
 export { GuestRoute } from './auth/guest-route'
 
 // Account
@@ -19,11 +19,13 @@ export { default as Home } from './home/index.component'
 // Profile
 export { default as Profile } from './profile/profile-section.component'
 export { default as Timeline } from './profile/timeline.component'
+export { default as NavigateToOwnProfile } from './profile/navigate-to-own-profile.component'
 
 // Collective
 export { default as Collective } from './collective/index.component'
 export { default as CollectiveCreate } from './collective/collective-create.component'
 export { default as CollectiveHome } from './collective/inside-collective.component'
+export { default as CollectiveViewWrapper } from './collective/collective-view-wrapper.component'
 export { default as CollectiveMembers } from './collective/collective-members.component'
 export { default as CollectiveAdmin } from './collective/collective-admin.component'
 
@@ -32,6 +34,9 @@ export { default as GalleryIndex } from './gallery/index.component'
 export { default as MyGalleries } from './gallery/galleries.component'
 export { default as GalleryEditor } from './gallery/editor.component'
 export { default as PublishedGalleryView } from './gallery/published-gallery.view'
+
+// Avatar
+export { AvatarListPage, AvatarEditorPage } from './avatar'
 
 // Brush Drips
 export { default as BrushDripsPage } from './brush-drips/index.component'
@@ -43,5 +48,12 @@ export { default as NotificationIndex } from './notifications/index.component'
 // Post
 export { default as PostDetail } from './post/post-detail.component'
 
+// Fellows
+export { default as PendingFriendRequestsPage } from './fellows/pending-requests-page.component'
+
 // Error pages
 export { default as NotFound } from './error/not-found.component'
+
+// Search
+export { SearchPage } from './search/search-page.component'
+export { CollectiveSearch } from './collective/collective-search.component'

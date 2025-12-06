@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ReplyComponent } from '@components/common';
+import { SkeletonComment } from '@components/common/skeleton/skeleton-comment.component';
 import type { Post } from '@types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComment } from '@fortawesome/free-solid-svg-icons';
@@ -24,6 +26,16 @@ const DetailedCommentSection = ({ postItem, highlightedItemId, enableInitialFetc
     isFetchingNextPage,
     isLoading,
   } = useComments(postId, { enabled: enableInitialFetch && Boolean(postId) });
+
+  // Track creation state for skeleton loader
+  // Using a minimal queryFn that returns the cached value or default
+  const { data: isCreating = false } = useQuery({
+    queryKey: ['comment-creating', postId],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
 
   const comments = useMemo(
     () => data?.pages.flatMap((page) => page.results || []) ?? [],
@@ -76,11 +88,12 @@ const DetailedCommentSection = ({ postItem, highlightedItemId, enableInitialFetc
       </div>
 
       {isLoading && topLevelComments.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="loading loading-spinner loading-md" />
-          <span className="ml-2 text-base-content/60">Loading comments...</span>
+        <div className="space-y-4">
+          <SkeletonComment />
+          <SkeletonComment />
+          <SkeletonComment />
         </div>
-      ) : topLevelComments.length === 0 ? (
+      ) : topLevelComments.length === 0 && !isCreating ? (
         <div className="text-center py-12">
           <div className="inline-block p-4 rounded-full bg-base-200 mb-4">
             <FontAwesomeIcon icon={faComment} className="text-4xl text-base-content/30" />
@@ -91,6 +104,9 @@ const DetailedCommentSection = ({ postItem, highlightedItemId, enableInitialFetc
       ) : (
         <>
           <div className="space-y-4">
+            {/* Skeleton Loader for new comment */}
+            {isCreating && <SkeletonComment />}
+
             {topLevelComments.map((comment) => (
               <ReplyComponent
                 key={comment.comment_id}

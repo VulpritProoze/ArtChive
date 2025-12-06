@@ -3,17 +3,25 @@ import { Link, useNavigate } from "react-router-dom";
 import useToggleTheme from "@hooks/use-theme";
 import { faMoon, faPalette, faSun, faBars, faTimes, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+
+interface SidebarMenuItem {
+  label: string;
+  icon: IconDefinition;
+  action: () => void;
+}
 
 interface GalleryLayoutProps {
   children: React.ReactNode;
+  sidebarMenuItems?: SidebarMenuItem[];
 }
 
-export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children }) => {
+export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children, sidebarMenuItems = [] }) => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { isDarkMode, toggleDarkMode } = useToggleTheme();
 
-  const settingsItems = [
+  const defaultSettingsItems: SidebarMenuItem[] = [
     { 
       label: "Back to Gallery", 
       icon: faArrowLeft, 
@@ -23,6 +31,8 @@ export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children }) => {
       } 
     },
   ];
+
+  const settingsItems = [...defaultSettingsItems, ...sidebarMenuItems];
 
   return (
     <div className="min-h-screen bg-base-100">
@@ -89,7 +99,10 @@ export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children }) => {
                 <button
                   key={index}
                   className="flex hover:cursor-pointer items-center gap-4 w-full p-3 rounded-lg hover:bg-base-200 transition-colors text-left"
-                  onClick={item.action}
+                  onClick={() => {
+                    item.action();
+                    setIsSidebarOpen(false);
+                  }}
                 >
                   <FontAwesomeIcon icon={item.icon} className="text-lg" />
                   <span className="font-medium">{item.label}</span>

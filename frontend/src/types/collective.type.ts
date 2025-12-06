@@ -24,6 +24,7 @@ export interface Collective {
   members: Member[];
   member_count: number
   brush_drips_count: number
+  reputation: number
   title: string;
   description: string;
   rules: string[];

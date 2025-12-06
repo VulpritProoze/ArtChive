@@ -1,7 +1,10 @@
+import uuid
+
 from django.contrib import admin
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.urls import reverse
 from django.utils.html import format_html
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 
 from .models import (
     Comment,
@@ -11,6 +14,7 @@ from .models import (
     InactivePost,
     NovelPost,
     Post,
+    PostTrophy,
 )
 
 # ============================================================================
@@ -68,22 +72,135 @@ class CommentTypeFilter(admin.SimpleListFilter):
         return queryset
 
 
-class PostAuthorFilter(admin.SimpleListFilter):
-    """Filter by post author - shows manageable list of authors who have posts"""
+class UserSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching users by username, email, or ID with modal interface"""
     title = 'post author'
-    parameter_name = 'post_author'
+    parameter_name = 'author_id'
 
     def lookups(self, request, model_admin):
-        # Get unique authors who have posts
-        from core.models import User
-        authors = User.objects.filter(
-            post__isnull=False
-        ).distinct().order_by('username')[:50]  # Limit to 50 most recent
-        return [(author.id, author.username) for author in authors]
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        # Return a dummy lookup - the actual UI is handled by our custom template
+        return (('__custom__', 'Search User'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        # Get the current value
+        value = self.value() or ''
+        # Return a single choice that will be used by our custom template
+        # This ensures the filter appears even with empty lookups
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search User',
+            'value': value,
+        }
 
     def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(post_id__author__id=self.value())
+        """Filter posts by selected user ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                user_id = int(value)
+                return queryset.filter(author__id=user_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
+class CollectiveSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching collectives by title or ID with modal interface"""
+    title = 'collective'
+    parameter_name = 'collective_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        # Return a dummy lookup - the actual UI is handled by our custom template
+        return (('__custom__', 'Search Collective'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        # Get the current value
+        value = self.value() or ''
+        # Return a single choice that will be used by our custom template
+        # This ensures the filter appears even with empty lookups
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Collective',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter posts by selected collective ID (via channel)"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                collective_id = uuid.UUID(value)
+                return queryset.filter(channel__collective__collective_id=collective_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
+class PostSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching posts by description or author with modal interface"""
+    title = 'post'
+    parameter_name = 'post_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        return (('__custom__', 'Search Post'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        value = self.value() or ''
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Post',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter comments/critiques by selected post ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                post_id = uuid.UUID(value)
+                return queryset.filter(post_id__post_id=post_id)
+            except (ValueError, TypeError):
+                return queryset
+        return queryset
+
+
+class CritiqueSearchFilter(admin.SimpleListFilter):
+    """Custom filter for searching critiques by text, impression, or author with modal interface"""
+    title = 'critique'
+    parameter_name = 'critique_id'
+
+    def lookups(self, request, model_admin):
+        """Return at least one lookup so the filter appears (we use custom UI via template)"""
+        return (('__custom__', 'Search Critique'),)
+
+    def choices(self, changelist):
+        """Override choices to provide custom template context"""
+        value = self.value() or ''
+        yield {
+            'selected': bool(value),
+            'query_string': changelist.get_query_string({self.parameter_name: value}),
+            'display': 'Search Critique',
+            'value': value,
+        }
+
+    def queryset(self, request, queryset):
+        """Filter comments by selected critique ID"""
+        value = self.value()
+        if value and value != '__custom__':
+            try:
+                critique_id = uuid.UUID(value)
+                return queryset.filter(critique_id__critique_id=critique_id)
+            except (ValueError, TypeError):
+                return queryset
         return queryset
 
 
@@ -110,18 +227,173 @@ class CritiqueHasRepliesFilter(admin.SimpleListFilter):
         return queryset
 
 
+class PraiseCountFilter(admin.SimpleListFilter):
+    """Filter posts by praise count"""
+    title = 'praise count'
+    parameter_name = 'praise_count'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('0', '0'),
+            ('1-5', '1-5'),
+            ('6-10', '6-10'),
+            ('11-20', '11-20'),
+            ('21-50', '21-50'),
+            ('50+', '50+'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+
+        # Annotate with praise count (Django will handle if already annotated)
+        queryset = queryset.annotate(_praise_count=Count('post_praise'))
+
+        if value == '0':
+            return queryset.filter(_praise_count=0)
+        elif value == '1-5':
+            return queryset.filter(_praise_count__gte=1, _praise_count__lte=5)
+        elif value == '6-10':
+            return queryset.filter(_praise_count__gte=6, _praise_count__lte=10)
+        elif value == '11-20':
+            return queryset.filter(_praise_count__gte=11, _praise_count__lte=20)
+        elif value == '21-50':
+            return queryset.filter(_praise_count__gte=21, _praise_count__lte=50)
+        elif value == '50+':
+            return queryset.filter(_praise_count__gt=50)
+        return queryset
+
+
+class HeartsCountFilter(admin.SimpleListFilter):
+    """Filter posts by hearts count"""
+    title = 'hearts count'
+    parameter_name = 'hearts_count'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('0', '0'),
+            ('1-5', '1-5'),
+            ('6-10', '6-10'),
+            ('11-20', '11-20'),
+            ('21-50', '21-50'),
+            ('50+', '50+'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+
+        # Annotate with hearts count (Django will handle if already annotated)
+        queryset = queryset.annotate(_hearts_count=Count('post_heart'))
+
+        if value == '0':
+            return queryset.filter(_hearts_count=0)
+        elif value == '1-5':
+            return queryset.filter(_hearts_count__gte=1, _hearts_count__lte=5)
+        elif value == '6-10':
+            return queryset.filter(_hearts_count__gte=6, _hearts_count__lte=10)
+        elif value == '11-20':
+            return queryset.filter(_hearts_count__gte=11, _hearts_count__lte=20)
+        elif value == '21-50':
+            return queryset.filter(_hearts_count__gte=21, _hearts_count__lte=50)
+        elif value == '50+':
+            return queryset.filter(_hearts_count__gt=50)
+        return queryset
+
+
+class AwardsValueFilter(admin.SimpleListFilter):
+    """Filter posts by total awards value (brush drips worth)"""
+    title = 'awards value (brush drips)'
+    parameter_name = 'awards_value'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('0', '0'),
+            ('1-20', '1-20'),
+            ('21-50', '21-50'),
+            ('51-100', '51-100'),
+            ('101-200', '101-200'),
+            ('200+', '200+'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+
+        # Annotate with sum of brush_drip_value from all trophies
+        # Django will handle if annotation already exists from get_queryset
+        queryset = queryset.annotate(
+            _awards_value=Sum('post_trophy__post_trophy_type__brush_drip_value')
+        )
+
+        if value == '0':
+            return queryset.filter(Q(_awards_value__isnull=True) | Q(_awards_value=0))
+        elif value == '1-20':
+            return queryset.filter(_awards_value__gte=1, _awards_value__lte=20)
+        elif value == '21-50':
+            return queryset.filter(_awards_value__gte=21, _awards_value__lte=50)
+        elif value == '51-100':
+            return queryset.filter(_awards_value__gte=51, _awards_value__lte=100)
+        elif value == '101-200':
+            return queryset.filter(_awards_value__gte=101, _awards_value__lte=200)
+        elif value == '200+':
+            return queryset.filter(_awards_value__gt=200)
+        return queryset
+
+
 # ============================================================================
 # INLINE ADMINS
 # ============================================================================
 
-class NovelPostInline(admin.StackedInline):
-    """Inline for NovelPost - shown when post_type is 'novel'"""
+class NovelPostInline(StackedInline):
+    """Inline for NovelPost - shown when post has associated NovelPost"""
     model = NovelPost
     extra = 0
     fields = ('chapter', 'content')
+    readonly_fields = ('chapter', 'content')
+    can_delete = False
+    classes = ('collapse',)  # Collapsible by default
+
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding novel posts via admin"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing novel posts via admin"""
+        return False
+
+    def get_queryset(self, request):
+        """Only show NovelPost if it exists for the post"""
+        qs = super().get_queryset(request)
+        return qs
 
 
-class CommentReplyInline(admin.TabularInline):
+class PostTrophyInline(TabularInline):
+    """Inline for PostTrophy - shown when viewing a post"""
+    model = PostTrophy
+    extra = 0
+    fields = ('author', 'post_trophy_type', 'awarded_at')
+    readonly_fields = ('author', 'post_trophy_type', 'awarded_at')
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding post trophies via admin"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing post trophies via admin"""
+        return False
+
+    def get_queryset(self, request):
+        """Show all trophies for the post"""
+        qs = super().get_queryset(request)
+        return qs
+
+
+class CommentReplyInline(TabularInline):
     """Inline to show direct replies to a comment"""
     model = Comment
     fk_name = 'replies_to'
@@ -141,7 +413,7 @@ class CommentReplyInline(admin.TabularInline):
         return False
 
 
-class CritiqueReplyInline(admin.TabularInline):
+class CritiqueReplyInline(TabularInline):
     """Inline to show replies to a critique"""
     model = Comment
     fk_name = 'critique_id'
@@ -165,25 +437,31 @@ class CritiqueReplyInline(admin.TabularInline):
 # POST ADMINS
 # ============================================================================
 
-class BasePostAdmin(admin.ModelAdmin):
+class BasePostAdmin(ModelAdmin):
     """Base admin for Post with common configurations"""
     list_display = (
         'short_post_id',
         'description_preview',
         'author_link',
         'post_type',
-        'channel',
         'comment_count',
         'critique_count',
         'created_at',
         'is_deleted'
     )
-    list_filter = ('post_type', 'created_at')
+    list_filter = (UserSearchFilter, PraiseCountFilter, HeartsCountFilter, AwardsValueFilter, 'created_at')  # Custom filters and date filter
     search_fields = ('description', 'author__username', 'author__email', 'post_id')
     date_hierarchy = 'created_at'
-    readonly_fields = ('post_id', 'created_at', 'updated_at', 'heart_count', 'praise_count', 'trophy_count')
-    list_select_related = ('author', 'channel')
+    readonly_fields = ('post_id', 'created_at', 'updated_at', 'heart_count', 'praise_count', 'trophy_count', 'novel_post_display')
+    list_select_related = ('author',)
     list_per_page = 50
+    inlines = [NovelPostInline, PostTrophyInline]
+
+    class Media:
+        js = ('admin/js/custom_post_filter.js',)
+        css = {
+            'all': ('admin/css/custom_post_filter.css', 'admin/css/unfold_badges.css',)
+        }
 
     # Make read-only: disable add, edit, delete
     def has_add_permission(self, request):  # noqa: ARG002
@@ -200,10 +478,10 @@ class BasePostAdmin(admin.ModelAdmin):
             'fields': ('post_id', 'description', 'post_type')
         }),
         ('Media', {
-            'fields': ('image_url', 'video_url')
+            'fields': ('image_url', 'video_url', 'novel_post_display')
         }),
         ('Relationships', {
-            'fields': ('author', 'channel')
+            'fields': ('author',)
         }),
         ('Engagement Stats', {
             'fields': ('heart_count', 'praise_count', 'trophy_count'),
@@ -219,7 +497,10 @@ class BasePostAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.annotate(
             _comment_count=Count('post_comment', filter=Q(post_comment__is_deleted=False)),
-            _critique_count=Count('post_critique', filter=Q(post_critique__is_deleted=False))
+            _critique_count=Count('post_critique', filter=Q(post_critique__is_deleted=False)),
+            _praise_count=Count('post_praise'),
+            _hearts_count=Count('post_heart'),
+            _awards_value=Sum('post_trophy__post_trophy_type__brush_drip_value')
         )
 
     def short_post_id(self, obj):
@@ -245,23 +526,29 @@ class BasePostAdmin(admin.ModelAdmin):
     author_link.admin_order_field = 'author__username'
 
     def comment_count(self, obj):
-        """Display comment count with badge"""
+        """Display comment count with Unfold-style badge (theme-aware)"""
         count = obj._comment_count
-        color = '#28a745' if count > 0 else '#6c757d'
+        if count > 0:
+            return format_html(
+                '<span class="unfold-badge unfold-badge-blue">{}</span>',
+                count
+            )
         return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
-            color, count
+            '<span class="unfold-badge unfold-badge-muted">0</span>'
         )
     comment_count.short_description = 'Comments'
     comment_count.admin_order_field = '_comment_count'
 
     def critique_count(self, obj):
-        """Display critique count with badge"""
+        """Display critique count with Unfold-style badge (theme-aware)"""
         count = obj._critique_count
-        color = '#17a2b8' if count > 0 else '#6c757d'
+        if count > 0:
+            return format_html(
+                '<span class="unfold-badge unfold-badge-purple">{}</span>',
+                count
+            )
         return format_html(
-            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
-            color, count
+            '<span class="unfold-badge unfold-badge-muted">0</span>'
         )
     critique_count.short_description = 'Critiques'
     critique_count.admin_order_field = '_critique_count'
@@ -281,13 +568,42 @@ class BasePostAdmin(admin.ModelAdmin):
         return obj.post_trophy.count()
     trophy_count.short_description = 'Trophies'
 
+    def novel_post_display(self, obj):
+        """Display NovelPost information if it exists (Unfold-style)"""
+        try:
+            novel_post = obj.novel_post.first()  # Get first NovelPost (there should only be one)
+            if novel_post:
+                content_preview = novel_post.content[:200] + '...' if len(novel_post.content) > 200 else novel_post.content
+                return format_html(
+                    '<div class="unfold-novel-display">'
+                    '<div class="unfold-novel-header">'
+                    '<span class="unfold-novel-label">Novel Chapter:</span>'
+                    '<span class="unfold-novel-chapter">{}</span>'
+                    '</div>'
+                    '<div class="unfold-novel-content">'
+                    '<span class="unfold-novel-label">Content Preview:</span>'
+                    '<p class="unfold-novel-text">{}</p>'
+                    '</div>'
+                    '<div class="unfold-novel-footer">More information below</div>'
+                    '</div>',
+                    novel_post.chapter,
+                    content_preview
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        return format_html('<span class="unfold-novel-empty">No novel post associated with this post.</span>')
+    novel_post_display.short_description = 'Novel Post'
+
 
 @admin.register(Post)
 class ActivePostAdmin(BasePostAdmin):
-    """Admin for active posts only"""
+    """Admin for active posts only - excludes collective posts"""
 
     def get_queryset(self, request):
-        qs = Post.objects.get_active_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Post.objects.get_active_objects().filter(
+            channel__collective__collective_id=PUBLIC_COLLECTIVE_ID
+        )
         return qs.annotate(
             _comment_count=Count('post_comment', filter=Q(post_comment__is_deleted=False)),
             _critique_count=Count('post_critique', filter=Q(post_critique__is_deleted=False))
@@ -296,13 +612,19 @@ class ActivePostAdmin(BasePostAdmin):
 
 @admin.register(InactivePost)
 class InactivePostAdmin(BasePostAdmin):
-    """Admin for inactive (soft-deleted) posts"""
+    """Admin for inactive (soft-deleted) posts - excludes collective posts"""
 
     def get_queryset(self, request):
-        qs = Post.objects.get_inactive_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Post.objects.get_inactive_objects().filter(
+            channel__collective__collective_id=PUBLIC_COLLECTIVE_ID
+        )
         return qs.annotate(
             _comment_count=Count('post_comment', filter=Q(post_comment__is_deleted=False)),
-            _critique_count=Count('post_critique', filter=Q(post_critique__is_deleted=False))
+            _critique_count=Count('post_critique', filter=Q(post_critique__is_deleted=False)),
+            _praise_count=Count('post_praise'),
+            _hearts_count=Count('post_heart'),
+            _awards_value=Sum('post_trophy__post_trophy_type__brush_drip_value')
         )
 
     def has_add_permission(self, request):
@@ -314,7 +636,7 @@ class InactivePostAdmin(BasePostAdmin):
 # COMMENT ADMINS
 # ============================================================================
 
-class BaseCommentAdmin(admin.ModelAdmin):
+class BaseCommentAdmin(ModelAdmin):
     """Base admin for Comment with common configurations"""
     list_display = (
         'short_comment_id',
@@ -328,9 +650,11 @@ class BaseCommentAdmin(admin.ModelAdmin):
         'created_at'
     )
     list_filter = (
-        'is_critique_reply',
+        PostSearchFilter,
+        CritiqueSearchFilter,
         CommentTypeFilter,
         HasRepliesFilter,
+        # 'is_critique_reply',
         'created_at',
     )
     search_fields = (
@@ -347,6 +671,12 @@ class BaseCommentAdmin(admin.ModelAdmin):
     inlines = [CommentReplyInline]
     actions = ['delete_selected_with_replies']
 
+    class Media:
+        js = ('admin/js/custom_comment_filter.js',)
+        css = {
+            'all': ('admin/css/custom_comment_filter.css', 'admin/css/unfold_badges.css',)
+        }
+
     # Make read-only: disable add, edit, delete (but allow admin actions)
     def has_add_permission(self, request):  # noqa: ARG002
         return False
@@ -355,11 +685,7 @@ class BaseCommentAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):  # noqa: ARG002
-        # Allow delete permission for bulk actions, but not for individual objects
-        if obj is not None:
-            # Viewing a specific comment - disable delete button
-            return False
-        # In the list view (obj is None) - allow actions
+        # Allow delete permission for both bulk actions and individual objects
         return True
 
     def delete_selected_with_replies(self, request, queryset):
@@ -464,24 +790,29 @@ class BaseCommentAdmin(admin.ModelAdmin):
     parent_comment_link.short_description = 'Replying To'
 
     def reply_count_display(self, obj):
-        """Display reply count with badge"""
+        """Display reply count with Unfold-style badge (theme-aware)"""
         count = obj._reply_count
         if count > 0:
             return format_html(
-                '<span style="background-color: #007bff; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
+                '<span class="unfold-badge unfold-badge-indigo">{}</span>',
                 count
             )
-        return format_html('<span style="color: #6c757d;">0</span>')
+        return format_html(
+            '<span class="unfold-badge unfold-badge-muted">0</span>'
+        )
     reply_count_display.short_description = 'Replies'
     reply_count_display.admin_order_field = '_reply_count'
 
 
 @admin.register(Comment)
 class ActiveCommentAdmin(BaseCommentAdmin):
-    """Admin for active comments only"""
+    """Admin for active comments only - excludes collective post comments"""
 
     def get_queryset(self, request):
-        qs = Comment.objects.get_active_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Comment.objects.get_active_objects().filter(
+            Q(post_id__isnull=True) | Q(post_id__channel__collective__collective_id=PUBLIC_COLLECTIVE_ID)
+        )
         return qs.annotate(
             _reply_count=Count('comment_reply', filter=Q(comment_reply__is_deleted=False))
         )
@@ -489,10 +820,13 @@ class ActiveCommentAdmin(BaseCommentAdmin):
 
 @admin.register(InactiveComment)
 class InactiveCommentAdmin(BaseCommentAdmin):
-    """Admin for inactive (soft-deleted) comments"""
+    """Admin for inactive (soft-deleted) comments - excludes collective post comments"""
 
     def get_queryset(self, request):
-        qs = Comment.objects.get_inactive_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Comment.objects.get_inactive_objects().filter(
+            Q(post_id__isnull=True) | Q(post_id__channel__collective__collective_id=PUBLIC_COLLECTIVE_ID)
+        )
         return qs.annotate(
             _reply_count=Count('comment_reply', filter=Q(comment_reply__is_deleted=False))
         )
@@ -506,7 +840,7 @@ class InactiveCommentAdmin(BaseCommentAdmin):
 # CRITIQUE ADMINS
 # ============================================================================
 
-class BaseCritiqueAdmin(admin.ModelAdmin):
+class BaseCritiqueAdmin(ModelAdmin):
     """Base admin for Critique with common configurations"""
     list_display = (
         'short_critique_id',
@@ -517,7 +851,7 @@ class BaseCritiqueAdmin(admin.ModelAdmin):
         'reply_count_display',
         'created_at'
     )
-    list_filter = ('impression', CritiqueHasRepliesFilter, 'created_at')
+    list_filter = (PostSearchFilter, 'impression', CritiqueHasRepliesFilter, 'created_at')
     search_fields = (
         'text',
         'author__username',
@@ -531,6 +865,12 @@ class BaseCritiqueAdmin(admin.ModelAdmin):
     list_per_page = 50
     inlines = [CritiqueReplyInline]
     actions = ['delete_selected_with_replies']
+
+    class Media:
+        js = ('admin/js/custom_critique_filter.js',)
+        css = {
+            'all': ('admin/css/custom_critique_filter.css', 'admin/css/unfold_badges.css',)
+        }
 
     # Make read-only: disable add, edit
     def has_add_permission(self, request):  # noqa: ARG002
@@ -643,24 +983,29 @@ class BaseCritiqueAdmin(admin.ModelAdmin):
     post_link.short_description = 'Post'
 
     def reply_count_display(self, obj):
-        """Display reply count with badge"""
+        """Display reply count with Unfold-style badge (theme-aware)"""
         count = obj._reply_count
         if count > 0:
             return format_html(
-                '<span style="background-color: #007bff; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
+                '<span class="unfold-badge unfold-badge-indigo">{}</span>',
                 count
             )
-        return format_html('<span style="color: #6c757d;">0</span>')
+        return format_html(
+            '<span class="unfold-badge unfold-badge-muted">0</span>'
+        )
     reply_count_display.short_description = 'Replies'
     reply_count_display.admin_order_field = '_reply_count'
 
 
 @admin.register(Critique)
 class ActiveCritiqueAdmin(BaseCritiqueAdmin):
-    """Admin for active critiques only"""
+    """Admin for active critiques only - excludes collective post critiques"""
 
     def get_queryset(self, request):
-        qs = Critique.objects.get_active_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Critique.objects.get_active_objects().filter(
+            Q(post_id__isnull=True) | Q(post_id__channel__collective__collective_id=PUBLIC_COLLECTIVE_ID)
+        )
         return qs.annotate(
             _reply_count=Count('critique_reply', filter=Q(critique_reply__is_deleted=False))
         )
@@ -668,10 +1013,13 @@ class ActiveCritiqueAdmin(BaseCritiqueAdmin):
 
 @admin.register(InactiveCritique)
 class InactiveCritiqueAdmin(BaseCritiqueAdmin):
-    """Admin for inactive (soft-deleted) critiques"""
+    """Admin for inactive (soft-deleted) critiques - excludes collective post critiques"""
 
     def get_queryset(self, request):
-        qs = Critique.objects.get_inactive_objects()
+        PUBLIC_COLLECTIVE_ID = '00000000-0000-0000-0000-000000000001'
+        qs = Critique.objects.get_inactive_objects().filter(
+            Q(post_id__isnull=True) | Q(post_id__channel__collective__collective_id=PUBLIC_COLLECTIVE_ID)
+        )
         return qs.annotate(
             _reply_count=Count('critique_reply', filter=Q(critique_reply__is_deleted=False))
         )

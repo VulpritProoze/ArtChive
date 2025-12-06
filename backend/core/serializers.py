@@ -8,7 +8,7 @@ from rest_framework.serializers import ModelSerializer, Serializer
 
 from collective.models import CollectiveMember
 
-from .models import Artist, BrushDripTransaction, BrushDripWallet, User
+from .models import Artist, BrushDripTransaction, BrushDripWallet, ReputationHistory, User, UserFellow
 
 
 class UserSerializer(ModelSerializer):
@@ -16,14 +16,19 @@ class UserSerializer(ModelSerializer):
     artist_types = serializers.SerializerMethodField()
     fullname = serializers.SerializerMethodField()
     brushdrips_count = serializers.IntegerField(source='user_wallet.balance')
+    reputation = serializers.IntegerField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
-        read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        fields = ['id', 'email', 'username', 'brushdrips_count', 'reputation', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
+        read_only_fields = ['id', 'email', 'username', 'brushdrips_count', 'reputation', 'fullname', 'profile_picture', 'is_superuser', 'artist_types', 'collective_memberships']
 
     def get_collective_memberships(self, obj):
-        # Return a list of collective_ids user has joined
+        # Use prefetched data instead of querying database (optimized)
+        if hasattr(obj, 'collective_member'):
+            # Prefetched data is available - use it (much faster, no extra query)
+            return list(obj.collective_member.values_list('collective_id', flat=True))
+        # Fallback if not prefetched (shouldn't happen, but safe guard)
         return list(CollectiveMember.objects.filter(member=obj).values_list('collective_id', flat=True))
 
     def get_artist_types(self, obj):
@@ -39,17 +44,117 @@ class UserSerializer(ModelSerializer):
         full_name = ' '.join(part.strip() for part in parts if part and part.strip())
         return full_name if full_name else ''
 
+
+class UserProfilePublicSerializer(ModelSerializer):
+    """
+    Public user profile serializer - no sensitive information.
+    Used for viewing any user's profile by username.
+    """
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+    reputation = serializers.IntegerField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'artist_types',
+            'reputation',
+        ]
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'reputation']
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        user = obj
+        parts = [user.first_name or "", user.last_name or ""]
+        full_name = " ".join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+
+class UserSummarySerializer(ModelSerializer):
+    """
+    Lightweight user summary serializer for hover modals.
+    Includes basic user info, brush drips count, and reputation.
+    """
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+    brushdrips_count = serializers.SerializerMethodField()
+    reputation = serializers.IntegerField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'artist_types',
+            'brushdrips_count',
+            'reputation',
+        ]
+        read_only_fields = ['id', 'username', 'fullname', 'profile_picture', 'artist_types', 'brushdrips_count', 'reputation']
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        user = obj
+        parts = [user.first_name or "", user.last_name or ""]
+        full_name = " ".join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else user.username
+
+    def get_brushdrips_count(self, obj):
+        """Get user's brush drips count"""
+        try:
+            return obj.user_wallet.balance
+        except BrushDripWallet.DoesNotExist:
+            return 0
+
+
 class LoginSerializer(Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(**data)
+        email = data.get('email')
+        password = data.get('password')
 
-        if user and user.is_active:
-            return user
+        # Check if user exists by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError('This user does not exist. Are you sure you logged in with the right email?') from None
 
-        raise serializers.ValidationError('Incorrect credentials')
+        # Check if user account is deleted
+        if user.is_deleted:
+            raise serializers.ValidationError('User account deleted. Please contact staff')
+
+        # Authenticate user with password
+        authenticated_user = authenticate(username=email, password=password)
+
+        if not authenticated_user:
+            raise serializers.ValidationError('Your password is incorrect. Please try again.')
+
+        # Check if user is active
+        if not authenticated_user.is_active:
+            raise serializers.ValidationError('Account is inactive. Please contact staff')
+
+        return authenticated_user
 
 class RegistrationSerializer(ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -102,6 +207,16 @@ class ProfileViewUpdateSerializer(ModelSerializer):
     profilePicture = serializers.ImageField(source='profile_picture',required=False, validators=[FileExtensionValidator(allowed_extensions=[
         'jpg', 'jpeg', 'png', 'gif'
     ])])
+
+    def validate_profilePicture(self, value):
+        """Process profile picture: resize and compress."""
+        if value:
+            from common.utils.image_processing import process_profile_picture
+            try:
+                return process_profile_picture(value)
+            except Exception as e:
+                raise serializers.ValidationError(f"Failed to process image: {str(e)}")
+        return value
 
     class Meta:
         model = User
@@ -363,3 +478,118 @@ class BrushDripTransactionStatsSerializer(serializers.Serializer):
     transaction_count_sent = serializers.IntegerField()
     transaction_count_received = serializers.IntegerField()
     total_transaction_count = serializers.IntegerField()
+
+
+class UserFellowSerializer(ModelSerializer):
+    """Serializer for UserFellow relationships"""
+    user_info = UserSummarySerializer(source='user', read_only=True)
+    fellow_user_info = UserSummarySerializer(source='fellow_user', read_only=True)
+
+    class Meta:
+        model = UserFellow
+        fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info',
+                  'status', 'fellowed_at']
+        read_only_fields = ['id', 'user', 'user_info', 'fellow_user', 'fellow_user_info',
+                           'status', 'fellowed_at']
+
+
+class FriendRequestCountSerializer(serializers.Serializer):
+    """Serializer for friend request counts"""
+    received_count = serializers.IntegerField()
+    sent_count = serializers.IntegerField()
+    total_count = serializers.IntegerField()
+
+
+class UserSearchSerializer(ModelSerializer):
+    """Serializer for user search results in admin"""
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'fullname', 'profile_picture']
+        read_only_fields = ['id', 'username', 'email', 'fullname', 'profile_picture']
+
+    def get_fullname(self, obj):
+        parts = [obj.first_name or '', obj.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else ''
+
+
+class CreateFriendRequestSerializer(serializers.Serializer):
+    """Serializer for creating a friend request"""
+    fellow_user_id = serializers.IntegerField(required=True)
+
+    def validate_fellow_user_id(self, value):
+        """Validate that user is not trying to friend themselves"""
+        if value == self.context['request'].user.id:
+            raise serializers.ValidationError("You cannot send a friend request to yourself.")
+        return value
+
+
+# Reputation System Serializers
+class ReputationSerializer(serializers.Serializer):
+    """Serializer for user reputation"""
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    reputation = serializers.IntegerField()
+
+
+class ReputationHistorySerializer(ModelSerializer):
+    """Serializer for reputation history records"""
+    class Meta:
+        model = ReputationHistory
+        fields = [
+            'amount',
+            'source_type',
+            'source_id',
+            'source_object_type',
+            'description',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+
+class ReputationLeaderboardEntrySerializer(ModelSerializer):
+    """Serializer for leaderboard entries"""
+    rank = serializers.SerializerMethodField()
+    user_id = serializers.SerializerMethodField()
+    artist_types = serializers.SerializerMethodField()
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'rank',
+            'user_id',
+            'id',
+            'username',
+            'fullname',
+            'profile_picture',
+            'reputation',
+            'artist_types',
+        ]
+        read_only_fields = fields
+
+    def get_rank(self, obj):
+        """Calculate rank based on position in queryset"""
+        # Rank is calculated in the view based on offset + index
+        rank = getattr(obj, '_rank', None)
+        # Ensure we always return a number (fallback to 0 if not set)
+        return rank if rank is not None else 0
+
+    def get_user_id(self, obj):
+        """Return user ID (alias for id field)"""
+        return obj.id
+
+    def get_artist_types(self, obj):
+        """Fetch author's artist types"""
+        try:
+            return obj.artist.artist_types
+        except Artist.DoesNotExist:
+            return []
+
+    def get_fullname(self, obj):
+        """Fetch author's full name. Return username if author has no provided name"""
+        parts = [obj.first_name or '', obj.last_name or '']
+        full_name = ' '.join(part.strip() for part in parts if part and part.strip())
+        return full_name if full_name else ''

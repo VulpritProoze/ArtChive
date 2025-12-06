@@ -13,6 +13,8 @@ import { usePostUI } from "@context/post-ui-context";
 import { useDeletePost } from "@hooks/mutations/use-post-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { useState, useRef } from "react";
+import UserHoverModal from "@components/post/user-hover-modal.component";
 
 export default function PostHeader({
   postItem,
@@ -25,6 +27,8 @@ export default function PostHeader({
   const location = useLocation();
   const { dropdownOpen, setDropdownOpen, openPostForm } = usePostUI();
   const { mutateAsync: deletePost, isPending: isDeletingPost } = useDeletePost();
+  const [showHoverModal, setShowHoverModal] = useState(false);
+  const userInfoRef = useRef<HTMLDivElement>(null);
 
   // Check if current user is the author or admin
   const isAuthor = user?.id === postItem.author;
@@ -36,6 +40,14 @@ export default function PostHeader({
   // Check if we're already on the post detail page
   const isOnPostDetailPage = location.pathname === `/post/${postItem.post_id}`;
 
+  const handleMouseEnter = () => {
+    setShowHoverModal(true);
+  };
+
+  const handleMouseLeave = () => {
+    setShowHoverModal(false);
+  };
+
   return (
     <>
       <div
@@ -45,20 +57,70 @@ export default function PostHeader({
             : `flex items-center justify-between px-4 py-3 border-b border-base-300`
         }
       >
-        <div className="flex items-center gap-3">
-          <img
-            src={postItem.author_picture}
-            alt="author_pic"
-            className="w-8 h-8 rounded-full border border-base-300"
-          />
-          <div>
-            <p className="text-sm font-semibold text-base-content">
-              {postItem.author_fullname}
-            </p>
-            <p className="text-xs text-base-content/70">
-              {formatArtistTypesToString(postItem.author_artist_types)}
-            </p>
-          </div>
+        <div
+          ref={userInfoRef}
+          className="relative flex items-center gap-3 -m-2 p-2"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <Link
+            to={postItem.author_username ? `/profile/@${postItem.author_username}` : '#'}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            onClick={(e) => {
+              if (!postItem.author_username) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <img
+              src={postItem.author_picture}
+              alt="author_pic"
+              className="w-8 h-8 rounded-full border border-base-300"
+            />
+            <div>
+              <p className="text-sm font-semibold text-base-content">
+                {postItem.author_fullname}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-xs text-base-content/70">
+                  {formatArtistTypesToString(postItem.author_artist_types)}
+                </p>
+                {/* Collective Indicator - Hide for public collective */}
+                {postItem.collective_id && 
+                 postItem.collective_title && 
+                 postItem.collective_id !== '00000000-0000-0000-0000-000000000001' && (
+                  <>
+                    <span className="text-xs text-base-content/40">•</span>
+                    <Link
+                      to={`/collective/${postItem.collective_id}`}
+                      className="text-xs text-primary hover:underline font-medium flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg
+                        className="w-3 h-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                      </svg>
+                      {postItem.collective_title}
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </Link>
+          {!IsCommentViewModal && postItem.author && (
+            <div
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
+              <UserHoverModal
+                userId={postItem.author}
+                isVisible={showHoverModal}
+              />
+            </div>
+          )}
         </div>
 
         {/* Show dropdown for everyone (not in comment modal) */}
@@ -110,7 +172,11 @@ export default function PostHeader({
                         if (!window.confirm("Are you sure you want to delete this post?")) return;
                         try {
                           await deletePost({ postId: postItem.post_id });
-                          toast.success("Post deleted", "The post has been removed successfully");
+                          // Dispatch custom event for post-detail component to listen to
+                          if (isOnPostDetailPage) {
+                            window.dispatchEvent(new CustomEvent('postDeleted', { detail: { postId: postItem.post_id } }));
+                          }
+                          // Toast shown in mutation callback
                         } catch (error) {
                           const message = handleApiError(error, {}, true, true);
                           toast.error("Failed to delete post", formatErrorForToast(message));

@@ -12,7 +12,7 @@ export const CollectiveContext = createContext<
 
 export const CollectiveProvider = ({ children }) => {
   const [collectives, setCollectives] = useState<Collective[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false, only set true when actually fetching
 
   const createCollective = async (formData: CreateCollectiveFormData) => {
     try {

@@ -31,7 +31,53 @@ export interface Collective {
   updated_at: string;
 }
 
+// Collective list item (simpler version for list views)
+export interface CollectiveListItem {
+  collective_id: string;
+  title: string;
+  description: string;
+  rules: string[];
+  artist_types: string[];
+  picture: string;
+  created_at: string;
+  updated_at: string;
+  channels?: any[];
+  members?: any[];
+  member_count?: number;
+  brush_drips_count?: number;
+  reputation?: number;
+}
+
 export const collectiveService = {
+  /**
+   * Get collective data by ID (detailed view with channels and members)
+   * GET /api/collective/<collective_id>/
+   */
+  async getCollective(collectiveId: string): Promise<Collective> {
+    const response = await collective.get(`${collectiveId}/`);
+    return response.data;
+  },
+
+  /**
+   * Get collective members list
+   * GET /api/collective/<collective_id>/members/
+   */
+  async getCollectiveMembers(collectiveId: string): Promise<any[]> {
+    const response = await collective.get(`${collectiveId}/members/`);
+    return response.data;
+  },
+
+  /**
+   * Get posts for a channel (paginated)
+   * GET /api/collective/channel/<channelId>/posts/?page=<page>&page_size=<pageSize>
+   */
+  async getChannelPosts(channelId: string, page: number = 1, pageSize: number = 10): Promise<any> {
+    const response = await collective.get(`channel/${channelId}/posts/`, {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
   /**
    * Change a member's role to admin
    * PATCH /api/collective/<collective_id>/members/<member_id>/role/
@@ -60,6 +106,16 @@ export const collectiveService = {
       { member_id: memberId, collective_id: collectiveId }
     );
     return response.data;
+  },
+
+  /**
+   * Kick a member from the collective
+   * DELETE /api/collective/<collective_id>/members/kick/
+   */
+  async kickMember(collectiveId: string, memberId: number): Promise<void> {
+    await collective.delete(`${collectiveId}/members/kick/`, {
+      data: { member_id: memberId },
+    });
   },
 
   /**
@@ -109,6 +165,203 @@ export const collectiveService = {
       });
       return response.data;
     }
+  },
+
+  /**
+   * Leave a collective
+   * DELETE /api/collective/<collective_id>/leave/
+   */
+  async leaveCollective(collectiveId: string): Promise<void> {
+    await collective.delete(`${collectiveId}/leave/`, {
+      withCredentials: true,
+    });
+  },
+
+  /**
+   * Request to become an admin of a collective
+   * POST /api/collective/<collective_id>/admin/request/
+   */
+  async requestAdmin(collectiveId: string): Promise<void> {
+    await collective.post(
+      `${collectiveId}/admin/request/`,
+      {},
+      { withCredentials: true }
+    );
+  },
+
+  /**
+   * Get pending join requests for multiple collectives (bulk)
+   * POST /api/collective/join/requests/bulk/
+   * Body: { "collective_ids": ["uuid1", "uuid2", ...] }
+   * Returns: { "collective_id_1": "request_id", "collective_id_2": "request_id", ... }
+   */
+  async getBulkPendingJoinRequests(collectiveIds: string[]): Promise<Record<string, string>> {
+    const response = await collective.post('join/requests/bulk/', {
+      collective_ids: collectiveIds,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get active member counts for multiple collectives (bulk)
+   * POST /api/collective/members/active-counts/
+   * Body: { "collective_ids": ["uuid1", "uuid2", ...] }
+   * Returns: { "collective_id_1": 5, "collective_id_2": 3, ... }
+   */
+  async getBulkActiveMembersCount(collectiveIds: string[]): Promise<Record<string, number>> {
+    const response = await collective.post('members/active-counts/', {
+      collective_ids: collectiveIds,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get paginated list of collectives
+   * GET /api/collective/details/?page=<page>&page_size=<pageSize>
+   */
+  async getCollectives(page: number = 1, pageSize: number = 10): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: CollectiveListItem[];
+  }> {
+    const response = await collective.get('details/', {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get counts of pending join requests and admin requests for a collective
+   * GET /api/collective/<collective_id>/requests/counts/
+   */
+  async getCollectiveRequestCounts(collectiveId: string): Promise<{
+    join_requests_count: number;
+    admin_requests_count: number;
+    total_pending_requests: number;
+  }> {
+    const response = await collective.get(`${collectiveId}/requests/counts/`);
+    return response.data;
+  },
+
+  /**
+   * Search posts within a collective
+   * GET /api/collective/<collective_id>/search/?q=<query>&channel_id=<channel_id>&post_type=<post_type>&page=<page>&page_size=<page_size>
+   */
+  async searchCollectivePosts(
+    collectiveId: string,
+    query: string,
+    filters?: {
+      channel_id?: string;
+      post_type?: string;
+      page?: number;
+      page_size?: number;
+    }
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: any[];
+  }> {
+    const params: { q: string; channel_id?: string; post_type?: string; page?: number; page_size?: number } = {
+      q: query,
+      ...filters,
+    };
+    const response = await collective.get(`${collectiveId}/search/`, { params });
+    return response.data;
+  },
+
+  /**
+   * Search members within a collective
+   * GET /api/collective/<collective_id>/members/search/?q=<query>&role=<role>
+   */
+  async searchCollectiveMembers(
+    collectiveId: string,
+    query: string,
+    role?: string
+  ): Promise<{
+    results: any[];
+    count: number;
+  }> {
+    const params: { q: string; role?: string } = { q: query };
+    if (role) {
+      params.role = role;
+    }
+    const response = await collective.get(`${collectiveId}/members/search/`, { params });
+    return response.data;
+  },
+
+  /**
+   * Get bulk collective details by IDs
+   * POST /api/collective/bulk/
+   */
+  async getBulkCollectives(collectiveIds: string[]): Promise<{
+    results: CollectiveListItem[];
+    count: number;
+  }> {
+    const response = await collective.post('bulk/', {
+      collective_ids: collectiveIds,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get join requests for a collective (admin only)
+   * GET /api/collective/<collective_id>/join/requests/?status=pending
+   */
+  async getJoinRequests(collectiveId: string, status: string = 'pending'): Promise<any[]> {
+    const response = await collective.get(`${collectiveId}/join/requests/`, {
+      params: { status },
+    });
+    return response.data;
+  },
+
+  /**
+   * Process a join request (approve/reject)
+   * POST /api/collective/join/requests/<request_id>/process/
+   */
+  async processJoinRequest(requestId: string, action: 'approve' | 'reject'): Promise<void> {
+    await collective.post(`join/requests/${requestId}/process/`, {
+      action,
+    });
+  },
+
+  /**
+   * Get admin requests for a collective (admin only)
+   * GET /api/collective/<collective_id>/admin/requests/?status=pending
+   */
+  async getAdminRequests(collectiveId: string, status: string = 'pending'): Promise<any[]> {
+    const response = await collective.get(`${collectiveId}/admin/requests/`, {
+      params: { status },
+    });
+    return response.data;
+  },
+
+  /**
+   * Process an admin request (approve/reject)
+   * POST /api/collective/admin/requests/<request_id>/process/
+   */
+  async processAdminRequest(requestId: string, action: 'approve' | 'reject'): Promise<void> {
+    await collective.post(`admin/requests/${requestId}/process/`, {
+      action,
+    });
+  },
+
+  /**
+   * Get collectives for a specific user by user ID (public endpoint)
+   * GET /api/collective/user/<user_id>/collectives/
+   */
+  async getUserCollectives(userId: number): Promise<{
+    collective_id: string;
+    title: string;
+    picture: string;
+    description: string;
+    member_count: number;
+    collective_role: string;
+    created_at: string;
+  }[]> {
+    const response = await collective.get(`user/${userId}/collectives/`);
+    return response.data;
   },
 };
 

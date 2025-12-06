@@ -121,28 +121,38 @@ def create_comment_notification(comment, post_author):
     )
 
 
-def create_critique_notification(critique, post_author):
+def create_critique_notification(critique, recipient):
     """
-    Create a notification when someone critiques a post.
+    Create a notification when someone critiques a post or gallery.
 
     Args:
         critique: The Critique object
-        post_author: The User who owns the post
+        recipient: The User who owns the post or gallery
     """
-    # Don't notify if the critique author is the post author
-    if critique.author.id == post_author.id:
+    # Don't notify if the critique author is the recipient
+    if critique.author.id == recipient.id:
         return None
 
-    message = f"{critique.author.username} critiqued your post"
-
-    # Format: "postId:critiqueId" for proper navigation
-    notification_object_id = f"{critique.post_id.post_id}:{critique.critique_id}"
+    # Determine if it's a post or gallery critique
+    if critique.post_id:
+        message = f"{critique.author.username} critiqued your post"
+        # Format: "postId:critiqueId" for proper navigation
+        notification_object_id = f"{critique.post_id.post_id}:{critique.critique_id}"
+        notification_type = NOTIFICATION_TYPES.post_critique
+    elif critique.gallery_id:
+        message = f"{critique.author.username} critiqued your gallery"
+        # Use creator's user ID for navigation to /gallery/:userid
+        notification_object_id = str(critique.gallery_id.creator.id)
+        notification_type = NOTIFICATION_TYPES.gallery_critique
+    else:
+        # Should not happen, but handle gracefully
+        return None
 
     return create_notification(
         message=message,
-        notification_object_type=NOTIFICATION_TYPES.post_critique,
+        notification_object_type=notification_type,
         notification_object_id=notification_object_id,
-        notified_to=post_author,
+        notified_to=recipient,
         notified_by=critique.author
     )
 
@@ -191,6 +201,30 @@ def create_trophy_notification(trophy, post_author):
         notification_object_id=str(trophy.post_id.post_id),
         notified_to=post_author,
         notified_by=trophy.author
+    )
+
+
+def create_gallery_award_notification(gallery_award, gallery_creator):
+    """
+    Create a notification when someone awards a gallery award to a gallery.
+
+    Args:
+        gallery_award: The GalleryAward object
+        gallery_creator: The User who owns the gallery
+    """
+    # Don't notify if the award giver is the gallery creator
+    if gallery_award.author.id == gallery_creator.id:
+        return None
+
+    award_name = gallery_award.gallery_award_type.award.replace('_', ' ').title()
+    message = f"{gallery_award.author.username} awarded you a {award_name}"
+
+    return create_notification(
+        message=message,
+        notification_object_type=NOTIFICATION_TYPES.gallery_award,
+        notification_object_id=str(gallery_award.gallery_id.creator.id),
+        notified_to=gallery_creator,
+        notified_by=gallery_award.author
     )
 
 

@@ -1,0 +1,146 @@
+/* Unfold-style badges with light/dark theme support */
+
+.unfold-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+}
+
+/* Blue badge for comments */
+.unfold-badge-blue {
+    background-color: rgb(219 234 254);
+    color: rgb(30 64 175);
+}
+
+.dark .unfold-badge-blue {
+    background-color: rgba(30, 58, 138, 0.3);
+    color: rgb(147 197 253);
+}
+
+/* Purple badge for critiques */
+.unfold-badge-purple {
+    background-color: rgb(243 232 255);
+    color: rgb(124 58 237);
+}
+
+.dark .unfold-badge-purple {
+    background-color: rgba(88, 28, 135, 0.3);
+    color: rgb(196 181 253);
+}
+
+/* Indigo badge for replies */
+.unfold-badge-indigo {
+    background-color: rgb(224 231 255);
+    color: rgb(67 56 202);
+}
+
+.dark .unfold-badge-indigo {
+    background-color: rgba(55, 48, 163, 0.3);
+    color: rgb(165 180 252);
+}
+
+/* Muted badge for zero counts */
+.unfold-badge-muted {
+    background-color: rgb(243 244 246);
+    color: rgb(107 114 128);
+}
+
+.dark .unfold-badge-muted {
+    background-color: rgb(55 65 81);
+    color: rgb(156 163 175);
+}
+
+/* Novel Post Display Styles - Unfold theme-aware */
+.unfold-novel-display {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    background-color: rgb(249 250 251);
+    border-left: 4px solid rgb(59 130 246);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.dark .unfold-novel-display {
+    background-color: rgb(31 41 55);
+    border-left-color: rgb(96 165 250);
+}
+
+.unfold-novel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgb(229 231 235);
+}
+
+.dark .unfold-novel-header {
+    border-bottom-color: rgb(55 65 81);
+}
+
+.unfold-novel-label {
+    font-weight: 600;
+    color: rgb(55 65 75);
+    font-size: 0.875rem;
+}
+
+.dark .unfold-novel-label {
+    color: rgb(209 213 219);
+}
+
+.unfold-novel-chapter {
+    font-weight: 500;
+    color: rgb(37 99 235);
+    font-size: 0.875rem;
+}
+
+.dark .unfold-novel-chapter {
+    color: rgb(147 197 253);
+}
+
+.unfold-novel-content {
+    margin-bottom: 0.75rem;
+}
+
+.unfold-novel-text {
+    margin-top: 0.5rem;
+    color: rgb(75 85 99);
+    font-size: 0.875rem;
+    line-height: 1.625;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.dark .unfold-novel-text {
+    color: rgb(156 163 175);
+}
+
+.unfold-novel-footer {
+    font-size: 0.75rem;
+    color: rgb(107 114 128);
+    font-style: italic;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgb(229 231 235);
+}
+
+.dark .unfold-novel-footer {
+    color: rgb(156 163 175);
+    border-top-color: rgb(55 65 81);
+}
+
+.unfold-novel-empty {
+    color: rgb(107 114 128);
+    font-size: 0.875rem;
+    font-style: italic;
+}
+
+.dark .unfold-novel-empty {
+    color: rgb(156 163 175);
+}
+

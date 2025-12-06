@@ -1,70 +1,96 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Info, ArrowRight, Images } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Images } from "lucide-react";
 import { MainLayout } from "../common/layout";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useGalleryList, useTopGalleries } from "@hooks/queries/use-gallery";
+import { useFellowsGalleries } from "@hooks/queries/use-fellows-galleries";
 import { galleryService } from "@services/gallery.service";
-import type { GalleryListItem } from "@types";
-import { SkeletonGalleryGridCard } from "@components/common/skeleton";
+import { FellowsGallerySection } from "@components/common/gallery-feature/section/fellows-gallery-section.component";
+import { BestGalleriesSection } from "@components/common/gallery-feature/section/best-galleries-section.component";
+import { OtherGalleriesSection } from "@components/common/gallery-feature/section/other-galleries-section.component";
 
-interface GalleryCard {
-  id: string;
-  title: string;
-  imageUrl?: string;
-  artistName?: string;
-  artistHandle?: string;
-  artistType?: string;
-  artistAvatar?: string;
-  likes?: number;
-  comments?: number;
-}
-
-// Available artwork images - using actual files from the folder
-const artworkImages = [
-  'artwork1.avif',
-  'artwork2.avif',
-  'artwork3.avif',
-  'artwork4.avif',
-  'artwork5.jpg',
-  'artwork6.jpg',
-  'artwork7.avif',
-  'artwork8.jpg',
-  'artwork9.jpg',
-  'artwork10.jpg',
-  'artwork11.jpg',
-  'artwork12.jpg',
-  'aw13.avif',
-  'aw14.jpg',
-  'aw15.jpg',
-];
-
-// Placeholder data - will be replaced with API calls later
-const fellowsGalleries: GalleryCard[] = Array.from({ length: 10 }, (_, i) => ({
-  id: `fellow-${i}`,
-  title: `Gallery ${i + 1}`,
-  imageUrl: `/landing-page/artworks/${artworkImages[i % artworkImages.length]}`,
-}));
-
-const bestGalleries: GalleryCard[] = Array.from({ length: 8 }, (_, i) => ({
-  id: `best-${i}`,
-  title: `Featured Gallery ${i + 1}`,
-  imageUrl: `/landing-page/artworks/${artworkImages[(i + 2) % artworkImages.length]}`,
-}));
 
 const GalleryIndex = () => {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
+  const fellowsObserverTarget = useRef<HTMLDivElement>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [animationIndex, setAnimationIndex] = useState(0);
+  const [awards, setAwards] = useState<Record<string, Record<string, number>>>({});
 
-  // State for "Browse Other Galleries" section
-  const [galleries, setGalleries] = useState<GalleryListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    hasNext: false,
-    hasPrevious: false,
-    totalCount: 0,
-  });
+  // Search state for other galleries
+  const [otherGalleriesSearchQuery, setOtherGalleriesSearchQuery] = useState('');
+
+  // Fetch galleries using React Query for caching with search
+  const {
+    data: galleriesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loading,
+  } = useGalleryList(5, otherGalleriesSearchQuery); // 5 items per page
+
+  // Fetch top galleries for "Best Galleries Recently"
+  const { data: topGalleriesData, isLoading: isLoadingTopGalleries } = useTopGalleries(25);
+
+  // Fetch fellows galleries with infinite scrolling
+  const {
+    data: fellowsGalleriesData,
+    fetchNextPage: fetchNextFellowsPage,
+    hasNextPage: hasNextFellowsPage,
+    isFetchingNextPage: isFetchingNextFellowsPage,
+    isLoading: isLoadingFellowsGalleries,
+  } = useFellowsGalleries(10); // 10 items per page
+
+  // Check screen size for carousel type
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsSmallScreen(window.innerWidth < 500);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Cycle through animations every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimationIndex((prev) => (prev + 1) % 3); // Cycle through 0, 1, 2
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Flatten pages into a single array
+  const galleries = useMemo(() => {
+    return galleriesData?.pages.flatMap((page) => page.results) ?? [];
+  }, [galleriesData]);
+
+  // Flatten fellows galleries pages
+  const fellowsGalleries = useMemo(() => {
+    return fellowsGalleriesData?.pages.flatMap((page) => page.results) ?? [];
+  }, [fellowsGalleriesData]);
+
+  // Fetch awards after galleries finish loading
+  useEffect(() => {
+    if (galleries.length > 0 && !loading) {
+      const galleryIds = galleries.map(g => g.gallery_id);
+      galleryService.getBulkGalleryAwards(galleryIds)
+        .then((awardsData) => {
+          setAwards(awardsData);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch awards:', error);
+        });
+    }
+  }, [galleries.length, loading]);
+
+
+  // Get top galleries list
+  const topGalleries = useMemo(() => {
+    return topGalleriesData?.results ?? [];
+  }, [topGalleriesData]);
 
   // Scroll-based color shift effect (local to this component only)
   useEffect(() => {
@@ -132,159 +158,18 @@ const GalleryIndex = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Skeleton version of HorizontalScrollCard
-  const HorizontalScrollSkeletonCard = ({ showAvatar = false }: { showAvatar?: boolean }) => {
-    const cardWidth = showAvatar ? 'w-56' : 'w-80';
-    const cardHeight = showAvatar ? 'h-48' : 'h-64';
 
-    return (
-      <div className={`flex-shrink-0 ${cardWidth} rounded-xl overflow-hidden shadow-lg`}>
-        <div className={`relative ${cardHeight} bg-base-300 overflow-hidden`}>
-          <div className="w-full h-full skeleton"></div>
-          {showAvatar && (
-            <div className="absolute bottom-3 left-3">
-              <div className="w-10 h-10 rounded-full bg-base-200 border-2 border-base-100 skeleton"></div>
-            </div>
-          )}
-          {!showAvatar && (
-            <div className="absolute top-3 right-3">
-              <div className="w-8 h-8 rounded-full bg-base-200/50 skeleton"></div>
-            </div>
-          )}
-        </div>
-        <div className="bg-base-200 p-2.5">
-          <div className="skeleton h-4 w-24 mb-2"></div>
-          {showAvatar && (
-            <div className="mt-1.5 flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-base-300 skeleton flex-shrink-0"></div>
-              <div className="min-w-0 flex-1">
-                <div className="skeleton h-3 w-20 mb-1"></div>
-                <div className="skeleton h-2 w-32"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const HorizontalScrollCard = ({ gallery, showAvatar = false }: { gallery: GalleryCard; showAvatar?: boolean }) => {
-    const cardWidth = showAvatar ? 'w-56' : 'w-80';
-    const cardHeight = showAvatar ? 'h-48' : 'h-64';
-    const imageSrc = gallery.imageUrl || '/landing-page/artworks/artwork1.avif';
-
-    return (
-      <Link
-        to={`/gallery/${gallery.id}`}
-        className={`flex-shrink-0 ${cardWidth} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-[1.02]`}
-      >
-        <div className={`relative ${cardHeight} bg-base-300 overflow-hidden`}>
-          <img
-            src={imageSrc}
-            alt={gallery.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              console.error(`[Gallery Card] Failed to load image: ${imageSrc}`, e);
-              (e.target as HTMLImageElement).src = '/landing-page/artworks/artwork1.avif';
-            }}
-          />
-          {showAvatar && (
-            <div className="absolute bottom-3 left-3">
-              <div className="w-10 h-10 rounded-full bg-base-200 border-2 border-base-100 skeleton"></div>
-            </div>
-          )}
-          {gallery.likes !== undefined && (
-            <div className="absolute top-3 right-3 flex gap-2">
-              <div className="bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1.5 text-white text-xs">
-                <span>❤️</span>
-                <span>{gallery.likes}</span>
-              </div>
-              {gallery.comments !== undefined && (
-                <div className="bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1.5 text-white text-xs">
-                  <span>💬</span>
-                  <span>{gallery.comments}</span>
-                </div>
-              )}
-            </div>
-          )}
-          {!showAvatar && (
-            <div className="absolute top-3 right-3">
-              <button className="btn btn-circle btn-sm bg-black/50 backdrop-blur-sm border-0 hover:bg-black/70 text-white">
-                <Info className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="bg-[var(--local-primary,var(--color-primary))] text-primary-content p-2.5">
-          <h3 className="font-semibold text-sm truncate">{gallery.title}</h3>
-          {gallery.artistName && (
-            <div className="mt-1.5 flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-base-200 skeleton flex-shrink-0"></div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium truncate">{gallery.artistName}</p>
-                <p className="text-[10px] opacity-80 truncate">{gallery.artistHandle} • {gallery.artistType}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </Link>
-    );
-  };
-
-  // Fetch galleries function
-  const fetchGalleries = useCallback(async (page: number = 1, append: boolean = false) => {
-    try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-
-      const response = await galleryService.listGalleries(page, 5); // 12 items per page for grid
-
-      if (append) {
-        setGalleries((prev) => [...prev, ...response.results]);
-      } else {
-        setGalleries(response.results);
-      }
-
-      setPagination({
-        currentPage: page,
-        hasNext: response.next !== null,
-        hasPrevious: response.previous !== null,
-        totalCount: response.count,
-      });
-    } catch (error) {
-      console.error('[GalleryIndex] Failed to fetch galleries:', error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
-
-  // Initial fetch
+  // Infinite scrolling behavior for other galleries
   useEffect(() => {
-    fetchGalleries(1, false);
-  }, [fetchGalleries]);
-
-  // Infinite scrolling behavior
-  useEffect(() => {
-    let isFetching = false;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0].isIntersecting &&
-          pagination.hasNext &&
-          !loadingMore &&
-          !loading &&
-          !isFetching
+          hasNextPage &&
+          !isFetchingNextPage &&
+          !loading
         ) {
-          isFetching = true;
-          fetchGalleries(pagination.currentPage + 1, true).finally(() => {
-            isFetching = false;
-          });
+          fetchNextPage();
         }
       },
       { threshold: 0.5 }
@@ -300,133 +185,36 @@ const GalleryIndex = () => {
       }
       observer.disconnect();
     };
-  }, [
-    pagination.hasNext,
-    loadingMore,
-    loading,
-    fetchGalleries,
-    pagination.currentPage,
-  ]);
+  }, [hasNextPage, isFetchingNextPage, loading, fetchNextPage]);
 
-  const GalleryGridCard = ({ gallery }: { gallery: GalleryListItem }) => {
-    const imageSrc = gallery.picture || '/landing-page/artworks/artwork1.avif';
-    const creator = gallery.creator_details;
-    const artistTypes = creator.artist_types.length > 0 
-      ? creator.artist_types.join(', ') 
-      : 'Artist';
-
-    return (
-      <Link
-        to={`/gallery/${gallery.creator_details.id}`}
-        className="card bg-base-100 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all group cursor-pointer"
-      >
-        <div className="relative h-64 bg-base-300 overflow-hidden">
-          <img
-            src={imageSrc}
-            alt={gallery.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              console.error(`[Gallery Grid Card] Failed to load image: ${imageSrc}`, e);
-              (e.target as HTMLImageElement).src = '/landing-page/artworks/artwork1.avif';
-            }}
-          />
-        </div>
-        <div className="bg-[var(--local-primary,var(--color-primary))] text-primary-content p-3">
-          <h3 className="font-semibold text-sm truncate mb-1.5">{gallery.title}</h3>
-          <div className="flex items-center gap-2">
-            {creator.profile_picture ? (
-              <img
-                src={creator.profile_picture}
-                alt={creator.username}
-                className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                }}
-              />
-            ) : null}
-            <div className={`w-6 h-6 rounded-full bg-base-200 skeleton flex-shrink-0 ${creator.profile_picture ? 'hidden' : ''}`}></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium truncate">
-                {creator.first_name} {creator.middle_name ? creator.middle_name + ' ' : ''}{creator.last_name}
-              </p>
-              <p className="text-[10px] opacity-80 truncate mb-1">
-                @{creator.username} • {artistTypes}
-              </p>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                <p className="text-[10px] opacity-90">
-                  {creator.brush_drips_count.toLocaleString()} Brush Drips
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
+  // Infinite scrolling behavior for fellows galleries
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          hasNextFellowsPage &&
+          !isFetchingNextFellowsPage &&
+          !isLoadingFellowsGalleries
+        ) {
+          fetchNextFellowsPage();
+        }
+      },
+      { threshold: 0.5 }
     );
-  };
 
-  const HorizontalScrollSection = ({
-    title,
-    galleries,
-    showAvatar = false,
-    showDropdowns = false,
-    useSkeleton = false,
-    skeletonCount = 5,
-  }: {
-    title: string;
-    galleries: GalleryCard[];
-    showAvatar?: boolean;
-    showDropdowns?: boolean;
-    useSkeleton?: boolean;
-    skeletonCount?: number;
-  }) => (
-    <section className="mb-12">
-      {/* Purple Banner */}
-      <div className="bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] to-[var(--local-primary,var(--color-primary))]/90 text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="text-xl lg:text-2xl font-bold">{title}</h2>
-          {showDropdowns && (
-            <div className="flex flex-wrap gap-2">
-              <select className="select select-bordered select-sm bg-base-100 text-base-content border-base-300 focus:outline-primary text-xs">
-                <option>Sort by most popular</option>
-                <option>Sort by newest</option>
-                <option>Sort by oldest</option>
-              </select>
-              <select className="select select-bordered select-sm bg-base-100 text-base-content border-base-300 focus:outline-primary text-xs">
-                <option>Today</option>
-                <option>This Week</option>
-                <option>This Month</option>
-                <option>All Time</option>
-              </select>
-            </div>
-          )}
-        </div>
-      </div>
+    if (fellowsObserverTarget.current) {
+      observer.observe(fellowsObserverTarget.current);
+    }
 
-      {/* Horizontal Scroll Container */}
-      <div className="relative">
-        <div
-          className="flex gap-6 overflow-x-auto pb-4 px-4 lg:px-6 scroll-smooth gallery-scroll-container"
-        >
-          {useSkeleton ? (
-            Array.from({ length: skeletonCount }, (_, i) => (
-              <HorizontalScrollSkeletonCard key={`skeleton-${i}`} showAvatar={showAvatar} />
-            ))
-          ) : (
-            galleries.map((gallery) => (
-              <HorizontalScrollCard
-                key={gallery.id}
-                gallery={gallery}
-                showAvatar={showAvatar}
-              />
-            ))
-          )}
-        </div>
-      </div>
-    </section>
-  );
+    return () => {
+      if (fellowsObserverTarget.current) {
+        observer.unobserve(fellowsObserverTarget.current);
+      }
+      observer.disconnect();
+    };
+  }, [hasNextFellowsPage, isFetchingNextFellowsPage, isLoadingFellowsGalleries, fetchNextFellowsPage]);
+
 
   return (
     <MainLayout showRightSidebar={false}>
@@ -445,58 +233,188 @@ const GalleryIndex = () => {
         </div>
 
         {/* Fellows You Follow Section */}
-        <HorizontalScrollSection
-          title="Fellows You Follow"
+        <FellowsGallerySection
           galleries={fellowsGalleries}
-          showAvatar={true}
-          useSkeleton={true}
-          skeletonCount={5}
+          animationIndex={animationIndex}
+          isLoading={isLoadingFellowsGalleries}
+          isFetchingNextPage={isFetchingNextFellowsPage}
+          hasNextPage={hasNextFellowsPage}
+          fetchNextPage={fetchNextFellowsPage}
+          observerTarget={fellowsObserverTarget}
         />
 
-        {/* Best Galleries Recently Section */}
-        <HorizontalScrollSection
-          title="Best Galleries Recently"
-          galleries={bestGalleries}
-          showDropdowns={true}
-          useSkeleton={true}
-          skeletonCount={5}
+        {/* Best Galleries Recently Section - Carousel */}
+        <BestGalleriesSection
+          galleries={topGalleries}
+          isLoading={isLoadingTopGalleries}
+          isSmallScreen={isSmallScreen}
         />
 
         {/* Browse Other Galleries Section */}
-        <section className="mb-12">
-          {/* Purple Banner */}
-          <div className="bg-gradient-to-r from-[var(--local-primary,var(--color-primary))] to-[var(--local-primary,var(--color-primary))]/90 text-primary-content py-3 px-4 lg:px-6 mb-4 rounded-t-xl shadow-md">
-            <h2 className="text-xl lg:text-2xl font-bold">Browse Other Galleries</h2>
-          </div>
-
-          {/* Gallery Grid */}
-          {loading && galleries.length === 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 lg:px-8">
-              <SkeletonGalleryGridCard count={6} />
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 lg:px-8">
-                {galleries.map((gallery) => (
-                  <GalleryGridCard key={gallery.gallery_id} gallery={gallery} />
-                ))}
-              </div>
-
-              {/* Loading more skeleton */}
-              {loadingMore && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 lg:px-8 mt-6">
-                  <SkeletonGalleryGridCard count={3} />
-                </div>
-              )}
-
-              {/* Intersection observer target for infinite scroll */}
-              <div ref={observerTarget} className="h-10 w-full" />
-            </>
-          )}
-        </section>
+        <OtherGalleriesSection
+          searchQuery={otherGalleriesSearchQuery}
+          onSearchChange={setOtherGalleriesSearchQuery}
+          galleries={galleries}
+          loading={loading}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={hasNextPage}
+          fetchNextPage={fetchNextPage}
+          awards={awards}
+          animationIndex={animationIndex}
+          observerTarget={observerTarget}
+        />
       </div>
 
       <style>{`
+        /* Animation 1: Moving squares pattern */
+        @keyframes float-squares {
+          0% {
+            transform: translateY(0) translateX(0) rotate(0deg);
+            opacity: 0.3;
+          }
+          25% {
+            transform: translateY(-20px) translateX(10px) rotate(90deg);
+            opacity: 0.5;
+          }
+          50% {
+            transform: translateY(-10px) translateX(-15px) rotate(180deg);
+            opacity: 0.4;
+          }
+          75% {
+            transform: translateY(-25px) translateX(5px) rotate(270deg);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translateY(0) translateX(0) rotate(360deg);
+            opacity: 0.3;
+          }
+        }
+
+        /* Animation 2: Floating circles */
+        @keyframes float-circles {
+          0% {
+            transform: translateY(0) translateX(0) scale(1);
+            opacity: 0.2;
+          }
+          33% {
+            transform: translateY(-30px) translateX(20px) scale(1.2);
+            opacity: 0.4;
+          }
+          66% {
+            transform: translateY(-15px) translateX(-25px) scale(0.8);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translateY(0) translateX(0) scale(1);
+            opacity: 0.2;
+          }
+        }
+
+        /* Animation 3: Wave pattern */
+        @keyframes wave-pattern {
+          0% {
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+          50% {
+            transform: translateX(-50px) translateY(-20px);
+            opacity: 0.5;
+          }
+          100% {
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+        }
+
+        .section-header-animated {
+          position: relative;
+          overflow: hidden;
+        }
+
+        /* Animation 1: Squares */
+        .section-header-animated.animation-0::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.1) 20px,
+              rgba(255, 255, 255, 0.1) 40px
+            ),
+            repeating-linear-gradient(
+              -45deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.05) 20px,
+              rgba(255, 255, 255, 0.05) 40px
+            );
+          animation: float-squares 20s linear infinite;
+          pointer-events: none;
+        }
+
+        /* Animation 2: Circles */
+        .section-header-animated.animation-1::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 2px, transparent 2px),
+            radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.1) 3px, transparent 3px),
+            radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.12) 2.5px, transparent 2.5px),
+            radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.08) 2px, transparent 2px);
+          background-size: 60px 60px, 80px 80px, 70px 70px, 90px 90px;
+          animation: float-circles 25s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        /* Animation 3: Waves */
+        .section-header-animated.animation-2::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background-image: 
+            repeating-linear-gradient(
+              0deg,
+              transparent,
+              transparent 15px,
+              rgba(255, 255, 255, 0.08) 15px,
+              rgba(255, 255, 255, 0.08) 30px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              transparent,
+              transparent 15px,
+              rgba(255, 255, 255, 0.06) 15px,
+              rgba(255, 255, 255, 0.06) 30px
+            ),
+            repeating-linear-gradient(
+              30deg,
+              transparent,
+              transparent 20px,
+              rgba(255, 255, 255, 0.05) 20px,
+              rgba(255, 255, 255, 0.05) 40px
+            );
+          animation: wave-pattern 18s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        .section-header-animated > * {
+          position: relative;
+          z-index: 1;
+        }
+
         /* Custom scrollbar for gallery sections - Cool design */
         .gallery-scroll-container {
           scrollbar-width: thin;

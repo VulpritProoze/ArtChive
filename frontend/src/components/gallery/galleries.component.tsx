@@ -5,9 +5,9 @@ import { Plus, Upload, Eye, MoreVertical, Sparkles, ArrowLeft } from 'lucide-rea
 import { MainLayout } from '../common/layout';
 import { useAuth } from '@context/auth-context';
 import { galleryService, type Gallery } from '@services/gallery.service';
-import { GalleryCreationModal, type GalleryFormData } from './gallery-creation.modal';
-import { GalleryCard } from './gallery-card.card';
-import { PublishGalleryModal } from './publish-gallery.modal';
+import { GalleryCreationModal, type GalleryFormData } from '@components/common/gallery-feature/modal/gallery-creation.modal';
+import { GalleryCard } from '@components/common/gallery-feature/cards/gallery-card.card';
+import { PublishGalleryModal } from '@components/common/gallery-feature/modal/publish-gallery.modal';
 import { SkeletonCard } from '../common/skeleton';
 import { formatErrorForToast, handleApiError } from '@/utils';
 

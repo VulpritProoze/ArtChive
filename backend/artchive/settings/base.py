@@ -38,7 +38,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '1000/hr',
         'user': '1000/hr',
-        'login': '10/min',
+        'login': '10/m',
+        # 'register': '5/hr',
     },
 }
 
@@ -168,3 +169,78 @@ SIMPLE_JWT = {
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django Unfold Configuration
+UNFOLD = {
+    "SITE_TITLE": "ArtChive Admin",
+    "SITE_HEADER": "ArtChive Administration",
+    "SITE_URL": config('REACT_CLIENT_URL', default='/'),
+    "SITE_ICON": "/static/favicon/favicon.ico",  # Header icon
+    "SITE_SYMBOL": "palette",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Statistics",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Statistics Dashboard",
+                        "icon": "bar_chart",
+                        "link": "/admin/admin-dashboard/",
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                ],
+            },
+        ],
+    },
+}
+
+# Logging configuration
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            # 'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '{levelname} {asctime} [{module}] {message}',
+            'style': '{',
+            'datefmt': '%H:%M:%S',  # Shorter time format: HH:MM:SS instead of full datetime
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'core.websocket_auth': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'channels': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

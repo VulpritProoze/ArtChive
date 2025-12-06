@@ -7,7 +7,7 @@ from django.db import models
 from common.utils import choices
 from common.utils.choices import TRANSACTION_OBJECT_CHOICES
 
-from .manager import CustomUserManager
+from .manager import CustomUserManager, SoftDeleteManager
 
 
 class User(AbstractUser):
@@ -25,20 +25,54 @@ class User(AbstractUser):
     country = models.CharField(max_length=100, default='N/A', blank=True)
     contact_no = models.CharField(max_length=20, default='N/A',blank=True)
     birthday = models.DateField(blank=True, null=True, help_text='Enter user\'s date of birth')
-    is_deleted = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False, help_text='Designates whether this user should be treated as deleted. Unselect this instead of deleting accounts.')
 
     # profile
     profile_picture = models.ImageField(default='static/images/default-pic-min.jpg', upload_to='profile/')
 
+    # reputation
+    reputation = models.IntegerField(default=0, help_text='User reputation score based on interactions')
+
     objects = CustomUserManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['reputation', 'id'], name='user_reputation_id_idx'),
+        ]
+
     def __str__(self):
-        return self.email
+        return self.username
 
     # Soft deletion
     def delete(self, *args, **kwargs):
+        """Soft delete user and cascade soft delete to directly related models"""
         self.is_deleted = True
         self.save()
+
+        # Soft delete directly related models
+        # Post - soft delete all posts by this user
+        # These imports are here to avoid circular imports
+        from post.models import Post
+        Post.objects.filter(author=self).update(is_deleted=True)
+
+        # Gallery - soft delete all galleries created by this user
+        from gallery.models import Gallery
+        Gallery.objects.filter(creator=self).update(is_deleted=True)
+
+        # Artist - soft delete artist profile if exists
+        if hasattr(self, 'artist'):
+            self.artist.is_deleted = True
+            self.artist.save()
+
+        # BrushDripWallet - soft delete wallet if exists
+        if hasattr(self, 'user_wallet'):
+            self.user_wallet.is_deleted = True
+            self.user_wallet.save()
+
+        # UserFellow - soft delete all relationships where user is involved
+        UserFellow.objects.filter(user=self).update(is_deleted=True)
+        UserFellow.objects.filter(fellow_user=self).update(is_deleted=True)
+
 
 class InactiveUser(User):
     class Meta:
@@ -51,21 +85,48 @@ class UserFellow(models.Model):
     fellow_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fellow_relationship_as_fellow')
     status = models.CharField(choices=choices.FELLOW_STATUS, default='pending')
     fellowed_at = models.DateTimeField(auto_now_add=True)
+    is_deleted = models.BooleanField(default=False, help_text='Designates whether this relationship should be treated as deleted.')
+
+    objects = SoftDeleteManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'fellow_user', 'status'], name='userfellow_lookup_idx'),
+            models.Index(fields=['user', 'status', 'is_deleted'], name='ufellow_user_stat_del_idx'),
+            models.Index(fields=['fellow_user', 'status', 'is_deleted'], name='ufellow_fellow_stat_del_idx'),
+        ]
+
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion"""
+        self.is_deleted = True
+        self.save()
 
 class Artist(models.Model):
     user_id = models.OneToOneField(User, primary_key=True, on_delete=models.CASCADE, related_name='artist')
     artist_types = ArrayField(models.CharField(max_length=50), default=list, blank=True, help_text='Select artist types (e.g. visual arts, literary arts, etc.)')
+    is_deleted = models.BooleanField(default=False, help_text='Designates whether this artist profile should be treated as deleted.')
 
     def __str__(self):
         return f"Artist profile for {self.user_id.username}"
+
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion"""
+        self.is_deleted = True
+        self.save()
 
 class BrushDripWallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='user_wallet')
     balance = models.IntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False, help_text='Designates whether this wallet should be treated as deleted.')
 
     def __str__(self):
         return f"{self.user.username}'s wallet. Balance: {self.balance}"
+
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion"""
+        self.is_deleted = True
+        self.save()
 
 class BrushDripTransaction(models.Model):
     drip_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -85,3 +146,109 @@ class BrushDripTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transacted_by} sent {self.amount} to {self.transacted_to}. {self.transaction_object_type}"
+
+
+class UserPreference(models.Model):
+    """
+    Store explicit user preferences for personalized post ranking.
+    Allows users to set preferred post types and artist types.
+    Can be used to supplement or override inferred preferences from interaction history.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='user_preference',
+        primary_key=True
+    )
+
+    # Preferred content types (explicit user preferences)
+    preferred_post_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of preferred post types, e.g. ["image", "novel", "video"]'
+    )
+    preferred_artist_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of preferred artist types, e.g. ["visual_arts", "literary_arts"]'
+    )
+
+    # Future features (for negative signals)
+    muted_collectives = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of collective IDs to hide posts from (future feature)'
+    )
+    blocked_users = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of user IDs to hide posts from (future feature)'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Preference'
+        verbose_name_plural = 'User Preferences'
+
+    def __str__(self):
+        return f"Preferences for {self.user.username}"
+
+    def get_preferred_post_types(self):
+        """Get preferred post types, return empty list if None"""
+        return self.preferred_post_types or []
+
+    def get_preferred_artist_types(self):
+        """Get preferred artist types, return empty list if None"""
+        return self.preferred_artist_types or []
+
+
+class ReputationHistory(models.Model):
+    """
+    Audit trail for all reputation changes.
+    Tracks every reputation update with source information.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reputation_history'
+    )
+    amount = models.IntegerField(
+        help_text='Reputation change amount (positive or negative)'
+    )
+    source_type = models.CharField(
+        max_length=50,
+        choices=choices.REPUTATION_SOURCE_CHOICES,
+        help_text='Type of interaction that caused the reputation change'
+    )
+    source_id = models.CharField(
+        max_length=2000,
+        help_text='ID of the source object (praise_id, trophy_id, critique_id, award_id)'
+    )
+    source_object_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Type of object the source belongs to (post, gallery)'
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Human-readable description of the reputation change'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Reputation History'
+        verbose_name_plural = 'Reputation Histories'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at'], name='rep_history_user_created_idx'),
+            models.Index(fields=['source_type', 'source_id'], name='rep_history_source_idx'),
+            models.Index(fields=['created_at'], name='rep_history_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.amount:+d} reputation from {self.source_type} at {self.created_at}"

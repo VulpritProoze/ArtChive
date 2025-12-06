@@ -20,6 +20,10 @@ export const CritiqueFormModal: React.FC = () => {
     setSelectedCritique,
     critiqueTargetPostId,
     setCritiqueTargetPostId,
+    critiqueTargetGalleryId,
+    setCritiqueTargetGalleryId,
+    critiqueTargetType,
+    setCritiqueTargetType,
     editingCritiqueForm,
     setEditingCritiqueForm,
   } = usePostUI();
@@ -35,27 +39,34 @@ export const CritiqueFormModal: React.FC = () => {
       setForm({
         text: selectedCritique.text,
         impression: selectedCritique.impression,
-        post_id: selectedCritique.post_id,
+        post_id: selectedCritique.post_id || undefined,
+        gallery_id: (selectedCritique as any).gallery_id || undefined,
       });
     } else {
+      const targetType = critiqueTargetType || (critiqueTargetPostId ? 'post' : 'gallery');
       setForm({
         text: '',
         impression: 'positive',
-        post_id: critiqueTargetPostId || '',
+        post_id: targetType === 'post' ? (critiqueTargetPostId || '') : undefined,
+        gallery_id: targetType === 'gallery' ? (critiqueTargetGalleryId || '') : undefined,
       });
     }
-  }, [selectedCritique, critiqueTargetPostId, setForm]);
+  }, [selectedCritique, critiqueTargetPostId, critiqueTargetGalleryId, critiqueTargetType, setForm]);
 
   const closeModal = () => {
     if (isSubmitting) return;
     setShowCritiqueForm(false);
     setSelectedCritique(null);
     setCritiqueTargetPostId(null);
+    setCritiqueTargetGalleryId(null);
+    setCritiqueTargetType(null);
     setEditingCritiqueForm(false);
     resetForm();
   };
 
-  if (!showCritiqueForm || !form.post_id) {
+  const hasTarget = critiqueTargetPostId || critiqueTargetGalleryId;
+
+  if (!showCritiqueForm || !hasTarget) {
     return null;
   }
 
@@ -63,17 +74,23 @@ export const CritiqueFormModal: React.FC = () => {
     event.preventDefault();
     try {
       if (editingCritiqueForm && selectedCritique) {
+        const critiqueTargetType = (selectedCritique as any).gallery_id ? 'gallery' : 'post';
         await updateCritique.mutateAsync({
           critiqueId: selectedCritique.critique_id,
           text: form.text,
           postId: selectedCritique.post_id,
+          galleryId: (selectedCritique as any).gallery_id,
+          targetType: critiqueTargetType,
         });
         toast.success('Critique updated', 'Your critique has been updated successfully');
       } else {
+        const finalTargetType = critiqueTargetType || (form.post_id ? 'post' : 'gallery');
         await createCritique.mutateAsync({
           text: form.text,
           impression: form.impression,
           post_id: form.post_id,
+          gallery_id: form.gallery_id,
+          targetType: finalTargetType,
         });
         toast.success('Critique created', 'Your critique has been submitted successfully');
       }

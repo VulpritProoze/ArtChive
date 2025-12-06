@@ -1,0 +1,53 @@
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@services/user.service';
+
+/**
+ * Hook to fetch user reputation
+ */
+export const useUserReputation = (userId?: number) => {
+  return useQuery({
+    queryKey: ['user-reputation', userId],
+    queryFn: () => userService.getUserReputation(userId!),
+    enabled: !!userId,
+  });
+};
+
+/**
+ * Hook to fetch user reputation history
+ */
+export const useUserReputationHistory = (
+  userId?: number,
+  params?: { limit?: number; offset?: number }
+) => {
+  return useQuery({
+    queryKey: ['user-reputation-history', userId, params],
+    queryFn: () => userService.getUserReputationHistory(userId!, params),
+    enabled: !!userId,
+  });
+};
+
+/**
+ * Hook to fetch reputation leaderboard
+ */
+export const useReputationLeaderboard = (params?: { limit?: number; offset?: number }) => {
+  return useQuery({
+    queryKey: ['reputation-leaderboard', params],
+    queryFn: () => userService.getReputationLeaderboard(params),
+  });
+};
+
+import { useUserId } from '@context/auth-context';
+
+/**
+ * Hook to fetch current user's leaderboard position
+ */
+export const useMyLeaderboardPosition = () => {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['my-leaderboard-position', userId],
+    queryFn: () => userService.getMyLeaderboardPosition(),
+    enabled: Boolean(userId),
+  });
+};
+
+

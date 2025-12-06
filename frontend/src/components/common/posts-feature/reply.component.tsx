@@ -1,15 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import type { Comment } from "@types";
 import formatArtistTypesArrToString from "@utils/format-artisttypes-arr-to-string";
 import { useAuth } from "@context/auth-context";
 import { usePostUI } from "@context/post-ui-context";
+import { useReplies } from "@hooks/queries/use-comments";
 import {
-  useReplies,
   useCreateReply,
   useDeleteComment,
-} from "@hooks/queries/use-comments";
+} from "@hooks/mutations/use-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { SkeletonComment } from "@components/common/skeleton/skeleton-comment.component";
+import UserHoverModal from "@components/post/user-hover-modal.component";
 
 interface ReplyComponentProps {
   comment: Comment;
@@ -36,6 +40,8 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   const [isReplying, setIsReplying] = useState(comment.is_replying ?? false);
   const [showReplies, setShowReplies] = useState(depth > 0 ? true : Boolean(comment.show_replies));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showHoverModal, setShowHoverModal] = useState(false);
+  const userInfoRef = useRef<HTMLDivElement>(null);
 
   const replyCount = comment.reply_count || 0;
   const hasReplies = replyCount > 0 || (comment.replies?.length ?? 0) > 0;
@@ -57,8 +63,35 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
     [fetchedReplies, comment.replies],
   );
 
-  const { mutateAsync: createReplyMutation, isPending: isCreatingReply } = useCreateReply();
+  const { mutateAsync: createReplyMutation } = useCreateReply();
   const { mutateAsync: deleteCommentMutation, isPending: isDeletingComment } = useDeleteComment();
+
+  // Track comment update state for skeleton loader on text
+  const { data: isUpdatingComment = false } = useQuery({
+    queryKey: ['comment-updating', comment.comment_id],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
+
+  // Track reply creation state for skeleton loader
+  const { data: isCreatingReply = false } = useQuery({
+    queryKey: ['reply-creating', comment.comment_id],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
+
+  // Track reply update state for skeleton loader on text (only for replies, not top-level comments)
+  const { data: isUpdatingReply = false } = useQuery({
+    queryKey: ['reply-updating', comment.comment_id],
+    queryFn: () => false, // Dummy function - actual value comes from setQueryData
+    initialData: false,
+    staleTime: Infinity, // Never refetch - this is just for state management
+    gcTime: Infinity, // Keep in cache indefinitely
+  });
 
   const isAuthor = user?.id === comment.author;
   const canEditOrDelete = isAuthor;
@@ -66,6 +99,14 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   const commentId = `comment-${comment.comment_id}`;
   const replyId = `reply-${comment.comment_id}`;
   const isHighlighted = highlightedItemId === commentId || highlightedItemId === replyId;
+
+  const handleMouseEnter = () => {
+    setShowHoverModal(true);
+  };
+
+  const handleMouseLeave = () => {
+    setShowHoverModal(false);
+  };
 
   useEffect(() => {
     if (highlightedItemId && highlightedItemId.startsWith("reply-") && depth === 0) {
@@ -84,11 +125,11 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
         replies_to: comment.comment_id,
         post_id: postId,
       });
-      toast.success("Reply posted", "Your reply has been added successfully");
+      // Close form immediately after mutation completes (toast already shown in mutation)
       setLocalReplyText("");
       setIsReplying(false);
       setShowReplies(true);
-      // Replies will be refetched automatically via query invalidation
+      // Replies are being refetched in background with skeleton showing
     } catch (error) {
       const message = handleApiError(error, {}, true, true);
       toast.error("Failed to post reply", formatErrorForToast(message));
@@ -105,7 +146,6 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
     if (!window.confirm("Are you sure you want to delete this comment?")) return;
     try {
       await deleteCommentMutation({ commentId: comment.comment_id, postId });
-      toast.success("Comment deleted", "The comment has been removed successfully");
     } catch (error) {
       const message = handleApiError(error, {}, true, true);
       toast.error("Failed to delete comment", formatErrorForToast(message));
@@ -115,9 +155,8 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
   return (
     <div
       id={depth === 0 ? commentId : replyId}
-      className={`${
-        depth > 0 ? "ml-12 mt-3" : "py-3 border-b border-base-300"
-      } ${isHighlighted ? "bg-primary/10 border-l-4 border-l-primary pl-3 rounded-lg transition-all duration-300" : ""}`}
+      className={`${depth > 0 ? "ml-12 mt-3" : "py-3 border-b border-base-300"
+        } ${isHighlighted ? "bg-primary/10 border-l-4 border-l-primary pl-3 rounded-lg transition-all duration-300" : ""}`}
     >
       {/* Comment Content */}
       <div className="flex gap-3">
@@ -141,17 +180,50 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
           {/* Username and Text */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-sm">
-                  {comment.author_username}
-                </span>
-                <p className="text-xs">
-                  {formatArtistTypesArrToString(comment.author_artist_types)}
-                </p>
+              <div
+                ref={userInfoRef}
+                className="relative -m-2 p-2"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Link
+                  to={comment.author_username ? `/profile/@${comment.author_username}` : '#'}   // Do not modify the "@"!
+                  className="flex items-center gap-2 mb-1 hover:opacity-80 transition-opacity"
+                  onClick={(e) => {
+                    if (!comment.author_username) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  <span className="font-semibold text-sm">
+                    {comment.author_username}
+                  </span>
+                  <p className="text-xs">
+                    {formatArtistTypesArrToString(comment.author_artist_types)}
+                  </p>
+                </Link>
+                {comment.author && (
+                  <div
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    <UserHoverModal
+                      userId={comment.author}
+                      isVisible={showHoverModal}
+                    />
+                  </div>
+                )}
               </div>
-              <span className="text-sm whitespace-pre-wrap break-words">
-                {comment.text}
-              </span>
+              {(isUpdatingComment || isUpdatingReply) ? (
+                <div className="text-sm">
+                  <div className="skeleton h-4 w-full mb-1"></div>
+                  <div className="skeleton h-4 w-3/4"></div>
+                </div>
+              ) : (
+                <span className="text-sm whitespace-pre-wrap break-words">
+                  {comment.text}
+                </span>
+              )}
 
               {/* Time and Actions */}
               <div className="flex items-center gap-4 mt-1">
@@ -262,13 +334,13 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                     disabled={isSubmitting || isCreatingReply}
                     maxLength={500}
                   />
-                  
+
                   {/* Character Count */}
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-base-content/50">
                       {localReplyText.length}/500
                     </span>
-                    
+
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                       <button
@@ -311,8 +383,15 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
       </div>
 
       {/* Nested Replies */}
-      {showReplies && replies.length > 0 && (
+      {(showReplies && (replies.length > 0 || isCreatingReply || isFetchingReplies)) && (
         <div className="mt-3 space-y-3">
+          {/* Skeleton Loader for initial reply fetch */}
+          {/* Show skeleton when fetching but haven't received fetched replies yet */}
+          {isFetchingReplies && fetchedReplies.length === 0 && <SkeletonComment isReply />}
+          
+          {/* Skeleton Loader for new reply */}
+          {isCreatingReply && <SkeletonComment isReply />}
+
           {replies.map((reply) => (
             <ReplyComponent
               key={reply.comment_id}
@@ -322,7 +401,7 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
               highlightedItemId={highlightedItemId}
             />
           ))}
-          
+
           {/* Load More Replies Button */}
           {hasNextPage && (
             <button

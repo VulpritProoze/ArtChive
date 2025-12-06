@@ -95,3 +95,18 @@ class IsCollectiveAdmin(BasePermission):
             collective_role=COLLECTIVE_ROLES.admin,
             collective_id=collective,
         ).exists()
+
+
+class IsAdminUser(BasePermission):
+    """
+    Allows access only to admin users (staff or superuser).
+    Uses Django session authentication.
+    """
+    message = 'You must be an admin user to perform this action.'
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            (request.user.is_staff or request.user.is_superuser)
+        )

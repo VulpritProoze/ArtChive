@@ -1,0 +1,85 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .admin-stats-card {
+        background-color: rgb(var(--color-base-100));
+        border: 1px solid rgb(var(--color-base-300));
+        border-radius: var(--border-radius, 0.5rem);
+        padding: 1.5rem;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+    
+    .dark .admin-stats-card {
+        background-color: rgb(var(--color-base-800));
+        border-color: rgb(var(--color-base-700));
+    }
+    
+    .admin-stats-title {
+        color: rgb(var(--color-font-default-light));
+        transition: color 0.2s ease;
+    }
+    
+    .dark .admin-stats-title {
+        color: rgb(var(--color-font-default-dark));
+    }
+    
+    .admin-stats-description {
+        color: rgb(var(--color-font-muted-light));
+        transition: color 0.2s ease;
+    }
+    
+    .dark .admin-stats-description {
+        color: rgb(var(--color-font-muted-dark));
+    }
+    
+    .admin-stats-button {
+        background-color: rgb(var(--color-primary-600));
+        border-radius: var(--border-radius, 0.5rem);
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .admin-stats-button:hover {
+        background-color: rgb(var(--color-primary-700));
+    }
+    
+    .dark .admin-stats-button {
+        background-color: rgb(var(--color-primary-500));
+    }
+    
+    .dark .admin-stats-button:hover {
+        background-color: rgb(var(--color-primary-600));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    {% if user.is_superuser %}
+    <div class="mb-8">
+        <div class="admin-stats-card">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold admin-stats-title mb-2">
+                        Statistics Dashboard
+                    </h3>
+                    <p class="text-sm admin-stats-description">
+                        View detailed statistics and analytics for all apps
+                    </p>
+                </div>
+                <a href="{% url 'dashboard:dashboard-index' %}" 
+                   class="admin-stats-button inline-flex items-center px-4 py-2 text-white font-medium shadow-sm hover:shadow-md">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    View Statistics
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {{ block.super }}
+{% endblock %}
+

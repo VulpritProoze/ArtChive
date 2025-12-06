@@ -1,12 +1,18 @@
 import logging
-import os
+from datetime import timedelta
 
 from decouple import config
-from django.conf import settings
+from django.contrib import admin
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import TemplateView
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
@@ -14,6 +20,7 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import generics, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -22,222 +29,276 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import ExpiredTokenError, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
-from silk.profiling.profiler import silk_profile
 
-from .cache_utils import get_user_info_cache_key
-from .models import Artist, BrushDripTransaction, BrushDripWallet, User
+from common.utils.choices import NOTIFICATION_TYPES
+from common.utils.profiling import silk_profile
+from notification.utils import create_notification
+
+from .cache_utils import get_dashboard_cache_key, get_user_info_cache_key
+from .friend_request_utils import send_friend_request_update_to_both_users
+from .models import Artist, BrushDripTransaction, BrushDripWallet, User, UserFellow
 from .pagination import BrushDripsTransactionPagination
+from .permissions import IsAdminUser
 from .serializers import (
     BrushDripTransactionCreateSerializer,
     BrushDripTransactionDetailSerializer,
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    CreateFriendRequestSerializer,
+    FriendRequestCountSerializer,
     LoginSerializer,
+    ReputationHistorySerializer,
+    ReputationLeaderboardEntrySerializer,
+    ReputationSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
+    UserFellowSerializer,
+    UserProfilePublicSerializer,
+    UserSearchSerializer,
     UserSerializer,
+    UserSummarySerializer,
 )
 
 
 @extend_schema(
-    tags=['Authentication'],
+    tags=["Authentication"],
     description="Authenticate user and set JWT cookies",
     examples=[
         OpenApiExample(
-            'Example Request',
-            value={'email': 'user@example.com', 'password': 'string'},
-            request_only=True
+            "Example Request",
+            value={"email": "user@example.com", "password": "string"},
+            request_only=True,
         ),
         OpenApiExample(
-            'Example Response',
-            value={'user': {'id': 1, 'email': 'user@example.com'}},
-            response_only=True
-        )
+            "Example Response",
+            value={"user": {"id": 1, "email": "user@example.com"}},
+            response_only=True,
+        ),
     ],
     responses={
-        200: OpenApiResponse(
-            description='Login successful',
-            response=UserSerializer
-        ),
-        400: OpenApiResponse(description='Invalid credentials'),
-        429: OpenApiResponse(description='Too many requests')
-    }
+        200: OpenApiResponse(description="Login successful", response=UserSerializer),
+        400: OpenApiResponse(description="Invalid credentials"),
+        429: OpenApiResponse(description="Too many requests"),
+    },
 )
+@method_decorator(
+    csrf_exempt, name="dispatch"
+)  # Exempt login - user doesn't have CSRF token yet
 class LoginView(APIView):
-    throttle_scope = 'login'
+    throttle_scope = "login"
     throttle_classes = [ScopedRateThrottle]
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []  # Don't require JWT for login
 
-    @silk_profile(name='Login API')
+    @silk_profile(name="Login API")
     def post(self, request):
-        with silk_profile(name='Validate LoginSerializer'):
+        with silk_profile(name="Validate LoginSerializer"):
             serializer = LoginSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        with silk_profile(name='Get user and tokens'):
+        with silk_profile(name="Get user and tokens"):
             user = serializer.validated_data
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
 
-        with silk_profile(name='Set response'):
-            response = Response({'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
+        with silk_profile(name="Set response"):
+            response = Response(
+                {"user": UserSerializer(user).data}, status=status.HTTP_200_OK
+            )
 
-        with silk_profile(name='Set cookies'):
+        with silk_profile(name="Set cookies"):
             cookie_kwargs = {
-                'httponly': True,
-                'secure': config('AUTH_COOKIE_SECURE', default=False),
-                'samesite': 'None',
-                'path': '/',
+                "httponly": True,
+                "secure": config("AUTH_COOKIE_SECURE", default=False),
+                "samesite": "None",
+                "path": "/",
             }
+            response.set_cookie(key="access_token", value=access_token, **cookie_kwargs)
             response.set_cookie(
-                key='access_token',
-                value=access_token,
-                **cookie_kwargs
+                key="refresh_token", value=str(refresh), **cookie_kwargs
             )
-            response.set_cookie(
-                key='refresh_token',
-                value=str(refresh),
-                **cookie_kwargs
-            )
-        with silk_profile(name='Return response'):
+
+        # Ensure CSRF token is set for future authenticated requests
+        with silk_profile(name="Set CSRF token"):
+            from django.middleware.csrf import get_token
+
+            get_token(request)  # This ensures the csrftoken cookie is set
+
+        with silk_profile(name="Return response"):
             return response
 
+
 @extend_schema(
-    tags=['Authentication'],
+    tags=["Authentication"],
+    description="Get CSRF token for authenticated requests",
+    responses={
+        200: OpenApiResponse(
+            description="CSRF token returned",
+            response={
+                "type": "object",
+                "properties": {"csrfToken": {"type": "string"}},
+            },
+        )
+    },
+)
+class GetCSRFTokenView(APIView):
+    """
+    GET: Returns a CSRF token for use in subsequent authenticated requests.
+    This endpoint sets the csrftoken cookie and returns the token value.
+    Frontend should call this on app initialization before making authenticated requests.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        from django.middleware.csrf import get_token
+
+        csrf_token = get_token(request)
+        return Response({"csrfToken": csrf_token}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Authentication"],
     description="Logout user by clearing cookies",
     responses={
-        200: OpenApiResponse(description='Logout successful'),
-        400: OpenApiResponse(description='Invalid token')
-    }
+        200: OpenApiResponse(description="Logout successful"),
+        400: OpenApiResponse(description="Invalid token"),
+    },
 )
 class LogoutView(APIView):
     serializer_class = None
     permission_classes = [AllowAny]
-    authentication_classes = [] # Disable any auth classes to make sure anybody can log out. Will have to tweak sometime to put this check to login
+    authentication_classes = []  # Disable any auth classes to make sure anybody can log out. Will have to tweak sometime to put this check to login
 
-    @silk_profile(name='Logout API')
+    @silk_profile(name="Logout API")
     def post(self, request):
-        with silk_profile(name='Get token'):
-            refresh_token = request.COOKIES.get('refresh_token')
+        with silk_profile(name="Get token"):
+            refresh_token = request.COOKIES.get("refresh_token")
 
-        with silk_profile(name='Validate refresh_token'):
+        with silk_profile(name="Validate refresh_token"):
             if refresh_token:
                 try:
-                    with silk_profile(name='Blacklist token'):
+                    with silk_profile(name="Blacklist token"):
                         refresh = RefreshToken(refresh_token)
                         refresh.blacklist()
                 except Exception as e:
-                    return Response({'error': f'Error invalidating refresh token {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-            response = Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
-        with silk_profile(name='Delete cookies'):
+                    return Response(
+                        {"error": f"Error invalidating refresh token {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            response = Response(
+                {"message": "Successfully logged out"}, status=status.HTTP_200_OK
+            )
+        with silk_profile(name="Delete cookies"):
             # Must match the exact same parameters used when setting cookies
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
             cookie_kwargs = {
-                'path': '/',
-                'samesite': 'None',
+                "path": "/",
+                "samesite": "None",
             }
-            response.delete_cookie('access_token', **cookie_kwargs)
-            response.delete_cookie('refresh_token', **cookie_kwargs)
+            response.delete_cookie("access_token", **cookie_kwargs)
+            response.delete_cookie("refresh_token", **cookie_kwargs)
 
-        with silk_profile(name='Return response'):
+        with silk_profile(name="Return response"):
             return response
 
+
 @extend_schema(
-    tags=['Authentication'],
+    tags=["Authentication"],
     description="Refresh access token using refresh token cookie",
     responses={
-        200: OpenApiResponse(description='Token refreshed'),
-        401: OpenApiResponse(description='Invalid or expired refresh token')
+        200: OpenApiResponse(description="Token refreshed"),
+        401: OpenApiResponse(description="Invalid or expired refresh token"),
     },
 )
 class CookieTokenRefreshView(TokenRefreshView):
     def post(self, request):
-        refresh_token = request.COOKIES.get('refresh_token')
+        refresh_token = request.COOKIES.get("refresh_token")
 
         if not refresh_token:
-            return Response({'error': 'Refresh token not provided'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"error": "Refresh token not provided"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         try:
             # Use the serializer which handles rotation correctly
             # The serializer automatically handles token rotation and returns new tokens
-            serializer = self.get_serializer(data={'refresh': refresh_token})
+            serializer = self.get_serializer(data={"refresh": refresh_token})
             serializer.is_valid(raise_exception=True)
 
             # Get tokens from validated_data (handles rotation automatically)
             # If rotation is enabled, 'refresh' will contain the new refresh token
             # If rotation is disabled, 'refresh' will be None or the same token
             validated_data = serializer.validated_data
-            new_access_token = validated_data['access']
-            new_refresh_token = validated_data.get('refresh', refresh_token)
+            new_access_token = validated_data["access"]
+            new_refresh_token = validated_data.get("refresh", refresh_token)
 
-            response = Response({'message': 'Access token refreshed successfully'}, status=status.HTTP_200_OK)
+            response = Response(
+                {"message": "Access token refreshed successfully"},
+                status=status.HTTP_200_OK,
+            )
 
             # Cookie settings
             cookie_kwargs = {
-                'httponly': True,
-                'secure': config('AUTH_COOKIE_SECURE', default=False),
-                'samesite': 'None',
-                'path': '/',
+                "httponly": True,
+                "secure": config("AUTH_COOKIE_SECURE", default=False),
+                "samesite": "None",
+                "path": "/",
             }
 
             # Set access token cookie
             response.set_cookie(
-                key='access_token',
-                value=new_access_token,
-                **cookie_kwargs
+                key="access_token", value=new_access_token, **cookie_kwargs
             )
 
             # Set refresh token cookie (will be new token if rotation enabled, same if disabled)
             response.set_cookie(
-                key='refresh_token',
-                value=new_refresh_token,
-                **cookie_kwargs
+                key="refresh_token", value=new_refresh_token, **cookie_kwargs
             )
 
             return response
         except ExpiredTokenError:
             # Handle expired refresh token - CLEAR COOKIES
             response = Response(
-                {'error': 'Refresh token has expired. Please login again.'},
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Refresh token has expired. Please login again."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
             # Clear both cookies with matching parameters
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
             cookie_kwargs = {
-                'path': '/',
-                'samesite': 'None',
+                "path": "/",
+                "samesite": "None",
             }
-            response.delete_cookie('access_token', **cookie_kwargs)
-            response.delete_cookie('refresh_token', **cookie_kwargs)
+            response.delete_cookie("access_token", **cookie_kwargs)
+            response.delete_cookie("refresh_token", **cookie_kwargs)
             return response
 
         except TokenError:
             # Handle other token errors
             response = Response(
-                {'error': 'Invalid refresh token'},
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED
             )
             # Clear both cookies with matching parameters
             # Note: delete_cookie() only accepts path, domain, and samesite (not secure/httponly)
             cookie_kwargs = {
-                'path': '/',
-                'samesite': 'None',
+                "path": "/",
+                "samesite": "None",
             }
-            response.delete_cookie('access_token', **cookie_kwargs)
-            response.delete_cookie('refresh_token', **cookie_kwargs)
+            response.delete_cookie("access_token", **cookie_kwargs)
+            response.delete_cookie("refresh_token", **cookie_kwargs)
             return response
 
+
 @extend_schema(
-    tags=['Users'],
-    description='Get current authenticated user information with caching',
-    responses={
-        200: UserSerializer,
-        401: OpenApiResponse(description='Unauthorized')
-    }
+    tags=["Users"],
+    description="Get current authenticated user information with caching",
+    responses={200: UserSerializer, 401: OpenApiResponse(description="Unauthorized")},
 )
 class UserInfoView(RetrieveAPIView):
     """
@@ -246,10 +307,11 @@ class UserInfoView(RetrieveAPIView):
     Cache is automatically invalidated when user, artist, or wallet data changes.
     Cache TTL: 10 minutes (600 seconds)
     """
+
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
-    @silk_profile(name='User/Me Retrieve (with cache)')
+    @silk_profile(name="User/Me Retrieve (with cache)")
     def retrieve(self, request, *args, **kwargs):
         """Override retrieve to add caching support."""
         user_id = request.user.id
@@ -269,92 +331,169 @@ class UserInfoView(RetrieveAPIView):
 
         return Response(serializer.data)
 
-    @silk_profile(name='User/Me Get Queryset')
+    @silk_profile(name="User/Me Get Queryset")
     def get_queryset(self):
         return User.objects.select_related(
-            'artist',
-            'user_wallet',
+            "artist",
+            "user_wallet",
+        ).prefetch_related(
+            "collective_member"  # Prefetch memberships to avoid N+1 query
         ).only(
             # User fields
-            'id',
-            'email',
-            'username',
-            'first_name',
-            'last_name',
-            'profile_picture',
-            'is_superuser',
+            "id",
+            "email",
+            "username",
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "is_superuser",
+            "reputation",
             # artist relation fields (to avoid full fetch)
-            'artist__artist_types',
+            "artist__artist_types",
             # user_wallet relation fields
-            'user_wallet__balance',
+            "user_wallet__balance",
         )
 
-    @silk_profile(name='User/Me Get Object')
+    @silk_profile(name="User/Me Get Object")
     def get_object(self):
         return self.get_queryset().get(pk=self.request.user.pk)
 
+
 @extend_schema(
-    tags=['Authentication'],
+    tags=["Users"],
+    description="Get user profile by username (public endpoint)",
+    responses={
+        200: UserProfilePublicSerializer,
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserProfileByUsernameView(RetrieveAPIView):
+    """
+    Get user profile by username.
+    Public endpoint - anyone can view any user's profile.
+    Returns public profile information including user ID for fetching posts.
+    """
+    serializer_class = UserProfilePublicSerializer
+    lookup_field = "username"
+    lookup_url_kwarg = "username"
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        return User.objects.select_related(
+            "artist",
+        ).prefetch_related(
+            "collective_member"
+        ).only(
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "artist__artist_types",
+            "reputation",
+        )
+
+
+@extend_schema(
+    tags=["Users"],
+    description="Get lightweight user summary by user ID (for hover modals)",
+    responses={
+        200: UserSummarySerializer,
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserSummaryView(RetrieveAPIView):
+    """
+    Get lightweight user summary by user ID.
+    Public endpoint - used for hover modals in post cards.
+    Returns basic user info and brush drips count.
+    Placeholder for future statistics.
+    """
+    serializer_class = UserSummarySerializer
+    lookup_field = "id"
+    lookup_url_kwarg = "user_id"
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        return User.objects.select_related(
+            "artist",
+            "user_wallet",
+        ).only(
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "artist__artist_types",
+            "user_wallet__balance",
+        )
+
+
+@extend_schema(
+    tags=["Authentication"],
     description="Register a new user account",
     examples=[
         OpenApiExample(
-            'Example Request',
+            "Example Request",
             value={
-                'username': 'azurialequinox',
-                'email': 'admin@gmail.com',
-                'password': 'asdasdasd',
-                'confirmPassword': 'asdasdasd',
-                'firstName': '',
-                'middleName': '',
-                'lastName': '',
-                'city': '',
-                'country': '',
-                'birthday': '',
-                'artistTypes': [
+                "username": "azurialequinox",
+                "email": "admin@gmail.com",
+                "password": "asdasdasd",
+                "confirmPassword": "asdasdasd",
+                "firstName": "",
+                "middleName": "",
+                "lastName": "",
+                "city": "",
+                "country": "",
+                "birthday": "",
+                "artistTypes": [
                     "visual arts",
                     "digital & new media arts",
                     "environmental art",
                     "music art",
-                    "film art"
-                ]
+                    "film art",
+                ],
             },
-            request_only=True
+            request_only=True,
         ),
         OpenApiExample(
-            'Example Response',
+            "Example Response",
             value={
-                'message': 'User registered successfully',
-                'user': {
-                    'id': 1,
-                    'username': 'azurialequinox',
-                    'email': 'admin@gmail.com',
-                    'first_name': '',
-                    'middle_name': '',
-                    'last_name': '',
-                    'city': '',
-                    'country': '',
-                    'birthday': None
+                "message": "User registered successfully",
+                "user": {
+                    "id": 1,
+                    "username": "azurialequinox",
+                    "email": "admin@gmail.com",
+                    "first_name": "",
+                    "middle_name": "",
+                    "last_name": "",
+                    "city": "",
+                    "country": "",
+                    "birthday": None,
                 },
-                'artist': {
-                    'artist_types': [
+                "artist": {
+                    "artist_types": [
                         "visual arts",
                         "digital & new media arts",
                         "environmental art",
                         "music art",
-                        "film art"
+                        "film art",
                     ]
-                }
+                },
             },
-            response_only=True
-        )
+            response_only=True,
+        ),
     ],
     responses={
-        201: OpenApiResponse(description='User registered successfully'),
-        400: OpenApiResponse(description='Invalid input data'),
-        500: OpenApiResponse(description='Internal server error')
-    }
+        201: OpenApiResponse(description="User registered successfully"),
+        400: OpenApiResponse(description="Invalid input data"),
+        500: OpenApiResponse(description="Internal server error"),
+    },
 )
+@method_decorator(csrf_exempt, name="dispatch")
 class RegistrationView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
     logger = logging.getLogger(__name__)
 
     def post(self, request):
@@ -364,90 +503,104 @@ class RegistrationView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated_data = serializer.validated_data
-        artist_types = validated_data.pop('artistTypes', [])
+        artist_types = validated_data.pop("artistTypes", [])
 
         try:
             with transaction.atomic():
                 # Create user
                 try:
                     user = User.objects.create_user(
-                        username=validated_data['username'],
-                        email=validated_data['email'],
-                        password=validated_data['password'],
-                        first_name=validated_data.get('firstName', ''),
-                        middle_name=validated_data.get('middleName', ''),
-                        last_name=validated_data.get('lastName', ''),
-                        city=validated_data.get('city', ''),
-                        country=validated_data.get('country', ''),
-                        birthday=validated_data.get('birthday', None)
+                        username=validated_data["username"],
+                        email=validated_data["email"],
+                        password=validated_data["password"],
+                        first_name=validated_data.get("firstName", ""),
+                        middle_name=validated_data.get("middleName", ""),
+                        last_name=validated_data.get("lastName", ""),
+                        city=validated_data.get("city", ""),
+                        country=validated_data.get("country", ""),
+                        birthday=validated_data.get("birthday", None),
                     )
-                    self.logger.info(f'User created successfully: {user.email} (ID: {user.id})')
+                    self.logger.info(
+                        f"User created successfully: {user.email} (ID: {user.id})"
+                    )
                 except Exception as e:
                     self.logger.error(
-                        f'Failed to create user: {str(e)}',
+                        f"Failed to create user: {str(e)}",
                         exc_info=True,
                         extra={
-                            'username': validated_data.get('username'),
-                            'email': validated_data.get('email'),
-                        }
+                            "username": validated_data.get("username"),
+                            "email": validated_data.get("email"),
+                        },
                     )
                     return Response(
-                        {'error': 'Failed to create user account', 'detail': str(e)},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        {"error": "Failed to create user account", "detail": str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
 
                 # Create artist profile
                 try:
                     artist, created = Artist.objects.get_or_create(
-                        user_id=user,
-                        defaults={'artist_types': artist_types}
+                        user_id=user, defaults={"artist_types": artist_types}
                     )
                     if not created:
                         # Artist already exists - update it (shouldn't happen in normal flow)
                         self.logger.warning(
-                            f'Artist profile already existed for user: {user.email} (ID: {user.id}), updating it',
+                            f"Artist profile already existed for user: {user.email} (ID: {user.id}), updating it",
                             extra={
-                                'user_id': user.id,
-                                'user_email': user.email,
-                                'artist_types': artist_types,
-                            }
+                                "user_id": user.id,
+                                "user_email": user.email,
+                                "artist_types": artist_types,
+                            },
                         )
                         artist.artist_types = artist_types
                         artist.save()
                     else:
-                        self.logger.info(f'Artist profile created successfully for user: {user.email} (ID: {user.id})')
+                        self.logger.info(
+                            f"Artist profile created successfully for user: {user.email} (ID: {user.id})"
+                        )
                 except Exception as e:
                     self.logger.error(
-                        f'Failed to create artist profile: {str(e)}',
+                        f"Failed to create artist profile: {str(e)}",
                         exc_info=True,
                         extra={
-                            'user_id': user.id,
-                            'user_email': user.email,
-                            'artist_types': artist_types,
-                        }
+                            "user_id": user.id,
+                            "user_email": user.email,
+                            "artist_types": artist_types,
+                        },
                     )
                     # User was created but artist failed - transaction will rollback
                     return Response(
-                        {'error': 'Failed to create artist profile', 'detail': str(e)},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        {"error": "Failed to create artist profile", "detail": str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
 
+            # Set CSRF token for future authenticated requests
+            from django.middleware.csrf import get_token
 
-            return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+            get_token(request)  # Ensures csrftoken cookie is set
+
+            return Response(
+                {"message": "User registered successfully"},
+                status=status.HTTP_201_CREATED,
+            )
 
         except Exception as e:
             self.logger.error(
-                f'Unexpected error during registration: {str(e)}',
+                f"Unexpected error during registration: {str(e)}",
                 exc_info=True,
                 extra={
-                    'username': validated_data.get('username'),
-                    'email': validated_data.get('email'),
-                }
+                    "username": validated_data.get("username"),
+                    "email": validated_data.get("email"),
+                },
             )
             return Response(
-                {'error': 'An unexpected error occurred during registration', 'detail': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {
+                    "error": "An unexpected error occurred during registration",
+                    "detail": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 class ProfileRetrieveUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -471,8 +624,8 @@ class ProfileRetrieveUpdateView(APIView):
         user = self.get_object(id)
         if not user:
             return Response(
-                {'error': 'User not found or permission denied'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "User not found or permission denied"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         serializer = ProfileViewUpdateSerializer(user)
@@ -482,18 +635,19 @@ class ProfileRetrieveUpdateView(APIView):
         """Helper method to delete old profile picture before updating."""
         if new_profile_picture and instance.profile_picture:
             try:
-                # Check if file is in media/profile/images
-                profile_images_path = os.path.join(settings.MEDIA_ROOT, 'profile', 'images')
-                file_path = instance.profile_picture.path
+                # Don't delete default profile picture
+                if instance.profile_picture.name == "profile/images/default-pic-min.jpg":
+                    return
 
-                if (file_path.startswith(profile_images_path)) and instance.profile_picture.name != 'profile/images/default-pic-min.jpg':
-                    if default_storage.exists(instance.profile_picture.name):
-                        default_storage.delete(instance.profile_picture.name)
+                # Delete old profile picture using storage backend (works with Cloudinary)
+                # Use .name property instead of .path (Cloudinary doesn't support absolute paths)
+                if instance.profile_picture.name and default_storage.exists(instance.profile_picture.name):
+                    default_storage.delete(instance.profile_picture.name)
             except Exception as e:
                 # Log error and raise to return error response
                 self.logger.error(
-                    f'Failed to delete old profile picture for user {instance.id}: {e}',
-                    exc_info=True
+                    f"Failed to delete old profile picture for user {instance.id}: {e}",
+                    exc_info=True,
                 )
                 raise
 
@@ -502,25 +656,24 @@ class ProfileRetrieveUpdateView(APIView):
         user = self.get_object(id)
         if not user:
             return Response(
-                {'error': 'User not found or permission denied'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "User not found or permission denied"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        new_profile_picture = request.FILES.get('profilePicture', None)
+        new_profile_picture = request.FILES.get("profilePicture", None)
 
         # Delete old profile picture before updating
         try:
             self._delete_old_profile_picture(user, new_profile_picture)
         except Exception as e:
             return Response(
-                {
-                    'error': 'Failed to delete old profile picture',
-                    'detail': str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to delete old profile picture", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        serializer = ProfileViewUpdateSerializer(user, data=request.data, files=request.FILES)
+        serializer = ProfileViewUpdateSerializer(
+            user, data=request.data, context={'request': request}
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -531,25 +684,24 @@ class ProfileRetrieveUpdateView(APIView):
         user = self.get_object(id)
         if not user:
             return Response(
-                {'error': 'User not found or permission denied'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "User not found or permission denied"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        new_profile_picture = request.FILES.get('profilePicture', None)
+        new_profile_picture = request.FILES.get("profilePicture", None)
 
         # Delete old profile picture before updating
         try:
             self._delete_old_profile_picture(user, new_profile_picture)
         except Exception as e:
             return Response(
-                {
-                    'error': 'Failed to delete old profile picture',
-                    'detail': str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to delete old profile picture", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        serializer = ProfileViewUpdateSerializer(user, data=request.data, partial=True, files=request.FILES)
+        serializer = ProfileViewUpdateSerializer(
+            user, data=request.data, partial=True, context={'request': request}
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -560,19 +712,21 @@ class ProfileRetrieveUpdateView(APIView):
 # BRUSH DRIP TRANSACTION VIEWS
 # ============================================================================
 
+
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Retrieve authenticated user wallet information',
+    tags=["Brush Drips"],
+    description="Retrieve authenticated user wallet information",
     responses={
         200: BrushDripWalletSerializer,
-        401: OpenApiResponse(description='Unauthorized'),
-        404: OpenApiResponse(description='Wallet not found')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Wallet not found"),
+    },
 )
 class BrushDripWalletRetrieveView(generics.RetrieveAPIView):
     """
     GET: Retrieve current user's wallet information
     """
+
     serializer_class = BrushDripWalletSerializer
     permission_classes = [IsAuthenticated]
 
@@ -582,43 +736,56 @@ class BrushDripWalletRetrieveView(generics.RetrieveAPIView):
             return BrushDripWallet.objects.get(user=self.request.user)
         except BrushDripWallet.DoesNotExist:
             return Response(
-                {'error': 'Wallet not found for this user'},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "Wallet not found for this user"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Retrieve any user wallet information by user ID',
+    tags=["Brush Drips"],
+    description="Retrieve any user wallet information by user ID",
     responses={
         200: BrushDripWalletSerializer,
-        401: OpenApiResponse(description='Unauthorized'),
-        404: OpenApiResponse(description='Wallet not found')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Wallet not found"),
+    },
 )
 class BrushDripWalletDetailView(generics.RetrieveAPIView):
     """
     GET: Retrieve wallet information for specific user
     """
+
     serializer_class = BrushDripWalletSerializer
     permission_classes = [IsAuthenticated]
-    queryset = BrushDripWallet.objects.select_related('user').all()
-    lookup_field = 'user_id'
+    queryset = BrushDripWallet.objects.select_related("user").all()
+    lookup_field = "user_id"
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='List all transactions with filtering and pagination',
+    tags=["Brush Drips"],
+    description="List all transactions with filtering and pagination",
     parameters=[
-        OpenApiParameter(name='user_id', description='Filter by user ID (sent or received)', type=int),
-        OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
-        OpenApiParameter(name='sent_only', description='Show only sent transactions', type=bool),
-        OpenApiParameter(name='received_only', description='Show only received transactions', type=bool),
+        OpenApiParameter(
+            name="user_id", description="Filter by user ID (sent or received)", type=int
+        ),
+        OpenApiParameter(
+            name="transaction_type",
+            description="Filter by transaction object type",
+            type=str,
+        ),
+        OpenApiParameter(
+            name="sent_only", description="Show only sent transactions", type=bool
+        ),
+        OpenApiParameter(
+            name="received_only",
+            description="Show only received transactions",
+            type=bool,
+        ),
     ],
     responses={
         200: BrushDripTransactionListSerializer(many=True),
-        401: OpenApiResponse(description='Unauthorized')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+    },
 )
 class BrushDripTransactionListView(generics.ListAPIView):
     """
@@ -629,51 +796,66 @@ class BrushDripTransactionListView(generics.ListAPIView):
     - sent_only: Only show sent transactions
     - received_only: Only show received transactions
     """
+
     serializer_class = BrushDripTransactionListSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = BrushDripTransaction.objects.select_related(
-            'transacted_by', 'transacted_to'
-        ).all().order_by('-transacted_at')
+        queryset = (
+            BrushDripTransaction.objects.select_related(
+                "transacted_by", "transacted_to"
+            )
+            .all()
+            .order_by("-transacted_at")
+        )
 
         # Filter by user_id (sent or received)
-        user_id = self.request.query_params.get('user_id', None)
+        user_id = self.request.query_params.get("user_id", None)
         if user_id:
             queryset = queryset.filter(
                 Q(transacted_by_id=user_id) | Q(transacted_to_id=user_id)
             )
 
         # Filter by transaction type
-        transaction_type = self.request.query_params.get('transaction_type', None)
+        transaction_type = self.request.query_params.get("transaction_type", None)
         if transaction_type:
             queryset = queryset.filter(transaction_object_type=transaction_type)
 
         # Filter sent only
-        sent_only = self.request.query_params.get('sent_only', None)
-        if sent_only and sent_only.lower() == 'true':
+        sent_only = self.request.query_params.get("sent_only", None)
+        if sent_only and sent_only.lower() == "true":
             queryset = queryset.filter(transacted_by=self.request.user)
 
         # Filter received only
-        received_only = self.request.query_params.get('received_only', None)
-        if received_only and received_only.lower() == 'true':
+        received_only = self.request.query_params.get("received_only", None)
+        if received_only and received_only.lower() == "true":
             queryset = queryset.filter(transacted_to=self.request.user)
 
         return queryset
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Get current user transaction history',
+    tags=["Brush Drips"],
+    description="Get current user transaction history",
     parameters=[
-        OpenApiParameter(name='transaction_type', description='Filter by transaction object type', type=str),
-        OpenApiParameter(name='sent_only', description='Show only sent transactions', type=bool),
-        OpenApiParameter(name='received_only', description='Show only received transactions', type=bool),
+        OpenApiParameter(
+            name="transaction_type",
+            description="Filter by transaction object type",
+            type=str,
+        ),
+        OpenApiParameter(
+            name="sent_only", description="Show only sent transactions", type=bool
+        ),
+        OpenApiParameter(
+            name="received_only",
+            description="Show only received transactions",
+            type=bool,
+        ),
     ],
     responses={
         200: BrushDripTransactionListSerializer(many=True),
-        401: OpenApiResponse(description='Unauthorized')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+    },
 )
 class BrushDripMyTransactionsView(generics.ListAPIView):
     """
@@ -683,6 +865,7 @@ class BrushDripMyTransactionsView(generics.ListAPIView):
     - sent_only: Only show sent transactions (true/false)
     - received_only: Only show received transactions (true/false)
     """
+
     serializer_class = BrushDripTransactionListSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = BrushDripsTransactionPagination
@@ -691,30 +874,40 @@ class BrushDripMyTransactionsView(generics.ListAPIView):
         user = self.request.user
 
         # Check for sent_only and received_only filters
-        sent_only = self.request.query_params.get('sent_only', None)
-        received_only = self.request.query_params.get('received_only', None)
+        sent_only = self.request.query_params.get("sent_only", None)
+        received_only = self.request.query_params.get("received_only", None)
 
         # Build base queryset with appropriate filter
-        if sent_only and sent_only.lower() == 'true':
+        if sent_only and sent_only.lower() == "true":
             # Only sent transactions
-            queryset = BrushDripTransaction.objects.select_related(
-                'transacted_by', 'transacted_to'
-            ).filter(transacted_by=user).order_by('-transacted_at')
-        elif received_only and received_only.lower() == 'true':
+            queryset = (
+                BrushDripTransaction.objects.select_related(
+                    "transacted_by", "transacted_to"
+                )
+                .filter(transacted_by=user)
+                .order_by("-transacted_at")
+            )
+        elif received_only and received_only.lower() == "true":
             # Only received transactions
-            queryset = BrushDripTransaction.objects.select_related(
-                'transacted_by', 'transacted_to'
-            ).filter(transacted_to=user).order_by('-transacted_at')
+            queryset = (
+                BrushDripTransaction.objects.select_related(
+                    "transacted_by", "transacted_to"
+                )
+                .filter(transacted_to=user)
+                .order_by("-transacted_at")
+            )
         else:
             # All transactions (sent or received)
-            queryset = BrushDripTransaction.objects.select_related(
-                'transacted_by', 'transacted_to'
-            ).filter(
-                Q(transacted_by=user) | Q(transacted_to=user)
-            ).order_by('-transacted_at')
+            queryset = (
+                BrushDripTransaction.objects.select_related(
+                    "transacted_by", "transacted_to"
+                )
+                .filter(Q(transacted_by=user) | Q(transacted_to=user))
+                .order_by("-transacted_at")
+            )
 
         # Optional filter by transaction type
-        transaction_type = self.request.query_params.get('transaction_type', None)
+        transaction_type = self.request.query_params.get("transaction_type", None)
         if transaction_type:
             queryset = queryset.filter(transaction_object_type=transaction_type)
 
@@ -722,48 +915,49 @@ class BrushDripMyTransactionsView(generics.ListAPIView):
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Retrieve detailed transaction information by ID',
+    tags=["Brush Drips"],
+    description="Retrieve detailed transaction information by ID",
     responses={
         200: BrushDripTransactionDetailSerializer,
-        401: OpenApiResponse(description='Unauthorized'),
-        404: OpenApiResponse(description='Transaction not found')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Transaction not found"),
+    },
 )
 class BrushDripTransactionDetailView(generics.RetrieveAPIView):
     """
     GET: Retrieve detailed transaction information
     """
+
     serializer_class = BrushDripTransactionDetailSerializer
     permission_classes = [IsAuthenticated]
     queryset = BrushDripTransaction.objects.select_related(
-        'transacted_by', 'transacted_to'
+        "transacted_by", "transacted_to"
     ).all()
-    lookup_field = 'drip_id'
+    lookup_field = "drip_id"
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Create a new brush drip transaction',
+    tags=["Brush Drips"],
+    description="Create a new brush drip transaction",
     request=BrushDripTransactionCreateSerializer,
     responses={
         201: BrushDripTransactionDetailSerializer,
-        400: OpenApiResponse(description='Invalid data or insufficient balance'),
-        401: OpenApiResponse(description='Unauthorized')
+        400: OpenApiResponse(description="Invalid data or insufficient balance"),
+        401: OpenApiResponse(description="Unauthorized"),
     },
     examples=[
         OpenApiExample(
-            'Example Request',
+            "Example Request",
             value={
-                'amount': 100,
-                'transaction_object_type': 'praise',
-                'transaction_object_id': '12345',
-                'transacted_by': 1,
-                'transacted_to': 2
+                "amount": 100,
+                "transaction_object_type": "praise",
+                "transaction_object_id": "12345",
+                "transacted_by": 1,
+                "transacted_to": 2,
             },
-            request_only=True
+            request_only=True,
         )
-    ]
+    ],
 )
 class BrushDripTransactionCreateView(APIView):
     """
@@ -775,6 +969,7 @@ class BrushDripTransactionCreateView(APIView):
     - transacted_to: Receiver user ID
     Note: transacted_by is automatically set to the authenticated user
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -787,24 +982,21 @@ class BrushDripTransactionCreateView(APIView):
 
             # Return detailed transaction info
             detail_serializer = BrushDripTransactionDetailSerializer(transaction)
-            return Response(
-                detail_serializer.data,
-                status=status.HTTP_201_CREATED
-            )
+            return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response(
-                {'error': f'Transaction failed: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": f"Transaction failed: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
 @extend_schema(
-    tags=['Brush Drips'],
-    description='Get transaction statistics for authenticated user',
+    tags=["Brush Drips"],
+    description="Get transaction statistics for authenticated user",
     responses={
         200: BrushDripTransactionStatsSerializer,
-        401: OpenApiResponse(description='Unauthorized')
-    }
+        401: OpenApiResponse(description="Unauthorized"),
+    },
 )
 class BrushDripTransactionStatsView(APIView):
     """
@@ -817,41 +1009,1238 @@ class BrushDripTransactionStatsView(APIView):
     - transaction_count_received: Number of transactions received
     - total_transaction_count: Total number of transactions
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
 
         # Aggregate sent transactions
-        sent_stats = BrushDripTransaction.objects.filter(
-            transacted_by=user
-        ).aggregate(
-            total_sent=Sum('amount'),
-            count_sent=Count('drip_id')
+        sent_stats = BrushDripTransaction.objects.filter(transacted_by=user).aggregate(
+            total_sent=Sum("amount"), count_sent=Count("drip_id")
         )
 
         # Aggregate received transactions
         received_stats = BrushDripTransaction.objects.filter(
             transacted_to=user
-        ).aggregate(
-            total_received=Sum('amount'),
-            count_received=Count('drip_id')
-        )
+        ).aggregate(total_received=Sum("amount"), count_received=Count("drip_id"))
 
         # Calculate stats
-        total_sent = sent_stats['total_sent'] or 0
-        total_received = received_stats['total_received'] or 0
-        count_sent = sent_stats['count_sent'] or 0
-        count_received = received_stats['count_received'] or 0
+        total_sent = sent_stats["total_sent"] or 0
+        total_received = received_stats["total_received"] or 0
+        count_sent = sent_stats["count_sent"] or 0
+        count_received = received_stats["count_received"] or 0
 
         stats = {
-            'total_sent': total_sent,
-            'total_received': total_received,
-            'net_balance': total_received - total_sent,
-            'transaction_count_sent': count_sent,
-            'transaction_count_received': count_received,
-            'total_transaction_count': count_sent + count_received
+            "total_sent": total_sent,
+            "total_received": total_received,
+            "net_balance": total_received - total_sent,
+            "transaction_count_sent": count_sent,
+            "transaction_count_received": count_received,
+            "total_transaction_count": count_sent + count_received,
         }
 
         serializer = BrushDripTransactionStatsSerializer(stats)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# User Fellows (Friends) Views
+# ============================================================================
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Get pending friend request counts (received and sent)",
+    responses={
+        200: FriendRequestCountSerializer,
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class FriendRequestCountView(APIView):
+    """
+    Get count of pending friend requests.
+    Returns received_count, sent_count, and total_count.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Count received requests (where user is the recipient)
+        received_count = UserFellow.objects.filter(
+            fellow_user=user,
+            status='pending',
+            is_deleted=False
+        ).count()
+
+        # Count sent requests (where user is the requester)
+        sent_count = UserFellow.objects.filter(
+            user=user,
+            status='pending',
+            is_deleted=False
+        ).count()
+
+        data = {
+            'received_count': received_count,
+            'sent_count': sent_count,
+            'total_count': received_count + sent_count,
+        }
+
+        serializer = FriendRequestCountSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all pending friend requests (received and sent)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class PendingFriendRequestsListView(generics.ListAPIView):
+    """
+    List all pending friend requests for the current user.
+    Includes both received and sent requests.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserFellow.objects.filter(
+            (Q(fellow_user=user, status='pending') | Q(user=user, status='pending')),
+            is_deleted=False
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all accepted fellows (friends)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class FellowsListView(generics.ListAPIView):
+    """
+    List all accepted fellows (friends) for the current user.
+    Includes relationships where user is either the requester or recipient.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserFellow.objects.filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Get list of active (online) fellows for the current user",
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class ActiveFellowsListView(generics.ListAPIView):
+    """
+    List all active (online) fellows for the current user.
+    Only returns fellows who are currently online/active.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        from core.models import UserFellow
+        from core.presence import is_user_active
+
+        user = self.request.user
+
+        # Get all accepted fellows
+        fellows = UserFellow.objects.filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        )
+
+        # Filter to only active fellows
+        active_fellows = []
+        for fellow in fellows:
+            # Determine which user is the fellow (not the current user)
+            fellow_user = fellow.fellow_user if fellow.user == user else fellow.user
+            fellow_is_active = is_user_active(fellow_user.id)
+
+            # Debug logging (can be removed in production)
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                f'Checking fellow {fellow_user.id} ({fellow_user.username}): '
+                f'Active={fellow_is_active}, Fellow relationship ID={fellow.id}'
+            )
+
+            if fellow_is_active:
+                active_fellows.append(fellow)
+
+        return active_fellows
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Debug endpoint to check presence and fellows status",
+    responses={
+        200: OpenApiResponse(description="Debug information"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class DebugPresenceView(APIView):
+    """
+    Debug endpoint to check presence status and fellows relationships.
+    For development/testing only.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+
+        from core.models import UserFellow
+        from core.presence import get_user_last_activity, is_user_active
+
+        user = request.user
+        user_id = user.id
+
+        # Check if current user is active
+        current_user_active = is_user_active(user_id)
+        current_user_last_activity = get_user_last_activity(user_id)
+
+        # Get all fellows
+        all_fellows = UserFellow.objects.filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related('user', 'fellow_user')
+
+        fellows_info = []
+        for fellow in all_fellows:
+            fellow_user = fellow.fellow_user if fellow.user == user else fellow.user
+            fellow_active = is_user_active(fellow_user.id)
+            fellow_last_activity = get_user_last_activity(fellow_user.id)
+
+            fellows_info.append({
+                'user_id': fellow_user.id,
+                'username': fellow_user.username,
+                'is_active': fellow_active,
+                'last_activity': fellow_last_activity.isoformat() if fellow_last_activity else None,
+                'relationship_id': fellow.id,
+            })
+
+        return Response({
+            'current_user': {
+                'id': user_id,
+                'username': user.username,
+                'is_active': current_user_active,
+                'last_activity': current_user_last_activity.isoformat() if current_user_last_activity else None,
+            },
+            'total_fellows': len(fellows_info),
+            'active_fellows_count': sum(1 for f in fellows_info if f['is_active']),
+            'fellows': fellows_info,
+        })
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="List all accepted fellows (friends) for a specific user by user ID (public endpoint)",
+    responses={
+        200: UserFellowSerializer(many=True),
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class UserFellowsListView(generics.ListAPIView):
+    """
+    List all accepted fellows (friends) for a specific user by user ID.
+    Public endpoint - anyone can view any user's fellows list.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        user = get_object_or_404(User, id=user_id)
+        return UserFellow.objects.get_active_objects().filter(
+            Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        ).order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Search within user's fellows (accepted relationships)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query",
+            type=str,
+        ),
+        OpenApiParameter(
+            name="filter_by",
+            description="Filter by: username, name, or artist_type",
+            type=str,
+        ),
+    ],
+    responses={
+        200: UserFellowSerializer(many=True),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class SearchFellowsView(generics.ListAPIView):
+    """
+    Search within user's existing fellows (accepted relationships only).
+    Can filter by username, fullname, or artist_type.
+    """
+    serializer_class = UserFellowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        query = self.request.query_params.get('q', '').strip()
+        filter_by = self.request.query_params.get('filter_by', 'username').strip()
+
+        # Base queryset: all accepted fellows
+        queryset = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).select_related(
+            'user',
+            'user__artist',
+            'user__user_wallet',
+            'fellow_user',
+            'fellow_user__artist',
+            'fellow_user__user_wallet',
+        )
+
+        if not query:
+            return queryset.order_by('-fellowed_at')
+
+        # Build filter conditions for the other user in the relationship
+        if filter_by == 'username':
+            # Filter by username of the other user
+            queryset = queryset.filter(
+                Q(user__username__icontains=query, fellow_user=user) |
+                Q(fellow_user__username__icontains=query, user=user)
+            )
+        elif filter_by == 'name':
+            # Filter by fullname (first_name + last_name) of the other user
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=query, fellow_user=user) |
+                Q(user__last_name__icontains=query, fellow_user=user) |
+                Q(fellow_user__first_name__icontains=query, user=user) |
+                Q(fellow_user__last_name__icontains=query, user=user)
+            )
+        elif filter_by == 'artist_type':
+            # Filter by artist_types array contains query
+            queryset = queryset.filter(
+                Q(user__artist__artist_types__icontains=query, fellow_user=user) |
+                Q(fellow_user__artist__artist_types__icontains=query, user=user)
+            )
+
+        return queryset.order_by('-fellowed_at')
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Send a friend request",
+    request=CreateFriendRequestSerializer,
+    responses={
+        201: UserFellowSerializer,
+        400: OpenApiResponse(description="Invalid data or relationship already exists"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class CreateFriendRequestView(generics.CreateAPIView):
+    """
+    Create a new friend request.
+    Validates that relationship doesn't already exist (both directions).
+    """
+    serializer_class = CreateFriendRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        fellow_user_id = serializer.validated_data['fellow_user_id']
+        fellow_user = get_object_or_404(User, id=fellow_user_id)
+
+        # Check if relationship already exists (both directions) - only check non-deleted
+        existing = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=fellow_user) |
+             Q(user=fellow_user, fellow_user=user)),
+            is_deleted=False
+        ).first()
+
+        if existing:
+            if existing.status == 'pending':
+                return Response(
+                    {'error': 'Friend request already exists'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif existing.status == 'accepted':
+                return Response(
+                    {'error': 'You are already friends'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif existing.status == 'blocked':
+                return Response(
+                    {'error': 'This user is blocked'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Create new friend request
+        fellow_relationship = UserFellow.objects.create(
+            user=user,
+            fellow_user=fellow_user,
+            status='pending'
+        )
+
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_relationship, 'created')
+
+        # Note: No cache invalidation needed for pending requests (not accepted yet)
+
+        # Serialize with related user info
+        response_serializer = UserFellowSerializer(fellow_relationship)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Accept a friend request",
+    responses={
+        200: UserFellowSerializer,
+        400: OpenApiResponse(description="Request cannot be accepted"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class AcceptFriendRequestView(APIView):
+    """
+    Accept a friend request.
+    Only the recipient (fellow_user) can accept.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the recipient
+        fellow_request = get_object_or_404(
+            UserFellow,
+            id=id,
+            fellow_user=user,
+            status='pending',
+            is_deleted=False
+        )
+
+        # Update status to accepted
+        fellow_request.status = 'accepted'
+        fellow_request.save()
+
+        # Send WebSocket update to both users
+        send_friend_request_update_to_both_users(fellow_request, 'accepted')
+
+        # Create notification for the requester (user who sent the request)
+        # The requester is fellow_request.user, the accepter is fellow_request.fellow_user (current user)
+        try:
+            requester = fellow_request.user
+            accepter = fellow_request.fellow_user  # This is the current user who accepted
+
+            message = f"{accepter.username} accepted your friend request"
+            create_notification(
+                message=message,
+                notification_object_type=NOTIFICATION_TYPES.friend_request_accepted,
+                notification_object_id=str(fellow_request.id),
+                notified_to=requester,
+                notified_by=accepter
+            )
+        except Exception as e:
+            # Log error but don't fail the friend request acceptance
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create friend request accepted notification: {e}", exc_info=True)
+
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(fellow_request.user.id)
+        invalidate_user_calculations(fellow_request.fellow_user.id)
+
+        serializer = UserFellowSerializer(fellow_request)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Cancel a friend request (requester cancels their own sent request)",
+    responses={
+        204: OpenApiResponse(description="Request cancelled successfully"),
+        400: OpenApiResponse(description="Request is already deleted"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class CancelFriendRequestView(APIView):
+    """
+    Cancel a friend request.
+    Only the requester (user) can cancel their own sent request.
+    Deletes the UserFellow record.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the requester
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                user=user,
+                status='pending',
+            ).first()
+
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'cancelled')
+
+        # Soft delete the request
+        fellow_request.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Check friend request status between current user and another user",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            description="ID of the user to check relationship with",
+            type=int,
+            required=True,
+        ),
+    ],
+    responses={
+        200: OpenApiResponse(
+            description="Relationship status",
+            response={
+                "type": "object",
+                "properties": {
+                    "has_pending_sent": {"type": "boolean"},
+                    "has_pending_received": {"type": "boolean"},
+                    "is_friends": {"type": "boolean"},
+                    "request_id": {"type": "integer", "nullable": True},
+                    "relationship_id": {"type": "integer", "nullable": True},
+                },
+            },
+        ),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="User not found"),
+    },
+)
+class CheckFriendRequestStatusView(APIView):
+    """
+    Lightweight endpoint to check friend request status between current user and another user.
+    Returns:
+    - has_pending_sent: True if current user has sent a pending request to the other user
+    - has_pending_received: True if current user has received a pending request from the other user
+    - is_friends: True if users are already friends
+    - request_id: ID of the pending request (if any)
+    - relationship_id: ID of the accepted relationship (if users are friends)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        other_user_id = request.query_params.get('user_id')
+
+        if not other_user_id:
+            return Response(
+                {'error': 'user_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            other_user = User.objects.get(id=other_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check for pending request sent by current user
+        pending_sent = UserFellow.objects.get_active_objects().filter(
+            user=user,
+            fellow_user=other_user,
+            status='pending'
+        ).first()
+
+        # Check for pending request received by current user
+        pending_received = UserFellow.objects.get_active_objects().filter(
+            user=other_user,
+            fellow_user=user,
+            status='pending'
+        ).first()
+
+        # Check if already friends and get relationship ID
+        accepted_relationship = UserFellow.objects.get_active_objects().filter(
+            (Q(user=user, fellow_user=other_user) | Q(user=other_user, fellow_user=user)),
+            status='accepted'
+        ).first()
+
+        is_friends = accepted_relationship is not None
+
+        # Determine request_id (prioritize received over sent for UI purposes)
+        # Also include relationship_id for accepted friends
+        request_id = None
+        relationship_id = None
+        if pending_received:
+            request_id = pending_received.id
+        elif pending_sent:
+            request_id = pending_sent.id
+        elif accepted_relationship:
+            relationship_id = accepted_relationship.id
+
+        data = {
+            'has_pending_sent': pending_sent is not None,
+            'has_pending_received': pending_received is not None,
+            'is_friends': is_friends,
+            'request_id': request_id,
+            'relationship_id': relationship_id,
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Reject a friend request",
+    responses={
+        204: OpenApiResponse(description="Request rejected successfully"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Request not found"),
+    },
+)
+class RejectFriendRequestView(APIView):
+    """
+    Reject a friend request.
+    Only the recipient (fellow_user) can reject.
+    Deletes the UserFellow record.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        user = request.user
+
+        # Get the request where user is the recipient
+        # Filter out already deleted fellows
+        try:
+            fellow_request = UserFellow.objects.get_active_objects().get(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            )
+        except UserFellow.DoesNotExist:
+            # Check if it exists but is already deleted
+            deleted_request = UserFellow.objects.get_inactive_objects().filter(
+                id=id,
+                fellow_user=user,
+                status='pending',
+            ).first()
+
+            if deleted_request:
+                return Response(
+                    {'error': 'Friend request is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend request not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Send WebSocket update to both users before deleting
+        send_friend_request_update_to_both_users(fellow_request, 'rejected')
+
+        # Soft delete the request
+        fellow_request.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Unfriend a user (remove friend relationship)",
+    responses={
+        204: OpenApiResponse(description="Unfriended successfully"),
+        401: OpenApiResponse(description="Unauthorized"),
+        404: OpenApiResponse(description="Relationship not found"),
+    },
+)
+class UnfriendView(APIView):
+    """
+    Unfriend a user by deleting the UserFellow relationship.
+    Checks both directions to find the relationship.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, id):
+        user = request.user
+
+        # Find relationship in either direction (only non-deleted)
+        fellow_relationship = UserFellow.objects.filter(
+            (Q(id=id, user=user, status='accepted') |
+             Q(id=id, fellow_user=user, status='accepted')),
+            is_deleted=False
+        ).first()
+
+        if not fellow_relationship:
+            # Check if it exists but is already deleted
+            deleted_relationship = UserFellow.objects.filter(
+                (Q(id=id, user=user, status='accepted') |
+                 Q(id=id, fellow_user=user, status='accepted')),
+                is_deleted=True
+            ).first()
+
+            if deleted_relationship:
+                return Response(
+                    {'error': 'Friend relationship is already deleted'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Friend relationship not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Soft delete the relationship
+        user_id = fellow_relationship.user.id
+        fellow_user_id = fellow_relationship.fellow_user.id
+        fellow_relationship.delete()
+
+        # Invalidate calculations for both users (fellows changed)
+        from post.ranking import invalidate_user_calculations
+        invalidate_user_calculations(user_id)
+        invalidate_user_calculations(fellow_user_id)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=["Fellows"],
+    description="Block a user (placeholder - disabled)",
+    responses={
+        501: OpenApiResponse(description="Not implemented"),
+    },
+)
+class BlockUserView(APIView):
+    """
+    Block a user (placeholder - not implemented yet).
+    This endpoint is disabled and returns 501 Not Implemented.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+        # Placeholder - not implemented
+        return Response(
+            {'error': 'Block feature is not yet implemented'},
+            status=status.HTTP_501_NOT_IMPLEMENTED
+        )
+
+
+@extend_schema(
+    tags=["Users"],
+    description="Search users by username, email, or ID (admin-only)",
+    parameters=[
+        OpenApiParameter(
+            name="q",
+            description="Search query (username, email, or ID)",
+            type=str,
+            required=True,
+        ),
+    ],
+    responses={
+        200: UserSearchSerializer(many=True),
+        400: OpenApiResponse(description="Invalid query parameter"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class UserSearchView(generics.ListAPIView):
+    """
+    Search users by username, email, or ID.
+    Admin-only endpoint for use in Django admin filters.
+    Returns paginated results (max 50).
+    Uses Django session authentication (for admin users).
+    """
+    serializer_class = UserSearchSerializer
+    authentication_classes = [SessionAuthentication]  # Use Django session auth
+    permission_classes = [IsAdminUser]  # Require admin user (staff or superuser)
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+
+        if not query:
+            return User.objects.none()
+
+        # Build Q objects for case-insensitive partial matches
+        q_objects = Q(username__icontains=query) | Q(email__icontains=query)
+
+        # If query is numeric, also try exact ID match
+        try:
+            user_id = int(query)
+            q_objects |= Q(id=user_id)
+        except ValueError:
+            pass  # Not numeric, skip ID search
+
+        return User.objects.filter(q_objects).order_by('username')[:50]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
+
+
+# ============================================================================
+# Admin Dashboard Views
+# ============================================================================
+
+class DashboardIndexView(UserPassesTestMixin, TemplateView):
+    """Index page for admin dashboard navigation"""
+    template_name = 'admin-dashboard/index.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+class CoreDashboardView(UserPassesTestMixin, TemplateView):
+    """Core app dashboard with user, artist, and transaction statistics"""
+    template_name = 'core/admin-dashboard/view.html'
+
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def get_time_range(self):
+        range_param = self.request.GET.get('range', '1m')
+        now = timezone.now()
+        if range_param == '24h':
+            return now - timedelta(hours=24)
+        elif range_param == '1w':
+            return now - timedelta(weeks=1)
+        elif range_param == '1m':
+            return now - timedelta(days=30)
+        elif range_param == '1y':
+            return now - timedelta(days=365)
+        else:
+            return now - timedelta(days=30)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Only return minimal context - statistics will be loaded via API
+        context.update({
+            'current_range': self.request.GET.get('range', '1m'),
+        })
+        # Get Unfold's colors and border_radius from AdminSite's each_context
+        admin_context = admin.site.each_context(self.request)
+        context.update({
+            'colors': admin_context.get('colors'),
+            'border_radius': admin_context.get('border_radius'),
+        })
+        return context
+
+
+# ============================================================================
+# Admin Dashboard Statistics API Views
+# ============================================================================
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="User counts data")},
+)
+class UserCountsAPIView(APIView):
+    """API endpoint for user counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'users', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': User.objects.count(),
+            'active': User.objects.filter(is_deleted=False).count(),
+            'inactive': User.objects.filter(is_deleted=True).count(),
+            '24h': User.objects.filter(date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': User.objects.filter(date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': User.objects.filter(date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': User.objects.filter(date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get user growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="User growth data")},
+)
+class UserGrowthAPIView(APIView):
+    """API endpoint for user growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'users', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = User.objects.filter(date_joined__gte=current_date, date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Artist counts data")},
+)
+class ArtistCountsAPIView(APIView):
+    """API endpoint for artist counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': Artist.objects.count(),
+            'active': Artist.objects.filter(is_deleted=False).count(),
+            'deleted': Artist.objects.filter(is_deleted=True).count(),
+            '24h': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(hours=24)).count(),
+            '1w': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(weeks=1)).count(),
+            '1m': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=30)).count(),
+            '1y': Artist.objects.filter(user_id__date_joined__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist growth data over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Artist growth data")},
+)
+class ArtistGrowthAPIView(APIView):
+    """API endpoint for artist growth data (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'artists', f'growth:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate growth data
+        growth_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            count = Artist.objects.filter(user_id__date_joined__gte=current_date, user_id__date_joined__lt=next_date).count()
+            growth_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': count})
+            current_date = next_date
+
+        data = {'growth_data': growth_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get artist type counts (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Artist type counts data")},
+)
+class ArtistTypesAPIView(APIView):
+    """API endpoint for artist type counts (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'artists', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate artist type counts
+        artist_type_counts = {}
+        artists = Artist.objects.filter(is_deleted=False)
+        for artist in artists:
+            for artist_type in artist.artist_types:
+                artist_type_counts[artist_type] = artist_type_counts.get(artist_type, 0) + 1
+
+        data = {'data': [{'x': k, 'y': v} for k, v in artist_type_counts.items()]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction counts statistics (lightweight)",
+    responses={200: OpenApiResponse(description="Transaction counts data")},
+)
+class TransactionCountsAPIView(APIView):
+    """API endpoint for transaction counts statistics (lightweight)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'counts')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate statistics
+        now = timezone.now()
+        data = {
+            'total': BrushDripTransaction.objects.count(),
+            '24h': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(hours=24)).count(),
+            '1w': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(weeks=1)).count(),
+            '1m': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=30)).count(),
+            '1y': BrushDripTransaction.objects.filter(transacted_at__gte=now - timedelta(days=365)).count(),
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction types data (heavy aggregation)",
+    responses={200: OpenApiResponse(description="Transaction types data")},
+)
+class TransactionTypesAPIView(APIView):
+    """API endpoint for transaction types (heavy aggregation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        cache_key = get_dashboard_cache_key('core', 'transactions', 'types')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate transaction type counts
+        transaction_type_counts = BrushDripTransaction.objects.values('transaction_object_type').annotate(count=Count('transaction_object_type')).order_by('-count')
+        data = {'data': [{'x': item['transaction_object_type'], 'y': item['count']} for item in transaction_type_counts]}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
+@extend_schema(
+    tags=["Dashboard"],
+    description="Get transaction volume over time (heavy computation)",
+    parameters=[
+        OpenApiParameter(name='range', description='Time range: 24h, 1w, 1m, 1y', required=False, type=str),
+    ],
+    responses={200: OpenApiResponse(description="Transaction volume data")},
+)
+class TransactionVolumeAPIView(APIView):
+    """API endpoint for transaction volume over time (heavy computation)"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        range_param = request.query_params.get('range', '1m')
+        cache_key = get_dashboard_cache_key('core', 'transactions', f'volume:{range_param}')
+
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        # Calculate time range
+        now = timezone.now()
+        if range_param == '24h':
+            time_range_start = now - timedelta(hours=24)
+        elif range_param == '1w':
+            time_range_start = now - timedelta(weeks=1)
+        elif range_param == '1m':
+            time_range_start = now - timedelta(days=30)
+        elif range_param == '1y':
+            time_range_start = now - timedelta(days=365)
+        else:
+            time_range_start = now - timedelta(days=30)
+
+        # Calculate volume data
+        volume_data = []
+        current_date = time_range_start
+        while current_date <= now:
+            next_date = current_date + timedelta(days=1)
+            volume = BrushDripTransaction.objects.filter(transacted_at__gte=current_date, transacted_at__lt=next_date).aggregate(total=Sum('amount'))['total'] or 0
+            volume_data.append({'x': current_date.strftime('%Y-%m-%d'), 'y': volume})
+            current_date = next_date
+
+        data = {'volume_data': volume_data}
+
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+
+        return Response(data)
+
+
