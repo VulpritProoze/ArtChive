@@ -17,6 +17,7 @@ import {
   Home,
   Images as GalleryIcon,
   Users,
+  User,
   Search,
   MessageCircle,
   Settings,
@@ -185,14 +186,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   })();
 
   const settingsItems = [
-    // {
-    //   label: "Account",
-    //   icon: User,
-    //   action: () => {
-    //     setIsSettingsOpen(false);
-    //     // Navigate to account settings
-    //   }
-    // },
+    {
+      label: "Account",
+      icon: User,
+      action: () => {
+        setIsSettingsOpen(false);
+        navigate('/account');
+      }
+    },
     {
       label: "Notifications",
       icon: Bell,

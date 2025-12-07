@@ -97,7 +97,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     setPreviewUrl(null);
   };
 
-  const handleStatusChange = async (newStatus: 'draft' | 'active' | 'archived') => {
+  const handleStatusChange = async (newStatus: 'draft' | 'active') => {
     if (newStatus === gallery.status) {
       setShowStatusDropdown(false);
       return;
@@ -114,6 +114,52 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
       toast.error('Failed to update status', formatErrorForToast(message));
     } finally {
       setIsChangingStatus(false);
+    }
+  };
+
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'Published';
+      case 'draft':
+        return 'Draft';
+      case 'archived':
+        return 'Archived';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'active':
+        return {
+          bgColor: 'bg-primary/10',
+          textColor: 'text-primary',
+          borderColor: 'border-primary/30',
+          dotColor: 'bg-primary',
+        };
+      case 'draft':
+        return {
+          bgColor: 'bg-base-content/10',
+          textColor: 'text-base-content/70',
+          borderColor: 'border-base-content/20',
+          dotColor: 'bg-base-content/40',
+        };
+      case 'archived':
+        return {
+          bgColor: 'bg-base-300',
+          textColor: 'text-base-content/50',
+          borderColor: 'border-base-300',
+          dotColor: 'bg-base-content/30',
+        };
+      default:
+        return {
+          bgColor: 'bg-base-content/10',
+          textColor: 'text-base-content/70',
+          borderColor: 'border-base-content/20',
+          dotColor: 'bg-base-content/40',
+        };
     }
   };
 
@@ -167,7 +213,9 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
 
   return (
     <div
-      className="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-visible group cursor-pointer relative"
+      className={`card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-visible group cursor-pointer relative ${
+        gallery.status === 'active' ? 'border-2 border-primary shadow-[0_0_20px_rgba(106,90,205,0.5)]' : ''
+      }`}
       onClick={handleCardClick}
     >
       {/* Gallery Thumbnail */}
@@ -282,22 +330,6 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
                 Active
               </button>
             </li>
-            <li>
-              <button
-                className={`text-sm ${gallery.status === 'archived' ? 'active' : ''} ${
-                  isChangingStatus || gallery.status === 'archived'
-                    ? 'text-base-content/40 cursor-not-allowed'
-                    : ''
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isChangingStatus || gallery.status === 'archived') return;
-                  handleStatusChange('archived');
-                }}
-              >
-                Archived
-              </button>
-            </li>
             <div className="divider my-1"></div>
             <li>
               <button
@@ -329,7 +361,28 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
         ) : (
           <div className="flex items-start justify-between gap-2">
             <h2 className="card-title text-xl flex-1 line-clamp-1">{gallery.title}</h2>
-            <div className="badge badge-secondary badge-sm">{gallery.status}</div>
+            {(() => {
+              const statusConfig = getStatusConfig(gallery.status);
+              return (
+                <div
+                  className={`
+                    inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                    border ${statusConfig.borderColor}
+                    ${statusConfig.bgColor}
+                    transition-all duration-200
+                  `}
+                >
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} ${
+                      gallery.status === 'active' ? 'animate-pulse' : ''
+                    }`}
+                  />
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${statusConfig.textColor}`}>
+                    {getStatusDisplayText(gallery.status)}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         )}
 

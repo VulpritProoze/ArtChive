@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@utils/toast.util';
-import { Plus, Upload, Eye, MoreVertical, Sparkles, ArrowLeft } from 'lucide-react';
+import { Plus, Upload, Eye, MoreVertical, ArrowLeft } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { useAuth } from '@context/auth-context';
 import { galleryService, type Gallery } from '@services/gallery.service';
@@ -94,7 +94,6 @@ const MyGalleries = () => {
   // Check if user has active galleries
   const hasActiveGallery = galleries.some((g) => g.status === 'active');
   const activeGallery = galleries.find((g) => g.status === 'active');
-  const draftCount = galleries.filter((g) => g.status === 'draft').length;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -147,8 +146,8 @@ const MyGalleries = () => {
       <div className="container mx-auto px-4 py-6 lg:py-8">
         {/* Header Section */}
         <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div className="flex items-start gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+            <div className="flex items-start gap-4 flex-1">
               <button
                 onClick={() => navigate('/gallery')}
                 className="btn btn-ghost btn-circle mt-1"
@@ -166,8 +165,8 @@ const MyGalleries = () => {
               </div>
             </div>
             
-            {/* Actions Dropdown */}
-            <div className="flex items-center gap-3">
+            {/* Actions Dropdown - Always rightmost */}
+            <div className="flex items-center gap-3 ml-auto">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="btn btn-primary gap-2 shadow-lg hover:shadow-xl transition-all"
@@ -237,7 +236,7 @@ const MyGalleries = () => {
           </div>
 
           {/* Stats Cards */}
-          {!isLoading && galleries.length > 0 && (
+          {/* {!isLoading && galleries.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div className="stat bg-base-200 rounded-xl shadow-sm">
                 <div className="stat-figure text-primary">
@@ -264,8 +263,8 @@ const MyGalleries = () => {
                 <div className="stat-value text-2xl">{draftCount}</div>
                 <div className="stat-desc">In progress</div>
               </div>
-            </div>
-          )}
+              )}
+        </div> */}
         </div>
 
         {/* Loading State */}

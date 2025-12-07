@@ -71,9 +71,12 @@ export function Toolbar({
       const url = await upload(file);
       if (url) {
         onAddImage(url);
-        toast.success('Image uploaded', 'Your image has been uploaded successfully');
+        // Don't show success toast here - let handleAddImage show it after image loads
+      } else {
+        toast.error('Failed to upload image', 'The upload did not return a valid image URL');
       }
     } catch (error) {
+      console.error('Image upload error:', error);
       toast.error('Failed to upload image', 'An error occurred while uploading your image');
     }
 

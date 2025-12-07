@@ -18,6 +18,7 @@ from .views import (
     AcceptFriendRequestView,
     ActiveFellowsListView,
     BlockUserView,
+    ChangePasswordView,
     DebugPresenceView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
@@ -60,6 +61,7 @@ urlpatterns = [
     ),
     path("auth/me/", UserInfoView.as_view(), name="auth-current_user"),
     path("auth/register/", RegistrationView.as_view(), name="auth-register"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     # Profile endpoints
     path(
         "profile/get/<int:id>/",
