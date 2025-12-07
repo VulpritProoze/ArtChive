@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { avatarService } from '@services/avatar.service';
+import { useAuth } from '@context/auth-context';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';
@@ -45,7 +46,8 @@ const sizePixels = {
 /**
  * AvatarDisplay Component
  * Displays user's primary avatar or fallback profile picture
- * Automatically fetches and displays the rendered avatar image
+ * PRIVATE: Only shows avatars for the current authenticated user
+ * If userId is provided and doesn't match current user, only shows fallback
  */
 const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
   userId,
@@ -54,16 +56,21 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
   fallbackSrc,
   showRing = false,
 }) => {
-  // Fetch user's avatars
+  const { user: currentUser } = useAuth();
+  
+  // Only fetch avatars if viewing own profile (userId matches current user or not provided)
+  const isOwnAvatar = !userId || userId === currentUser?.id;
+  
+  // Fetch user's avatars (only for current user)
   const { data: avatars } = useQuery({
-    queryKey: ['user-avatars', userId],
+    queryKey: ['user-avatars', currentUser?.id],
     queryFn: () => avatarService.list(),
-    enabled: !!userId,
+    enabled: isOwnAvatar && !!currentUser?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Get primary avatar
-  const primaryAvatar = avatars?.find(avatar => avatar.is_primary);
+  // Get primary avatar (only if viewing own avatar)
+  const primaryAvatar = isOwnAvatar ? avatars?.find(avatar => avatar.is_primary) : null;
   const avatarSrc = primaryAvatar?.rendered_image || primaryAvatar?.thumbnail;
 
   // Extract avatar options from canvas_json if available

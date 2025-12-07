@@ -15,6 +15,21 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
   const navigate = useNavigate();
   const { data: avatars, isLoading } = useAvatars();
 
+  // If viewing someone else's profile, show privacy message
+  if (!isOwnProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <div className="text-8xl mb-4">🔒</div>
+        <h3 className="text-2xl font-bold text-base-content mb-2">
+          Avatars Are Private
+        </h3>
+        <p className="text-base-content/60 text-center max-w-md mb-6">
+          Avatars are private and can only be viewed by their owner. This user's avatars are not publicly visible.
+        </p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -35,22 +50,18 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
       <div className="flex flex-col items-center justify-center py-16">
         <div className="text-8xl mb-4">🎭</div>
         <h3 className="text-2xl font-bold text-base-content mb-2">
-          {isOwnProfile ? 'No Avatars Yet' : 'No Public Avatars'}
+          No Avatars Yet
         </h3>
         <p className="text-base-content/60 text-center max-w-md mb-6">
-          {isOwnProfile
-            ? 'Create your first custom avatar using our canvas editor!'
-            : 'This user hasn\'t created any avatars yet.'}
+          Create your first custom avatar using our canvas editor!
         </p>
-        {isOwnProfile && (
-          <button
-            onClick={() => navigate('/avatar/create')}
-            className="btn btn-primary gap-2"
-          >
-            <FontAwesomeIcon icon={faPlus} />
-            Create Your First Avatar
-          </button>
-        )}
+        <button
+          onClick={() => navigate('/avatar/create')}
+          className="btn btn-primary gap-2"
+        >
+          <FontAwesomeIcon icon={faPlus} />
+          Create Your First Avatar
+        </button>
       </div>
     );
   }
