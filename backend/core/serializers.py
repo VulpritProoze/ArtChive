@@ -8,7 +8,14 @@ from rest_framework.serializers import ModelSerializer, Serializer
 
 from collective.models import CollectiveMember
 
-from .models import Artist, BrushDripTransaction, BrushDripWallet, ReputationHistory, User, UserFellow
+from .models import (
+    Artist,
+    BrushDripTransaction,
+    BrushDripWallet,
+    ReputationHistory,
+    User,
+    UserFellow,
+)
 
 
 class UserSerializer(ModelSerializer):
@@ -338,6 +345,25 @@ class ProfileViewUpdateSerializer(ModelSerializer):
             representation['artistTypes'] = []
 
         return representation
+
+
+class ChangePasswordSerializer(Serializer):
+    """
+    Serializer for changing user password.
+    Requires old password for verification and new password confirmation.
+    """
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    confirm_password = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, data):
+        """
+        Validate that new password and confirm password match.
+        """
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'New password fields did not match.'})
+        return data
+
 
 class BrushDripWalletSerializer(ModelSerializer):
     """Serializer for wallet information with user details"""

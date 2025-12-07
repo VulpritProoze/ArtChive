@@ -97,7 +97,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     setPreviewUrl(null);
   };
 
-  const handleStatusChange = async (newStatus: 'draft' | 'active' | 'archived') => {
+  const handleStatusChange = async (newStatus: 'draft' | 'active') => {
     if (newStatus === gallery.status) {
       setShowStatusDropdown(false);
       return;
@@ -114,6 +114,32 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
       toast.error('Failed to update status', formatErrorForToast(message));
     } finally {
       setIsChangingStatus(false);
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'badge badge-success badge-sm';
+      case 'draft':
+        return 'badge badge-outline badge-sm';
+      case 'archived':
+        return 'badge badge-ghost badge-sm';
+      default:
+        return 'badge badge-secondary badge-sm';
+    }
+  };
+
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'Published';
+      case 'draft':
+        return 'Draft';
+      case 'archived':
+        return 'Archived';
+      default:
+        return status;
     }
   };
 
@@ -167,7 +193,9 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
 
   return (
     <div
-      className="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-visible group cursor-pointer relative"
+      className={`card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 overflow-visible group cursor-pointer relative ${
+        gallery.status === 'active' ? 'border-2 border-primary shadow-[0_0_20px_rgba(106,90,205,0.5)]' : ''
+      }`}
       onClick={handleCardClick}
     >
       {/* Gallery Thumbnail */}
@@ -282,22 +310,6 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
                 Active
               </button>
             </li>
-            <li>
-              <button
-                className={`text-sm ${gallery.status === 'archived' ? 'active' : ''} ${
-                  isChangingStatus || gallery.status === 'archived'
-                    ? 'text-base-content/40 cursor-not-allowed'
-                    : ''
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isChangingStatus || gallery.status === 'archived') return;
-                  handleStatusChange('archived');
-                }}
-              >
-                Archived
-              </button>
-            </li>
             <div className="divider my-1"></div>
             <li>
               <button
@@ -329,7 +341,9 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
         ) : (
           <div className="flex items-start justify-between gap-2">
             <h2 className="card-title text-xl flex-1 line-clamp-1">{gallery.title}</h2>
-            <div className="badge badge-secondary badge-sm">{gallery.status}</div>
+            <div className={getStatusBadgeClass(gallery.status)}>
+              {getStatusDisplayText(gallery.status)}
+            </div>
           </div>
         )}
 

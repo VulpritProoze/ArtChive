@@ -23,6 +23,7 @@ import {
   NavigateToOwnProfile,
   PendingFriendRequestsPage,
   SearchPage,
+  Account,
 } from "@components";
 
 // Lazy load heavy components
@@ -86,6 +87,7 @@ function AppRoutes() {
             {/* Protected routes (with auth check) */}
             <Route element={<ProtectedRoute />}>
               <Route path="/profile/me" element={<Profile />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/drips" element={<BrushDripsPage />} />
               <Route path="/drips/transactions" element={<BrushDripsTransactions />} />
               <Route path="/reputation" element={<ReputationPage />} />

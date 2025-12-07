@@ -12,6 +12,7 @@ export { GuestRoute } from './auth/guest-route'
 export { default as Login } from './account/login.component'
 export { LogoutButton } from './account/logout'
 export { default as Register } from './account/register.component'
+export { default as Account } from './account/account.component'
 
 // Home
 export { default as Home } from './home/index.component'

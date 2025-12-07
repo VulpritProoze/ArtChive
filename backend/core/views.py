@@ -45,6 +45,7 @@ from .serializers import (
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    ChangePasswordSerializer,
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
@@ -706,6 +707,49 @@ class ProfileRetrieveUpdateView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    tags=["Authentication"],
+    description="Change user password",
+    request=ChangePasswordSerializer,
+    responses={
+        200: OpenApiResponse(description="Password changed successfully"),
+        400: OpenApiResponse(description="Invalid data or incorrect old password"),
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+)
+class ChangePasswordView(APIView):
+    """
+    Change user password.
+    Requires authentication and old password verification.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        old_password = serializer.validated_data['old_password']
+        new_password = serializer.validated_data['new_password']
+
+        # Verify old password
+        if not user.check_password(old_password):
+            return Response(
+                {'old_password': 'Incorrect old password.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {'message': 'Password changed successfully.'},
+            status=status.HTTP_200_OK
+        )
 
 
 # ============================================================================
