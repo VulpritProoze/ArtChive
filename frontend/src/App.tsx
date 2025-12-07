@@ -40,6 +40,7 @@ import { CollectivePostProvider } from "@context/collective-post-context";
 import { AuthProvider } from "@context/auth-context";
 import { CollectiveProvider } from "@context/collective-context";
 import { RealtimeProvider } from "@context/realtime-context";
+import { ConfirmationProvider } from "@context/confirmation-context";
 // Legacy providers (deprecated - kept for backward compatibility during migration)
 import { NotificationProvider } from "@context/notification-context";
 import { FriendRequestProvider } from "@context/friend-request-context";
@@ -159,23 +160,25 @@ function App() {
   return (
     <AuthProvider>
       <QueryProvider>
-        {USE_UNIFIED_WEBSOCKET ? (
-          // Unified WebSocket context (recommended)
-          <RealtimeProvider>
-            <PostUIProvider>
-              <AppRoutes />
-            </PostUIProvider>
-          </RealtimeProvider>
-        ) : (
-          // Legacy separate contexts (deprecated)
-          <NotificationProvider>
-            <FriendRequestProvider>
+        <ConfirmationProvider>
+          {USE_UNIFIED_WEBSOCKET ? (
+            // Unified WebSocket context (recommended)
+            <RealtimeProvider>
               <PostUIProvider>
                 <AppRoutes />
               </PostUIProvider>
-            </FriendRequestProvider>
-          </NotificationProvider>
-        )}
+            </RealtimeProvider>
+          ) : (
+            // Legacy separate contexts (deprecated)
+            <NotificationProvider>
+              <FriendRequestProvider>
+                <PostUIProvider>
+                  <AppRoutes />
+                </PostUIProvider>
+              </FriendRequestProvider>
+            </NotificationProvider>
+          )}
+        </ConfirmationProvider>
       </QueryProvider>
     </AuthProvider>
   );

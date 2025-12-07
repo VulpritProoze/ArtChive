@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@components/common/layout';
 import { useAvatars, useDeleteAvatar, useSetPrimaryAvatar, useDuplicateAvatar } from '@hooks/queries/use-avatar';
+import { useConfirmation } from '@hooks/use-confirmation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlus, 
@@ -18,6 +19,7 @@ import { defaultAvatarOptions } from './avatar-options';
 
 const AvatarListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { confirm } = useConfirmation();
   const { data: avatars, isLoading, isError } = useAvatars();
   const { mutate: deleteAvatar, isPending: isDeleting } = useDeleteAvatar();
   const { mutate: setPrimary, isPending: isSettingPrimary } = useSetPrimaryAvatar();
@@ -25,10 +27,47 @@ const AvatarListPage: React.FC = () => {
   
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDelete = (avatarId: string, avatarName: string, e?: React.MouseEvent) => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!openDropdown) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      let clickedInside = false;
+
+      Object.keys(dropdownRefs.current).forEach((avatarId) => {
+        const ref = dropdownRefs.current[avatarId];
+        if (ref && ref.contains(target)) {
+          clickedInside = true;
+        }
+      });
+
+      if (!clickedInside) {
+        setOpenDropdown(null);
+      }
+    }
+
+    // Use capture phase to catch events before they bubble
+    document.addEventListener('mousedown', handleClickOutside, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [openDropdown]);
+
+  const handleDelete = async (avatarId: string, avatarName: string, e?: React.MouseEvent) => {
     e?.stopPropagation(); // Prevent card click
-    if (window.confirm(`Are you sure you want to delete "${avatarName}"?`)) {
+    const confirmed = await confirm({
+      title: 'Delete Avatar',
+      message: `Are you sure you want to delete "${avatarName}"? This action cannot be undone.`,
+      variant: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
+    
+    if (confirmed) {
       deleteAvatar(avatarId, {
         onSuccess: () => {
           setOpenDropdown(null);
@@ -42,26 +81,39 @@ const AvatarListPage: React.FC = () => {
   };
 
   const handleSetPrimary = (avatarId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
-    setPrimary(avatarId);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setOpenDropdown(null);
+    setPrimary(avatarId);
   };
 
   const handleDuplicate = (avatarId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
-    duplicateAvatar({ avatarId });
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setOpenDropdown(null);
+    duplicateAvatar({ avatarId });
   };
 
   const handleEdit = (avatarId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setOpenDropdown(null);
     navigate(`/avatar/${avatarId}/edit`);
   };
 
   const handlePreview = (avatarId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click
-    setPreviewAvatar(avatarId);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setOpenDropdown(null);
+    setPreviewAvatar(avatarId);
   };
 
   const handleCardClick = (avatarId: string) => {
@@ -206,31 +258,53 @@ const AvatarListPage: React.FC = () => {
                       </div>
                       
                       {/* Dropdown Menu */}
-                      <div className="dropdown dropdown-end">
-                        <label
-                          tabIndex={0}
+                      <div 
+                        className="relative"
+                        ref={(el) => {
+                          dropdownRefs.current[avatar.avatar_id] = el;
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
                           className="btn btn-ghost btn-sm btn-circle"
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenDropdown(openDropdown === avatar.avatar_id ? null : avatar.avatar_id);
                           }}
+                          aria-label="More options"
                         >
                           <FontAwesomeIcon icon={faEllipsisV} />
-                        </label>
+                        </button>
                         {openDropdown === avatar.avatar_id && (
                           <ul
-                            tabIndex={0}
-                            className="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 z-10"
+                            className="absolute right-0 mt-2 w-52 shadow-lg bg-base-100 rounded-box p-2 border border-base-300 z-50 menu"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <li>
-                              <button onClick={(e) => handlePreview(avatar.avatar_id, e)}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handlePreview(avatar.avatar_id, e);
+                                }}
+                                className="w-full"
+                              >
                                 <FontAwesomeIcon icon={faEye} />
                                 Preview
                               </button>
                             </li>
                             <li>
-                              <button onClick={(e) => handleEdit(avatar.avatar_id, e)}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleEdit(avatar.avatar_id, e);
+                                }}
+                                className="w-full"
+                              >
                                 <FontAwesomeIcon icon={faEdit} />
                                 Edit
                               </button>
@@ -238,32 +312,52 @@ const AvatarListPage: React.FC = () => {
                             {!avatar.is_primary && (
                               <li>
                                 <button
-                                  onClick={(e) => handleSetPrimary(avatar.avatar_id, e)}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSetPrimary(avatar.avatar_id, e);
+                                  }}
                                   disabled={isSettingPrimary}
+                                  className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   <FontAwesomeIcon icon={faStar} />
                                   Set as Primary
+                                  {isSettingPrimary && <span className="loading loading-spinner loading-xs ml-2"></span>}
                                 </button>
                               </li>
                             )}
                             <li>
                               <button
-                                onClick={(e) => handleDuplicate(avatar.avatar_id, e)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDuplicate(avatar.avatar_id, e);
+                                }}
                                 disabled={isDuplicating}
+                                className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <FontAwesomeIcon icon={faCopy} />
                                 Duplicate
+                                {isDuplicating && <span className="loading loading-spinner loading-xs ml-2"></span>}
                               </button>
                             </li>
                             <li className="border-t border-base-300 my-1"></li>
                             <li>
                               <button
-                                onClick={(e) => handleDelete(avatar.avatar_id, avatar.name, e)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDelete(avatar.avatar_id, avatar.name, e);
+                                }}
                                 disabled={isDeleting}
-                                className="text-error hover:bg-error hover:text-error-content"
+                                className="w-full text-error hover:bg-error hover:text-error-content disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <FontAwesomeIcon icon={faTrash} />
                                 Delete
+                                {isDeleting && <span className="loading loading-spinner loading-xs ml-2"></span>}
                               </button>
                             </li>
                           </ul>
@@ -286,19 +380,33 @@ const AvatarListPage: React.FC = () => {
 
         {/* Preview Modal */}
         {previewAvatar && (
-          <div className="modal modal-open">
-            <div className="modal-box max-w-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-2xl">
-                  {avatars?.find(a => a.avatar_id === previewAvatar)?.name || 'Avatar Preview'}
-                </h3>
-                <button
-                  onClick={() => setPreviewAvatar(null)}
-                  className="btn btn-sm btn-circle btn-ghost"
-                >
-                  ✕
-                </button>
-              </div>
+          <>
+            {/* Enhanced Backdrop with Animation */}
+            <div className="modal modal-open animate-fade-in z-[100]">
+              <div
+                className="fixed inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-lg transition-all duration-300"
+                onClick={() => setPreviewAvatar(null)}
+              ></div>
+
+              {/* Enhanced Modal Content with Scale Animation */}
+              <div className="modal-box max-w-2xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50">
+                {/* Modern Top Bar with Gradient */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 backdrop-blur-sm">
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    {avatars?.find(a => a.avatar_id === previewAvatar)?.name || 'Avatar Preview'}
+                  </h3>
+                  <button
+                    onClick={() => setPreviewAvatar(null)}
+                    className="btn btn-circle btn-ghost btn-sm hover:bg-error/10 hover:text-error transition-all duration-200 hover:rotate-90"
+                    aria-label="Close"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="px-6 py-6">
 
               {(() => {
                 const avatar = avatars?.find(a => a.avatar_id === previewAvatar);
@@ -355,40 +463,52 @@ const AvatarListPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="modal-action">
-                      <button
-                        onClick={() => {
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-base-300">
+                    <button
+                      onClick={async () => {
+                        const confirmed = await confirm({
+                          title: 'Delete Avatar',
+                          message: `Are you sure you want to delete "${avatar.name}"? This action cannot be undone.`,
+                          variant: 'danger',
+                          confirmText: 'Delete',
+                          cancelText: 'Cancel',
+                        });
+                        if (confirmed) {
+                          handleDelete(avatar.avatar_id, avatar.name);
                           setPreviewAvatar(null);
-                          handleEdit(avatar.avatar_id);
-                        }}
-                        className="btn btn-primary gap-2"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                        Edit Avatar
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete "${avatar.name}"?`)) {
-                            handleDelete(avatar.avatar_id, avatar.name);
-                            setPreviewAvatar(null);
-                          }
-                        }}
-                        className="btn btn-error gap-2"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                        Delete
-                      </button>
-                      <button onClick={() => setPreviewAvatar(null)} className="btn">
-                        Close
-                      </button>
-                    </div>
+                        }
+                      }}
+                      className="btn btn-error btn-sm gap-2"
+                      disabled={isDeleting}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPreviewAvatar(null);
+                        handleEdit(avatar.avatar_id);
+                      }}
+                      className="btn btn-primary btn-sm gap-2"
+                    >
+                      <FontAwesomeIcon icon={faEdit} />
+                      Edit Avatar
+                    </button>
+                    <button 
+                      onClick={() => setPreviewAvatar(null)} 
+                      className="btn btn-outline btn-sm"
+                    >
+                      Close
+                    </button>
                   </div>
-                );
-              })()}
+                </div>
+              );
+            })()}
+                </div>
+              </div>
             </div>
-            <div className="modal-backdrop" onClick={() => setPreviewAvatar(null)}></div>
-          </div>
+          </>
         )}
       </div>
     </MainLayout>
