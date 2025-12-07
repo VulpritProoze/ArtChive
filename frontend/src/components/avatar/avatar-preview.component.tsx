@@ -2,6 +2,9 @@ import React from 'react';
 import type { Avatar } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar } from '@fortawesome/free-solid-svg-icons';
+import AvatarRenderer from './avatar-renderer.component';
+import type { AvatarOptions } from './avatar-options';
+import { defaultAvatarOptions } from './avatar-options';
 
 interface AvatarPreviewProps {
   avatar: Avatar;
@@ -18,9 +21,17 @@ const sizeClasses = {
   xl: 'w-48 h-48',
 };
 
+const sizePixels = {
+  sm: 64,
+  md: 96,
+  lg: 128,
+  xl: 192,
+};
+
 /**
  * AvatarPreview Component
  * Shows a circular preview of an avatar with optional primary badge
+ * Falls back to SVG rendering from options when rendered_image is not available
  */
 const AvatarPreview: React.FC<AvatarPreviewProps> = ({
   avatar,
@@ -30,6 +41,16 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({
   className = '',
 }) => {
   const imageSrc = avatar.rendered_image || avatar.thumbnail;
+  
+  // Extract avatar options from canvas_json if available
+  const avatarOptions: AvatarOptions = React.useMemo(() => {
+    if (avatar.canvas_json && (avatar.canvas_json as any).avatarOptions) {
+      return (avatar.canvas_json as any).avatarOptions as AvatarOptions;
+    }
+    return defaultAvatarOptions;
+  }, [avatar.canvas_json]);
+
+  const shouldRenderSVG = !imageSrc && avatar.canvas_json && (avatar.canvas_json as any).avatarOptions;
 
   return (
     <div
@@ -50,6 +71,14 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({
             alt={avatar.name}
             className="w-full h-full object-cover"
           />
+        ) : shouldRenderSVG ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <AvatarRenderer
+              options={avatarOptions}
+              size={sizePixels[size]}
+              className="w-full h-full"
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center w-full h-full text-base-content/30">
             <div className="text-center">

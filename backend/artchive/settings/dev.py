@@ -7,6 +7,13 @@ ALLOWED_HOSTS = ["*"]
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+# Cookie settings for development (SameSite='Lax' works with HTTP, 'None' requires HTTPS)
+# Override base settings for local development
+SIMPLE_JWT = {
+    **SIMPLE_JWT,  # noqa: F405
+    'AUTH_COOKIE_SAMESITE': 'Lax',  # Use 'Lax' for local development (HTTP)
+}
+
 # No CSRF configuration in development
 
 # Application definition
@@ -79,11 +86,37 @@ SPECTACULAR_SETTINGS = {
 
 # py manage.py spectacular --color --file schema.yml
 
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
+# Use Cloudinary storage only if credentials are configured, otherwise use local file storage
+from decouple import config
+import os
+
+CLOUDINARY_CONFIGURED = all([
+    config('CLOUDINARY_CLOUD_NAME', default=''),
+    config('CLOUDINARY_API_KEY', default=''),
+    config('CLOUDINARY_API_SECRET', default='')
+]) and all([
+    config('CLOUDINARY_CLOUD_NAME', default='') != 'dummy',
+    config('CLOUDINARY_CLOUD_NAME', default='') != '',
+])
+
+if CLOUDINARY_CONFIGURED:
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+else:
+    # Use local file storage if Cloudinary is not configured
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media")  # noqa: F405
+    MEDIA_URL = "/media/"

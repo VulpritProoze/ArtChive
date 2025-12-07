@@ -195,12 +195,20 @@ const Timeline: React.FC = () => {
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isLoading]);
 
-  const mainTabs = [
-    { id: 'timeline', label: 'Timeline', icon: '📝' },
-    { id: 'works', label: 'Works', icon: '🎨' },
-    { id: 'avatar', label: 'Avatar', icon: '👤' },
-    { id: 'collectives', label: 'Collectives', icon: '👥' },
-  ] as const;
+  // Avatar tab is only visible to the owner (private feature)
+  const mainTabs = (isOwnProfile 
+    ? [
+        { id: 'timeline' as const, label: 'Timeline', icon: '📝' },
+        { id: 'works' as const, label: 'Works', icon: '🎨' },
+        { id: 'avatar' as const, label: 'Avatar', icon: '👤' },
+        { id: 'collectives' as const, label: 'Collectives', icon: '👥' },
+      ]
+    : [
+        { id: 'timeline' as const, label: 'Timeline', icon: '📝' },
+        { id: 'works' as const, label: 'Works', icon: '🎨' },
+        { id: 'collectives' as const, label: 'Collectives', icon: '👥' },
+      ]
+  );
 
   const otherTabs = [
     { id: 'fellows', label: 'Fellows', icon: '👫' },
@@ -518,7 +526,7 @@ const Timeline: React.FC = () => {
             {mainTabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => setActiveTab(tab.id as 'timeline' | 'works' | 'avatar' | 'collectives' | 'fellows')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 ${activeTab === tab.id
                   ? 'bg-primary text-primary-content shadow-md scale-[1.02]'
                   : 'hover:bg-base-300 text-base-content'

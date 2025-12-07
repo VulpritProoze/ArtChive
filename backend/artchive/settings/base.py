@@ -89,11 +89,33 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 
-cloudinary.config(
-    cloud_name=config('CLOUDINARY_CLOUD_NAME'),
-    api_key=config('CLOUDINARY_API_KEY'),
-    api_secret=config('CLOUDINARY_API_SECRET'),
-)
+# Cloudinary configuration (optional - only configure if credentials are provided)
+CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
+CLOUDINARY_API_KEY = config('CLOUDINARY_API_KEY', default='')
+CLOUDINARY_API_SECRET = config('CLOUDINARY_API_SECRET', default='')
+
+# Set CLOUDINARY_STORAGE dictionary for cloudinary_storage package
+# This prevents it from failing when imported even if credentials are missing
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': CLOUDINARY_CLOUD_NAME or 'dummy',
+    'API_KEY': CLOUDINARY_API_KEY or 'dummy',
+    'API_SECRET': CLOUDINARY_API_SECRET or 'dummy',
+}
+
+if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+    )
+else:
+    # Set dummy values to prevent cloudinary_storage from failing on import
+    # The actual storage backend will be overridden in dev.py if Cloudinary is not configured
+    cloudinary.config(
+        cloud_name='dummy',
+        api_key='dummy',
+        api_secret='dummy',
+    )
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -156,7 +178,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_COOKIE': 'access_token',
     'AUTH_COOKIE_REFRESH': 'refresh_token',
-    'AUTH_COOKIE_SECURE': config('AUTH_COOKIE_SECURE'), # True in prod
+    'AUTH_COOKIE_SECURE': config('AUTH_COOKIE_SECURE', default=False, cast=bool),  # True in prod, False in dev
     'AUTH_COOKIE_HTTP_ONLY': True,
     'AUTH_COOKIE_PATH': '/',
     'AUTH_COOKIE_SAMESITE': 'None',

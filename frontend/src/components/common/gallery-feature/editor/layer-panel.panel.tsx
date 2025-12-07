@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Eye, EyeOff, Trash2, ChevronUp, ChevronDown, ChevronRight, ChevronDown as ChevronDownExpand } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Eye, EyeOff, Trash2, ChevronUp, ChevronDown, ChevronRight, ChevronDown as ChevronDownExpand, Copy, ClipboardPaste, Image } from 'lucide-react';
 import type { CanvasObject } from '@types';
 
 interface LayerPanelProps {
@@ -9,6 +9,11 @@ interface LayerPanelProps {
   onToggleVisibility: (id: string) => void;
   onDelete: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
+  onCopy?: () => void;
+  onPaste?: (afterObjectId: string | null) => void;
+  onDetachImage?: (frameId: string) => void;
+  clipboardLength?: number;
+  findObject?: (id: string) => CanvasObject | null;
 }
 
 export function LayerPanel({
@@ -18,9 +23,17 @@ export function LayerPanel({
   onToggleVisibility,
   onDelete,
   onReorder,
+  onCopy,
+  onPaste,
+  onDetachImage,
+  clipboardLength = 0,
+  findObject,
 }: LayerPanelProps) {
   // Track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // Track context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const toggleGroupExpansion = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -33,6 +46,34 @@ export function LayerPanel({
       return newSet;
     });
   };
+
+  // Close context menu on click outside or right-click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleContextMenu = (e: MouseEvent) => {
+      // Close menu if right-clicking elsewhere
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      // Use a slight delay to prevent immediate closure from the same right-click event
+      const timeoutId = setTimeout(() => {
+        window.addEventListener('click', handleClick);
+        window.addEventListener('contextmenu', handleContextMenu);
+      }, 10);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        window.removeEventListener('click', handleClick);
+        window.removeEventListener('contextmenu', handleContextMenu);
+      };
+    }
+  }, [contextMenu]);
 
   const handleLayerClick = (e: React.MouseEvent, objectId: string) => {
     if (e.ctrlKey || e.metaKey) {
@@ -118,6 +159,16 @@ export function LayerPanel({
           }`}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           onClick={(e) => handleLayerClick(e, obj.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Use clientX and clientY for fixed positioning
+            setContextMenu({ 
+              x: e.clientX, 
+              y: e.clientY, 
+              objectId: obj.id 
+            });
+          }}
         >
           {/* Expand/Collapse icon for groups and frames */}
           {isContainer && hasChildren ? (
@@ -210,7 +261,7 @@ export function LayerPanel({
   };
 
   return (
-    <div className="bg-base-200 flex flex-col h-full">
+    <div className="bg-base-200 flex flex-col h-full relative">
       <div className="p-3 border-b border-base-300 shrink-0">
         <h3 className="font-bold text-sm">Layers</h3>
       </div>
@@ -226,6 +277,81 @@ export function LayerPanel({
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (() => {
+        const obj = findObject ? findObject(contextMenu.objectId) : objects.find(o => o.id === contextMenu.objectId);
+        const isFrame = obj?.type === 'frame';
+        const frameHasImage = isFrame && obj && 'children' in obj && obj.children && obj.children.length > 0;
+        const hasSelectedObjects = selectedIds.length > 0;
+        const hasClipboard = clipboardLength > 0;
+        const clickedObjectIsSelected = selectedIds.includes(contextMenu.objectId);
+        
+        // Show Copy if there are selected objects, or always show it to copy the clicked object
+        const showCopy = onCopy; // Always show copy option
+        const showPaste = hasClipboard && onPaste;
+        const showDetach = isFrame && frameHasImage && onDetachImage;
+        
+        // Don't render menu if there are no actions
+        if (!showCopy && !showPaste && !showDetach) {
+          return null;
+        }
+        
+        return (
+          <div
+            ref={contextMenuRef}
+            className="fixed bg-base-200 border border-base-300 rounded-lg shadow-lg py-1 z-[9999] min-w-[160px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            {showCopy && (
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+                onClick={() => {
+                  // If clicked object is not selected, select it first then copy
+                  if (!clickedObjectIsSelected && !hasSelectedObjects) {
+                    onSelect([contextMenu.objectId]);
+                  }
+                  if (onCopy) {
+                    onCopy();
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Copy className="w-4 h-4" />
+                Copy
+              </button>
+            )}
+            {showPaste && (
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+                onClick={() => {
+                  if (onPaste) {
+                    onPaste(contextMenu.objectId);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <ClipboardPaste className="w-4 h-4" />
+                Paste Below
+              </button>
+            )}
+            {showDetach && (
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+                onClick={() => {
+                  if (onDetachImage) {
+                    onDetachImage(contextMenu.objectId);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Image className="w-4 h-4" />
+                Detach Image
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

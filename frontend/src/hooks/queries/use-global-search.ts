@@ -52,9 +52,18 @@ export const useSearchUsers = (
     queryFn: ({ pageParam = 1 }) => searchService.searchUsers(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
     getNextPageParam: (lastPage) => {
       if (lastPage.next) {
-        const url = new URL(lastPage.next);
-        const page = url.searchParams.get('page');
-        return page ? parseInt(page, 10) : undefined;
+        try {
+          // Handle both absolute and relative URLs
+          const url = lastPage.next.startsWith('http') 
+            ? new URL(lastPage.next)
+            : new URL(lastPage.next, window.location.origin);
+          const page = url.searchParams.get('page');
+          return page ? parseInt(page, 10) : undefined;
+        } catch {
+          // Fallback: manually parse query string
+          const match = lastPage.next.match(/[?&]page=(\d+)/);
+          return match ? parseInt(match[1], 10) : undefined;
+        }
       }
       return undefined;
     },
@@ -78,9 +87,18 @@ export const useSearchPosts = (
     queryFn: ({ pageParam = 1 }) => searchService.searchPosts(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
     getNextPageParam: (lastPage) => {
       if (lastPage.next) {
-        const url = new URL(lastPage.next);
-        const page = url.searchParams.get('page');
-        return page ? parseInt(page, 10) : undefined;
+        try {
+          // Handle both absolute and relative URLs
+          const url = lastPage.next.startsWith('http') 
+            ? new URL(lastPage.next)
+            : new URL(lastPage.next, window.location.origin);
+          const page = url.searchParams.get('page');
+          return page ? parseInt(page, 10) : undefined;
+        } catch {
+          // Fallback: manually parse query string
+          const match = lastPage.next.match(/[?&]page=(\d+)/);
+          return match ? parseInt(match[1], 10) : undefined;
+        }
       }
       return undefined;
     },
@@ -104,9 +122,18 @@ export const useSearchCollectives = (
     queryFn: ({ pageParam = 1 }) => searchService.searchCollectives(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
     getNextPageParam: (lastPage) => {
       if (lastPage.next) {
-        const url = new URL(lastPage.next);
-        const page = url.searchParams.get('page');
-        return page ? parseInt(page, 10) : undefined;
+        try {
+          // Handle both absolute and relative URLs
+          const url = lastPage.next.startsWith('http') 
+            ? new URL(lastPage.next)
+            : new URL(lastPage.next, window.location.origin);
+          const page = url.searchParams.get('page');
+          return page ? parseInt(page, 10) : undefined;
+        } catch {
+          // Fallback: manually parse query string
+          const match = lastPage.next.match(/[?&]page=(\d+)/);
+          return match ? parseInt(match[1], 10) : undefined;
+        }
       }
       return undefined;
     },
@@ -130,9 +157,18 @@ export const useSearchGalleries = (
     queryFn: ({ pageParam = 1 }) => searchService.searchGalleries(query, { ...filters, page: pageParam, page_size: filters.page_size || 10 }),
     getNextPageParam: (lastPage) => {
       if (lastPage.next) {
-        const url = new URL(lastPage.next);
-        const page = url.searchParams.get('page');
-        return page ? parseInt(page, 10) : undefined;
+        try {
+          // Handle both absolute and relative URLs
+          const url = lastPage.next.startsWith('http') 
+            ? new URL(lastPage.next)
+            : new URL(lastPage.next, window.location.origin);
+          const page = url.searchParams.get('page');
+          return page ? parseInt(page, 10) : undefined;
+        } catch {
+          // Fallback: manually parse query string
+          const match = lastPage.next.match(/[?&]page=(\d+)/);
+          return match ? parseInt(match[1], 10) : undefined;
+        }
       }
       return undefined;
     },

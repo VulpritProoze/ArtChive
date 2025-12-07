@@ -83,6 +83,12 @@ export const galleryService = {
       onUploadProgress: onProgress,
     });
 
+    // Validate response structure
+    if (!response.data || !response.data.url) {
+      console.error('Invalid upload response:', response.data);
+      throw new Error('Upload succeeded but did not return a valid image URL');
+    }
+
     return response.data.url;
   },
 
