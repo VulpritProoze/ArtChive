@@ -30,9 +30,11 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.56.4",
     "react-konva": "^19.0.5",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.1",
     "react-slick": "^0.30.3",
     "react-toastify": "^11.0.5",
+    "remark-gfm": "^4.0.1",
     "slick-carousel": "^1.8.1",
     "use-image": "^1.1.4",
     "zod": "^3.25.30"

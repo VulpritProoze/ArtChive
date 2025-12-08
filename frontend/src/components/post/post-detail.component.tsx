@@ -7,7 +7,7 @@ import { LoadingSpinner } from "../loading-spinner";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { postService } from "@services/post.service";
-import { CommentFormModal, PostFormModal, TrophySelectionModal } from "@components/common/posts-feature/modal";
+import { CommentFormModal, PostFormModal, CritiqueFormModal, TrophySelectionModal } from "@components/common/posts-feature/modal";
 import { usePostUI } from "@context/post-ui-context";
 import { usePostMeta } from "@hooks/queries/use-post-meta";
 import { useMemo } from "react";
@@ -212,12 +212,13 @@ export default function PostDetail() {
 }
 
 function PostDetailModals() {
-  const { showCommentForm, showPostForm } = usePostUI();
+  const { showCommentForm, showPostForm, showCritiqueForm } = usePostUI();
 
   return (
     <>
       {showCommentForm && <CommentFormModal />}
       {showPostForm && <PostFormModal />}
+      {showCritiqueForm && <CritiqueFormModal />}
       <TrophySelectionModal />
     </>
   );

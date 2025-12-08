@@ -4,6 +4,7 @@ import { useAuth } from '@context/auth-context';
 import {
   PostFormModal,
   CommentFormModal,
+  CritiqueFormModal,
 } from '@components/common/posts-feature/modal';
 import { InfiniteScrolling } from '@components/common';
 import { PostCard } from '@components/common/posts-feature';
@@ -35,7 +36,7 @@ const Timeline: React.FC = () => {
   const username = extractUsernameFromUrl(usernameParam);
   const navigate = useNavigate();
   const { user: currentUser } = useAuth(); // For comparison only
-  const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();
+  const { showCommentForm, showPostForm, showCritiqueForm, setShowPostForm } = usePostUI();
 
   // Early return if no username (invalid route)
   if (!username) {
@@ -350,6 +351,7 @@ const Timeline: React.FC = () => {
     <MainLayout showRightSidebar={false}>
       {showPostForm && <PostFormModal user_id={currentUser?.id} />}
       {showCommentForm && <CommentFormModal />}
+      {showCritiqueForm && <CritiqueFormModal />}
 
       <div className="mb-6">
         <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300 overflow-visible">
