@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { CanvasObject, EditorState, Command, ImageObject } from '@types';
+import type { CanvasObject, EditorState, Command, ImageObject, FrameObject } from '@types';
 import { useUndoRedo } from './use-undo-redo.hook';
 import { galleryService } from '@services/gallery.service';
 
@@ -23,7 +23,14 @@ interface UseCanvasStateReturn extends EditorState {
   ungroupObject: (groupId: string) => void;
   copyObjects: () => void;
   pasteObjects: () => void;
+  pasteObjectsAtPosition: (afterObjectId: string | null) => void;
   attachImageToFrame: (imageId: string, frameId: string) => void;
+  detachImageFromFrame: (frameId: string) => void;
+  reorderObject: (id: string, direction: 'up' | 'down') => void;
+  bringToFront: (id: string) => void;
+  sendToBack: (id: string) => void;
+  bringForward: (id: string) => void;
+  sendBackward: (id: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -421,11 +428,19 @@ export function useCanvasState({
       }
 
       // Convert children back to absolute positions
-      const ungroupedObjects = group.children.map((child) => ({
-        ...child,
-        x: child.x + group.x,
-        y: child.y + group.y,
-      }));
+      // Reset draggable property for frames (so they can be moved after ungrouping)
+      const ungroupedObjects = group.children.map((child) => {
+        const ungrouped = {
+          ...child,
+          x: child.x + group.x,
+          y: child.y + group.y,
+        };
+        // Reset draggable for frames if it was false (from templates)
+        if (ungrouped.type === 'frame' && ungrouped.draggable === false) {
+          ungrouped.draggable = true;
+        }
+        return ungrouped;
+      });
 
       const childIds = ungroupedObjects.map((o) => o.id);
 
@@ -517,6 +532,359 @@ export function useCanvasState({
     undoRedo.execute(command);
   }, [state.clipboard, state.selectedIds, undoRedo, cloneObjectWithNewId]);
 
+  const pasteObjectsAtPosition = useCallback((afterObjectId: string | null) => {
+    if (state.clipboard.length === 0) {
+      return;
+    }
+
+    const offset = 20; // Offset in pixels
+    const pastedObjects = state.clipboard.map(obj => {
+      const cloned = cloneObjectWithNewId(obj);
+      return {
+        ...cloned,
+        x: cloned.x + offset,
+        y: cloned.y + offset,
+      };
+    });
+
+    const pastedIds = pastedObjects.map(o => o.id);
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          if (afterObjectId === null) {
+            // Paste at the beginning
+            return {
+              ...prev,
+              objects: [...pastedObjects, ...prev.objects],
+              selectedIds: pastedIds,
+            };
+          }
+
+          // Find the index of the object to paste after
+          const afterIndex = prev.objects.findIndex(o => o.id === afterObjectId);
+          
+          if (afterIndex === -1) {
+            // Object not found, paste at end
+            return {
+              ...prev,
+              objects: [...prev.objects, ...pastedObjects],
+              selectedIds: pastedIds,
+            };
+          }
+
+          // Insert pasted objects right after the target object
+          const newObjects = [
+            ...prev.objects.slice(0, afterIndex + 1),
+            ...pastedObjects,
+            ...prev.objects.slice(afterIndex + 1),
+          ];
+
+          return {
+            ...prev,
+            objects: newObjects,
+            selectedIds: pastedIds,
+          };
+        });
+      },
+      undo: () => {
+        setState((prev) => ({
+          ...prev,
+          objects: prev.objects.filter((o) => !pastedIds.includes(o.id)),
+          selectedIds: state.selectedIds,
+        }));
+      },
+      description: `Paste ${pastedObjects.length} object(s)`,
+    };
+    undoRedo.execute(command);
+  }, [state.clipboard, state.selectedIds, undoRedo, cloneObjectWithNewId]);
+
+  // Helper to recursively remove image from tree
+  const removeImageFromTree = useCallback((objects: CanvasObject[], imageId: string): CanvasObject[] => {
+    return objects
+      .filter((o) => o.id !== imageId) // Remove image from current level
+      .map((o) => {
+        if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+          return {
+            ...o,
+            children: removeImageFromTree(o.children, imageId),
+          } as CanvasObject;
+        }
+        return o;
+      });
+  }, []);
+
+  // Helper to recursively update frame in tree to add image child
+  const updateFrameWithImage = useCallback((objects: CanvasObject[], frameId: string, imageChild: ImageObject): CanvasObject[] => {
+    return objects.map((o) => {
+      if (o.id === frameId && o.type === 'frame') {
+        // Found the frame - add image as child
+        return {
+          ...o,
+          children: [imageChild],
+        } as CanvasObject;
+      }
+      if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+        // Recursively update children
+        return {
+          ...o,
+          children: updateFrameWithImage(o.children, frameId, imageChild),
+        } as CanvasObject;
+      }
+      return o;
+    });
+  }, []);
+
+  // Helper to recursively restore frame children (for undo)
+  const restoreFrameChildren = useCallback((objects: CanvasObject[], frameId: string, oldChildren: CanvasObject[]): CanvasObject[] => {
+    return objects.map((o) => {
+      if (o.id === frameId && o.type === 'frame') {
+        // Found the frame - restore old children
+        return {
+          ...o,
+          children: oldChildren,
+        } as CanvasObject;
+      }
+      if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+        // Recursively update children
+        return {
+          ...o,
+          children: restoreFrameChildren(o.children, frameId, oldChildren),
+        } as CanvasObject;
+      }
+      return o;
+    });
+  }, []);
+
+  // Helper to recursively restore image to tree (for detach)
+  const restoreImageToTree = useCallback((objects: CanvasObject[], image: ImageObject, originalX: number, originalY: number): CanvasObject[] => {
+    // Add image back to top-level objects array
+    // Convert relative position back to absolute position if needed
+    return [...objects, {
+      ...image,
+      x: originalX,
+      y: originalY,
+    }];
+  }, []);
+
+  // Helper to recursively remove image child from frame
+  const removeImageChildFromFrame = useCallback((objects: CanvasObject[], frameId: string): CanvasObject[] => {
+    return objects.map((o) => {
+      if (o.id === frameId && o.type === 'frame') {
+        // Found the frame - remove children
+        return {
+          ...o,
+          children: [],
+        } as CanvasObject;
+      }
+      if ((o.type === 'group' || o.type === 'frame') && 'children' in o && o.children) {
+        // Recursively update children
+        return {
+          ...o,
+          children: removeImageChildFromFrame(o.children, frameId),
+        } as CanvasObject;
+      }
+      return o;
+    });
+  }, []);
+
+  // Helper to find frame and calculate absolute position (accounting for parent groups)
+  const findFrameWithAbsolutePosition = useCallback((objects: CanvasObject[], frameId: string, parentX = 0, parentY = 0): { frame: FrameObject; absX: number; absY: number } | null => {
+    for (const obj of objects) {
+      if (obj.id === frameId && obj.type === 'frame') {
+        return {
+          frame: obj as FrameObject,
+          absX: parentX + obj.x,
+          absY: parentY + obj.y,
+        };
+      }
+      if (obj.type === 'group' && obj.children) {
+        const found = findFrameWithAbsolutePosition(obj.children, frameId, parentX + obj.x, parentY + obj.y);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+
+  const reorderObject = useCallback((id: string, direction: 'up' | 'down') => {
+    const currentIndex = state.objects.findIndex(o => o.id === id);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= state.objects.length) return;
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(currentIndex, 1);
+          newObjects.splice(newIndex, 0, movedObject);
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      undo: () => {
+        // Reverse the operation
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(newIndex, 1);
+          newObjects.splice(currentIndex, 0, movedObject);
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      description: `Move object ${direction === 'up' ? 'forward' : 'backward'}`,
+    };
+    undoRedo.execute(command);
+  }, [state.objects, undoRedo]);
+
+  const bringToFront = useCallback((id: string) => {
+    const currentIndex = state.objects.findIndex(o => o.id === id);
+    if (currentIndex === -1 || currentIndex === state.objects.length - 1) return; // Already at front (last index)
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(currentIndex, 1);
+          newObjects.push(movedObject); // Add to end (front - rendered last, appears on top)
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      undo: () => {
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(newObjects.length - 1, 1); // Remove from end
+          newObjects.splice(currentIndex, 0, movedObject); // Insert back at original position
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      description: 'Bring to front',
+    };
+    undoRedo.execute(command);
+  }, [state.objects, undoRedo]);
+
+  const sendToBack = useCallback((id: string) => {
+    const currentIndex = state.objects.findIndex(o => o.id === id);
+    if (currentIndex === -1 || currentIndex === 0) return; // Already at back (first index)
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(currentIndex, 1);
+          newObjects.unshift(movedObject); // Add to beginning (back - rendered first, appears behind)
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      undo: () => {
+        setState((prev) => {
+          const newObjects = [...prev.objects];
+          const [movedObject] = newObjects.splice(0, 1); // Remove from beginning
+          newObjects.splice(currentIndex, 0, movedObject); // Insert back at original position
+          
+          return {
+            ...prev,
+            objects: newObjects,
+          };
+        });
+      },
+      description: 'Send to back',
+    };
+    undoRedo.execute(command);
+  }, [state.objects, undoRedo]);
+
+  const bringForward = useCallback((id: string) => {
+    // Bring forward = move toward front (higher index, end of array)
+    reorderObject(id, 'down');
+  }, [reorderObject]);
+
+  const sendBackward = useCallback((id: string) => {
+    // Send backward = move toward back (lower index, beginning of array)
+    reorderObject(id, 'up');
+  }, [reorderObject]);
+
+  const detachImageFromFrame = useCallback((frameId: string) => {
+    const frameData = findFrameWithAbsolutePosition(state.objects, frameId);
+    
+    if (!frameData) {
+      return;
+    }
+
+    const { frame, absX: frameAbsX, absY: frameAbsY } = frameData;
+
+    if (!frame.children || frame.children.length === 0) {
+      return;
+    }
+
+    const attachedImage = frame.children[0];
+    if (attachedImage.type !== 'image') {
+      return;
+    }
+
+    const imageObj = attachedImage as ImageObject;
+    
+    // Calculate absolute position: frame absolute position + image's relative position within frame
+    const absoluteX = frameAbsX + imageObj.x;
+    const absoluteY = frameAbsY + imageObj.y;
+
+    // Store original image (with absolute position restored)
+    const originalImage: ImageObject = {
+      ...imageObj,
+      x: absoluteX,
+      y: absoluteY,
+    };
+
+    const command: Command = {
+      execute: () => {
+        setState((prev) => {
+          // Remove image from frame children and add it back to main objects array
+          let updatedObjects = removeImageChildFromFrame(prev.objects, frameId);
+          updatedObjects = restoreImageToTree(updatedObjects, originalImage, absoluteX, absoluteY);
+
+          return {
+            ...prev,
+            objects: updatedObjects,
+          };
+        });
+      },
+      undo: () => {
+        setState((prev) => {
+          // Re-attach image to frame
+          // Remove image from main array
+          let restoredObjects = prev.objects.filter(obj => obj.id !== originalImage.id);
+          // Re-add image as child of frame
+          restoredObjects = updateFrameWithImage(restoredObjects, frameId, imageObj);
+          
+          return {
+            ...prev,
+            objects: restoredObjects,
+          };
+        });
+      },
+      description: 'Detach image from frame',
+    };
+    undoRedo.execute(command);
+  }, [state.objects, undoRedo, findFrameWithAbsolutePosition, removeImageChildFromFrame, restoreImageToTree, updateFrameWithImage]);
+
   const attachImageToFrame = useCallback((imageId: string, frameId: string) => {
     const image = findObject(state.objects, imageId);
     const frame = findObject(state.objects, frameId);
@@ -564,19 +932,9 @@ export function useCanvasState({
             height: newHeight,
           };
 
-          // Update objects: remove image from main array, add to frame children
-          const updatedObjects = prev.objects
-            .filter(obj => obj.id !== imageId) // Remove image from main objects
-            .map(obj => {
-              if (obj.id === frameId && obj.type === 'frame') {
-                // Add image as child (replace existing children - frames can only have one image)
-                return {
-                  ...obj,
-                  children: [imageChild],
-                };
-              }
-              return obj;
-            });
+          // Recursively remove image from tree and update frame
+          let updatedObjects = removeImageFromTree(prev.objects, imageId);
+          updatedObjects = updateFrameWithImage(updatedObjects, frameId, imageChild);
 
           return {
             ...prev,
@@ -585,24 +943,22 @@ export function useCanvasState({
         });
       },
       undo: () => {
-        setState((prev) => ({
-          ...prev,
-          objects: prev.objects.map(obj => {
-            if (obj.id === frameId && obj.type === 'frame') {
-              // Restore old children
-              return {
-                ...obj,
-                children: oldFrameChildren,
-              };
-            }
-            return obj;
-          }).concat(oldImage), // Restore image to main objects array
-        }));
+        setState((prev) => {
+          // Restore frame children and add image back to tree
+          let restoredObjects = restoreFrameChildren(prev.objects, frameId, oldFrameChildren);
+          // Add image back (at top level - images attached to frames shouldn't be in groups anyway)
+          restoredObjects = [...restoredObjects, oldImage];
+          
+          return {
+            ...prev,
+            objects: restoredObjects,
+          };
+        });
       },
       description: 'Attach image to frame',
     };
     undoRedo.execute(command);
-  }, [state.objects, undoRedo, findObject]);
+  }, [state.objects, undoRedo, findObject, removeImageFromTree, updateFrameWithImage, restoreFrameChildren]);
 
   const initializeState = useCallback((canvasData: { objects: CanvasObject[]; width?: number; height?: number; background?: string }) => {
     setState((prev) => ({
@@ -632,7 +988,14 @@ export function useCanvasState({
     ungroupObject,
     copyObjects,
     pasteObjects,
+    pasteObjectsAtPosition,
     attachImageToFrame,
+    detachImageFromFrame,
+    reorderObject,
+    bringToFront,
+    sendToBack,
+    bringForward,
+    sendBackward,
     undo: undoRedo.undo,
     redo: undoRedo.redo,
     canUndo: undoRedo.canUndo,

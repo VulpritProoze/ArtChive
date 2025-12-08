@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@utils/toast.util';
-import { Palette, Layers, Ungroup, Eye, LayoutTemplate } from 'lucide-react';
+import { Palette, Layers, Ungroup, Eye, LayoutTemplate, Image, ArrowUp, ArrowDown, MoveUp, MoveDown } from 'lucide-react';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useCanvasState } from '@hooks/gallery/editor/use-canvas-state.hook';
@@ -32,6 +32,7 @@ export default function GalleryEditor() {
   const [isResizing, setIsResizing] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
   const shapesButtonRef = useRef<HTMLButtonElement>(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   const navigate = useNavigate()
 
@@ -98,14 +99,26 @@ export default function GalleryEditor() {
   }, [editorState]);
 
   const handleAddImage = useCallback((url: string) => {
+    if (!url || typeof url !== 'string') {
+      toast.error('Invalid image URL', 'The uploaded image URL is invalid');
+      return;
+    }
+
     // Load the image to get its natural dimensions and maintain aspect ratio
-    const img = new Image();
+    // Use document.createElement to avoid constructor issues in some environments
+    const img = document.createElement('img');
     img.crossOrigin = 'anonymous';
     
     img.onload = () => {
       // Get natural dimensions
       const naturalWidth = img.naturalWidth;
       const naturalHeight = img.naturalHeight;
+      
+      // Validate that image actually loaded
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        toast.error('Invalid image', 'The uploaded image is invalid or corrupted');
+        return;
+      }
       
       // Calculate dimensions maintaining aspect ratio
       // Use a max dimension to prevent images from being too large
@@ -136,10 +149,11 @@ export default function GalleryEditor() {
         draggable: true,
       };
       editorState.addObject(newImage);
+      toast.success('Image added', 'Your image has been added to the canvas');
     };
     
     img.onerror = () => {
-      toast.error('Failed to load image', 'The image could not be loaded');
+      toast.error('Failed to load image', 'The image URL could not be loaded. Please check if the image is accessible.');
     };
     
     img.src = url;
@@ -173,14 +187,11 @@ export default function GalleryEditor() {
   }, [editorState]);
 
   const handleReorder = useCallback((id: string, direction: 'up' | 'down') => {
-    const currentIndex = editorState.objects.findIndex(o => o.id === id);
-    if (currentIndex === -1) return;
-
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= editorState.objects.length) return;
-
-    // This is a simplified version - you'd need to implement array reordering in useCanvasState
-    toast.info('Coming soon', 'Reordering feature will be available soon');
+    editorState.reorderObject(id, direction);
+    toast.success(
+      `Object moved ${direction === 'up' ? 'forward' : 'backward'}`,
+      'Layer order has been updated'
+    );
   }, [editorState]);
 
   // Group/Ungroup handlers
@@ -215,11 +226,11 @@ export default function GalleryEditor() {
   // Handle context menu
   const handleContextMenu = useCallback((e: React.MouseEvent, objectId: string) => {
     e.preventDefault();
-    const obj = editorState.objects.find(o => o.id === objectId);
-    if (obj && obj.type === 'group') {
+    const obj = editorState.findObject(objectId);
+    if (obj) {
       setContextMenu({ x: e.clientX, y: e.clientY, objectId });
     }
-  }, [editorState.objects]);
+  }, [editorState]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -337,6 +348,43 @@ export default function GalleryEditor() {
         }
       }
 
+      // Layer Ordering Shortcuts (similar to MS Word/Office)
+      // Bring to Front: Ctrl+Shift+] or Ctrl+Shift+}
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === ']' || e.key === '}')) {
+        e.preventDefault();
+        if (editorState.selectedIds.length > 0 && !isEditingText) {
+          editorState.selectedIds.forEach(id => editorState.bringToFront(id));
+          toast.success('Brought to front', 'Selected object(s) moved to frontmost layer');
+        }
+      }
+
+      // Send to Back: Ctrl+Shift+[ or Ctrl+Shift+{
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === '[' || e.key === '{')) {
+        e.preventDefault();
+        if (editorState.selectedIds.length > 0 && !isEditingText) {
+          editorState.selectedIds.forEach(id => editorState.sendToBack(id));
+          toast.success('Sent to back', 'Selected object(s) moved to backmost layer');
+        }
+      }
+
+      // Bring Forward: Ctrl+] or Ctrl+}
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === ']' || e.key === '}')) {
+        e.preventDefault();
+        if (editorState.selectedIds.length > 0 && !isEditingText) {
+          editorState.selectedIds.forEach(id => editorState.bringForward(id));
+          toast.success('Brought forward', 'Selected object(s) moved one layer forward');
+        }
+      }
+
+      // Send Backward: Ctrl+[ or Ctrl+{
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === '[' || e.key === '{')) {
+        e.preventDefault();
+        if (editorState.selectedIds.length > 0 && !isEditingText) {
+          editorState.selectedIds.forEach(id => editorState.sendBackward(id));
+          toast.success('Sent backward', 'Selected object(s) moved one layer backward');
+        }
+      }
+
       // Deselect (Escape) and return to move mode
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -415,48 +463,56 @@ export default function GalleryEditor() {
         className="h-screen flex flex-col bg-base-100"
         style={{ cursor: isResizing ? 'ew-resize' : 'default' }}
       >
-      {/* Toolbar */}
-      <Toolbar
-        onAddText={handleAddText}
-        onAddImage={handleAddImage}
-        onUndo={editorState.undo}
-        onRedo={editorState.redo}
-        onToggleGrid={editorState.toggleGrid}
-        onToggleSnap={editorState.toggleSnap}
-        onGroup={handleGroup}
-        onUngroup={handleUngroup}
-        onSetMode={setEditorMode}
-        onDeselectAll={() => {
-          editorState.clearSelection();
-          setEditorMode('move');
-        }}
-        onOpenMenu={() => setShowHamburgerMenu(true)}
-        onToggleShapes={() => setShowShapes(!showShapes)}
-        onSave={async () => {
-          try {
-            await editorState.save();
-            toast.success('Gallery saved', 'Your changes have been saved');
-          } catch (error) {
-            toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
-          }
-        }}
-        showShapes={showShapes}
-        shapesButtonRef={shapesButtonRef}
-        canGroup={canGroup}
-        canUngroup={canUngroup}
-        canUndo={editorState.canUndo}
-        canRedo={editorState.canRedo}
-        isPreviewMode={isPreviewMode}
-        editorMode={editorMode}
-        gridEnabled={editorState.gridEnabled}
-        snapEnabled={editorState.snapEnabled}
-        hasSelection={editorState.selectedIds.length > 0}
-        hasUnsavedChanges={editorState.hasUnsavedChanges}
-        isSaving={editorState.isSaving}
-      />
-
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div 
+        className="flex-1 flex flex-col overflow-hidden relative min-h-0"
+      >
+        {/* Toolbar */}
+        <div className="bg-base-200 border-b border-base-300 flex-shrink-0">
+          <Toolbar
+          onAddText={handleAddText}
+          onAddImage={handleAddImage}
+          onUndo={editorState.undo}
+          onRedo={editorState.redo}
+          onToggleGrid={editorState.toggleGrid}
+          onToggleSnap={editorState.toggleSnap}
+          onGroup={handleGroup}
+          onUngroup={handleUngroup}
+          onSetMode={setEditorMode}
+          onDeselectAll={() => {
+            editorState.clearSelection();
+            setEditorMode('move');
+          }}
+          onOpenMenu={() => setShowHamburgerMenu(true)}
+          onToggleShapes={() => setShowShapes(!showShapes)}
+          onUpdateObject={editorState.updateObject}
+          selectedObjects={selectedObjects}
+          onSave={async () => {
+            try {
+              await editorState.save();
+              toast.success('Gallery saved', 'Your changes have been saved');
+            } catch (error) {
+              toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
+            }
+          }}
+          showShapes={showShapes}
+          shapesButtonRef={shapesButtonRef}
+          canGroup={canGroup}
+          canUngroup={canUngroup}
+          canUndo={editorState.canUndo}
+          canRedo={editorState.canRedo}
+          isPreviewMode={isPreviewMode}
+          editorMode={editorMode}
+          gridEnabled={editorState.gridEnabled}
+          snapEnabled={editorState.snapEnabled}
+          hasSelection={editorState.selectedIds.length > 0}
+          hasUnsavedChanges={editorState.hasUnsavedChanges}
+          isSaving={editorState.isSaving}
+          />
+        </div>
+
+        {/* Canvas and Sidebars Container */}
+        <div className="flex-1 flex overflow-hidden relative min-h-0">
         {/* Left Sidebar - Toggle Panels */}
         {!isPreviewMode && (
           <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 shrink-0">
@@ -517,8 +573,11 @@ export default function GalleryEditor() {
             snapGuides={snapGuides}
             onSnapGuidesChange={setSnapGuides}
             onContextMenu={handleContextMenu}
+            onAttachImageToFrame={editorState.attachImageToFrame}
             editorMode={editorMode}
             isPreviewMode={isPreviewMode}
+            onTextEdit={setEditingTextId}
+            editingTextId={editingTextId}
           />
 
           {/* Zoom indicator */}
@@ -578,6 +637,26 @@ export default function GalleryEditor() {
                   onToggleVisibility={handleToggleVisibility}
                   onDelete={editorState.deleteObject}
                   onReorder={handleReorder}
+                  onCopy={() => {
+                    const count = editorState.selectedIds.length;
+                    if (count > 0) {
+                      editorState.copyObjects();
+                      toast.success(`Copied ${count} object(s)`, 'Objects copied to clipboard');
+                    }
+                  }}
+                  onPaste={(afterObjectId) => {
+                    const clipboardLength = editorState.clipboard?.length || 0;
+                    if (clipboardLength > 0) {
+                      editorState.pasteObjectsAtPosition(afterObjectId);
+                      toast.success(`Pasted ${clipboardLength} object(s)`, 'Objects pasted to canvas');
+                    }
+                  }}
+                  onDetachImage={(frameId) => {
+                    editorState.detachImageFromFrame(frameId);
+                    toast.success('Image detached', 'The image has been detached from the frame');
+                  }}
+                  clipboardLength={editorState.clipboard?.length || 0}
+                  findObject={editorState.findObject}
                 />
               </div>
             )}
@@ -593,6 +672,7 @@ export default function GalleryEditor() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Template Library Modal */}
@@ -615,24 +695,123 @@ export default function GalleryEditor() {
       {/* Unsaved changes indicator - removed, shown in toolbar instead */}
 
       {/* Context Menu */}
-      {contextMenu && (
-        <div
-          className="absolute bg-base-200 border border-base-300 rounded-lg shadow-lg py-1 z-50"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
-            onClick={() => {
-              editorState.ungroupObject(contextMenu.objectId);
-              toast.success('Group ungrouped', 'The group has been ungrouped successfully');
-              setContextMenu(null);
-            }}
+      {contextMenu && (() => {
+        const obj = editorState.findObject(contextMenu.objectId);
+        if (!obj) return null;
+
+        const isGroup = obj?.type === 'group';
+        const isFrame = obj?.type === 'frame';
+        const frameHasImage = isFrame && obj && 'children' in obj && obj.children && obj.children.length > 0;
+        
+        // Calculate layer position for enabling/disabling buttons
+        // Note: Index 0 = back (rendered first), Last index = front (rendered last, appears on top)
+        const currentIndex = editorState.objects.findIndex(o => o.id === contextMenu.objectId);
+        const isAtFront = currentIndex === editorState.objects.length - 1; // Last index = front
+        const isAtBack = currentIndex === 0; // First index = back
+        const canMoveUp = currentIndex < editorState.objects.length - 1; // Can move toward front (higher index)
+        const canMoveDown = currentIndex > 0; // Can move toward back (lower index)
+        
+        return (
+          <div
+            className="absolute bg-base-200 border border-base-300 rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            <Ungroup className="w-4 h-4" />
-            Ungroup
-          </button>
-        </div>
-      )}
+            {/* Layer Ordering Section */}
+            <div className="px-2 py-1">
+              <div className="text-xs font-semibold text-base-content/60 uppercase tracking-wide px-2 py-1">
+                Layer Order
+              </div>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  editorState.bringToFront(contextMenu.objectId);
+                  toast.success('Brought to front', 'Object moved to frontmost layer');
+                  setContextMenu(null);
+                }}
+                disabled={isAtFront}
+              >
+                <MoveUp className="w-4 h-4" />
+                Bring to Front
+                <span className="ml-auto text-xs text-base-content/50">Ctrl+Shift+]</span>
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  editorState.bringForward(contextMenu.objectId);
+                  toast.success('Brought forward', 'Object moved one layer forward');
+                  setContextMenu(null);
+                }}
+                disabled={!canMoveUp}
+              >
+                <ArrowUp className="w-4 h-4" />
+                Bring Forward
+                <span className="ml-auto text-xs text-base-content/50">Ctrl+]</span>
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  editorState.sendBackward(contextMenu.objectId);
+                  toast.success('Sent backward', 'Object moved one layer backward');
+                  setContextMenu(null);
+                }}
+                disabled={!canMoveDown}
+              >
+                <ArrowDown className="w-4 h-4" />
+                Send Backward
+                <span className="ml-auto text-xs text-base-content/50">Ctrl+[</span>
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  editorState.sendToBack(contextMenu.objectId);
+                  toast.success('Sent to back', 'Object moved to backmost layer');
+                  setContextMenu(null);
+                }}
+                disabled={isAtBack}
+              >
+                <MoveDown className="w-4 h-4" />
+                Send to Back
+                <span className="ml-auto text-xs text-base-content/50">Ctrl+Shift+[</span>
+              </button>
+            </div>
+
+            {/* Separator */}
+            {(isGroup || frameHasImage) && (
+              <div className="border-t border-base-300 my-1"></div>
+            )}
+
+            {/* Group Actions */}
+            {isGroup && (
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+                onClick={() => {
+                  editorState.ungroupObject(contextMenu.objectId);
+                  toast.success('Group ungrouped', 'The group has been ungrouped successfully');
+                  setContextMenu(null);
+                }}
+              >
+                <Ungroup className="w-4 h-4" />
+                Ungroup
+              </button>
+            )}
+
+            {/* Frame Actions */}
+            {isFrame && frameHasImage && (
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-base-300 flex items-center gap-2"
+                onClick={() => {
+                  editorState.detachImageFromFrame(contextMenu.objectId);
+                  toast.success('Image detached', 'The image has been detached from the frame');
+                  setContextMenu(null);
+                }}
+              >
+                <Image className="w-4 h-4" />
+                Detach Image
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Settings Sidebar Overlay */}
       {showHamburgerMenu && (

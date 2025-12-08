@@ -42,7 +42,7 @@ export function useCreateAvatar() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateAvatarData) => avatarService.create(data),
+    mutationFn: (data: CreateAvatarData | FormData) => avatarService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: avatarKeys.list() });
       toast.success('Avatar created', 'Your new avatar has been created successfully');
@@ -60,7 +60,7 @@ export function useUpdateAvatar() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ avatarId, data }: { avatarId: string; data: UpdateAvatarData }) =>
+    mutationFn: ({ avatarId, data }: { avatarId: string; data: UpdateAvatarData | FormData }) =>
       avatarService.update(avatarId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: avatarKeys.list() });

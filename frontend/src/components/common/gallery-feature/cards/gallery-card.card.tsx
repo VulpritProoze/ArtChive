@@ -117,19 +117,6 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'badge badge-success badge-sm';
-      case 'draft':
-        return 'badge badge-outline badge-sm';
-      case 'archived':
-        return 'badge badge-ghost badge-sm';
-      default:
-        return 'badge badge-secondary badge-sm';
-    }
-  };
-
   const getStatusDisplayText = (status: string) => {
     switch (status) {
       case 'active':
@@ -140,6 +127,39 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
         return 'Archived';
       default:
         return status;
+    }
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'active':
+        return {
+          bgColor: 'bg-primary/10',
+          textColor: 'text-primary',
+          borderColor: 'border-primary/30',
+          dotColor: 'bg-primary',
+        };
+      case 'draft':
+        return {
+          bgColor: 'bg-base-content/10',
+          textColor: 'text-base-content/70',
+          borderColor: 'border-base-content/20',
+          dotColor: 'bg-base-content/40',
+        };
+      case 'archived':
+        return {
+          bgColor: 'bg-base-300',
+          textColor: 'text-base-content/50',
+          borderColor: 'border-base-300',
+          dotColor: 'bg-base-content/30',
+        };
+      default:
+        return {
+          bgColor: 'bg-base-content/10',
+          textColor: 'text-base-content/70',
+          borderColor: 'border-base-content/20',
+          dotColor: 'bg-base-content/40',
+        };
     }
   };
 
@@ -341,9 +361,28 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
         ) : (
           <div className="flex items-start justify-between gap-2">
             <h2 className="card-title text-xl flex-1 line-clamp-1">{gallery.title}</h2>
-            <div className={getStatusBadgeClass(gallery.status)}>
-              {getStatusDisplayText(gallery.status)}
-            </div>
+            {(() => {
+              const statusConfig = getStatusConfig(gallery.status);
+              return (
+                <div
+                  className={`
+                    inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                    border ${statusConfig.borderColor}
+                    ${statusConfig.bgColor}
+                    transition-all duration-200
+                  `}
+                >
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} ${
+                      gallery.status === 'active' ? 'animate-pulse' : ''
+                    }`}
+                  />
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${statusConfig.textColor}`}>
+                    {getStatusDisplayText(gallery.status)}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         )}
 

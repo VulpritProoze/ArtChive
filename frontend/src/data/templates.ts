@@ -28,7 +28,7 @@ export const galleryTemplates: Template[] = [
       children: [
         {
           id: generateId(),
-          type: 'rect',
+          type: 'frame',
           x: 10,
           y: 10,
           width: 280,
@@ -36,7 +36,10 @@ export const galleryTemplates: Template[] = [
           fill: '#f0f0f0',
           stroke: '#cccccc',
           strokeWidth: 1,
-          draggable: true,
+          dashEnabled: true,
+          placeholder: 'Drop image here',
+          children: [],
+          draggable: false,
           rotation: 0,
           scaleX: 1,
           scaleY: 1,
@@ -338,7 +341,7 @@ export const galleryTemplates: Template[] = [
       children: [
         {
           id: generateId(),
-          type: 'rect',
+          type: 'frame',
           x: 20,
           y: 20,
           width: 280,
@@ -346,7 +349,10 @@ export const galleryTemplates: Template[] = [
           fill: '#f8f8f8',
           stroke: '#e0e0e0',
           strokeWidth: 1,
-          draggable: true,
+          dashEnabled: true,
+          placeholder: 'Drop image here',
+          children: [],
+          draggable: false,
           rotation: 0,
           scaleX: 1,
           scaleY: 1,

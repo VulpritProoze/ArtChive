@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CanvasObject } from '@types';
 
 interface PropertiesPanelProps {
@@ -9,6 +9,7 @@ interface PropertiesPanelProps {
 export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelProps) {
   const [localValues, setLocalValues] = useState<Record<string, any>>({});
   const [isDragging, setIsDragging] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (selectedObjects.length === 1 && !isDragging) {
@@ -60,6 +61,7 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
     onUpdate(obj.id, { [key]: value });
     setIsDragging(false);
   };
+
 
   return (
     <div className="bg-base-200 flex flex-col h-full">
@@ -304,6 +306,7 @@ export function PropertiesPanel({ selectedObjects, onUpdate }: PropertiesPanelPr
             <div>
               <label className="label label-text text-xs font-semibold">Text</label>
               <textarea
+                ref={textareaRef}
                 className="textarea textarea-bordered textarea-xs w-full"
                 value={localValues.text || ''}
                 onChange={(e) => handleChange('text', e.target.value)}

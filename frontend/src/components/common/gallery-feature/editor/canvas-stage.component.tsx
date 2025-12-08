@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Text as KonvaText, Image as KonvaImage, Line, Group } from 'react-konva';
-import type { CanvasObject, ImageObject, FrameObject, SnapGuide } from '@types';
+import type { CanvasObject, ImageObject, FrameObject, SnapGuide, TextObject } from '@types';
 import { CanvasTransformer } from './canvas-transformer.component';
 import { snapPosition } from './utils/snap.util';
 import useImage from 'use-image';
@@ -28,6 +28,8 @@ interface CanvasStageProps {
   onAttachImageToFrame?: (imageId: string, frameId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
+  onTextEdit?: (textId: string) => void;
+  editingTextId?: string | null;
 }
 
 export function CanvasStage({
@@ -51,6 +53,8 @@ export function CanvasStage({
   onAttachImageToFrame,
   editorMode = 'move',
   isPreviewMode = false,
+  onTextEdit,
+  editingTextId: externalEditingTextId,
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -59,6 +63,10 @@ export function CanvasStage({
   const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  
+  // Use external editingTextId if provided, otherwise use internal state
+  const currentEditingTextId = externalEditingTextId !== undefined ? externalEditingTextId : editingTextId;
+  const setCurrentEditingTextId = onTextEdit || setEditingTextId;
   const [rotationInfo, setRotationInfo] = useState<{ angle: number; x: number; y: number; isSnapped: boolean } | null>(null);
   const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
   const [hoveredFrameId, setHoveredFrameId] = useState<string | null>(null);
@@ -247,8 +255,10 @@ export function CanvasStage({
 
   // Handle text editing
   const handleTextEdit = (textId: string, newText: string) => {
-    onUpdateObject(textId, { text: newText });
-    setEditingTextId(null);
+    onUpdateObject(textId, { 
+      text: newText
+    });
+    setCurrentEditingTextId(null);
   };
 
   return (
@@ -310,7 +320,7 @@ export function CanvasStage({
               onContextMenu={onContextMenu}
               editorMode={editorMode}
               isPreviewMode={isPreviewMode}
-              onTextEdit={setEditingTextId}
+              onTextEdit={setCurrentEditingTextId}
             />
           ))}
 
@@ -390,14 +400,14 @@ export function CanvasStage({
       </Stage>
 
       {/* Text Editing Overlay */}
-      {editingTextId && (
+      {currentEditingTextId && (
         <TextEditor
-          textObject={objects.find(obj => obj.id === editingTextId) as any}
+          textObject={objects.find(obj => obj.id === currentEditingTextId) as any}
           zoom={zoom}
           panX={panX}
           panY={panY}
           onSave={handleTextEdit}
-          onCancel={() => setEditingTextId(null)}
+          onCancel={() => setCurrentEditingTextId(null)}
         />
       )}
 
@@ -658,6 +668,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -680,23 +701,43 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
     case 'text':
+      const textObj = object as TextObject;
+      
+      // Calculate text height - approximate based on width and content
+      const fontSize = textObj.fontSize || 16;
+      const text = textObj.text || '';
+      let estimatedHeight = fontSize * 1.2; // Single line height
+      if (textObj.width && textObj.width > 0) {
+        // Estimate line count for wrapped text based on the fixed width
+        const avgCharWidth = fontSize * 0.6;
+        const charsPerLine = Math.floor(textObj.width / avgCharWidth);
+        const lineCount = charsPerLine > 0 ? Math.ceil(text.length / charsPerLine) : 1;
+        estimatedHeight = fontSize * 1.2 * lineCount;
+      } else {
+        // Single line
+        estimatedHeight = fontSize * 1.2;
+      }
+
       return (
-        <KonvaText
+        <Group
           id={object.id}
           x={object.x}
           y={object.y}
-          text={object.text}
-          fontSize={object.fontSize}
-          fontFamily={object.fontFamily}
-          fill={object.fill}
-          fontStyle={object.fontStyle}
-          textDecoration={object.textDecoration}
-          align={object.align}
-          width={object.width}
           rotation={object.rotation}
           scaleX={object.scaleX}
           scaleY={object.scaleY}
@@ -707,7 +748,47 @@ function CanvasObjectRenderer({
           onDblClick={() => onTextEdit?.(object.id)}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
-        />
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
+        >
+          {/* Invisible Rect to define Group bounds for transformer */}
+          {/* This ensures the transformer box matches the text dimensions */}
+          <Rect
+            name="text-bounds-rect"
+            x={0}
+            y={0}
+            width={textObj.width || Math.max(100, text.length * fontSize * 0.6)}
+            height={estimatedHeight}
+            fill="transparent"
+            listening={false}
+            perfectDrawEnabled={false}
+            hitStrokeWidth={0}
+          />
+          
+          {/* Render text */}
+          <KonvaText
+            text={textObj.text}
+            x={0}
+            y={0}
+            fontSize={object.fontSize}
+            fontFamily={object.fontFamily}
+            fill={object.fill || '#000000'}
+            fontStyle={object.fontStyle}
+            textDecoration={object.textDecoration}
+            align={object.align}
+            width={object.width}
+            listening={true}
+          />
+        </Group>
       );
 
     case 'image':
@@ -741,6 +822,7 @@ function CanvasObjectRenderer({
           previewImageId={previewImageId}
           setPreviewImageId={setPreviewImageId}
           onAttachImageToFrame={onAttachImageToFrame}
+          onContextMenu={onContextMenu}
         />
       );
 
@@ -765,6 +847,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         />
       );
 
@@ -799,6 +892,17 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, shapeObj.id);
+            }
+          }}
         />
       );
 
@@ -996,6 +1100,36 @@ function CanvasObjectRenderer({
                     listening={true}
                   />
                 );
+              case 'frame':
+                // Render frame using CanvasObjectRenderer recursively
+                // Frames in groups can still accept image drag-and-drop and be selected via layers panel
+                // Clicking frame in group will select the parent group (standard group behavior)
+                return (
+                  <CanvasObjectRenderer
+                    key={child.id}
+                    object={child}
+                    allObjects={allObjects}
+                    isSelected={selectedIds.includes(child.id)}
+                    selectedIds={selectedIds}
+                    onSelect={onSelect} // This will select parent group when clicked (standard group behavior)
+                    onUpdate={onUpdate}
+                    gridEnabled={gridEnabled}
+                    snapEnabled={snapEnabled}
+                    canvasWidth={canvasWidth}
+                    canvasHeight={canvasHeight}
+                    onSnapGuidesChange={onSnapGuidesChange}
+                    isTransforming={isTransforming}
+                    editorMode={editorMode}
+                    isPreviewMode={isPreviewMode}
+                    draggedImageId={draggedImageId}
+                    setDraggedImageId={setDraggedImageId}
+                    hoveredFrameId={hoveredFrameId}
+                    setHoveredFrameId={setHoveredFrameId}
+                    previewImageId={previewImageId}
+                    setPreviewImageId={setPreviewImageId}
+                    onAttachImageToFrame={onAttachImageToFrame}
+                  />
+                );
               case 'image':
                 // For images in groups, render simple placeholder
                 return (
@@ -1053,15 +1187,38 @@ function CanvasObjectRenderer({
           onTap={onSelect}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
+          onContextMenu={(e: any) => {
+            if (onContextMenu) {
+              e.evt.preventDefault();
+              const syntheticEvent = {
+                preventDefault: () => e.evt.preventDefault(),
+                clientX: e.evt.clientX,
+                clientY: e.evt.clientY,
+              } as React.MouseEvent;
+              onContextMenu(syntheticEvent, object.id);
+            }
+          }}
         >
           {/* Frame rectangle with dashed border */}
           <Rect
             width={object.width}
             height={object.height}
             fill={isHovered ? 'rgba(79, 70, 229, 0.2)' : (object.fill || 'rgba(200, 200, 255, 0.1)')}
-            stroke={isHovered ? '#6366F1' : (object.stroke || '#4F46E5')}
-            strokeWidth={isHovered ? 3 : (object.strokeWidth || 2)}
-            dash={object.dashEnabled !== false ? [10, 5] : undefined}
+            stroke={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? undefined // Hide border when strokeWidth is 0
+                : (isHovered ? '#6366F1' : (object.stroke || '#4F46E5'))
+            }
+            strokeWidth={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? 0 // Set to 0 when strokeWidth is 0
+                : (isHovered ? 3 : (object.strokeWidth || 2))
+            }
+            dash={
+              (object.strokeWidth === 0 || object.strokeWidth === undefined || object.strokeWidth === null)
+                ? undefined // No dash when border is hidden
+                : (object.dashEnabled !== false ? [10, 5] : undefined)
+            }
             cornerRadius={4}
           />
 
@@ -1224,6 +1381,7 @@ function ImageRenderer({
   hoveredFrameId,
   setPreviewImageId,
   onAttachImageToFrame,
+  onContextMenu,
 }: CanvasObjectRendererProps & {
   draggedImageId?: string | null;
   setDraggedImageId?: (id: string | null) => void;
@@ -1241,6 +1399,31 @@ function ImageRenderer({
     }
   };
 
+  // Helper function to recursively find frames and calculate their absolute positions
+  const findFramesRecursively = (objects: CanvasObject[], parentX = 0, parentY = 0): Array<{ frame: FrameObject; absX: number; absY: number }> => {
+    const frames: Array<{ frame: FrameObject; absX: number; absY: number }> = [];
+    
+    for (const obj of objects) {
+      if (obj.type === 'frame') {
+        frames.push({
+          frame: obj as FrameObject,
+          absX: parentX + obj.x,
+          absY: parentY + obj.y,
+        });
+      } else if (obj.type === 'group') {
+        // Recursively check children in groups
+        const groupFrames = findFramesRecursively(
+          obj.children || [],
+          parentX + obj.x,
+          parentY + obj.y
+        );
+        frames.push(...groupFrames);
+      }
+    }
+    
+    return frames;
+  };
+
   // Helper function to check frame overlap (needs access to allObjects from parent scope)
   const checkFrameOverlapForImage = (imageNode: any) => {
     if (!setHoveredFrameId || !setPreviewImageId || draggedImageId !== object.id) return;
@@ -1251,29 +1434,28 @@ function ImageRenderer({
     const imageWidth = imageNode.width() * (imageNode.scaleX() || 1);
     const imageHeight = imageNode.height() * (imageNode.scaleY() || 1);
 
+    // Find all frames (including those inside groups) with their absolute positions
+    const allFrames = findFramesRecursively(allObjects);
+    
     let foundFrame: string | null = null;
-    for (const obj of allObjects) {
-      if (obj.type === 'frame') {
-        const frameX = obj.x;
-        const frameY = obj.y;
-        const frameWidth = obj.width;
-        const frameHeight = obj.height;
+    for (const { frame, absX: frameX, absY: frameY } of allFrames) {
+      const frameWidth = frame.width;
+      const frameHeight = frame.height;
 
-        // AABB collision detection using canvas coordinates
-        const overlap =
-          imageX < frameX + frameWidth &&
-          imageX + imageWidth > frameX &&
-          imageY < frameY + frameHeight &&
-          imageY + imageHeight > frameY;
+      // AABB collision detection using absolute canvas coordinates
+      const overlap =
+        imageX < frameX + frameWidth &&
+        imageX + imageWidth > frameX &&
+        imageY < frameY + frameHeight &&
+        imageY + imageHeight > frameY;
 
-        if (overlap) {
-          foundFrame = obj.id;
-          // Set preview image ID when hovering over frame
-          if (draggedImageId) {
-            setPreviewImageId(draggedImageId);
-          }
-          break;
+      if (overlap) {
+        foundFrame = frame.id;
+        // Set preview image ID when hovering over frame
+        if (draggedImageId) {
+          setPreviewImageId(draggedImageId);
         }
+        break;
       }
     }
 
@@ -1392,6 +1574,17 @@ function ImageRenderer({
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
+      onContextMenu={(e: any) => {
+        if (onContextMenu) {
+          e.evt.preventDefault();
+          const syntheticEvent = {
+            preventDefault: () => e.evt.preventDefault(),
+            clientX: e.evt.clientX,
+            clientY: e.evt.clientY,
+          } as React.MouseEvent;
+          onContextMenu(syntheticEvent, object.id);
+        }
+      }}
     />
   );
 }

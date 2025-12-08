@@ -7,4 +7,5 @@ export { default as AvatarSelectorModal } from './avatar-selector-modal.componen
 export { default as AvatarRenderer } from './avatar-renderer.component';
 export { default as AvatarCustomizer } from './avatar-customizer.component';
 export * from './avatar-options';
+export type { AvatarAnimation } from './avatar-types';
 

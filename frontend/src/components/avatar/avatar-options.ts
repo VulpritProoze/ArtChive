@@ -23,7 +23,7 @@ export const defaultAvatarOptions: AvatarOptions = {
   nose: 'default',
   mouth: 'smile',
   hair: 'short',
-  hairColor: '#4A3728',
+  hairColor: 'brown',
   facialHair: 'none',
   accessories: 'none',
   clothing: 'casual',

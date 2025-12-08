@@ -1,13 +1,14 @@
 from rest_framework import serializers
+
 from avatar.models import Avatar
 
 
 class AvatarListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for listing avatars.
-    Excludes canvas_json for performance.
+    Serializer for listing avatars.
+    Includes canvas_json to enable preview rendering from avatarOptions.
     """
-    
+
     class Meta:
         model = Avatar
         fields = [
@@ -16,6 +17,7 @@ class AvatarListSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'is_primary',
+            'canvas_json',  # Include canvas_json for avatarOptions preview
             'rendered_image',
             'thumbnail',
             'created_at',
@@ -29,7 +31,7 @@ class AvatarDetailSerializer(serializers.ModelSerializer):
     Full serializer for avatar details including canvas data.
     Used for create, retrieve, and update operations.
     """
-    
+
     class Meta:
         model = Avatar
         fields = [
@@ -50,8 +52,9 @@ class AvatarDetailSerializer(serializers.ModelSerializer):
 class AvatarCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating new avatars.
+    Accepts canvas_json as either dict or JSON string (will be parsed in view).
     """
-    
+
     class Meta:
         model = Avatar
         fields = [
@@ -60,30 +63,52 @@ class AvatarCreateSerializer(serializers.ModelSerializer):
             'canvas_json',
             'status',
         ]
-    
+
     def validate_canvas_json(self, value):
         """Validate canvas JSON structure"""
+        # Value should already be a dict at this point (parsed in view)
         if value:
+            # Handle case where value might still be a string (shouldn't happen, but just in case)
+            if isinstance(value, str):
+                import json
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    raise serializers.ValidationError("Canvas JSON must be valid JSON")
+
+            # Ensure it's a dict
+            if not isinstance(value, dict):
+                raise serializers.ValidationError("Canvas JSON must be a dictionary")
+
             # Ensure required keys exist
             if 'width' not in value or 'height' not in value:
                 raise serializers.ValidationError(
                     "Canvas JSON must contain 'width' and 'height'"
                 )
-            
+
             # Validate fixed dimensions
             if value.get('width') != 512 or value.get('height') != 512:
                 raise serializers.ValidationError(
                     "Avatar canvas must be 512x512 pixels"
                 )
-        
+
+            # Validate animation field if present
+            if 'animation' in value:
+                valid_animations = ['wave', 'dance', 'bounce', 'pulse', 'spin', 'wiggle', 'celebration', 'none']
+                if value.get('animation') not in valid_animations:
+                    raise serializers.ValidationError(
+                        f"Animation must be one of: {', '.join(valid_animations)}"
+                    )
+
         return value
 
 
 class AvatarUpdateSerializer(serializers.ModelSerializer):
     """
     Serializer for updating existing avatars.
+    Accepts canvas_json as either dict or JSON string (will be parsed in view).
     """
-    
+
     class Meta:
         model = Avatar
         fields = [
@@ -92,21 +117,42 @@ class AvatarUpdateSerializer(serializers.ModelSerializer):
             'canvas_json',
             'status',
         ]
-    
+
     def validate_canvas_json(self, value):
         """Validate canvas JSON structure"""
+        # Value should already be a dict at this point (parsed in view)
         if value:
+            # Handle case where value might still be a string (shouldn't happen, but just in case)
+            if isinstance(value, str):
+                import json
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    raise serializers.ValidationError("Canvas JSON must be valid JSON")
+
+            # Ensure it's a dict
+            if not isinstance(value, dict):
+                raise serializers.ValidationError("Canvas JSON must be a dictionary")
+
             # Ensure required keys exist
             if 'width' not in value or 'height' not in value:
                 raise serializers.ValidationError(
                     "Canvas JSON must contain 'width' and 'height'"
                 )
-            
+
             # Validate fixed dimensions
             if value.get('width') != 512 or value.get('height') != 512:
                 raise serializers.ValidationError(
                     "Avatar canvas must be 512x512 pixels"
                 )
-        
+
+            # Validate animation field if present
+            if 'animation' in value:
+                valid_animations = ['wave', 'dance', 'bounce', 'pulse', 'spin', 'wiggle', 'celebration', 'none']
+                if value.get('animation') not in valid_animations:
+                    raise serializers.ValidationError(
+                        f"Animation must be one of: {', '.join(valid_animations)}"
+                    )
+
         return value
 
