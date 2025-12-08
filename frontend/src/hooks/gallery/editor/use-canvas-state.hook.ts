@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { CanvasObject, EditorState, Command, ImageObject } from '@types';
+import type { CanvasObject, EditorState, Command, ImageObject, FrameObject } from '@types';
 import { useUndoRedo } from './use-undo-redo.hook';
 import { galleryService } from '@services/gallery.service';
 
@@ -840,8 +840,6 @@ export function useCanvasState({
       return;
     }
 
-    // Store old state for undo
-    const oldFrameChildren = frame.children;
     const imageObj = attachedImage as ImageObject;
     
     // Calculate absolute position: frame absolute position + image's relative position within frame

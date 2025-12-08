@@ -3,7 +3,6 @@ import type { AvatarOptions } from './avatar-options';
 import {
   skinTones,
   faceShapes,
-  eyeStyles,
   hairColors,
   clothingStyles,
 } from './avatar-options';
@@ -50,11 +49,6 @@ const AvatarRenderer = forwardRef<SVGSVGElement, AvatarRendererProps>(({
   const mouthY = center + (faceHeight * 0.22);
   const hairY = center - (faceHeight * 0.42);
   const earOffset = faceWidth * 0.48;
-
-  // Eye style properties
-  const eyeStyle = eyeStyles[options.eyes as keyof typeof eyeStyles] || eyeStyles.default;
-  const eyeSize = eyeStyle.size;
-  const eyeShape = eyeStyle.shape;
 
   // Get darker shade for shadows
   const darkerSkin = `color-mix(in srgb, ${skinColor} 85%, black)`;

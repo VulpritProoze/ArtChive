@@ -900,7 +900,7 @@ function CanvasObjectRenderer({
                 clientX: e.evt.clientX,
                 clientY: e.evt.clientY,
               } as React.MouseEvent;
-              onContextMenu(syntheticEvent, object.id);
+              onContextMenu(syntheticEvent, shapeObj.id);
             }
           }}
         />

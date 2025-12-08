@@ -6,7 +6,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';
 import type { AvatarOptions } from './avatar-options';
-import { defaultAvatarOptions } from './avatar-options';
 import type { AvatarAnimation } from './avatar-types';
 import './avatar-animations.css';
 

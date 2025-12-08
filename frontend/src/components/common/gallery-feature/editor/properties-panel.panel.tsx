@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { CanvasObject, TextObject } from '@types';
+import type { CanvasObject } from '@types';
 
 interface PropertiesPanelProps {
   selectedObjects: CanvasObject[];

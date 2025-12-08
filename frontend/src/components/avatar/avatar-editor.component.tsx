@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '@components/common/layout';
 import { useAvatar, useCreateAvatar, useUpdateAvatar } from '@hooks/queries/use-avatar';
-import type { CreateAvatarData, UpdateAvatarData } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft, faDownload } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';

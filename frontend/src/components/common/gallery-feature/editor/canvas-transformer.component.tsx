@@ -143,7 +143,7 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
           
           // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
           // Note: lines and text don't have height-based aspect ratios, so exclude them
-          if (isShiftPressed && obj && 'width' in obj && 'height' in obj && obj.type !== 'text') {
+          if (isShiftPressed && obj && 'width' in obj && 'height' in obj && (obj.type === 'image' || obj.type === 'rect' || obj.type === 'frame' || obj.type === 'gallery-item' || obj.type === 'group')) {
             const originalAspect = obj.width / obj.height;
             const currentWidth = node.width() * (node.scaleX() || 1);
             const currentHeight = node.height() * (node.scaleY() || 1);
@@ -295,7 +295,7 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       }
       // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
       // Note: lines and text are already handled above, so exclude them
-      else if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject && currentObject.type !== 'text') {
+      else if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject && (currentObject.type === 'image' || currentObject.type === 'rect' || currentObject.type === 'frame' || currentObject.type === 'gallery-item' || currentObject.type === 'group')) {
         // Maintain aspect ratio using average scale
         const avgScale = (scaleX + scaleY) / 2;
         updates.width = Math.max(5, currentObject.width * avgScale);
