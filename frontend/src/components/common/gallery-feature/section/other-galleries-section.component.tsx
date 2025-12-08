@@ -149,6 +149,13 @@ export const OtherGalleriesSection = ({
               {/* Title - always visible */}
               <h3 className="font-bold text-xs mb-1 truncate text-white">{gallery.title}</h3>
               
+              {/* Description - always visible, truncated to one line */}
+              {gallery.description && (
+                <p className="text-[10px] opacity-80 mb-1 truncate text-white">
+                  {gallery.description}
+                </p>
+              )}
+              
               {/* Additional details - only visible on hover */}
               {isHovered && (
                 <>
