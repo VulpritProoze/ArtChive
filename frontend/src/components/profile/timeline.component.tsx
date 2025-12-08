@@ -20,9 +20,14 @@ import AvatarTabContent from '@components/avatar/avatar-tab-content.component';
 import { useQuery } from '@tanstack/react-query';
 import { userService } from '@services/user.service';
 import { galleryService } from '@services/gallery.service';
+import { avatarService } from '@services/avatar.service';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { formatNumber } from '@utils/format-number.util';
 import { useUserCollectives } from '@hooks/queries/use-collective-data';
+import '@components/avatar/avatar-no-background.css';
+import AvatarRenderer from '@components/avatar/avatar-renderer.component';
+import type { AvatarOptions } from '@components/avatar/avatar-options';
+import { defaultAvatarOptions } from '@components/avatar/avatar-options';
 
 const Timeline: React.FC = () => {
   const { username: usernameParam } = useParams<{ username: string }>();
@@ -78,8 +83,27 @@ const Timeline: React.FC = () => {
   const [otherTabsDropdownOpen, setOtherTabsDropdownOpen] = useState(false);
   const [isGalleryDropdownOpen, setIsGalleryDropdownOpen] = useState(false);
   const [hasActiveGallery, setHasActiveGallery] = useState<boolean | null>(null);
+  const [isHoveringProfile, setIsHoveringProfile] = useState(false);
   const otherTabsDropdownRef = useRef<HTMLDivElement>(null);
   const galleryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch primary avatar for hover effect
+  const { data: primaryAvatarData } = useQuery({
+    queryKey: ['user-primary-avatar', profileUser?.id],
+    queryFn: () => {
+      if (!profileUser?.id) throw new Error('User ID is required');
+      return avatarService.getPrimaryAvatarByUserId(profileUser.id);
+    },
+    enabled: Boolean(profileUser?.id),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Debug logging
+  React.useEffect(() => {
+    if (isHoveringProfile) {
+      console.log('Hovering profile, avatar data:', primaryAvatarData);
+    }
+  }, [isHoveringProfile, primaryAvatarData]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -219,7 +243,7 @@ const Timeline: React.FC = () => {
     return (
       <MainLayout showRightSidebar={false}>
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300">
+          <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300 overflow-visible">
             <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
               {/* Profile Picture Skeleton */}
               <div className="avatar">
@@ -328,19 +352,101 @@ const Timeline: React.FC = () => {
       {showCommentForm && <CommentFormModal />}
 
       <div className="mb-6">
-        <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300">
-          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-            <div className="relative group">
-              <div className="avatar">
-                <div className="w-32 h-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4 shadow-xl group-hover:ring-secondary transition-all duration-300">
+        <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300 overflow-visible">
+            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+            <div 
+              className="relative group"
+              style={{ 
+                width: '128px', 
+                height: '128px',
+                flexShrink: 0, // Prevent layout shift
+              }}
+              onMouseEnter={() => {
+                console.log('Mouse enter - setting hover to true');
+                console.log('Primary avatar data:', primaryAvatarData);
+                setIsHoveringProfile(true);
+              }}
+              onMouseLeave={() => {
+                console.log('Mouse leave - setting hover to false');
+                setIsHoveringProfile(false);
+              }}
+            >
+              {/* Animated Avatar (behind profile picture, tilted 45 degrees, positioned top-right) */}
+              {primaryAvatarData?.has_primary_avatar && primaryAvatarData.canvas_json && (
+                <div 
+                  className="absolute pointer-events-none transition-all duration-500 ease-out" 
+                  style={{ 
+                    zIndex: 0,
+                    width: '128px',
+                    height: '128px',
+                    top: isHoveringProfile ? '-30px' : '-10px',
+                    right: isHoveringProfile ? '-100px' : '-20px',
+                    transform: `rotate(45deg) scale(${isHoveringProfile ? 1 : 0.8})`,
+                    transformOrigin: 'center',
+                    opacity: isHoveringProfile ? 1 : 0,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {(() => {
+                    // Extract avatarOptions from canvas_json and merge with defaults to ensure all fields exist
+                    const canvasJson = primaryAvatarData.canvas_json;
+                    const avatarOptions: AvatarOptions = {
+                      ...defaultAvatarOptions,
+                      ...(canvasJson?.avatarOptions || {}),
+                    };
+                    
+                    // Remove background for hover display
+                    const avatarOptionsNoBg: AvatarOptions = {
+                      ...avatarOptions,
+                      background: 'transparent',
+                    };
+                    
+                    // Get animation from server response (already extracted from canvas_json)
+                    const animation = primaryAvatarData.animation || 'none';
+                    
+                    return (
+                      <div 
+                        className="relative w-full"
+                        style={{
+                          width: '128px',
+                          height: '128px',
+                        }}
+                      >
+                        <div 
+                          className="absolute inset-0 flex items-center justify-center transition-transform duration-300"
+                          style={{
+                            aspectRatio: '1 / 1',
+                          }}
+                        >
+                          <AvatarRenderer
+                            options={avatarOptionsNoBg}
+                            size={512}
+                            animation={animation as any}
+                            className="w-full h-full rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              
+              {/* Profile Picture (on top, stays fully visible) */}
+              <div 
+                className="avatar relative" 
+                style={{ 
+                  zIndex: 10,
+                }}
+              >
+                <div className="w-32 h-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-4 shadow-xl group-hover:ring-secondary transition-all duration-300 bg-base-100">
                   <img
                     src={profileUser?.profile_picture || '/static_img/default-pic-min.jpg'}
                     alt="profile avatar"
-                    className="object-cover"
+                    className="object-cover w-full h-full"
                   />
                 </div>
               </div>
-              <div className="absolute bottom-2 right-2 w-4 h-4 bg-success rounded-full border-2 border-base-100" />
+              <div className="absolute bottom-2 right-2 w-4 h-4 bg-success rounded-full border-2 border-base-100" style={{ zIndex: 20 }} />
             </div>
 
             <div className="flex-1 text-center lg:text-left">

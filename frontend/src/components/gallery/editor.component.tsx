@@ -32,6 +32,7 @@ export default function GalleryEditor() {
   const [isResizing, setIsResizing] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
   const shapesButtonRef = useRef<HTMLButtonElement>(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   const navigate = useNavigate()
 
@@ -99,7 +100,6 @@ export default function GalleryEditor() {
 
   const handleAddImage = useCallback((url: string) => {
     if (!url || typeof url !== 'string') {
-      console.error('Invalid image URL:', url);
       toast.error('Invalid image URL', 'The uploaded image URL is invalid');
       return;
     }
@@ -152,8 +152,7 @@ export default function GalleryEditor() {
       toast.success('Image added', 'Your image has been added to the canvas');
     };
     
-    img.onerror = (error) => {
-      console.error('Image load error:', error, 'URL:', url);
+    img.onerror = () => {
       toast.error('Failed to load image', 'The image URL could not be loaded. Please check if the image is accessible.');
     };
     
@@ -464,48 +463,56 @@ export default function GalleryEditor() {
         className="h-screen flex flex-col bg-base-100"
         style={{ cursor: isResizing ? 'ew-resize' : 'default' }}
       >
-      {/* Toolbar */}
-      <Toolbar
-        onAddText={handleAddText}
-        onAddImage={handleAddImage}
-        onUndo={editorState.undo}
-        onRedo={editorState.redo}
-        onToggleGrid={editorState.toggleGrid}
-        onToggleSnap={editorState.toggleSnap}
-        onGroup={handleGroup}
-        onUngroup={handleUngroup}
-        onSetMode={setEditorMode}
-        onDeselectAll={() => {
-          editorState.clearSelection();
-          setEditorMode('move');
-        }}
-        onOpenMenu={() => setShowHamburgerMenu(true)}
-        onToggleShapes={() => setShowShapes(!showShapes)}
-        onSave={async () => {
-          try {
-            await editorState.save();
-            toast.success('Gallery saved', 'Your changes have been saved');
-          } catch (error) {
-            toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
-          }
-        }}
-        showShapes={showShapes}
-        shapesButtonRef={shapesButtonRef}
-        canGroup={canGroup}
-        canUngroup={canUngroup}
-        canUndo={editorState.canUndo}
-        canRedo={editorState.canRedo}
-        isPreviewMode={isPreviewMode}
-        editorMode={editorMode}
-        gridEnabled={editorState.gridEnabled}
-        snapEnabled={editorState.snapEnabled}
-        hasSelection={editorState.selectedIds.length > 0}
-        hasUnsavedChanges={editorState.hasUnsavedChanges}
-        isSaving={editorState.isSaving}
-      />
-
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div 
+        className="flex-1 flex flex-col overflow-hidden relative min-h-0"
+      >
+        {/* Toolbar */}
+        <div className="bg-base-200 border-b border-base-300 flex-shrink-0">
+          <Toolbar
+          onAddText={handleAddText}
+          onAddImage={handleAddImage}
+          onUndo={editorState.undo}
+          onRedo={editorState.redo}
+          onToggleGrid={editorState.toggleGrid}
+          onToggleSnap={editorState.toggleSnap}
+          onGroup={handleGroup}
+          onUngroup={handleUngroup}
+          onSetMode={setEditorMode}
+          onDeselectAll={() => {
+            editorState.clearSelection();
+            setEditorMode('move');
+          }}
+          onOpenMenu={() => setShowHamburgerMenu(true)}
+          onToggleShapes={() => setShowShapes(!showShapes)}
+          onUpdateObject={editorState.updateObject}
+          selectedObjects={selectedObjects}
+          onSave={async () => {
+            try {
+              await editorState.save();
+              toast.success('Gallery saved', 'Your changes have been saved');
+            } catch (error) {
+              toast.error('Failed to save gallery', 'An error occurred while saving your gallery');
+            }
+          }}
+          showShapes={showShapes}
+          shapesButtonRef={shapesButtonRef}
+          canGroup={canGroup}
+          canUngroup={canUngroup}
+          canUndo={editorState.canUndo}
+          canRedo={editorState.canRedo}
+          isPreviewMode={isPreviewMode}
+          editorMode={editorMode}
+          gridEnabled={editorState.gridEnabled}
+          snapEnabled={editorState.snapEnabled}
+          hasSelection={editorState.selectedIds.length > 0}
+          hasUnsavedChanges={editorState.hasUnsavedChanges}
+          isSaving={editorState.isSaving}
+          />
+        </div>
+
+        {/* Canvas and Sidebars Container */}
+        <div className="flex-1 flex overflow-hidden relative min-h-0">
         {/* Left Sidebar - Toggle Panels */}
         {!isPreviewMode && (
           <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 shrink-0">
@@ -569,6 +576,8 @@ export default function GalleryEditor() {
             onAttachImageToFrame={editorState.attachImageToFrame}
             editorMode={editorMode}
             isPreviewMode={isPreviewMode}
+            onTextEdit={setEditingTextId}
+            editingTextId={editingTextId}
           />
 
           {/* Zoom indicator */}
@@ -663,6 +672,7 @@ export default function GalleryEditor() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* Template Library Modal */}

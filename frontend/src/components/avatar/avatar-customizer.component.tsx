@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faDice, faUndo, faEye, faEyebrow, faNose, faSmile, faUserCircle, faTshirt, faPalette } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faDice, faUndo, faPalette } from '@fortawesome/free-solid-svg-icons';
 import type { AvatarOptions } from './avatar-options';
 import {
   AVATAR_CATEGORIES,
@@ -8,14 +8,6 @@ import {
   skinTones,
   hairColors,
   clothingStyles,
-  faceShapes,
-  eyeStyles,
-  eyebrowStyles,
-  noseStyles,
-  mouthStyles,
-  hairStyles,
-  facialHairStyles,
-  accessories,
 } from './avatar-options';
 
 interface AvatarCustomizerProps {
@@ -138,7 +130,7 @@ const AvatarCustomizer: React.FC<AvatarCustomizerProps> = ({
                   className="w-12 h-12 rounded-full shadow-inner"
                   style={{ backgroundColor: style.color }}
                 />
-                <span className="text-sm font-medium text-center leading-tight break-words">{style.label}</span>
+                <span className="text-sm font-medium text-center leading-tight break-words">{style.description}</span>
               </button>
             ))}
           </div>

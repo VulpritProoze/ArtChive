@@ -64,15 +64,23 @@ class GalleryAwardCreateSerializer(serializers.ModelSerializer):
                 "You cannot award your own gallery"
             )
 
-        # Check if user already awarded this gallery
-        # if (
-        #     user and
-        #     gallery and
-        #     GalleryAward.objects.filter(gallery_id=gallery, author=user, is_deleted=False).exists()
-        # ):
-        #     raise serializers.ValidationError(
-        #         "You have already awarded this gallery"
-        #     )
+        # Check if user already awarded this gallery with the same award type
+        if user and gallery and award_type_name:
+            # Get the AwardType object for the award type name
+            try:
+                award_type_obj = AwardType.objects.get(award=award_type_name)
+                if GalleryAward.objects.filter(
+                    gallery_id=gallery,
+                    author=user,
+                    gallery_award_type=award_type_obj,
+                    is_deleted=False
+                ).exists():
+                    raise serializers.ValidationError(
+                        f"You have already awarded this gallery with {award_type_name}"
+                    )
+            except AwardType.DoesNotExist:
+                # AwardType validation should have caught this, but handle gracefully
+                pass
 
         # Check if user has sufficient Brush Drips
         if user:

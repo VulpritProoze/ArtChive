@@ -1,0 +1,19 @@
+/* Avatar without background - CSS filters to remove white/light backgrounds */
+
+.avatar-no-bg {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+}
+
+.avatar-no-bg img {
+  /* Use blend mode to remove white backgrounds */
+  mix-blend-mode: multiply;
+  /* Enhance contrast to make edges cleaner */
+  filter: contrast(1.15) brightness(1.05);
+  /* Use circular mask to ensure clean edges */
+  mask-image: radial-gradient(circle, black 75%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle, black 75%, transparent 100%);
+  mask-size: cover;
+  -webkit-mask-size: cover;
+}

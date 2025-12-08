@@ -13,9 +13,6 @@ import {
   faEllipsisV,
   faEye
 } from '@fortawesome/free-solid-svg-icons';
-import AvatarRenderer from './avatar-renderer.component';
-import type { AvatarOptions } from './avatar-options';
-import { defaultAvatarOptions } from './avatar-options';
 
 const AvatarListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -179,7 +176,7 @@ const AvatarListPage: React.FC = () => {
         ) : (
           <>
             {/* Stats */}
-            <div className="stats shadow mb-6 border border-base-300">
+            {/* <div className="stats shadow mb-6 border border-base-300">
               <div className="stat">
                 <div className="stat-title">Total Avatars</div>
                 <div className="stat-value text-primary">{avatars.length}</div>
@@ -196,20 +193,27 @@ const AvatarListPage: React.FC = () => {
                   {avatars.filter((a) => a.status === 'draft').length}
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Avatar Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {avatars.map((avatar) => {
-                // Extract saved avatarOptions from canvas_json
-                // The structure should be: canvas_json.avatarOptions
-                const canvasJson = avatar.canvas_json as any;
-                const savedOptions = canvasJson?.avatarOptions as AvatarOptions | undefined;
+                // Prioritize thumbnail over rendered_image
+                const imageSrc = avatar.thumbnail || avatar.rendered_image;
                 
-                // Debug logging to help troubleshoot
-                if (!savedOptions && canvasJson) {
-                  console.warn('Avatar has canvas_json but no avatarOptions:', avatar.name, canvasJson);
-                }
+                // Generate a consistent color based on avatar ID
+                const getPlaceholderColor = (avatarId: string): string => {
+                  let hash = 0;
+                  for (let i = 0; i < avatarId.length; i++) {
+                    hash = avatarId.charCodeAt(i) + ((hash << 5) - hash);
+                  }
+                  const hue = Math.abs(hash % 360);
+                  const saturation = 60 + (Math.abs(hash) % 20);
+                  const lightness = 50 + (Math.abs(hash) % 15);
+                  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                };
+                
+                const placeholderColor = getPlaceholderColor(avatar.avatar_id);
                 
                 return (
                 <div
@@ -217,29 +221,23 @@ const AvatarListPage: React.FC = () => {
                   onClick={() => handleCardClick(avatar.avatar_id)}
                   className="card bg-base-200 border border-base-300 hover:border-primary transition-all duration-300 group hover:shadow-xl cursor-pointer"
                 >
-                  <figure className="px-6 pt-6 bg-base-100 rounded-lg flex items-center justify-center min-h-[16rem] transition-all duration-300 group-hover:bg-base-200" style={{ aspectRatio: '1 / 1' }}>
-                    {savedOptions ? (
-                      // Always render from saved avatarOptions - this shows the actual design the user created
-                      <div className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 p-4">
-                        <AvatarRenderer
-                          options={savedOptions}
-                          size={256}
-                          className="rounded-lg w-full h-full"
-                        />
-                      </div>
-                    ) : avatar.rendered_image || avatar.thumbnail ? (
-                      // Fallback to rendered image if no options saved
+                  <figure 
+                    className="px-6 pt-6 bg-base-100 rounded-lg flex items-center justify-center min-h-[16rem] transition-all duration-300 group-hover:bg-base-200" 
+                    style={{ 
+                      aspectRatio: '1 / 1',
+                      backgroundColor: !imageSrc ? placeholderColor : undefined
+                    }}
+                  >
+                    {imageSrc ? (
                       <img
-                        src={avatar.thumbnail || avatar.rendered_image}
+                        src={imageSrc}
                         alt={avatar.name}
                         className="rounded-lg w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
-                      // No preview available - show placeholder
-                      <div className="flex flex-col items-center justify-center text-base-content/30 py-8">
-                        <div className="text-6xl mb-2">🎭</div>
-                        <p className="text-sm">No Preview</p>
-                        <p className="text-xs mt-2 text-base-content/40">Edit to see preview</p>
+                      <div className="flex flex-col items-center justify-center text-white/80 py-8">
+                        <div className="text-6xl mb-2">👤</div>
+                        <p className="text-sm font-medium">No Image</p>
                       </div>
                     )}
                   </figure>
@@ -412,32 +410,44 @@ const AvatarListPage: React.FC = () => {
                 const avatar = avatars?.find(a => a.avatar_id === previewAvatar);
                 if (!avatar) return null;
 
-                // Get saved avatarOptions from canvas_json
-                const canvasJson = avatar.canvas_json as any;
-                const savedOptions = canvasJson?.avatarOptions as AvatarOptions | undefined;
+                // Prioritize thumbnail over rendered_image
+                const imageSrc = avatar.thumbnail || avatar.rendered_image;
+                
+                // Generate placeholder color
+                const getPlaceholderColor = (avatarId: string): string => {
+                  let hash = 0;
+                  for (let i = 0; i < avatarId.length; i++) {
+                    hash = avatarId.charCodeAt(i) + ((hash << 5) - hash);
+                  }
+                  const hue = Math.abs(hash % 360);
+                  const saturation = 60 + (Math.abs(hash) % 20);
+                  const lightness = 50 + (Math.abs(hash) % 15);
+                  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                };
+                
+                const placeholderColor = getPlaceholderColor(avatar.avatar_id);
 
                 return (
                   <div className="space-y-4">
                     {/* Large Preview */}
-                    <div className="bg-base-200 rounded-xl p-6 flex items-center justify-center border border-base-300" style={{ aspectRatio: '1 / 1' }}>
-                      {savedOptions ? (
-                        // Always prefer rendering from saved options to show actual design
-                        <AvatarRenderer
-                          options={savedOptions}
-                          size={400}
-                          className="rounded-lg w-full h-full"
-                        />
-                      ) : avatar.rendered_image || avatar.thumbnail ? (
+                    <div 
+                      className="bg-base-200 rounded-xl p-6 flex items-center justify-center border border-base-300" 
+                      style={{ 
+                        aspectRatio: '1 / 1',
+                        backgroundColor: !imageSrc ? placeholderColor : undefined
+                      }}
+                    >
+                      {imageSrc ? (
                         <img
-                          src={avatar.thumbnail || avatar.rendered_image}
+                          src={imageSrc}
                           alt={avatar.name}
                           className="rounded-lg w-full h-full object-contain"
                         />
                       ) : (
-                        <div className="text-center text-base-content/50">
-                          <div className="text-6xl mb-4">🎭</div>
-                          <p className="text-lg">No Avatar Data</p>
-                          <p className="text-sm mt-2">Edit this avatar to customize it</p>
+                        <div className="text-center text-white/80">
+                          <div className="text-6xl mb-4">👤</div>
+                          <p className="text-lg font-medium">No Image</p>
+                          <p className="text-sm mt-2">Edit this avatar to generate a thumbnail</p>
                         </div>
                       )}
                     </div>

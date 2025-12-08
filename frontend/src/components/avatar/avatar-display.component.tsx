@@ -6,7 +6,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
 import AvatarRenderer from './avatar-renderer.component';
 import type { AvatarOptions } from './avatar-options';
-import { defaultAvatarOptions } from './avatar-options';
+import type { AvatarAnimation } from './avatar-types';
+import './avatar-animations.css';
 
 interface AvatarDisplayProps {
   userId?: number;
@@ -14,6 +15,8 @@ interface AvatarDisplayProps {
   className?: string;
   fallbackSrc?: string;
   showRing?: boolean;
+  animation?: AvatarAnimation;
+  animateOnHover?: boolean;
 }
 
 const sizeClasses = {
@@ -55,6 +58,8 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
   className = '',
   fallbackSrc,
   showRing = false,
+  animation = 'none',
+  animateOnHover = false,
 }) => {
   const { user: currentUser } = useAuth();
   
@@ -86,12 +91,21 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
   // Determine what to display
   const displaySrc = avatarSrc || fallbackSrc;
 
+  // Build animation class
+  const animationClass = React.useMemo(() => {
+    if (animation === 'none') return '';
+    if (animateOnHover) {
+      return `avatar-hover-${animation}`;
+    }
+    return `avatar-${animation}`;
+  }, [animation, animateOnHover]);
+
   return (
     <div className={`avatar ${showRing ? 'avatar-ring' : ''} ${className}`}>
       <div
         className={`${sizeClasses[size]} rounded-full bg-base-300 overflow-hidden ${
           showRing ? 'ring ring-primary ring-offset-base-100 ring-offset-2' : ''
-        }`}
+        } ${animationClass}`}
       >
         {displaySrc ? (
           <img

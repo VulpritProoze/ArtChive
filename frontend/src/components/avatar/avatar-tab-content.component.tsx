@@ -70,18 +70,18 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
     <div className="space-y-6">
       {/* Quick Actions (Own Profile Only) */}
       {isOwnProfile && (
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h3 className="text-xl font-semibold">Your Avatars</h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <button
               onClick={() => navigate('/avatar')}
-              className="btn btn-sm btn-outline"
+              className="btn btn-sm btn-outline flex-1 sm:flex-none"
             >
               Manage All
             </button>
             <button
               onClick={() => navigate('/avatar/create')}
-              className="btn btn-sm btn-primary gap-2"
+              className="btn btn-sm btn-primary gap-2 flex-1 sm:flex-none"
             >
               <FontAwesomeIcon icon={faPlus} />
               Create New
@@ -91,15 +91,18 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
       )}
 
       {/* Avatar Grid - Circular Preview Style */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 justify-items-center">
         {avatars.map((avatar: Avatar) => (
-          <AvatarPreview
-            key={avatar.avatar_id}
-            avatar={avatar}
-            size="lg"
-            onClick={() => isOwnProfile && navigate(`/avatar/${avatar.avatar_id}/edit`)}
-            showPrimaryBadge={true}
-          />
+          <div key={avatar.avatar_id} className="w-full flex justify-center">
+            <AvatarPreview
+              avatar={avatar}
+              size="lg"
+              onClick={() => isOwnProfile && navigate(`/avatar/${avatar.avatar_id}/edit`)}
+              showPrimaryBadge={true}
+              animation={avatar.is_primary ? "wave" : "none"}
+              animateOnHover={true}
+            />
+          </div>
         ))}
       </div>
     </div>

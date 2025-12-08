@@ -23,32 +23,17 @@ const MyGalleries = () => {
 
   // Load galleries on mount
   useEffect(() => {
-    console.log('[GalleryIndex] Component mounted, calling loadGalleries()');
     loadGalleries();
   }, []);
 
   const loadGalleries = async () => {
-    console.log('[GalleryIndex] loadGalleries() called');
-    console.log('[GalleryIndex] Setting isLoading to true');
-
     try {
       setIsLoading(true);
-      console.log('[GalleryIndex] Calling galleryService.listGalleries()');
-
       const data = await galleryService.userListGalleries();
-
-      console.log('[GalleryIndex] Received galleries:', {
-        count: data.length,
-        galleries: data,
-      });
-
       setGalleries(data);
-      console.log('[GalleryIndex] Galleries state updated');
     } catch (error) {
-      console.error('[GalleryIndex] Failed to load galleries:', error);
       toast.error('Failed to load galleries', 'An error occurred while loading your galleries');
     } finally {
-      console.log('[GalleryIndex] Setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -69,7 +54,6 @@ const MyGalleries = () => {
       // Navigate to the editor for the new gallery
       navigate(`/gallery/${created.gallery_id}/editor`);
     } catch (error) {
-      console.error('Failed to create gallery:', error);
       toast.error('Failed to create gallery', 'An error occurred while creating your gallery');
       throw error; // Re-throw so modal can handle it
     }
@@ -85,7 +69,6 @@ const MyGalleries = () => {
       toast.success('Gallery deleted', 'Your gallery has been deleted successfully');
       loadGalleries(); // Reload the list
     } catch (error) {
-      console.error('Failed to delete gallery:', error);
       const message = handleApiError(error, undefined, true, true)
       toast.error('Failed to delete gallery', formatErrorForToast(message));
     }
@@ -128,18 +111,10 @@ const MyGalleries = () => {
       setShowPublishModal(false);
       loadGalleries(); // Refresh list
     } catch (error) {
-      console.error('Failed to publish gallery:', error);
       toast.error('Failed to publish gallery', 'An error occurred while publishing your gallery');
       throw error; // Re-throw so modal can handle it
     }
   };
-
-  // Log render state
-  console.log('[GalleryIndex] Rendering with state:', {
-    isLoading,
-    galleriesCount: galleries.length,
-    galleries,
-  });
 
   return (
     <MainLayout showRightSidebar={false}>

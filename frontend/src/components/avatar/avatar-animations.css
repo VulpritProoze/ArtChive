@@ -1,0 +1,177 @@
+/* Avatar Animation Styles */
+
+/* Wave Animation - Rotates avatar side to side like waving */
+@keyframes avatar-wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-15deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+
+.avatar-wave {
+  animation: avatar-wave 0.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* Dance Animation - Bounces and rotates */
+@keyframes avatar-dance {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+}
+
+.avatar-dance {
+  animation: avatar-dance 0.6s ease-in-out infinite;
+}
+
+/* Bounce Animation - Vertical bounce */
+@keyframes avatar-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.avatar-bounce {
+  animation: avatar-bounce 0.8s ease-in-out infinite;
+}
+
+/* Pulse Animation - Scale in and out */
+@keyframes avatar-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.avatar-pulse {
+  animation: avatar-pulse 1s ease-in-out infinite;
+}
+
+/* Spin Animation - Full rotation */
+@keyframes avatar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.avatar-spin {
+  animation: avatar-spin 1s linear infinite;
+}
+
+/* Wiggle Animation - Small random movements */
+@keyframes avatar-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-3deg);
+  }
+  20% {
+    transform: rotate(3deg);
+  }
+  30% {
+    transform: rotate(-3deg);
+  }
+  40% {
+    transform: rotate(3deg);
+  }
+  50% {
+    transform: rotate(0deg);
+  }
+}
+
+.avatar-wiggle {
+  animation: avatar-wiggle 0.5s ease-in-out infinite;
+}
+
+/* Celebration Animation - Jump and spin combo */
+@keyframes avatar-celebration {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-20px) rotate(90deg) scale(1.1);
+  }
+  50% {
+    transform: translateY(0) rotate(180deg) scale(1);
+  }
+  75% {
+    transform: translateY(-20px) rotate(270deg) scale(1.1);
+  }
+  100% {
+    transform: translateY(0) rotate(360deg) scale(1);
+  }
+}
+
+.avatar-celebration {
+  animation: avatar-celebration 1.2s ease-in-out;
+}
+
+/* Hover-triggered animations */
+.avatar-hover-wave:hover {
+  animation: avatar-wave 0.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.avatar-hover-dance:hover {
+  animation: avatar-dance 0.6s ease-in-out infinite;
+}
+
+.avatar-hover-bounce:hover {
+  animation: avatar-bounce 0.8s ease-in-out infinite;
+}
+
+.avatar-hover-pulse:hover {
+  animation: avatar-pulse 1s ease-in-out infinite;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-wave,
+  .avatar-dance,
+  .avatar-bounce,
+  .avatar-pulse,
+  .avatar-spin,
+  .avatar-wiggle,
+  .avatar-celebration,
+  .avatar-hover-wave:hover,
+  .avatar-hover-dance:hover,
+  .avatar-hover-bounce:hover,
+  .avatar-hover-pulse:hover {
+    animation: none;
+  }
+}
+
+/* Performance optimization */
+.avatar-wave,
+.avatar-dance,
+.avatar-bounce,
+.avatar-pulse,
+.avatar-spin,
+.avatar-wiggle,
+.avatar-celebration {
+  will-change: transform;
+}
+

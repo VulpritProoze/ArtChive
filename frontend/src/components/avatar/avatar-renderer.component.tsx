@@ -3,15 +3,19 @@ import type { AvatarOptions } from './avatar-options';
 import {
   skinTones,
   faceShapes,
-  eyeStyles,
   hairColors,
   clothingStyles,
 } from './avatar-options';
+import type { AvatarAnimation } from './avatar-types';
+import './avatar-animations.css';
 
 interface AvatarRendererProps {
   options: AvatarOptions;
   size?: number;
   className?: string;
+  animation?: AvatarAnimation;
+  animateOnHover?: boolean;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -22,6 +26,9 @@ const AvatarRenderer = forwardRef<SVGSVGElement, AvatarRendererProps>(({
   options,
   size = 512,
   className = '',
+  animation = 'none',
+  animateOnHover = false,
+  style,
 }, ref) => {
   const center = size / 2;
   const skinColor = skinTones[options.skin as keyof typeof skinTones] || skinTones.light;
@@ -43,13 +50,17 @@ const AvatarRenderer = forwardRef<SVGSVGElement, AvatarRendererProps>(({
   const hairY = center - (faceHeight * 0.42);
   const earOffset = faceWidth * 0.48;
 
-  // Eye style properties
-  const eyeStyle = eyeStyles[options.eyes as keyof typeof eyeStyles] || eyeStyles.default;
-  const eyeSize = eyeStyle.size;
-  const eyeShape = eyeStyle.shape;
-
   // Get darker shade for shadows
   const darkerSkin = `color-mix(in srgb, ${skinColor} 85%, black)`;
+
+  // Build animation class
+  const animationClass = React.useMemo(() => {
+    if (animation === 'none') return '';
+    if (animateOnHover) {
+      return `avatar-hover-${animation}`;
+    }
+    return `avatar-${animation}`;
+  }, [animation, animateOnHover]);
 
   return (
     <svg
@@ -57,11 +68,18 @@ const AvatarRenderer = forwardRef<SVGSVGElement, AvatarRendererProps>(({
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      className={className}
+      preserveAspectRatio="xMidYMid meet"
+      className={`${className} ${animationClass}`}
       xmlns="http://www.w3.org/2000/svg"
+      style={{
+        backgroundColor: 'transparent',
+        ...style,
+      }}
     >
-      {/* Background */}
-      <rect width={size} height={size} fill={options.background} />
+      {/* Background - only render if not transparent */}
+      {options.background && options.background !== 'transparent' && (
+        <rect width={size} height={size} fill={options.background} />
+      )}
 
       {/* Clothing/Shoulders */}
       <ellipse

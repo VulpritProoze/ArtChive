@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Circle, Text as KonvaText, Image as KonvaImage, Line, Group } from 'react-konva';
-import type { CanvasObject, ImageObject, FrameObject, SnapGuide } from '@types';
+import type { CanvasObject, ImageObject, FrameObject, SnapGuide, TextObject } from '@types';
 import { CanvasTransformer } from './canvas-transformer.component';
 import { snapPosition } from './utils/snap.util';
 import useImage from 'use-image';
@@ -28,6 +28,8 @@ interface CanvasStageProps {
   onAttachImageToFrame?: (imageId: string, frameId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
+  onTextEdit?: (textId: string) => void;
+  editingTextId?: string | null;
 }
 
 export function CanvasStage({
@@ -51,6 +53,8 @@ export function CanvasStage({
   onAttachImageToFrame,
   editorMode = 'move',
   isPreviewMode = false,
+  onTextEdit,
+  editingTextId: externalEditingTextId,
 }: CanvasStageProps) {
   const stageRef = useRef<any>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -59,6 +63,10 @@ export function CanvasStage({
   const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  
+  // Use external editingTextId if provided, otherwise use internal state
+  const currentEditingTextId = externalEditingTextId !== undefined ? externalEditingTextId : editingTextId;
+  const setCurrentEditingTextId = onTextEdit || setEditingTextId;
   const [rotationInfo, setRotationInfo] = useState<{ angle: number; x: number; y: number; isSnapped: boolean } | null>(null);
   const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
   const [hoveredFrameId, setHoveredFrameId] = useState<string | null>(null);
@@ -247,8 +255,10 @@ export function CanvasStage({
 
   // Handle text editing
   const handleTextEdit = (textId: string, newText: string) => {
-    onUpdateObject(textId, { text: newText });
-    setEditingTextId(null);
+    onUpdateObject(textId, { 
+      text: newText
+    });
+    setCurrentEditingTextId(null);
   };
 
   return (
@@ -310,7 +320,7 @@ export function CanvasStage({
               onContextMenu={onContextMenu}
               editorMode={editorMode}
               isPreviewMode={isPreviewMode}
-              onTextEdit={setEditingTextId}
+              onTextEdit={setCurrentEditingTextId}
             />
           ))}
 
@@ -390,14 +400,14 @@ export function CanvasStage({
       </Stage>
 
       {/* Text Editing Overlay */}
-      {editingTextId && (
+      {currentEditingTextId && (
         <TextEditor
-          textObject={objects.find(obj => obj.id === editingTextId) as any}
+          textObject={objects.find(obj => obj.id === currentEditingTextId) as any}
           zoom={zoom}
           panX={panX}
           panY={panY}
           onSave={handleTextEdit}
-          onCancel={() => setEditingTextId(null)}
+          onCancel={() => setCurrentEditingTextId(null)}
         />
       )}
 
@@ -706,19 +716,28 @@ function CanvasObjectRenderer({
       );
 
     case 'text':
+      const textObj = object as TextObject;
+      
+      // Calculate text height - approximate based on width and content
+      const fontSize = textObj.fontSize || 16;
+      const text = textObj.text || '';
+      let estimatedHeight = fontSize * 1.2; // Single line height
+      if (textObj.width && textObj.width > 0) {
+        // Estimate line count for wrapped text based on the fixed width
+        const avgCharWidth = fontSize * 0.6;
+        const charsPerLine = Math.floor(textObj.width / avgCharWidth);
+        const lineCount = charsPerLine > 0 ? Math.ceil(text.length / charsPerLine) : 1;
+        estimatedHeight = fontSize * 1.2 * lineCount;
+      } else {
+        // Single line
+        estimatedHeight = fontSize * 1.2;
+      }
+
       return (
-        <KonvaText
+        <Group
           id={object.id}
           x={object.x}
           y={object.y}
-          text={object.text}
-          fontSize={object.fontSize}
-          fontFamily={object.fontFamily}
-          fill={object.fill}
-          fontStyle={object.fontStyle}
-          textDecoration={object.textDecoration}
-          align={object.align}
-          width={object.width}
           rotation={object.rotation}
           scaleX={object.scaleX}
           scaleY={object.scaleY}
@@ -740,7 +759,36 @@ function CanvasObjectRenderer({
               onContextMenu(syntheticEvent, object.id);
             }
           }}
-        />
+        >
+          {/* Invisible Rect to define Group bounds for transformer */}
+          {/* This ensures the transformer box matches the text dimensions */}
+          <Rect
+            name="text-bounds-rect"
+            x={0}
+            y={0}
+            width={textObj.width || Math.max(100, text.length * fontSize * 0.6)}
+            height={estimatedHeight}
+            fill="transparent"
+            listening={false}
+            perfectDrawEnabled={false}
+            hitStrokeWidth={0}
+          />
+          
+          {/* Render text */}
+          <KonvaText
+            text={textObj.text}
+            x={0}
+            y={0}
+            fontSize={object.fontSize}
+            fontFamily={object.fontFamily}
+            fill={object.fill || '#000000'}
+            fontStyle={object.fontStyle}
+            textDecoration={object.textDecoration}
+            align={object.align}
+            width={object.width}
+            listening={true}
+          />
+        </Group>
       );
 
     case 'image':
@@ -852,7 +900,7 @@ function CanvasObjectRenderer({
                 clientX: e.evt.clientX,
                 clientY: e.evt.clientY,
               } as React.MouseEvent;
-              onContextMenu(syntheticEvent, object.id);
+              onContextMenu(syntheticEvent, shapeObj.id);
             }
           }}
         />
