@@ -99,6 +99,8 @@ const AvatarTabContent: React.FC<AvatarTabContentProps> = ({ isOwnProfile }) => 
               size="lg"
               onClick={() => isOwnProfile && navigate(`/avatar/${avatar.avatar_id}/edit`)}
               showPrimaryBadge={true}
+              animation={avatar.is_primary ? "wave" : "none"}
+              animateOnHover={true}
             />
           </div>
         ))}

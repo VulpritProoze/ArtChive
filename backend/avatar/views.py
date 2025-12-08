@@ -4,7 +4,7 @@ import logging
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -423,4 +423,99 @@ class AvatarRenderView(APIView):
             'avatar_id': str(avatar.avatar_id),
             'rendered_image': avatar.rendered_image.url if avatar.rendered_image else None,
             'thumbnail': avatar.thumbnail.url if avatar.thumbnail else None,
+        }, status=status.HTTP_200_OK)
+
+
+class UserPrimaryAvatarView(APIView):
+    """
+    GET /api/avatar/user/{user_id}/primary/
+    Get a user's primary avatar (public endpoint).
+    Returns thumbnail and rendered_image without background.
+    Includes animation from canvas_json.
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request, user_id):
+        """Get primary avatar for a specific user"""
+        from core.models import User
+
+        # Verify user exists
+        user = get_object_or_404(User, id=user_id)
+
+        # Get primary avatar for this user
+        primary_avatar = Avatar.objects.primary_for_user(user)
+
+        if not primary_avatar:
+            return Response({
+                'user_id': user_id,
+                'has_primary_avatar': False,
+                'thumbnail': None,
+                'rendered_image': None,
+                'animation': 'none',
+            }, status=status.HTTP_200_OK)
+
+        # Extract animation from canvas_json
+        animation = 'none'
+        canvas_json = None
+        if primary_avatar.canvas_json and isinstance(primary_avatar.canvas_json, dict):
+            animation = primary_avatar.canvas_json.get('animation', 'none')
+            # Return canvas_json but remove background for rendering
+            canvas_json = primary_avatar.canvas_json.copy()
+            # Remove background so it renders transparent
+            if 'background' in canvas_json:
+                canvas_json['background'] = 'transparent'
+
+        # Return public fields including canvas_json (without background)
+        return Response({
+            'user_id': user_id,
+            'has_primary_avatar': True,
+            'avatar_id': str(primary_avatar.avatar_id),
+            'thumbnail': primary_avatar.thumbnail.url if primary_avatar.thumbnail else None,
+            'rendered_image': primary_avatar.rendered_image.url if primary_avatar.rendered_image else None,
+            'animation': animation,
+            'canvas_json': canvas_json,  # Include canvas_json for SVG rendering
+        }, status=status.HTTP_200_OK)
+
+
+class UserPrimaryAvatarThumbnailView(APIView):
+    """
+    GET /api/avatar/user/{user_id}/primary/thumbnail/
+    Get a user's primary avatar thumbnail only (public endpoint).
+    Lightweight endpoint that returns thumbnail URL and animation.
+    """
+    permission_classes = [AllowAny]  # Public endpoint
+
+    def get(self, request, user_id):
+        """Get primary avatar thumbnail URL and animation for a specific user"""
+        from core.models import User
+
+        # Verify user exists
+        user = get_object_or_404(User, id=user_id)
+
+        # Get primary avatar for this user
+        primary_avatar = Avatar.objects.primary_for_user(user)
+
+        if not primary_avatar or not primary_avatar.thumbnail:
+            return Response({
+                'user_id': user_id,
+                'has_primary_avatar': False,
+                'thumbnail': None,
+                'animation': 'none',
+                'background': None,
+            }, status=status.HTTP_200_OK)
+
+        # Extract animation and background from canvas_json
+        animation = 'none'
+        background = None
+        if primary_avatar.canvas_json and isinstance(primary_avatar.canvas_json, dict):
+            animation = primary_avatar.canvas_json.get('animation', 'none')
+            background = primary_avatar.canvas_json.get('background', None)
+
+        # Return thumbnail URL, animation, and background
+        return Response({
+            'user_id': user_id,
+            'has_primary_avatar': True,
+            'thumbnail': primary_avatar.thumbnail.url,
+            'animation': animation,
+            'background': background,
         }, status=status.HTTP_200_OK)

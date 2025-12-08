@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, Medal, Award, Trophy, Check, XCircle } from "lucide-react";
+import { X, Medal, Award, Trophy, Check } from "lucide-react";
 import { usePostUI } from "@context/post-ui-context";
 import { useAwardTrophy } from "@hooks/mutations/use-post-mutations";
 import { useCreateGalleryAward } from "@hooks/queries/use-gallery-awards";
@@ -167,16 +167,6 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
     }
   };
 
-  const handleCancel = () => {
-    // Cancel the API call by resetting mutation state
-    isCancelledRef.current = true;
-    if (isPendingPost) resetPost();
-    if (isPendingGallery) resetGallery();
-    
-    setSelectedAward(null);
-    setShowConfirmDialog(false);
-    toast.info('Award cancelled', 'The award request has been cancelled.');
-  };
 
   const selectedTrophy = selectedAward ? TROPHY_TYPES.find(t => t.name === selectedAward) : null;
   const totalCost = selectedTrophy?.cost || 0;
@@ -283,24 +273,14 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
           {/* Action Buttons */}
           <div className="modal-action mt-6">
             {isPending ? (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-error"
-                  onClick={handleCancel}
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Cancel Award
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled
-                >
-                  <span className="loading loading-spinner loading-sm"></span>
-                  Awarding...
-                </button>
-              </>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled
+              >
+                <span className="loading loading-spinner loading-sm"></span>
+                Awarding...
+              </button>
             ) : (
               <>
                 <button

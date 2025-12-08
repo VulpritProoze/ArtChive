@@ -92,6 +92,14 @@ class AvatarCreateSerializer(serializers.ModelSerializer):
                     "Avatar canvas must be 512x512 pixels"
                 )
 
+            # Validate animation field if present
+            if 'animation' in value:
+                valid_animations = ['wave', 'dance', 'bounce', 'pulse', 'spin', 'wiggle', 'celebration', 'none']
+                if value.get('animation') not in valid_animations:
+                    raise serializers.ValidationError(
+                        f"Animation must be one of: {', '.join(valid_animations)}"
+                    )
+
         return value
 
 
@@ -137,6 +145,14 @@ class AvatarUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Avatar canvas must be 512x512 pixels"
                 )
+
+            # Validate animation field if present
+            if 'animation' in value:
+                valid_animations = ['wave', 'dance', 'bounce', 'pulse', 'spin', 'wiggle', 'celebration', 'none']
+                if value.get('animation') not in valid_animations:
+                    raise serializers.ValidationError(
+                        f"Animation must be one of: {', '.join(valid_animations)}"
+                    )
 
         return value
 

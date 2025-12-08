@@ -18,6 +18,8 @@ export interface CanvasJSON {
   height: number;
   background: string;
   objects: CanvasObject[];
+  animation?: 'wave' | 'dance' | 'bounce' | 'pulse' | 'spin' | 'wiggle' | 'celebration' | 'none';
+  avatarOptions?: any; // AvatarOptions from avatar-options.ts
 }
 
 export interface CanvasObject {
@@ -117,6 +119,38 @@ class AvatarService {
    */
   async render(avatarId: string): Promise<{ message: string; avatar_id: string; rendered_image?: string; thumbnail?: string }> {
     const response = await api.post(`/api/avatar/${avatarId}/render/`);
+    return response.data;
+  }
+
+  /**
+   * Get a user's primary avatar (public endpoint)
+   * Returns avatar without background, includes animation and canvas_json
+   */
+  async getPrimaryAvatarByUserId(userId: number): Promise<{
+    user_id: number;
+    has_primary_avatar: boolean;
+    avatar_id?: string;
+    thumbnail?: string;
+    rendered_image?: string;
+    animation: 'wave' | 'dance' | 'bounce' | 'pulse' | 'spin' | 'wiggle' | 'celebration' | 'none';
+    canvas_json?: CanvasJSON;
+  }> {
+    const response = await api.get(`/api/avatar/user/${userId}/primary/`);
+    return response.data;
+  }
+
+  /**
+   * Get a user's primary avatar thumbnail only (public endpoint)
+   * Lightweight endpoint that returns thumbnail URL, animation, and background
+   */
+  async getPrimaryAvatarThumbnailByUserId(userId: number): Promise<{
+    user_id: number;
+    has_primary_avatar: boolean;
+    thumbnail?: string;
+    animation: 'wave' | 'dance' | 'bounce' | 'pulse' | 'spin' | 'wiggle' | 'celebration' | 'none';
+    background?: string | null;
+  }> {
+    const response = await api.get(`/api/avatar/user/${userId}/primary/thumbnail/`);
     return response.data;
   }
 }

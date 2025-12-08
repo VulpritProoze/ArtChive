@@ -9,6 +9,7 @@ import AvatarRenderer from './avatar-renderer.component';
 import AvatarCustomizer from './avatar-customizer.component';
 import type { AvatarOptions } from './avatar-options';
 import { defaultAvatarOptions, skinTones, hairColors, clothingStyles } from './avatar-options';
+import type { AvatarAnimation } from './avatar-types';
 
 const AvatarEditorPage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,6 +27,9 @@ const AvatarEditorPage: React.FC = () => {
   const [name, setName] = useState('My Avatar');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'draft' | 'active' | 'archived'>('draft');
+  const [animation, setAnimation] = useState<AvatarAnimation>('none');
+  const [previewAnimation, setPreviewAnimation] = useState<AvatarAnimation>('none');
+  const [animationTimeout, setAnimationTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Avatar customization options
   const [avatarOptions, setAvatarOptions] = useState<AvatarOptions>(defaultAvatarOptions);
@@ -61,9 +65,22 @@ const AvatarEditorPage: React.FC = () => {
         if (canvasJson.avatarOptions) {
           setAvatarOptions(canvasJson.avatarOptions);
         }
+        // Load animation if it exists
+        if (canvasJson.animation) {
+          setAnimation(canvasJson.animation);
+        }
       }
     }
   }, [avatar]);
+
+  // Cleanup animation timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+      }
+    };
+  }, [animationTimeout]);
 
   // Update canvas data when avatar options change
   useEffect(() => {
@@ -134,10 +151,11 @@ const AvatarEditorPage: React.FC = () => {
       return;
     }
 
-    // Ensure avatarOptions are always included in canvas_json
+    // Ensure avatarOptions and animation are always included in canvas_json
     const finalCanvasData = {
       ...canvasData,
       avatarOptions: avatarOptions, // Always include current avatarOptions
+      animation: animation, // Include selected animation
     };
 
     // Create thumbnail snapshot from SVG
@@ -381,6 +399,7 @@ const AvatarEditorPage: React.FC = () => {
                          ref={avatarSvgRef}
                          options={avatarOptions}
                          size={512}
+                         animation={previewAnimation}
                          className="w-full h-full rounded-xl shadow-lg"
                        />
                      </div>
@@ -435,6 +454,54 @@ const AvatarEditorPage: React.FC = () => {
                        <option value="active">✅ Active</option>
                        <option value="archived">📦 Archived</option>
                      </select>
+                   </div>
+
+                   <div className="form-control">
+                     <label className="label py-2">
+                       <span className="label-text text-sm font-semibold">Animation</span>
+                       <span className="label-text-alt text-xs">Hover effect</span>
+                     </label>
+                     <select
+                       className="select select-bordered select-sm w-full focus:select-primary transition-all"
+                       value={animation}
+                       onChange={(e) => {
+                         const newAnimation = e.target.value as AvatarAnimation;
+                         setAnimation(newAnimation);
+                         
+                         // Clear any existing timeout
+                         if (animationTimeout) {
+                           clearTimeout(animationTimeout);
+                         }
+                         
+                         // Set preview animation for 2 seconds
+                         if (newAnimation !== 'none') {
+                           setPreviewAnimation(newAnimation);
+                           const timeout = setTimeout(() => {
+                             setPreviewAnimation('none');
+                             setAnimationTimeout(null);
+                           }, 2000);
+                           setAnimationTimeout(timeout);
+                         } else {
+                           setPreviewAnimation('none');
+                         }
+                       }}
+                     >
+                       <option value="none">🚫 None</option>
+                       <option value="wave">👋 Wave</option>
+                       <option value="dance">💃 Dance</option>
+                       <option value="bounce">⚡ Bounce</option>
+                       <option value="pulse">💓 Pulse</option>
+                       <option value="spin">🌀 Spin</option>
+                       <option value="wiggle">🎭 Wiggle</option>
+                       <option value="celebration">🎉 Celebration</option>
+                     </select>
+                     {animation !== 'none' && (
+                       <label className="label py-1">
+                         <span className="label-text-alt text-xs text-primary">
+                           Preview animation on hover over profile picture
+                         </span>
+                       </label>
+                     )}
                    </div>
                  </div>
                </div>

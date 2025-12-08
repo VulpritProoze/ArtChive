@@ -2,6 +2,8 @@ import React from 'react';
 import type { Avatar } from '@services/avatar.service';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar } from '@fortawesome/free-solid-svg-icons';
+import type { AvatarAnimation } from './avatar-types';
+import './avatar-animations.css';
 
 interface AvatarPreviewProps {
   avatar: Avatar;
@@ -9,6 +11,8 @@ interface AvatarPreviewProps {
   onClick?: () => void;
   showPrimaryBadge?: boolean;
   className?: string;
+  animation?: AvatarAnimation;
+  animateOnHover?: boolean;
 }
 
 const sizeClasses = {
@@ -47,10 +51,21 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({
   onClick,
   showPrimaryBadge = true,
   className = '',
+  animation = 'none',
+  animateOnHover = false,
 }) => {
   // Prioritize thumbnail over rendered_image
   const imageSrc = avatar.thumbnail || avatar.rendered_image;
   const placeholderColor = React.useMemo(() => getPlaceholderColor(avatar.avatar_id), [avatar.avatar_id]);
+
+  // Build animation class
+  const animationClass = React.useMemo(() => {
+    if (animation === 'none') return '';
+    if (animateOnHover) {
+      return `avatar-hover-${animation}`;
+    }
+    return `avatar-${animation}`;
+  }, [animation, animateOnHover]);
 
   return (
     <div
@@ -63,7 +78,7 @@ const AvatarPreview: React.FC<AvatarPreviewProps> = ({
       <div
         className={`${sizeClasses[size]} rounded-full overflow-hidden border-4 ${
           avatar.is_primary ? 'border-primary' : 'border-base-200'
-        } ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+        } ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : ''} ${animationClass}`}
         style={!imageSrc ? { backgroundColor: placeholderColor } : {}}
       >
         {imageSrc ? (
