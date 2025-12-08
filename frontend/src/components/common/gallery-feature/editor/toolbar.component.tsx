@@ -1,6 +1,7 @@
-import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save } from 'lucide-react';
+import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useUploadImage } from '@hooks/gallery/editor/use-upload-image.hook';
 import { toast } from '@utils/toast.util';
+import type { CanvasObject, TextObject } from '@types';
 
 type EditorMode = 'pan' | 'move' | 'select';
 
@@ -18,6 +19,8 @@ interface ToolbarProps {
   onOpenMenu: () => void;
   onToggleShapes: () => void;
   onSave?: () => void;
+  onUpdateObject?: (id: string, updates: Partial<CanvasObject>) => void;
+  selectedObjects?: CanvasObject[];
   showShapes: boolean;
   shapesButtonRef: React.RefObject<HTMLButtonElement | null>;
   canGroup: boolean;
@@ -47,6 +50,8 @@ export function Toolbar({
   onOpenMenu,
   onToggleShapes,
   onSave,
+  onUpdateObject,
+  selectedObjects = [],
   showShapes,
   shapesButtonRef,
   canGroup,
@@ -76,7 +81,6 @@ export function Toolbar({
         toast.error('Failed to upload image', 'The upload did not return a valid image URL');
       }
     } catch (error) {
-      console.error('Image upload error:', error);
       toast.error('Failed to upload image', 'An error occurred while uploading your image');
     }
 
@@ -85,7 +89,7 @@ export function Toolbar({
   };
 
   return (
-    <div className="bg-base-200 border-b border-base-300 p-3 flex items-center gap-2 flex-wrap">
+    <div className="bg-base-200 p-3 flex items-center gap-2 flex-wrap">
       {/* Tool Modes */}
       <div className="flex gap-2 border-r border-base-300 pr-3">
         <button
@@ -161,6 +165,96 @@ export function Toolbar({
           </div>
         )}
       </div>
+
+      {/* Text Formatting Section - Only show when text is selected */}
+      {(() => {
+        const selectedText = selectedObjects.length === 1 && selectedObjects[0]?.type === 'text' 
+          ? selectedObjects[0] as TextObject 
+          : null;
+        
+        if (!selectedText || isPreviewMode) return null;
+        
+        const handleTextFormat = (property: string, value: any) => {
+          if (!selectedText || !onUpdateObject) return;
+          
+          if (property === 'fontStyle') {
+            // Handle bold/italic combinations
+            const currentStyle = selectedText.fontStyle || '';
+            let newStyle = currentStyle;
+            
+            if (value === 'bold') {
+              if (currentStyle.includes('bold')) {
+                newStyle = currentStyle.replace(/bold/gi, '').trim();
+              } else {
+                newStyle = (currentStyle + ' bold').trim();
+              }
+            } else if (value === 'italic') {
+              if (currentStyle.includes('italic')) {
+                newStyle = currentStyle.replace(/italic/gi, '').trim();
+              } else {
+                newStyle = (currentStyle + ' italic').trim();
+              }
+            }
+            
+            onUpdateObject(selectedText.id, { fontStyle: newStyle || undefined });
+          } else if (property === 'textDecoration') {
+            // Toggle underline
+            const currentDecoration = selectedText.textDecoration || '';
+            const newDecoration = currentDecoration === 'underline' ? undefined : 'underline';
+            onUpdateObject(selectedText.id, { textDecoration: newDecoration });
+          } else {
+            onUpdateObject(selectedText.id, { [property]: value });
+          }
+        };
+        
+        return (
+          <div className="flex gap-2 border-r border-base-300 pr-3">
+            <button
+              onClick={() => handleTextFormat('fontStyle', 'bold')}
+              className={`btn btn-sm ${selectedText.fontStyle?.includes('bold') ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Bold (Ctrl+B)"
+            >
+              <Bold className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleTextFormat('fontStyle', 'italic')}
+              className={`btn btn-sm ${selectedText.fontStyle?.includes('italic') ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Italic (Ctrl+I)"
+            >
+              <Italic className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleTextFormat('textDecoration', 'underline')}
+              className={`btn btn-sm ${selectedText.textDecoration === 'underline' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Underline (Ctrl+U)"
+            >
+              <Underline className="w-4 h-4" />
+            </button>
+            <div className="divider divider-horizontal mx-0"></div>
+            <button
+              onClick={() => handleTextFormat('align', 'left')}
+              className={`btn btn-sm ${(!selectedText.align || selectedText.align === 'left') ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Align Left"
+            >
+              <AlignLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleTextFormat('align', 'center')}
+              className={`btn btn-sm ${selectedText.align === 'center' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Align Center"
+            >
+              <AlignCenter className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleTextFormat('align', 'right')}
+              className={`btn btn-sm ${selectedText.align === 'right' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Align Right"
+            >
+              <AlignRight className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Group/Ungroup Section */}
       <div className="flex gap-2 border-r border-base-300 pr-3">

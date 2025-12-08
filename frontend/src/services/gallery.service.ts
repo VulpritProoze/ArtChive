@@ -85,7 +85,6 @@ export const galleryService = {
 
     // Validate response structure
     if (!response.data || !response.data.url) {
-      console.error('Invalid upload response:', response.data);
       throw new Error('Upload succeeded but did not return a valid image URL');
     }
 
@@ -174,18 +173,8 @@ export const galleryService = {
     galleryId: string,
     canvasData: CanvasState
   ): Promise<Gallery> {
-    console.log('[galleryService] saveGallery called:', {
-      galleryId,
-      objectCount: canvasData.objects.length,
-      canvasData,
-    });
-
     const payload = { canvas_json: canvasData };
-    console.log('[galleryService] Making PATCH request to:', `${galleryId}/`);
-    console.log('[galleryService] Payload:', JSON.stringify(payload, null, 2));
-
     const response = await gallery.patch(`${galleryId}/`, payload);
-    console.log('[galleryService] Response received:', response.data);
     return response.data;
   },
 

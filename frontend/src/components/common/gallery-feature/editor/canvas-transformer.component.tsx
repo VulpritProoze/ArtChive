@@ -75,8 +75,12 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       .filter(Boolean);
 
     transformer.nodes(selectedNodes);
+    
+    // Force transformer layer to redraw to reflect any size changes
+    // This is especially important for text objects where Group bounds might have changed
+    transformer.getLayer()?.batchDraw();
 
-    // Check if any selected object is a group or line (including nested objects)
+    // Check if any selected object is a group, line, or text (including nested objects)
     const hasGroupSelected = idsToAttach.some(id => {
       const obj = findObjectById(id, objects);
       return obj?.type === 'group';
@@ -87,12 +91,22 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
       return obj?.type === 'line';
     });
 
+    const hasTextSelected = idsToAttach.some(id => {
+      const obj = findObjectById(id, objects);
+      return obj?.type === 'text';
+    });
+
     // Disable resizing for groups (but allow rotation)
     if (hasGroupSelected) {
       transformer.enabledAnchors(['middle-left', 'middle-right', 'top-center', 'bottom-center']);
       transformer.resizeEnabled(false);
     } else if (hasLineSelected) {
       // For lines, only allow horizontal resizing (left and right anchors only)
+      transformer.enabledAnchors(['middle-left', 'middle-right']);
+      transformer.resizeEnabled(true);
+    } else if (hasTextSelected) {
+      // For text, only allow horizontal resizing (left and right anchors only)
+      // This allows changing width for text wrapping without scaling the text
       transformer.enabledAnchors(['middle-left', 'middle-right']);
       transformer.resizeEnabled(true);
     } else {
@@ -121,9 +135,15 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
             node.scaleY(1);
           }
           
+          if (obj?.type === 'text') {
+            // For text, only allow horizontal resizing (width changes for wrapping)
+            // Prevent vertical scaling - text height is auto-calculated by Konva based on content and width
+            node.scaleY(1);
+          }
+          
           // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
-          // Note: lines don't have width/height, so they're already excluded by the 'width' in obj check
-          if (isShiftPressed && obj && 'width' in obj && 'height' in obj) {
+          // Note: lines and text don't have height-based aspect ratios, so exclude them
+          if (isShiftPressed && obj && 'width' in obj && 'height' in obj && obj.type !== 'text') {
             const originalAspect = obj.width / obj.height;
             const currentWidth = node.width() * (node.scaleX() || 1);
             const currentHeight = node.height() * (node.scaleY() || 1);
@@ -208,9 +228,74 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         rotation: rotation,
       };
 
+      // For text objects, only update width for text wrapping (no scaling, no height changes)
+      // Handle this BEFORE shift+aspect ratio lock so text is excluded from that logic
+      if (currentObject && currentObject.type === 'text') {
+        // Only apply horizontal scaling to width property (for text wrapping)
+        // Text height is automatically calculated by Konva based on content and width
+        const textObj = currentObject as any;
+        
+        // Get the current rendered width from the node (this accounts for any existing scale)
+        const currentRenderedWidth = node.width ? node.width() : 0;
+        const currentScaleX = node.scaleX ? node.scaleX() : 1;
+        
+        // Calculate the actual base width (divide out any existing scale)
+        // If object has a stored width, use that; otherwise use the node's natural width
+        let baseWidth: number;
+        if (textObj.width && textObj.width > 0) {
+          // Use stored width as base
+          baseWidth = textObj.width;
+        } else if (currentRenderedWidth > 0) {
+          // Calculate base width by removing current scale
+          baseWidth = currentRenderedWidth / currentScaleX;
+        } else {
+          // Fallback: estimate from text content and font size
+          const fontSize = textObj.fontSize || 16;
+          const text = textObj.text || '';
+          baseWidth = Math.max(100, text.length * fontSize * 0.6);
+        }
+        
+        // Ensure baseWidth is valid
+        if (!baseWidth || baseWidth <= 0 || !isFinite(baseWidth)) {
+          const fontSize = textObj.fontSize || 16;
+          const text = textObj.text || '';
+          baseWidth = Math.max(100, text.length * fontSize * 0.6);
+        }
+        
+        // Calculate new width based on scaleX, ensuring minimum width of 50px
+        // Only update width if scaleX has meaningfully changed (more than 0.01 difference)
+        if (Math.abs(scaleX - 1) > 0.01 && scaleX > 0 && isFinite(scaleX)) {
+          const newWidth = Math.max(50, baseWidth * scaleX);
+          // Additional safety check: ensure newWidth is reasonable
+          if (newWidth > 0 && isFinite(newWidth) && newWidth < 10000) {
+            updates.width = newWidth;
+          } else {
+            // If calculation resulted in invalid width, use fallback
+            const fontSize = textObj.fontSize || 16;
+            const text = textObj.text || '';
+            updates.width = Math.max(100, text.length * fontSize * 0.6);
+          }
+        } else if (!textObj.width || textObj.width <= 0) {
+          // If no width was set before and scale hasn't changed, set a default
+          // But only if baseWidth is valid
+          if (baseWidth > 0 && isFinite(baseWidth)) {
+            updates.width = Math.max(100, baseWidth);
+          } else {
+            // Ultimate fallback
+            const fontSize = textObj.fontSize || 16;
+            const text = textObj.text || '';
+            updates.width = Math.max(100, text.length * fontSize * 0.6);
+          }
+        }
+        
+        // Always reset scales to 1 - text should not be scaled
+        updates.scaleX = 1;
+        updates.scaleY = 1;
+        // Font size and other text properties remain unchanged
+      }
       // Apply shift+resize aspect ratio lock for all images (and any object with width/height)
-      // Note: lines don't have width/height, so they're already excluded by the 'width' in currentObject check
-      if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject) {
+      // Note: lines and text are already handled above, so exclude them
+      else if (isShiftPressed && currentObject && 'width' in currentObject && 'height' in currentObject && currentObject.type !== 'text') {
         // Maintain aspect ratio using average scale
         const avgScale = (scaleX + scaleY) / 2;
         updates.width = Math.max(5, currentObject.width * avgScale);
@@ -244,7 +329,7 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         updates.scaleX = scaleX;
       }
 
-      if (currentObject && currentObject.type !== 'line') {
+      if (currentObject && currentObject.type !== 'line' && currentObject.type !== 'text') {
         if (node.height && currentObject && 'height' in currentObject && currentObject.height !== undefined) {
           updates.height = Math.max(5, currentObject.height * scaleY);
           updates.scaleY = 1;
@@ -261,12 +346,57 @@ export function CanvasTransformer({ selectedIds, objects, onUpdate, onTransformS
         updates.scaleY = scaleY;
       }
 
+      // For text objects, ensure width is valid before applying updates
+      if (currentObject && currentObject.type === 'text' && updates.width !== undefined) {
+        // Double-check that width is valid
+        if (updates.width <= 0 || !isFinite(updates.width) || updates.width > 10000) {
+          // Don't apply invalid width - use fallback instead
+          const textObj = currentObject as any;
+          const fontSize = textObj.fontSize || 16;
+          const text = textObj.text || '';
+          const fallbackWidth = Math.max(100, text.length * fontSize * 0.6);
+          updates.width = fallbackWidth;
+        }
+        
+      }
+
       onUpdate(id, updates);
 
       // Reset node scale after update (but not for circles which use scale)
       if (currentObject && currentObject.type !== 'circle') {
         node.scaleX(1);
         node.scaleY(1);
+      }
+      
+      // For text objects, update the invisible Rect inside the Group to match new width
+      // This ensures the transformer box reflects the correct dimensions
+      if (currentObject && currentObject.type === 'text' && updates.width !== undefined && node && node.getType && node.getType() === 'Group') {
+        // Find the invisible bounds Rect child in the Group (by name, or first Rect as fallback)
+        const rect = node.findOne('.text-bounds-rect') || node.findOne('Rect');
+        if (rect && updates.width > 0) {
+          const textObj = currentObject as any;
+          const fontSize = textObj.fontSize || 16;
+          const text = textObj.text || '';
+          
+          // Update Rect width to match text width
+          rect.width(updates.width);
+          
+          // Estimate and update height based on wrapped text
+          const avgCharWidth = fontSize * 0.6;
+          const charsPerLine = Math.floor(updates.width / avgCharWidth);
+          const lineCount = charsPerLine > 0 ? Math.ceil(text.length / charsPerLine) : 1;
+          const estimatedHeight = fontSize * 1.2 * lineCount;
+          
+          rect.height(estimatedHeight);
+          
+          // Force transformer to recalculate its bounds
+          const transformer = transformerRef.current;
+          if (transformer) {
+            // Re-attach nodes to force recalculation
+            transformer.nodes(transformer.nodes());
+            transformer.getLayer()?.batchDraw();
+          }
+        }
       }
     });
 

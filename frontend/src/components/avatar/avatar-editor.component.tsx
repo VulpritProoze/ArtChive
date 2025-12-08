@@ -74,7 +74,61 @@ const AvatarEditorPage: React.FC = () => {
     }));
   }, [avatarOptions]);
 
-  const handleSave = () => {
+  /**
+   * Create a thumbnail snapshot from the SVG (128x128 PNG)
+   */
+  const createThumbnailSnapshot = (): Promise<File | null> => {
+    return new Promise((resolve) => {
+      if (!avatarSvgRef.current) {
+        resolve(null);
+        return;
+      }
+
+      try {
+        const svgData = new XMLSerializer().serializeToString(avatarSvgRef.current);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        // Thumbnail size: 128x128
+        canvas.width = 128;
+        canvas.height = 128;
+        
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        
+        img.onload = () => {
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, 128, 128);
+            canvas.toBlob((blob) => {
+              URL.revokeObjectURL(url);
+              if (blob) {
+                const thumbnailFile = new File([blob], 'avatar-thumbnail.png', { type: 'image/png' });
+                resolve(thumbnailFile);
+              } else {
+                resolve(null);
+              }
+            }, 'image/png');
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(null);
+          }
+        };
+        
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        
+        img.src = url;
+      } catch (error) {
+        console.error('Error creating thumbnail snapshot:', error);
+        resolve(null);
+      }
+    });
+  };
+
+  const handleSave = async () => {
     if (!name.trim()) {
       alert('Please enter a name for your avatar');
       return;
@@ -86,15 +140,26 @@ const AvatarEditorPage: React.FC = () => {
       avatarOptions: avatarOptions, // Always include current avatarOptions
     };
 
+    // Create thumbnail snapshot from SVG
+    const thumbnailFile = await createThumbnailSnapshot();
+
+    // Prepare FormData for multipart/form-data request
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description || '');
+    formData.append('status', status);
+    formData.append('canvas_json', JSON.stringify(finalCanvasData));
+    
+    if (thumbnailFile) {
+      formData.append('thumbnail', thumbnailFile, 'avatar-thumbnail.png');
+      console.log('Thumbnail file added to FormData:', thumbnailFile.name, thumbnailFile.size, 'bytes');
+    } else {
+      console.warn('No thumbnail file created - avatarSvgRef might be null');
+    }
+
     if (isEditMode && avatarId) {
-      const updateData: UpdateAvatarData = {
-        name,
-        description,
-        canvas_json: finalCanvasData,
-        status,
-      };
       updateAvatar(
-        { avatarId, data: updateData },
+        { avatarId, data: formData },
         {
           onSuccess: () => {
             navigate('/avatar');
@@ -102,13 +167,7 @@ const AvatarEditorPage: React.FC = () => {
         }
       );
     } else {
-      const createData: CreateAvatarData = {
-        name,
-        description,
-        canvas_json: finalCanvasData,
-        status,
-      };
-      createAvatar(createData, {
+      createAvatar(formData, {
         onSuccess: () => {
           navigate('/avatar');
         },

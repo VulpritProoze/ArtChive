@@ -63,17 +63,29 @@ class AvatarService {
 
   /**
    * Create a new avatar
+   * Accepts either CreateAvatarData (JSON) or FormData (with thumbnail image)
    */
-  async create(data: CreateAvatarData): Promise<Avatar> {
-    const response = await api.post('/api/avatar/', data);
+  async create(data: CreateAvatarData | FormData): Promise<Avatar> {
+    const isFormData = data instanceof FormData;
+    const config = isFormData 
+      ? {} // Let axios set Content-Type automatically for FormData (includes boundary)
+      : { headers: { 'Content-Type': 'application/json' } };
+    
+    const response = await api.post('/api/avatar/', data, config);
     return response.data;
   }
 
   /**
    * Update an existing avatar
+   * Accepts either UpdateAvatarData (JSON) or FormData (with thumbnail image)
    */
-  async update(avatarId: string, data: UpdateAvatarData): Promise<Avatar> {
-    const response = await api.patch(`/api/avatar/${avatarId}/`, data);
+  async update(avatarId: string, data: UpdateAvatarData | FormData): Promise<Avatar> {
+    const isFormData = data instanceof FormData;
+    const config = isFormData 
+      ? {} // Let axios set Content-Type automatically for FormData (includes boundary)
+      : { headers: { 'Content-Type': 'application/json' } };
+    
+    const response = await api.patch(`/api/avatar/${avatarId}/`, data, config);
     return response.data;
   }
 
