@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@context/auth-context";
 import { usePostUI } from "@context/post-ui-context";
 import { useCommentForm } from "@hooks/forms/use-comment-form";
 import { useCreateComment, useUpdateComment, useUpdateReply } from "@hooks/mutations/use-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { MarkdownToolbar } from '@components/common/posts-feature/markdown-toolbar.component';
+import { MarkdownRenderer } from '@components/common/markdown-renderer.component';
+import { useTextUndoRedo } from '@hooks/use-undo-redo.hook';
+import { Undo2, Redo2 } from 'lucide-react';
 
 export default function CommentFormModal() {
   const {
@@ -18,6 +22,12 @@ export default function CommentFormModal() {
     setCommentTargetPostId,
   } = usePostUI();
   const { user } = useAuth();
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Undo/Redo functionality
+  const undoRedo = useTextUndoRedo(form.text);
 
   const {
     form,
@@ -37,7 +47,10 @@ export default function CommentFormModal() {
   }, [commentTargetPostId, setPostId]);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, text: selectedComment?.text ?? "" }));
+    const newText = selectedComment?.text ?? "";
+    setForm((prev) => ({ ...prev, text: newText }));
+    undoRedo.reset(newText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedComment, setForm]);
 
   const createComment = useCreateComment();
@@ -52,6 +65,7 @@ export default function CommentFormModal() {
     setEditingComment(false);
     setCommentTargetPostId(null);
     resetForm();
+    undoRedo.reset('');
   };
 
   if (!showCommentForm || !commentTargetPostId) {
@@ -173,22 +187,125 @@ export default function CommentFormModal() {
               </div>
 
               <div className="flex-1">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="font-bold text-base">{user?.username || "User"}</span>
-                  <span className="badge badge-sm badge-primary">@{user?.username || "user"}</span>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base">{user?.username || "User"}</span>
+                    <span className="badge badge-sm badge-primary">@{user?.username || "user"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const undoneValue = undoRedo.undo();
+                        handleChange(undoneValue);
+                      }}
+                      disabled={!undoRedo.canUndo}
+                      className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const redoneValue = undoRedo.redo();
+                        handleChange(redoneValue);
+                      }}
+                      disabled={!undoRedo.canRedo}
+                      className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                      title="Redo (Ctrl+Y)"
+                    >
+                      <Redo2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                        showPreview 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title="Preview markdown"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {showPreview ? 'Hide Preview' : 'Preview'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
+                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                        showMarkdownToolbar 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title="Markdown formatting"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Format
+                    </button>
+                  </div>
                 </div>
 
-                <textarea
-                  className="w-full bg-transparent border border-base-300 rounded-lg p-3 focus:outline-none focus:border-primary resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[120px] transition-all duration-200"
-                  name="text"
-                  value={form.text}
-                  onChange={(e) => handleChange(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  rows={5}
-                  maxLength={1000}
-                  disabled={isSubmitting}
-                  required
+                {/* Markdown Toolbar */}
+                <MarkdownToolbar 
+                  textareaRef={textareaRef} 
+                  isVisible={showMarkdownToolbar}
+                  onFormat={(newValue) => {
+                    undoRedo.setValue(newValue, true);
+                    handleChange(newValue);
+                  }}
                 />
+
+                {showPreview ? (
+                  <div className="w-full bg-base-200 border border-base-300 rounded-lg p-3 min-h-[120px] max-h-[400px] overflow-y-auto">
+                    {(() => {
+                      // Always read the current textarea value to ensure we have the latest
+                      const currentText = textareaRef.current?.value || form.text;
+                      return currentText ? (
+                        <MarkdownRenderer 
+                          content={currentText} 
+                          className="text-base text-base-content"
+                        />
+                      ) : (
+                        <p className="text-base-content/50 italic">Preview will appear here...</p>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    className="w-full bg-transparent border border-base-300 rounded-lg p-3 focus:outline-none focus:border-primary resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[120px] transition-all duration-200"
+                    name="text"
+                    value={form.text}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      undoRedo.setValue(newValue, true);
+                      handleChange(newValue);
+                    }}
+                    onKeyDown={(e) => {
+                      // Handle Ctrl+Z (Undo) and Ctrl+Y or Ctrl+Shift+Z (Redo)
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        const undoneValue = undoRedo.undo();
+                        handleChange(undoneValue);
+                      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                        e.preventDefault();
+                        const redoneValue = undoRedo.redo();
+                        handleChange(redoneValue);
+                      }
+                    }}
+                    placeholder="Share your thoughts..."
+                    rows={5}
+                    maxLength={1000}
+                    disabled={isSubmitting}
+                    required
+                  />
+                )}
 
                 {/* Character Count */}
                 <div className="flex items-center justify-between mt-2">

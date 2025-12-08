@@ -13,6 +13,7 @@ import {
   useDeleteCritiqueReply,
   useUpdateCritiqueReply,
 } from '@hooks/queries/use-critiques';
+import { MarkdownRenderer } from '@components/common/markdown-renderer.component';
 
 interface CritiqueSectionProps {
   postId?: string;
@@ -379,7 +380,7 @@ const CritiqueCard: React.FC<{
           <div className="flex-1 min-w-0">
             {/* Critique Text */}
             <div className="text-base text-base-content leading-relaxed mb-6">
-              <p className="whitespace-pre-wrap">{critique.text}</p>
+              <MarkdownRenderer content={critique.text} />
             </div>
 
             {/* Author Info & Actions Row */}
@@ -520,7 +521,10 @@ const CritiqueCard: React.FC<{
                       ) : (
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 text-base-content/90">
-                            {reply.text} –{' '}
+                            <span className="inline-block">
+                              <MarkdownRenderer content={reply.text} />
+                            </span>
+                            {' '}–{' '}
                             <span className="text-primary font-medium">{reply.author_username}</span>{' '}
                             <span className="text-base-content/50 text-xs">
                               {new Date(reply.created_at).toLocaleDateString('en-US', {

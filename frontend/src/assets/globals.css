@@ -104,6 +104,26 @@ html {
   @apply bg-base-100 rounded-md border border-base-300 shadow-sm;
 }
 
+/* Syntax Highlighter Theme Responsive Styles */
+.prose pre {
+  /* background: oklch(100% 0 0) !important;
+  background-color: oklch(100% 0 0) !important; */
+  @apply !bg-base-300
+}
+
+
+
+/* [data-theme="dark"] .prose pre {
+  background: oklch(10% 0 0) !important; 
+  background-color: oklch(10% 0 0) !important;
+} */
+
+/* Comment hover modal positioning - position right below avatar */
+.comment-hover-modal-wrapper > div {
+  top: 0 !important;
+  margin-top: 0 !important;
+}
+
 @utility navbar-primary {
   @apply navbar bg-primary text-primary-content;
 }

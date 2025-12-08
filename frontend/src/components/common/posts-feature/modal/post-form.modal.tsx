@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AddChapterRenderer, AddMediaRenderer } from '@components/common';
 import { usePostUI } from '@context/post-ui-context';
 import { usePostForm } from '@hooks/forms/use-post-form';
@@ -6,6 +6,10 @@ import { useCreatePost, useUpdatePost } from '@hooks/mutations/use-post-mutation
 import { useAuth } from '@context/auth-context';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
+import { MarkdownToolbar } from '@components/common/posts-feature/markdown-toolbar.component';
+import { MarkdownRenderer } from '@components/common/markdown-renderer.component';
+import { useTextUndoRedo } from '@hooks/use-undo-redo.hook';
+import { Undo2, Redo2 } from 'lucide-react';
 
 interface PostFormModalProps {
   channel_id?: string;
@@ -25,6 +29,12 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
   const { user } = useAuth();
   const [mobileView, setMobileView] = useState<'media' | 'details'>('media');
   const [localDescription, setLocalDescription] = useState(postForm?.description || '');
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Undo/Redo functionality
+  const undoRedo = useTextUndoRedo(localDescription);
 
   // Update form when selectedPost changes (for editing) or reset when creating new post
   useEffect(() => {
@@ -43,7 +53,9 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
           })) ?? [{ chapter: '', content: '' }],
         channel_id: selectedPost.channel_id ?? channel_id,
       });
-      setLocalDescription(selectedPost.description || '');
+      const newDesc = selectedPost.description || '';
+      setLocalDescription(newDesc);
+      undoRedo.reset(newDesc);
     } else if (!selectedPost && !editing) {
       // Reset form for new post
       setPostForm({
@@ -55,22 +67,40 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         channel_id: channel_id,
       });
       setLocalDescription('');
+      undoRedo.reset('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showPostForm, selectedPost?.post_id, editing, channel_id]);
 
   useEffect(() => {
-    setLocalDescription(postForm?.description || '');
+    const newDesc = postForm?.description || '';
+    // Only update if it's different from current local description
+    // This prevents loops when undo/redo updates the form
+    if (newDesc !== localDescription) {
+      setLocalDescription(newDesc);
+      // Only sync undo/redo if the change came from outside (not from user typing or undo/redo)
+      if (newDesc !== undoRedo.value) {
+        undoRedo.setValue(newDesc, false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postForm?.description]);
 
   const isSubmitting = isCreating || isUpdating;
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLocalDescription(e.target.value);
+    const newValue = e.target.value;
+    undoRedo.setValue(newValue, true);
+    setLocalDescription(newValue);
+    // Also update form immediately to keep in sync
+    setPostForm((prev) => ({ ...prev, description: newValue }));
   };
 
   const handleTextareaBlur = () => {
-    setPostForm((prev) => ({ ...prev, description: localDescription }));
+    // Ensure we have the latest value from textarea
+    const currentValue = textareaRef.current?.value || localDescription;
+    setLocalDescription(currentValue);
+    setPostForm((prev) => ({ ...prev, description: currentValue }));
   };
 
   const buildFormData = () => {
@@ -139,6 +169,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
       channel_id: channel_id,
     });
     setLocalDescription('');
+    undoRedo.reset('');
   };
 
   if (!showPostForm || !postForm) {
@@ -155,7 +186,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         ></div>
 
         {/* Enhanced Modal Content with Scale Animation */}
-        <div className="modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50">
+        <div className={`modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50 ${postForm.post_type === 'novel' ? 'flex flex-col max-h-[90vh]' : ''}`}>
           {/* Modern Top Bar with Gradient */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 backdrop-blur-sm sticky top-0 z-10">
             <button
@@ -207,10 +238,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
             </button>
           </div>
 
-          {/* Mobile Tab Navigation - Only visible on small screens and when not default post */}
+          {/* Tab Navigation - Always visible for novel posts, mobile-only for other types */}
           {/* Hide media tab when editing image or video posts */}
           {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
-            <div className="lg:hidden border-b border-base-300 bg-base-100">
+            <div className={`border-b border-base-300 bg-base-100 ${postForm.post_type === 'novel' ? '' : 'lg:hidden'}`}>
               <div className="flex">
                 <button
                   type="button"
@@ -256,13 +287,19 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
           )}
 
           {/* Main Content Area */}
-          <form id="post-form" onSubmit={handleSubmit} className="flex flex-col lg:flex-row max-h-[85vh]">
+          <form id="post-form" onSubmit={handleSubmit} className={`flex flex-col ${postForm.post_type === 'novel' ? '' : 'lg:flex-row'} flex-1 overflow-y-auto ${postForm.post_type === 'novel' ? 'min-h-0' : 'max-h-[85vh]'}`}>
             {/* Left Side - Enhanced Media Preview / Chapters with Gradient Background */}
             {/* Hide media section when editing image or video posts */}
             {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
               <div
-                className={`lg:w-3/5 bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 lg:p-8 lg:min-h-[550px] relative overflow-hidden ${
-                  mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex'
+                className={`${postForm.post_type === 'novel' ? 'w-full' : 'lg:w-3/5'} bg-gradient-to-br overflow-y-auto from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 pt-2 lg:min-h-[550px] relative ${
+                  postForm.post_type === 'novel' 
+                    ? 'overflow-hidden' // Keep overflow-hidden for background pattern
+                    : 'overflow-hidden'
+                } ${
+                  postForm.post_type === 'novel' 
+                    ? (mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden')
+                    : (mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex')
                 }`}
               >
                 {/* Animated Background Pattern */}
@@ -272,30 +309,21 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                 </div>
 
                 {/* Media/Chapter Badge - Hidden on mobile */}
+                {postForm.post_type !== 'novel' && (
                 <div className="absolute top-4 left-4 z-10 hidden lg:block">
                   <div className="badge badge-primary badge-lg gap-2 shadow-lg hover:scale-105 transition-transform">
-                    {postForm.post_type === 'novel' ? (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-                        </svg>
-                        Chapters
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-                          <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
-                        </svg>
-                        Media Preview
-                      </>
-                    )}
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                        <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Media Preview
                   </div>
                 </div>
+                )}
 
-                <div className="w-full h-full relative z-10">
+                <div className={`w-full ${postForm.post_type === 'novel' ? 'h-full flex flex-col' : 'h-full'} relative z-10`}>
                   {postForm.post_type === 'novel' ? (
-                    <div className="w-full h-full p-4 lg:p-6 overflow-y-auto max-h-[60vh] lg:max-h-[550px]">
+                    <div className="w-full h-full flex flex-col pt-4 px-4 pb-4 min-h-0">
                       <AddChapterRenderer postForm={postForm} setPostForm={setPostForm} />
                     </div>
                   ) : (
@@ -311,13 +339,15 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
               className={`${
                 postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
                   ? 'w-full'
+                  : postForm.post_type === 'novel'
+                  ? 'w-full'
                   : 'lg:w-2/5'
               } flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
                 postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
                   ? 'block'
-                  : mobileView === 'details'
-                  ? 'block'
-                  : 'hidden lg:flex'
+                  : postForm.post_type === 'novel'
+                  ? (mobileView === 'details' ? 'block' : 'hidden')
+                  : (mobileView === 'details' ? 'block' : 'hidden lg:flex')
               }`}
             >
               {/* Post Type Selection with Enhanced Design */}
@@ -363,20 +393,110 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                   </div>
 
                   <div className="flex-1">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-bold text-base">{user?.username || 'User'}</span>
-                      <span className="badge badge-sm badge-primary">@{user?.username || 'user'}</span>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-base">{user?.username || 'User'}</span>
+                        <span className="badge badge-sm badge-primary">@{user?.username || 'user'}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const undoneValue = undoRedo.undo();
+                            setLocalDescription(undoneValue);
+                            setPostForm((prev) => ({ ...prev, description: undoneValue }));
+                          }}
+                          disabled={!undoRedo.canUndo}
+                          className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const redoneValue = undoRedo.redo();
+                            setLocalDescription(redoneValue);
+                            setPostForm((prev) => ({ ...prev, description: redoneValue }));
+                          }}
+                          disabled={!undoRedo.canRedo}
+                          className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                          title="Redo (Ctrl+Y)"
+                        >
+                          <Redo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPreview(!showPreview)}
+                          className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                            showPreview 
+                              ? 'bg-primary/20 text-primary' 
+                              : 'hover:bg-primary/10 hover:text-primary'
+                          }`}
+                          title="Preview markdown"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {showPreview ? 'Hide Preview' : 'Preview'}
+                        </button>
+                      </div>
                     </div>
-                    <textarea
-                      className="w-full bg-transparent border-0 focus:outline-none resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[200px]"
-                      name="description"
-                      value={localDescription}
-                      onChange={handleTextareaChange}
-                      onBlur={handleTextareaBlur}
-                      placeholder="Share your thoughts, describe your artwork, tell your story..."
-                      rows={10}
-                      maxLength={2200}
+                    
+                    {/* Markdown Toolbar */}
+                    <MarkdownToolbar 
+                      textareaRef={textareaRef} 
+                      isVisible={showMarkdownToolbar}
+                      onFormat={(newValue) => {
+                        undoRedo.setValue(newValue, true);
+                        setLocalDescription(newValue);
+                        setPostForm((prev) => ({ ...prev, description: newValue }));
+                      }}
                     />
+                    
+                    {showPreview ? (
+                      <div className="w-full bg-base-200 border border-base-300 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        {(() => {
+                          // Always read the current textarea value to ensure we have the latest
+                          const currentText = textareaRef.current?.value || localDescription;
+                          return currentText ? (
+                            <MarkdownRenderer 
+                              content={currentText} 
+                              className="text-base text-base-content"
+                            />
+                          ) : (
+                            <p className="text-base-content/50 italic">Preview will appear here...</p>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={textareaRef}
+                        className="w-full bg-transparent border-0 focus:outline-none resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[200px]"
+                        name="description"
+                        value={localDescription}
+                        onChange={handleTextareaChange}
+                        onBlur={handleTextareaBlur}
+                        onKeyDown={(e) => {
+                          // Handle Ctrl+Z (Undo) and Ctrl+Y or Ctrl+Shift+Z (Redo)
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                            e.preventDefault();
+                            const undoneValue = undoRedo.undo();
+                            setLocalDescription(undoneValue);
+                            setPostForm((prev) => ({ ...prev, description: undoneValue }));
+                          } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                            e.preventDefault();
+                            const redoneValue = undoRedo.redo();
+                            setLocalDescription(redoneValue);
+                            setPostForm((prev) => ({ ...prev, description: redoneValue }));
+                          }
+                        }}
+                        placeholder="Share your thoughts, describe your artwork, tell your story..."
+                        rows={10}
+                        maxLength={2200}
+                      />
+                    )}
 
                     {/* Enhanced Footer with Icons and Character Count */}
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
@@ -394,6 +514,20 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                         <button type="button" className="btn btn-ghost btn-sm btn-circle hover:bg-accent/10 hover:text-accent transition-all" title="Add mention">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                          </svg>
+                        </button>
+                        <button 
+                          type="button" 
+                          className={`btn btn-ghost btn-sm btn-circle transition-all ${
+                            showMarkdownToolbar 
+                              ? 'bg-primary/20 text-primary' 
+                              : 'hover:bg-primary/10 hover:text-primary'
+                          }`}
+                          title="Markdown formatting"
+                          onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
                       </div>
