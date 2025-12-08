@@ -393,7 +393,6 @@ class LeaveCollectiveView(APIView):
                 {
                     'non_field_errors': [
                         'You cannot leave the collective as you are the only member. '
-                        'Please delete the collective or invite other members first.'
                     ]
                 },
                 status=status.HTTP_400_BAD_REQUEST
