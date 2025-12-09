@@ -174,9 +174,24 @@ def generate_top_posts_cache(limit: int = 100, post_type: str = None):
     Returns:
         List of post data in ranked order
     """
-    from .serializers import PostListViewSerializer
+    import hashlib
+    import logging
+
     from django.http import HttpRequest
-    
+    from django.utils import timezone
+
+    from .serializers import PostListViewSerializer
+
+    logger = logging.getLogger(__name__)
+
+    # Build cache key with post_type if provided
+    post_type_suffix = f":{post_type}" if post_type else ""
+    cache_key = f"global_top_posts:{limit}{post_type_suffix}"
+
+    # Log cache generation start with timestamp
+    generation_timestamp = timezone.now().isoformat()
+    logger.info(f'[CACHE GENERATION] Starting top posts cache generation - Cache Key: {cache_key}, Timestamp: {generation_timestamp}')
+
     # Build base queryset - only active posts
     queryset = Post.objects.get_active_objects().select_related(
         'author',
@@ -184,28 +199,37 @@ def generate_top_posts_cache(limit: int = 100, post_type: str = None):
         'channel',
         'channel__collective',
     ).prefetch_related('novel_post')
-    
+
     # Apply global ranking algorithm
     ranked_queryset = build_global_top_posts_queryset(queryset, limit, post_type=post_type)
-    
+
     # Serialize posts
     # Create a mock request for serializer context
     request = HttpRequest()
     request.method = 'GET'
-    
+
     serializer = PostListViewSerializer(ranked_queryset, many=True, context={'request': request})
     posts_data = serializer.data
-    
-    # Build cache key with post_type if provided
-    post_type_suffix = f":{post_type}" if post_type else ""
-    cache_key = f"global_top_posts:{limit}{post_type_suffix}"
-    cache.set(cache_key, posts_data, None)  # No timeout - only invalidated manually
-    
+
+    # Generate unique cache identifier (hash of first post ID + timestamp)
+    cache_id = None
+    if posts_data:
+        first_post_id = str(posts_data[0].get('post_id', ''))
+        cache_id_hash = hashlib.md5(f"{first_post_id}:{generation_timestamp}".encode()).hexdigest()[:8]
+        cache_id = f"{cache_key}:{cache_id_hash}"
+        logger.info(f'[CACHE GENERATION] Generated {len(posts_data)} posts - Cache ID: {cache_id}, First Post ID: {first_post_id}')
+    else:
+        logger.warning(f'[CACHE GENERATION] No posts found for cache key: {cache_key}')
+
+    cache.set(cache_key, posts_data, CACHE_TTL_TOP_POSTS)
+    logger.info(f'[CACHE GENERATION] Successfully cached top posts - Cache Key: {cache_key}, Items: {len(posts_data)}, Cache ID: {cache_id}')
+
     # Also cache for limit=100 if we generated more than that (for efficient slicing)
     if limit >= 100 and len(posts_data) >= 100:
         cache_key_100 = f"global_top_posts:100{post_type_suffix}"
-        cache.set(cache_key_100, posts_data[:100], None)  # No timeout - only invalidated manually
-    
+        cache.set(cache_key_100, posts_data[:100], CACHE_TTL_TOP_POSTS)
+        logger.info(f'[CACHE GENERATION] Also cached limit=100 slice - Cache Key: {cache_key_100}, Items: 100')
+
     return posts_data
 
 
@@ -224,15 +248,15 @@ def get_cached_top_posts(limit: int = 100, post_type: str = None):
     valid_limits = [5, 10, 25, 50, 100]
     if limit not in valid_limits:
         limit = 100  # Default to 100
-    
+
     # Build cache key suffix with post_type if provided
     post_type_suffix = f":{post_type}" if post_type else ""
-    
+
     # Always check cache for limit=100 first (most comprehensive)
     # If smaller limit requested, we can slice from the larger cache
     cache_key_100 = f"global_top_posts:100{post_type_suffix}"
     cached_data = cache.get(cache_key_100)
-    
+
     if cached_data:
         # If post_type filter is requested, filter the cached data
         if post_type:
@@ -240,7 +264,7 @@ def get_cached_top_posts(limit: int = 100, post_type: str = None):
             return filtered_data[:limit] if filtered_data else None
         # Return only the requested number
         return cached_data[:limit]
-    
+
     # If limit=100 cache not found, try the specific limit cache
     if limit != 100:
         cache_key = f"global_top_posts:{limit}{post_type_suffix}"
@@ -251,7 +275,7 @@ def get_cached_top_posts(limit: int = 100, post_type: str = None):
                 filtered_data = [post for post in cached_data if post.get('post_type') == post_type]
                 return filtered_data[:limit] if filtered_data else None
             return cached_data[:limit]
-    
+
     # If post_type is requested but no filtered cache exists, try to get unfiltered cache and filter it
     if post_type:
         # Try to get unfiltered cache and filter it
@@ -261,7 +285,7 @@ def get_cached_top_posts(limit: int = 100, post_type: str = None):
             filtered_data = [post for post in unfiltered_data if post.get('post_type') == post_type]
             if filtered_data:
                 return filtered_data[:limit]
-        
+
         # Try specific limit unfiltered cache
         if limit != 100:
             unfiltered_cache_key = f"global_top_posts:{limit}"
@@ -270,6 +294,6 @@ def get_cached_top_posts(limit: int = 100, post_type: str = None):
                 filtered_data = [post for post in unfiltered_data if post.get('post_type') == post_type]
                 if filtered_data:
                     return filtered_data[:limit]
-    
+
     return None
 

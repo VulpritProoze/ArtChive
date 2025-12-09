@@ -268,14 +268,16 @@ export const useAwardTrophy = () => {
       return input;
     },
     onSuccess: async ({ postId, trophyType }) => {
-      // 1. "Fake" update
+      // 1. "Fake" update - ensure user_trophies is an array
       updatePostMetaInCache(queryClient, postId, (meta) => ({
         ...meta,
-        trophy_count: meta.trophy_count + 1,
-        user_trophies: [...meta.user_trophies, trophyType],
+        trophy_count: (meta.trophy_count || 0) + 1,
+        user_trophies: Array.isArray(meta.user_trophies) 
+          ? [...meta.user_trophies, trophyType]
+          : [trophyType],
         trophy_breakdown: {
-          ...meta.trophy_breakdown,
-          [trophyType]: (meta.trophy_breakdown[trophyType] || 0) + 1,
+          ...(meta.trophy_breakdown || {}),
+          [trophyType]: ((meta.trophy_breakdown || {})[trophyType] || 0) + 1,
         },
       }));
 
@@ -283,15 +285,14 @@ export const useAwardTrophy = () => {
       try {
         const data = await postService.getTrophyCount(postId);
         
-        // 3. Update cache with authoritative data
+        // 3. Update cache with authoritative data from API
         updatePostMetaInCache(queryClient, postId, (meta) => ({
           ...meta,
-          trophy_count: data.trophy_count,
-          user_trophies: data.user_trophies,
-          trophy_breakdown: {
-            ...meta.trophy_breakdown,
-            [trophyType]: (meta.trophy_breakdown[trophyType] || 0) + 1,
-          },
+          trophy_count: data.total_trophy_count, // Use total from API
+          user_trophies: Array.isArray(data.user_awarded_trophies) 
+            ? data.user_awarded_trophies 
+            : [], // Use correct field name and ensure array
+          trophy_breakdown: data.trophy_counts || {}, // Use trophy_counts from API directly (prevents double counting)
         }));
       } catch (error) {
         console.error('Failed to refetch trophy count', error);

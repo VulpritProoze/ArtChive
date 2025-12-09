@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { X, Medal, Award, Trophy, Check } from "lucide-react";
 import { usePostUI } from "@context/post-ui-context";
 import { useAwardTrophy } from "@hooks/mutations/use-post-mutations";
-import { useCreateGalleryAward } from "@hooks/queries/use-gallery-awards";
+import { useCreateGalleryAward, useGalleryAwards } from "@hooks/queries/use-gallery-awards";
+import { useAuth } from "@context/auth-context";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 
@@ -57,6 +58,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
     setSelectedPostTrophyAwards,
   } = usePostUI();
   
+  const { user } = useAuth();
   const { mutate: awardTrophy, isPending: isPendingPost, reset: resetPost } = useAwardTrophy();
   const { mutate: awardGalleryAward, isPending: isPendingGallery, reset: resetGallery } = useCreateGalleryAward();
   
@@ -69,6 +71,51 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
   const finalTargetId = targetId || selectedPostForTrophy;
   const isPending = isPendingPost || isPendingGallery;
 
+  // Fetch user's gallery awards if this is a gallery
+  const { data: galleryAwardsData } = useGalleryAwards(
+    finalTargetId || '',
+    { 
+      enabled: finalTargetType === 'gallery' && Boolean(finalTargetId) && showTrophyModal && Boolean(user)
+    }
+  );
+
+  // Extract user's awarded types from gallery awards
+  const userAwardedGalleryTypes = useMemo(() => {
+    if (finalTargetType !== 'gallery' || !galleryAwardsData || !user) return [];
+    
+    const allAwards = galleryAwardsData.pages.flatMap(page => page.results || []);
+    return allAwards
+      .filter(award => award.author === user.id && !award.is_deleted)
+      .map(award => award.award_type);
+  }, [galleryAwardsData, finalTargetType, user]);
+
+  // Track previous target to detect changes
+  const prevTargetRef = useRef<string | null>(null);
+
+  // Initialize selectedPostTrophyAwards from user's awards when modal opens
+  useEffect(() => {
+    if (showTrophyModal && finalTargetId) {
+      // If target changed, clear awards first
+      if (prevTargetRef.current !== finalTargetId) {
+        setSelectedPostTrophyAwards([]);
+        prevTargetRef.current = finalTargetId;
+      }
+
+      // For galleries, fetch and set user's awarded types
+      if (finalTargetType === 'gallery') {
+        // Set user's awarded types when modal opens for gallery
+        // This will update when userAwardedGalleryTypes changes (after fetch completes)
+        // Always set it (even if empty) to ensure we have the latest state
+        setSelectedPostTrophyAwards(userAwardedGalleryTypes);
+      }
+      // For posts, PostCard component will set it via handleOpenTrophyModal
+    } else if (!showTrophyModal) {
+      // When modal closes, reset the previous target ref so next open will be treated as new
+      // But don't clear the awards - they'll be cleared when a new target is selected
+      prevTargetRef.current = null;
+    }
+  }, [showTrophyModal, finalTargetId, finalTargetType, userAwardedGalleryTypes, setSelectedPostTrophyAwards]);
+
   if (!showTrophyModal || !finalTargetId) return null;
 
   const closeModal = () => {
@@ -79,7 +126,9 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
     
     setShowTrophyModal(false);
     setSelectedPostForTrophy(null);
-    setSelectedPostTrophyAwards([]);
+    // Don't clear awards on close - preserve state for when modal reopens
+    // The useEffect will handle clearing when target changes
+    // setSelectedPostTrophyAwards([]);
     setSelectedAward(null);
     setShowConfirmDialog(false);
     isCancelledRef.current = false;

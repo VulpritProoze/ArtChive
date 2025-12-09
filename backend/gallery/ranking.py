@@ -138,9 +138,22 @@ def generate_top_galleries_cache(limit: int = 100):
     Returns:
         List of gallery data in ranked order
     """
+    import hashlib
+    import logging
+
     from django.http import HttpRequest
+    from django.utils import timezone
 
     from .serializers import GalleryListSerializer
+
+    logger = logging.getLogger(__name__)
+
+    # Build cache key
+    cache_key = f"global_top_galleries:{limit}"
+
+    # Log cache generation start with timestamp
+    generation_timestamp = timezone.now().isoformat()
+    logger.info(f'[CACHE GENERATION] Starting top galleries cache generation - Cache Key: {cache_key}, Timestamp: {generation_timestamp}')
 
     # Build base queryset - only active galleries
     queryset = Gallery.objects.get_active_objects().filter(
@@ -164,14 +177,24 @@ def generate_top_galleries_cache(limit: int = 100):
     serializer = GalleryListSerializer(ranked_queryset, many=True, context={'request': request})
     galleries_data = serializer.data
 
-    # Build cache key
-    cache_key = f"global_top_galleries:{limit}"
-    cache.set(cache_key, galleries_data, None)  # No timeout - only invalidated manually
+    # Generate unique cache identifier (hash of first gallery ID + timestamp)
+    cache_id = None
+    if galleries_data:
+        first_gallery_id = str(galleries_data[0].get('gallery_id', ''))
+        cache_id_hash = hashlib.md5(f"{first_gallery_id}:{generation_timestamp}".encode()).hexdigest()[:8]
+        cache_id = f"{cache_key}:{cache_id_hash}"
+        logger.info(f'[CACHE GENERATION] Generated {len(galleries_data)} galleries - Cache ID: {cache_id}, First Gallery ID: {first_gallery_id}')
+    else:
+        logger.warning(f'[CACHE GENERATION] No galleries found for cache key: {cache_key}')
+
+    cache.set(cache_key, galleries_data, CACHE_TTL_TOP_GALLERIES)
+    logger.info(f'[CACHE GENERATION] Successfully cached top galleries - Cache Key: {cache_key}, Items: {len(galleries_data)}, Cache ID: {cache_id}')
 
     # Also cache for limit=100 if we generated more than that (for efficient slicing)
     if limit >= 100 and len(galleries_data) >= 100:
         cache_key_100 = "global_top_galleries:100"
-        cache.set(cache_key_100, galleries_data[:100], None)  # No timeout - only invalidated manually
+        cache.set(cache_key_100, galleries_data[:100], CACHE_TTL_TOP_GALLERIES)
+        logger.info(f'[CACHE GENERATION] Also cached limit=100 slice - Cache Key: {cache_key_100}, Items: 100')
 
     return galleries_data
 

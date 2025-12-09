@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GalleryListItem } from '@types';
 import { optimizeGalleryPicture, optimizeProfilePicture } from '@utils/cloudinary-transform.util';
 
@@ -124,6 +125,49 @@ export const FellowsGallerySection = ({
   observerTarget
 }: FellowsGallerySectionProps) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  // Check scroll position to show/hide navigation buttons
+  const checkScrollPosition = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10); // 10px threshold
+  };
+
+  // Check scroll position on mount and when galleries change
+  useEffect(() => {
+    checkScrollPosition();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      // Also check on resize
+      window.addEventListener('resize', checkScrollPosition);
+      return () => {
+        container.removeEventListener('scroll', checkScrollPosition);
+        window.removeEventListener('resize', checkScrollPosition);
+      };
+    }
+  }, [galleries, isLoading]);
+
+  const scrollLeft = () => {
+    if (!canScrollLeft || !scrollContainerRef.current) return;
+    const cardWidth = 144 + 16; // w-36 (144px) + gap-4 (16px)
+    scrollContainerRef.current.scrollBy({
+      left: -cardWidth * 2, // Scroll 2 cards at a time
+      behavior: 'smooth'
+    });
+  };
+
+  const scrollRight = () => {
+    if (!canScrollRight || !scrollContainerRef.current) return;
+    const cardWidth = 144 + 16; // w-36 (144px) + gap-4 (16px)
+    scrollContainerRef.current.scrollBy({
+      left: cardWidth * 2, // Scroll 2 cards at a time
+      behavior: 'smooth'
+    });
+  };
 
   return (
     <section className="mb-12">
@@ -132,11 +176,40 @@ export const FellowsGallerySection = ({
         <h2 className="text-xl lg:text-2xl font-bold">Fellows You Follow</h2>
       </div>
 
-      {/* Horizontal Scroll Container with Infinite Scroll */}
+      {/* Horizontal Scroll Container with Carousel Navigation */}
       <div className="relative">
+        {/* Left Navigation Button */}
+        <button
+          onClick={scrollLeft}
+          className={`absolute left-2 top-1/2 -translate-y-[20%] z-20 btn btn-circle bg-base-100/90 shadow-lg border border-base-300 transition-all duration-200 pointer-events-auto ${
+            canScrollLeft 
+              ? 'hover:bg-base-100 hover:scale-110 cursor-pointer' 
+              : 'opacity-40 cursor-not-allowed'
+          }`}
+          aria-label="Scroll left"
+          aria-disabled={!canScrollLeft}
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
+        {/* Right Navigation Button */}
+        <button
+          onClick={scrollRight}
+          className={`absolute right-2 top-1/2 -translate-y-[20%] z-20 btn btn-circle bg-base-100/90 shadow-lg border border-base-300 transition-all duration-200 pointer-events-auto ${
+            canScrollRight 
+              ? 'hover:bg-base-100 hover:scale-110 cursor-pointer' 
+              : 'opacity-40 cursor-not-allowed'
+          }`}
+          aria-label="Scroll right"
+          aria-disabled={!canScrollRight}
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+
         <div
           ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto pb-4 px-4 lg:px-6 scroll-smooth gallery-scroll-container"
+          className="flex gap-4 overflow-x-auto pb-4 px-4 lg:px-6 scroll-smooth"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {isLoading && galleries.length === 0 ? (
             Array.from({ length: 5 }, (_, i) => (
@@ -175,6 +248,12 @@ export const FellowsGallerySection = ({
             </>
           )}
         </div>
+        <style>{`
+          /* Hide scrollbar for Chrome, Safari and Opera */
+          div[style*="scrollbarWidth"]::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
       </div>
     </section>
   );

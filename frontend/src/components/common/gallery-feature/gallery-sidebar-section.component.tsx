@@ -117,7 +117,8 @@ const GallerySidebarSection = ({
 
   const handleOpenAwardModal = () => {
     setSelectedPostForTrophy(galleryId);
-    setSelectedPostTrophyAwards([]);
+    // Don't clear awards - let TrophySelectionModal fetch and initialize them
+    // setSelectedPostTrophyAwards([]);
     setShowTrophyModal(true);
   };
 
