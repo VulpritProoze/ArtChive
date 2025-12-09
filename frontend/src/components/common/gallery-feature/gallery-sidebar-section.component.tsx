@@ -37,7 +37,6 @@ const GallerySidebarSection = ({
     setShowTrophyModal,
     selectedPostForTrophy,
     setSelectedPostForTrophy,
-    setSelectedPostTrophyAwards,
     showTrophyListModal,
     setShowTrophyListModal,
     setSelectedComment,
