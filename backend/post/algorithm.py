@@ -203,12 +203,56 @@ def generate_top_posts_cache(limit: int = 100, post_type: str = None):
     # Apply global ranking algorithm
     ranked_queryset = build_global_top_posts_queryset(queryset, limit, post_type=post_type)
 
+    # Convert queryset to list to ensure select_related relationships are preserved
+    # This prevents N+1 queries and ensures author data is correctly loaded
+    ranked_posts_list = list(ranked_queryset)
+
+    # Validate posts and log for debugging
+    if ranked_posts_list:
+        logger.info(f'[CACHE GENERATION] Validating {len(ranked_posts_list)} posts before caching:')
+        invalid_posts = []
+        for i, post in enumerate(ranked_posts_list):
+            # Verify post exists in database (only active posts)
+            try:
+                db_post = Post.objects.get_active_objects().get(post_id=post.post_id)
+                # Verify author matches
+                if db_post.author_id != post.author_id:
+                    invalid_posts.append({
+                        'index': i,
+                        'post_id': str(post.post_id),
+                        'cached_author_id': post.author_id,
+                        'actual_author_id': db_post.author_id
+                    })
+                    logger.warning(f'  Post {i+1}: AUTHOR MISMATCH - Post ID={post.post_id}, Cached Author={post.author_id}, Actual Author={db_post.author_id}')
+            except Post.DoesNotExist:
+                invalid_posts.append({
+                    'index': i,
+                    'post_id': str(post.post_id),
+                    'error': 'Post does not exist in database'
+                })
+                logger.error(f'  Post {i+1}: POST NOT FOUND - Post ID={post.post_id} does not exist in database!')
+
+            # Log first 5 posts for debugging
+            if i < 5:
+                # Safely handle ImageFieldFile object - convert to string first
+                try:
+                    image_url_str = str(post.image_url) if post.image_url else "None"
+                    image_preview = image_url_str[:50] if image_url_str != "None" else "None"
+                except Exception:
+                    image_preview = "Error reading image URL"
+                logger.info(f'  Post {i+1}: ID={post.post_id}, Author ID={post.author_id}, Author Username={post.author.username if post.author else "None"}, Image URL={image_preview}...')
+
+        if invalid_posts:
+            logger.error(f'[CACHE GENERATION] Found {len(invalid_posts)} invalid posts! This indicates a data integrity issue.')
+        else:
+            logger.info(f'[CACHE GENERATION] All {len(ranked_posts_list)} posts validated successfully.')
+
     # Serialize posts
     # Create a mock request for serializer context
     request = HttpRequest()
     request.method = 'GET'
 
-    serializer = PostListViewSerializer(ranked_queryset, many=True, context={'request': request})
+    serializer = PostListViewSerializer(ranked_posts_list, many=True, context={'request': request})
     posts_data = serializer.data
 
     # Generate unique cache identifier (hash of first post ID + timestamp)
@@ -221,8 +265,15 @@ def generate_top_posts_cache(limit: int = 100, post_type: str = None):
     else:
         logger.warning(f'[CACHE GENERATION] No posts found for cache key: {cache_key}')
 
-    cache.set(cache_key, posts_data, CACHE_TTL_TOP_POSTS)
-    logger.info(f'[CACHE GENERATION] Successfully cached top posts - Cache Key: {cache_key}, Items: {len(posts_data)}, Cache ID: {cache_id}')
+    # Only cache if validation passed (or if we're not validating)
+    # This ensures we don't overwrite good cache with bad data
+    try:
+        cache.set(cache_key, posts_data, CACHE_TTL_TOP_POSTS)
+        logger.info(f'[CACHE GENERATION] Successfully cached top posts - Cache Key: {cache_key}, Items: {len(posts_data)}, Cache ID: {cache_id}')
+    except Exception as e:
+        logger.error(f'[CACHE GENERATION] Failed to cache posts - Cache Key: {cache_key}, Error: {str(e)}')
+        # Don't raise - let old cache remain as fallback
+        raise
 
     # Also cache for limit=100 if we generated more than that (for efficient slicing)
     if limit >= 100 and len(posts_data) >= 100:
