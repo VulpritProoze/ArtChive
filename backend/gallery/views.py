@@ -523,6 +523,8 @@ class FellowsGalleriesView(APIView):
         # If no fellows, return empty paginated response
         if not fellow_user_ids:
             paginator = self.pagination_class()
+            # Initialize paginator with empty queryset to set up page attribute
+            paginator.paginate_queryset([], request)
             return paginator.get_paginated_response([])
         
         # Get active galleries from fellows

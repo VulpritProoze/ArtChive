@@ -139,27 +139,65 @@ export const OtherGalleriesSection = ({
 
           {/* Details overlay with blurred background - positioned over image */}
           <div 
-            className="absolute bottom-0 left-0 right-0 transition-all duration-300 backdrop-blur-md text-white"
+            className="absolute bottom-0 left-0 right-0 backdrop-blur-md text-white"
             style={{
               maxHeight: isHovered ? '50%' : 'auto',
-              backgroundColor: 'color-mix(in srgb, var(--local-primary, var(--color-primary)) 40%, transparent)',
+              backgroundColor: isHovered 
+                ? 'color-mix(in srgb, var(--local-primary, var(--color-primary)) 50%, transparent)'
+                : 'color-mix(in srgb, var(--local-primary, var(--color-primary)) 40%, transparent)',
             }}
           >
-            <div className={`p-2 lg:p-3 flex flex-col transition-all duration-300`}>
+            <div className="p-2 lg:p-3 flex flex-col">
               {/* Title - always visible */}
               <h3 className="font-bold text-xs mb-1 truncate text-white">{gallery.title}</h3>
               
-              {/* Description - always visible, truncated to one line */}
-              {gallery.description && (
-                <p className="text-[10px] opacity-80 mb-1 truncate text-white">
-                  {gallery.description}
-                </p>
+              {/* Author details - always in DOM, hidden on hover */}
+              {creator && !isHovered && (
+                <div className="flex items-center gap-2 mb-1">
+                  {creator.profile_picture ? (
+                    <img
+                      src={optimizeProfilePicture(creator.profile_picture)}
+                      alt={creator.username}
+                      className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-5 h-5 rounded-full bg-base-200 flex items-center justify-center flex-shrink-0 ${creator.profile_picture ? 'hidden' : ''}`}>
+                    <span className="text-[10px] font-semibold text-base-content">
+                      {creator.username.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-[10px] truncate text-white">
+                      {creator.first_name} {creator.middle_name ? creator.middle_name + ' ' : ''}{creator.last_name}
+                    </p>
+                    <p className="text-[9px] opacity-80 truncate text-white">
+                      @{creator.username} • {artistTypes}
+                    </p>
+                  </div>
+                </div>
               )}
               
               {/* Additional details - only visible on hover */}
               {isHovered && (
-                <>
-                  <p className="text-[10px] opacity-90 mb-2 line-clamp-2 flex-1 overflow-hidden text-white">{gallery.description || 'No description'}</p>
+                <div>
+                  <p className="text-[10px] opacity-90 mb-2 text-white" style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                  }}>
+                    {gallery.description ? (
+                      gallery.description.length > 80 
+                        ? `${gallery.description.substring(0, 80)}...`
+                        : gallery.description
+                    ) : 'No description'}
+                  </p>
                   
                   {/* Creator Info */}
                   {creator && (
@@ -212,7 +250,7 @@ export const OtherGalleriesSection = ({
                       </span>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>

@@ -5,6 +5,7 @@ import {
   PostFormModal,
   CommentFormModal,
   CritiqueFormModal,
+  TrophySelectionModal,
 } from '@components/common/posts-feature/modal';
 import { InfiniteScrolling } from '@components/common';
 import { PostCard } from '@components/common/posts-feature';
@@ -352,6 +353,7 @@ const Timeline: React.FC = () => {
       {showPostForm && <PostFormModal user_id={currentUser?.id} />}
       {showCommentForm && <CommentFormModal />}
       {showCritiqueForm && <CritiqueFormModal />}
+      <TrophySelectionModal />
 
       <div className="mb-6">
         <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-8 shadow-lg border border-base-300 overflow-visible">

@@ -6,8 +6,10 @@ import { LoadingSpinner } from '@components/loading-spinner';
 import handleApiError from '@utils/handle-api-error';
 import { renderCanvasObjectToHTML } from '@utils/canvas-to-html-renderer';
 import GalleryCommentsModal from '@components/common/gallery-feature/modal/gallery-comments-modal.component';
+import { TrophySelectionModal } from '@components/common/posts-feature/modal';
+import { usePostUI } from '@context/post-ui-context';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faComment } from '@fortawesome/free-solid-svg-icons';
+import { faComment, faTrophy } from '@fortawesome/free-solid-svg-icons';
 
 export default function PublishedGalleryView() {
   const { userId } = useParams<{ userId: string }>();
@@ -18,6 +20,19 @@ export default function PublishedGalleryView() {
   const [containerHeight, setContainerHeight] = useState(0);
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  const {
+    showTrophyModal,
+    setShowTrophyModal,
+    setSelectedPostForTrophy,
+  } = usePostUI();
+
+  const handleOpenAwardModal = () => {
+    if (gallery?.gallery_id) {
+      setSelectedPostForTrophy(gallery.gallery_id);
+      setShowTrophyModal(true);
+    }
+  };
 
   useEffect(() => {
     const fetchGallery = async () => {
@@ -160,6 +175,11 @@ export default function PublishedGalleryView() {
             setIsCommentsModalOpen(true);
           },
         },
+        {
+          label: "Award Gallery",
+          icon: faTrophy,
+          action: handleOpenAwardModal,
+        },
       ]}
     >
       <div
@@ -194,6 +214,11 @@ export default function PublishedGalleryView() {
         onClose={() => setIsCommentsModalOpen(false)}
         galleryId={gallery.gallery_id}
       />
+
+      {/* Trophy Selection Modal */}
+      {showTrophyModal && gallery?.gallery_id && (
+        <TrophySelectionModal targetType="gallery" targetId={gallery.gallery_id} />
+      )}
     </GalleryLayout>
   );
 }

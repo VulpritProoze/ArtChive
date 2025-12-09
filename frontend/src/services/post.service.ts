@@ -33,8 +33,10 @@ export interface PraiseCountResponse {
 }
 
 export interface TrophyCountResponse {
-  trophy_count: number;
-  user_trophies: string[];
+  post_id: string;
+  trophy_counts: Record<string, number>; // e.g., { "bronze_stroke": 2, "golden_bristle": 1 }
+  total_trophy_count: number;
+  user_awarded_trophies: string[];
 }
 
 export interface CommentsResponse {
