@@ -1,9 +1,23 @@
+from decouple import config
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import BasePermission
 
 from collective.models import Channel, Collective, CollectiveMember
 from common.utils.choices import COLLECTIVE_ROLES
 
+
+class HasAPIKey(BasePermission):
+    """
+    Permission class that checks for API key in header.
+    """
+    def has_permission(self, request, view):
+        api_key = request.headers.get('X-API-Key')
+        expected_key = config('CACHE_GENERATION_API_KEY')
+
+        if not expected_key:
+            return False
+
+        return api_key == expected_key
 
 class IsAuthorOrSuperUser(BasePermission):
     """

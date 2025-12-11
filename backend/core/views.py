@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -49,9 +49,6 @@ from .serializers import (
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
-    ReputationHistorySerializer,
-    ReputationLeaderboardEntrySerializer,
-    ReputationSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
     UserFellowSerializer,
@@ -115,7 +112,7 @@ class LoginView(APIView):
             # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
             cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
             cookie_samesite = "None" if cookie_secure else "Lax"
-            
+
             cookie_kwargs = {
                 "httponly": True,
                 "secure": cookie_secure,
@@ -256,7 +253,7 @@ class CookieTokenRefreshView(TokenRefreshView):
             # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
             cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
             cookie_samesite = "None" if cookie_secure else "Lax"
-            
+
             cookie_kwargs = {
                 "httponly": True,
                 "secure": cookie_secure,
@@ -2303,4 +2300,100 @@ class TransactionVolumeAPIView(APIView):
 
         return Response(data)
 
+# ============================================================================
+# Monitoring Views
+# ============================================================================
+class RedisHealthCheckView(APIView):
+    """
+    Health check endpoint for Redis connectivity using Redis PING command.
+    """
+    permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=["Health"],
+        description="Check Redis connectivity using built-in PING command",
+        responses={
+            200: OpenApiResponse(description="Redis is healthy"),
+            503: OpenApiResponse(description="Redis is unavailable"),
+        },
+    )
+    def get(self, request):
+        try:
+            # Get the raw Redis client from django-redis
+            if hasattr(cache, 'client'):
+                redis_client = cache.client.get_client()
+
+                # Use Redis PING command - returns True if Redis is responding
+                response = redis_client.ping()
+
+                if response:
+                    return Response({
+                        "status": "healthy",
+                        "service": "redis",
+                        "message": "Redis is responding correctly"
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        "status": "unhealthy",
+                        "service": "redis",
+                        "message": "Redis PING returned False"
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            else:
+                return Response({
+                    "status": "unhealthy",
+                    "service": "redis",
+                    "message": "Cache backend does not support Redis client access"
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            return Response({
+                "status": "unhealthy",
+                "service": "redis",
+                "message": f"Redis connection error: {str(e)}"
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class PostgresHealthCheckView(APIView):
+    """
+    Health check endpoint for PostgreSQL connectivity.
+    Tests database connection by executing a simple query.
+    """
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=["Health"],
+        description="Check PostgreSQL connectivity",
+        responses={
+            200: OpenApiResponse(description="PostgreSQL is healthy"),
+            503: OpenApiResponse(description="PostgreSQL is unavailable"),
+        },
+    )
+    def get(self, request):
+
+        try:
+            # Ensure connection is active
+            connection.ensure_connection()
+
+            # Execute a simple query to verify database is responding
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+
+            if result and result[0] == 1:
+                return Response({
+                    "status": "healthy",
+                    "service": "postgresql",
+                    "message": "PostgreSQL is responding correctly"
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "status": "unhealthy",
+                    "service": "postgresql",
+                    "message": "PostgreSQL query returned unexpected result"
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            return Response({
+                "status": "unhealthy",
+                "service": "postgresql",
+                "message": f"PostgreSQL connection error: {str(e)}"
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)

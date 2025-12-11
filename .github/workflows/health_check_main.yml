@@ -1,0 +1,75 @@
+name: Health Check Monitor
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Generate random delay
+        id: delay
+        run: |
+          # Generate random delay between 0-120 seconds (0-2 minutes)
+          DELAY=$((RANDOM % 121))
+          echo "delay=$DELAY" >> $GITHUB_OUTPUT
+          echo "⏱️  Random delay: $DELAY seconds"
+          echo "📅 Next check will be in approximately $((5 * 60 + DELAY)) seconds (5-7 minutes)"
+      
+      - name: Wait random interval
+        run: |
+          echo "⏳ Waiting ${{ steps.delay.outputs.delay }} seconds..."
+          sleep ${{ steps.delay.outputs.delay }}
+      
+      - name: Check Redis Health
+        id: redis_check
+        run: |
+          echo "🔍 Checking Redis health..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" ${{ secrets.SERVER_URL }}/api/core/health/redis/)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Redis Status Code: $HTTP_CODE"
+          echo "Redis Response: $BODY"
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Redis is healthy"
+            echo "redis_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Redis health check failed (HTTP $HTTP_CODE)"
+            echo "redis_status=unhealthy" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Check PostgreSQL Health
+        id: postgres_check
+        run: |
+          echo "🔍 Checking PostgreSQL health..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" ${{ secrets.SERVER_URL }}/api/core/health/postgres/)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "PostgreSQL Status Code: $HTTP_CODE"
+          echo "PostgreSQL Response: $BODY"
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ PostgreSQL is healthy"
+            echo "postgres_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "❌ PostgreSQL health check failed (HTTP $HTTP_CODE)"
+            echo "postgres_status=unhealthy" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Health Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Redis: ${{ steps.redis_check.outputs.redis_status || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- PostgreSQL: ${{ steps.postgres_check.outputs.postgres_status || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Checked at: $(date)" >> $GITHUB_STEP_SUMMARY
