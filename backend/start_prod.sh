@@ -7,7 +7,7 @@ python manage.py migrate --noinput
 
 # Provision the admin account and fixtures using env-configured credentials (idempotent)
 python manage.py loaddata common/fixtures/trophy_types.json
-python manage.py loaddata common/fixtures/award_types.json
+# python manage.py loaddata common/fixtures/award_types.json
 python manage.py loaddata common/fixtures/default_collectives.json
 python manage.py create_initial_data
 

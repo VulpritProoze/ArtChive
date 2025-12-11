@@ -25,8 +25,13 @@ def create_notification(
         notified_by: User who triggered the notification (optional, can be None for system notifications)
 
     Returns:
-        Notification: The created notification object
+        Notification: The created notification object, or None if notification should not be created
     """
+    # Safety check: Don't create notification if notified_by is the same as notified_to
+    # The person who triggers the notification should not receive it
+    if notified_by and notified_by.id == notified_to.id:
+        return None
+
     # Create the notification
     notification = Notification.objects.create(
         message=message,
@@ -263,18 +268,21 @@ def create_critique_reply_notification(reply, critique_author):
         critique_author: The User who owns the critique
     """
     # Don't notify if replying to own critique
+    # Also ensure notified_by (reply author) is not the same as notified_to (critique author)
     if reply.author.id == critique_author.id:
         return None
 
     message = f"{reply.author.username} replied to your critique"
 
-    # Format: "postId:replyId" for proper navigation
-    notification_object_id = f"{reply.post_id.post_id}:{reply.comment_id}"
+    # Use just the post ID (like praise/trophy notifications)
+    # Navigation will go to the post, and hash navigation can handle scrolling to the reply
+    notification_object_id = str(reply.post_id.post_id)
 
+    # Only notify the critique author (notified_to), never the reply author (notified_by)
     return create_notification(
         message=message,
         notification_object_type=NOTIFICATION_TYPES.post_critique,
         notification_object_id=notification_object_id,
-        notified_to=critique_author,
-        notified_by=reply.author
+        notified_to=critique_author,  # Only the critique author receives this notification
+        notified_by=reply.author  # The reply author triggered it, but doesn't receive it
     )
