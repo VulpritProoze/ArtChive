@@ -27,10 +27,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import choices
-from common.utils.choices import NOTIFICATION_TYPES, GALLERY_AWARD_BRUSH_DRIP_COSTS
+from common.utils.choices import NOTIFICATION_TYPES
 from core.cache_utils import get_dashboard_cache_key
-from core.models import User, BrushDripWallet, BrushDripTransaction
-from core.permissions import IsAuthorOrSuperUser
+from core.models import User
+from core.permissions import HasAPIKey, IsAuthorOrSuperUser
+from gallery.ranking import generate_top_galleries_cache
 from notification.utils import create_notification
 from post.models import Comment
 from post.pagination import CommentPagination
@@ -100,13 +101,13 @@ class GalleryPublicDetailView(APIView):
                 gallery_id=gallery_id,
                 status='active'
             ).first()
-            
+
             if not gallery:
                 return Response(
                     {'error': 'Gallery not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
-            
+
             from .serializers import GalleryPublicSerializer
             serializer = GalleryPublicSerializer(gallery)
             return Response(serializer.data)
@@ -142,7 +143,7 @@ class GalleryDetailView(APIView):
         """Retrieve a single gallery"""
         # First try to get user's own gallery
         gallery = self.get_object(gallery_id)
-        
+
         # If not found, try to get any active published gallery (for viewing published galleries)
         if not gallery:
             try:
@@ -152,7 +153,7 @@ class GalleryDetailView(APIView):
                 ).first()
             except (ObjectDoesNotExist, ValueError):
                 gallery = None
-        
+
         # If still not found, return 404
         if not gallery:
             return Response(
@@ -321,7 +322,7 @@ class GalleryListView(APIView):
     def get(self, request):
         """Get all active galleries (paginated) with optional search"""
         query = request.query_params.get('q', '').strip()
-        
+
         # Get all active (non-deleted) galleries with optimized queries
         # Using select_related for OneToOne relationships (user_wallet and artist)
         galleries = Gallery.objects.get_active_objects().select_related(
@@ -504,14 +505,14 @@ class FellowsGalleriesView(APIView):
     def get(self, request):
         """Get active galleries from fellows (accepted relationships)"""
         user = request.user
-        
+
         # Get all accepted fellows for the current user
         from core.models import UserFellow
         fellows = UserFellow.objects.get_active_objects().filter(
             (Q(user=user, status='accepted') | Q(fellow_user=user, status='accepted')),
             is_deleted=False
         )
-        
+
         # Extract fellow user IDs (the users that the current user follows)
         fellow_user_ids = []
         for fellow in fellows:
@@ -519,14 +520,14 @@ class FellowsGalleriesView(APIView):
                 fellow_user_ids.append(fellow.fellow_user.id)
             else:
                 fellow_user_ids.append(fellow.user.id)
-        
+
         # If no fellows, return empty paginated response
         if not fellow_user_ids:
             paginator = self.pagination_class()
             # Initialize paginator with empty queryset to set up page attribute
             paginator.paginate_queryset([], request)
             return paginator.get_paginated_response([])
-        
+
         # Get active galleries from fellows
         galleries = Gallery.objects.get_active_objects().select_related(
             'creator',
@@ -536,14 +537,14 @@ class FellowsGalleriesView(APIView):
             creator_id__in=fellow_user_ids,
             status='active'
         ).order_by('-created_at')
-        
+
         # Apply pagination
         paginator = self.pagination_class()
         paginated_galleries = paginator.paginate_queryset(galleries, request)
-        
+
         # Serialize with GalleryListSerializer (excludes canvas_json)
         serializer = GalleryListSerializer(paginated_galleries, many=True)
-        
+
         # Return paginated response
         return paginator.get_paginated_response(serializer.data)
 
@@ -921,6 +922,84 @@ class GalleryCommentListView(generics.ListAPIView):
     serializer_class = GalleryCommentSerializer
     pagination_class = CommentPagination
     permission_classes = [IsAuthenticated]
+
+
+class GenerateTopGalleriesView(APIView):
+    """
+    Manually trigger generation of top galleries cache.
+    POST /api/gallery/top/generate/?limit=100
+
+    Query Parameters:
+        limit: Number of galleries to generate (default: 100, max: 100)
+
+    Note: This endpoint can be called to refresh the cache manually.
+    """
+    permission_classes = [IsAuthenticated]  # Require authentication
+
+    def post(self, request):
+        # Get limit from query params
+        limit = request.query_params.get('limit', '100')
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 100
+
+        # Cap at 100
+        limit = min(limit, 100)
+
+        try:
+            galleries_data = generate_top_galleries_cache(limit=limit)
+
+            return Response({
+                'message': f'Successfully generated {len(galleries_data)} top galleries',
+                'count': len(galleries_data),
+                'limit': limit,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate top galleries: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GenerateTopGalleriesViaApiKeyView(APIView):
+    """
+    Manually trigger generation of top galleries cache.
+    Requires API key in header.
+    POST /api/gallery/top/generate/?limit=100
+
+    Query Parameters:
+        limit: Number of galleries to generate (default: 100, max: 100)
+
+    Note: This endpoint can be called to refresh the cache manually.
+    """
+    permission_classes = [HasAPIKey]  # Require authentication
+
+    def post(self, request):
+        # Get limit from query params
+        limit = request.query_params.get('limit', '100')
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 100
+
+        # Cap at 100
+        limit = min(limit, 100)
+
+        try:
+            galleries_data = generate_top_galleries_cache(limit=limit)
+
+            return Response({
+                'message': f'Successfully generated {len(galleries_data)} top galleries',
+                'count': len(galleries_data),
+                'limit': limit,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate top galleries: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # ============================================================================

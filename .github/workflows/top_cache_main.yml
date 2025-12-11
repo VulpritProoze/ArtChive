@@ -1,0 +1,89 @@
+name: Daily Cache Generation
+
+on:
+  schedule:
+    # Run once a day at 2:00 AM UTC (adjust timezone as needed)
+    # Format: minute hour day month day-of-week
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  generate-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Generate Top Posts Cache
+        id: posts_cache
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          API_KEY: ${{ secrets.CACHE_GENERATION_API_KEY }}
+        run: |
+          echo "🔍 Generating top posts cache (main environment)..."
+          
+          RESPONSE=$(curl -s -m 300 -w "\n%{http_code}" -X POST \
+            "${SERVER_URL}/api/post/top/generate/api-key/?limit=100" \
+            -H "X-API-Key: ${API_KEY}" \
+            -H "Content-Type: application/json" || echo -e "\n000")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Posts Cache Status Code: $HTTP_CODE"
+          echo "Posts Cache Response: $BODY"
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Top posts cache generated successfully"
+            echo "posts_status=success" >> $GITHUB_OUTPUT
+            echo "posts_message=$(echo "$BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4 || echo 'Success')" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Top posts cache generation failed (HTTP $HTTP_CODE)"
+            echo "posts_status=failed" >> $GITHUB_OUTPUT
+            echo "posts_message=HTTP $HTTP_CODE" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Generate Top Galleries Cache
+        id: galleries_cache
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          API_KEY: ${{ secrets.CACHE_GENERATION_API_KEY }}
+        run: |
+          echo "🔍 Generating top galleries cache (main environment)..."
+          
+          RESPONSE=$(curl -s -m 300 -w "\n%{http_code}" -X POST \
+            "${SERVER_URL}/api/gallery/top/generate/api-key/?limit=100" \
+            -H "X-API-Key: ${API_KEY}" \
+            -H "Content-Type: application/json" || echo -e "\n000")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Galleries Cache Status Code: $HTTP_CODE"
+          echo "Galleries Cache Response: $BODY"
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Top galleries cache generated successfully"
+            echo "galleries_status=success" >> $GITHUB_OUTPUT
+            echo "galleries_message=$(echo "$BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4 || echo 'Success')" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Top galleries cache generation failed (HTTP $HTTP_CODE)"
+            echo "galleries_status=failed" >> $GITHUB_OUTPUT
+            echo "galleries_message=HTTP $HTTP_CODE" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Daily Cache Generation Summary (MAIN)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Top Posts Cache" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ steps.posts_cache.outputs.posts_status || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Message: ${{ steps.posts_cache.outputs.posts_message || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Top Galleries Cache" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ steps.galleries_cache.outputs.galleries_status || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Message: ${{ steps.galleries_cache.outputs.galleries_message || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated at:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
