@@ -50,12 +50,16 @@ export default function NotificationIndex() {
         }
         return `/post/${objectId}`;
       case 'Post Critique':
-        // objectId format: "postId:critiqueId" or just "critiqueId"
+        // Check if it's a critique reply (uses just postId) or regular critique (format: "postId:critiqueId")
+        const isCritiqueReply = notification.message.includes('replied to your critique');
+        if (isCritiqueReply) {
+          // Critique reply notifications now just use the post ID
+          return `/post/${objectId}`;
+        }
+        // Regular critique: objectId format: "postId:critiqueId" or just "critiqueId"
         if (objectId.includes(':')) {
           const [postId, critiqueId] = objectId.split(':');
-          // Check if it's a critique reply
-          const isCritiqueReply = notification.message.includes('replied to your critique');
-          return `/post/${postId}#${isCritiqueReply ? 'critique-reply' : 'critique'}-${critiqueId}`;
+          return `/post/${postId}#critique-${critiqueId}`;
         }
         return `/post/${objectId}`;
       case 'Post Praise':

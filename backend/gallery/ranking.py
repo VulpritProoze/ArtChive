@@ -27,7 +27,8 @@ SCORING_WEIGHTS = {
 }
 
 # Cache TTLs (in seconds)
-CACHE_TTL_TOP_GALLERIES = 3600  # 1 hour
+# CACHE_TTL_TOP_GALLERIES = 3600  # 1 hour
+CACHE_TTL_TOP_GALLERIES = 86400  # 1 day
 
 
 def build_global_top_galleries_queryset(queryset, limit: int = 100):

@@ -27,7 +27,8 @@ SCORING_WEIGHTS = {
 }
 
 # Cache TTLs (in seconds)
-CACHE_TTL_TOP_POSTS = 3600  # 1 hour
+# CACHE_TTL_TOP_POSTS = 3600  # 1 hour
+CACHE_TTL_TOP_POSTS = 86400  # 1 day
 
 
 def build_global_top_posts_queryset(queryset, limit: int = 100, post_type: str = None):

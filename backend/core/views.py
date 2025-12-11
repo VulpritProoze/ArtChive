@@ -2308,6 +2308,16 @@ class RedisHealthCheckView(APIView):
     Health check endpoint for Redis connectivity using Redis PING command.
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def head(self, request):
+        """
+        Handle HEAD requests (used by monitoring services like UptimeRobot).
+        Returns same status code as GET but without body.
+        """
+        response = self.get(request)
+        # Return empty response with same status code
+        return Response(status=response.status_code)
 
     @extend_schema(
         tags=["Health"],
@@ -2358,6 +2368,16 @@ class PostgresHealthCheckView(APIView):
     Tests database connection by executing a simple query.
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def head(self, request):
+        """
+        Handle HEAD requests (used by monitoring services like UptimeRobot).
+        Returns same status code as GET but without body.
+        """
+        response = self.get(request)
+        # Return empty response with same status code
+        return Response(status=response.status_code)
 
     @extend_schema(
         tags=["Health"],

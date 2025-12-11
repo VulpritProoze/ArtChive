@@ -127,9 +127,10 @@ export default function PostDetail() {
     try {
       const parts = itemId.split('-');
       const type = parts[0]; // comment, reply, critique, critique-reply
-      const id = parts.slice(1).join('-'); // ID (may contain hyphens for UUIDs)
 
       if (type === 'comment' || type === 'reply') {
+        // For comments/replies, ID is everything after the first part
+        const id = parts.slice(1).join('-'); // ID (may contain hyphens for UUIDs)
         // Fetch comment with context (includes parent and all replies if it's a reply)
         const data = await postService.getCommentWithContext(id);
 
@@ -145,9 +146,18 @@ export default function PostDetail() {
             setTimeout(() => setHighlightedItemId(null), 3000);
           }
         }, 500);
-      } else if (type === 'critique' || (type === 'critique' && parts[1] === 'reply')) {
+      } else if (type === 'critique') {
+        // Check if it's a critique-reply (format: critique-reply-UUID)
+        let critiqueId: string;
+        if (parts[1] === 'reply') {
+          // For critique-reply, ID starts at parts[2] to skip 'critique' and 'reply'
+          critiqueId = parts.slice(2).join('-');
+        } else {
+          // For regular critique, ID starts at parts[1]
+          critiqueId = parts.slice(1).join('-');
+        }
+        
         // Fetch critique with context
-        const critiqueId = type === 'critique' && parts[1] === 'reply' ? parts[2] : id;
         const data = await postService.getCritiqueWithContext(critiqueId);
 
         console.log('Fetched critique context:', data);
