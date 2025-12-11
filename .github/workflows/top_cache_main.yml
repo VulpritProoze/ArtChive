@@ -13,6 +13,22 @@ jobs:
     timeout-minutes: 15
     
     steps:
+      - name: Validate environment variables
+        run: |
+          if [ -z "${{ secrets.SERVER_URL }}" ]; then
+            echo "❌ Error: SERVER_URL secret is not set"
+            echo "Please go to Settings → Secrets and variables → Actions → New repository secret"
+            echo "Add a secret named: SERVER_URL"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CACHE_GENERATION_API_KEY }}" ]; then
+            echo "❌ Error: CACHE_GENERATION_API_KEY secret is not set"
+            echo "Please go to Settings → Secrets and variables → Actions → New repository secret"
+            echo "Add a secret named: CACHE_GENERATION_API_KEY"
+            exit 1
+          fi
+          echo "✅ Environment variables validated"
+      
       - name: Generate Top Posts Cache
         id: posts_cache
         env:
@@ -20,6 +36,19 @@ jobs:
           API_KEY: ${{ secrets.CACHE_GENERATION_API_KEY }}
         run: |
           echo "🔍 Generating top posts cache (main environment)..."
+          
+          # Validate environment variables are set
+          if [ -z "$SERVER_URL" ]; then
+            echo "❌ Error: SERVER_URL environment variable is empty"
+            exit 1
+          fi
+          if [ -z "$API_KEY" ]; then
+            echo "❌ Error: API_KEY environment variable is empty"
+            exit 1
+          fi
+          
+          echo "Using SERVER_URL: ${SERVER_URL}"
+          echo "API Key: ${API_KEY:0:20}..." # Show first 20 chars for debugging
           
           RESPONSE=$(curl -s -m 300 -w "\n%{http_code}" -X POST \
             "${SERVER_URL}/api/post/top/generate/api-key/?limit=100" \
@@ -51,6 +80,16 @@ jobs:
         run: |
           echo "🔍 Generating top galleries cache (main environment)..."
           
+          # Validate environment variables are set
+          if [ -z "$SERVER_URL" ]; then
+            echo "❌ Error: SERVER_URL environment variable is empty"
+            exit 1
+          fi
+          if [ -z "$API_KEY" ]; then
+            echo "❌ Error: API_KEY environment variable is empty"
+            exit 1
+          fi
+          
           RESPONSE=$(curl -s -m 300 -w "\n%{http_code}" -X POST \
             "${SERVER_URL}/api/gallery/top/generate/api-key/?limit=100" \
             -H "X-API-Key: ${API_KEY}" \
@@ -65,7 +104,7 @@ jobs:
           if [ "$HTTP_CODE" -eq 200 ]; then
             echo "✅ Top galleries cache generated successfully"
             echo "galleries_status=success" >> $GITHUB_OUTPUT
-            echo "galleries_message=$(echo "$BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4 || echo 'Success')" >> $GITHUB_OUTPUT
+            echo "galleries_message=$(echo "$BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4 || echo 'Success')" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Top galleries cache generation failed (HTTP $HTTP_CODE)"
             echo "galleries_status=failed" >> $GITHUB_OUTPUT

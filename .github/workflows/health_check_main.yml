@@ -28,9 +28,18 @@ jobs:
       
       - name: Check Redis Health
         id: redis_check
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
         run: |
           echo "🔍 Checking Redis health..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" ${{ secrets.SERVER_URL }}/api/core/health/redis/)
+          
+          # Validate SERVER_URL is set
+          if [ -z "$SERVER_URL" ]; then
+            echo "❌ Error: SERVER_URL is not set"
+            exit 1
+          fi
+          
+          RESPONSE=$(curl -s -m 10 -w "\n%{http_code}" "${SERVER_URL}/api/core/health/redis/" || echo -e "\n000")
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
           
@@ -48,9 +57,18 @@ jobs:
       
       - name: Check PostgreSQL Health
         id: postgres_check
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
         run: |
           echo "🔍 Checking PostgreSQL health..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" ${{ secrets.SERVER_URL }}/api/core/health/postgres/)
+          
+          # Validate SERVER_URL is set
+          if [ -z "$SERVER_URL" ]; then
+            echo "❌ Error: SERVER_URL is not set"
+            exit 1
+          fi
+          
+          RESPONSE=$(curl -s -m 10 -w "\n%{http_code}" "${SERVER_URL}/api/core/health/postgres/" || echo -e "\n000")
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
           
