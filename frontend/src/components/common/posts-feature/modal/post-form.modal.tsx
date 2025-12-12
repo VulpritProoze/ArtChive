@@ -73,17 +73,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
   }, [showPostForm, selectedPost?.post_id, editing, channel_id]);
 
   useEffect(() => {
-    const newDesc = postForm?.description || '';
-    // Only update if it's different from current local description
-    // This prevents loops when undo/redo updates the form
-    if (newDesc !== localDescription) {
-      setLocalDescription(newDesc);
-      // Only sync undo/redo if the change came from outside (not from user typing or undo/redo)
-      if (newDesc !== undoRedo.value) {
-        undoRedo.setValue(newDesc, false);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLocalDescription(postForm?.description || '');
   }, [postForm?.description]);
 
   const isSubmitting = isCreating || isUpdating;
@@ -92,15 +82,11 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
     const newValue = e.target.value;
     undoRedo.setValue(newValue, true);
     setLocalDescription(newValue);
-    // Also update form immediately to keep in sync
     setPostForm((prev) => ({ ...prev, description: newValue }));
   };
 
   const handleTextareaBlur = () => {
-    // Ensure we have the latest value from textarea
-    const currentValue = textareaRef.current?.value || localDescription;
-    setLocalDescription(currentValue);
-    setPostForm((prev) => ({ ...prev, description: currentValue }));
+    setPostForm((prev) => ({ ...prev, description: localDescription }));
   };
 
   const buildFormData = () => {
@@ -151,6 +137,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         channel_id: channel_id,
       });
       setLocalDescription('');
+      undoRedo.reset('');
     } catch (error) {
       const message = handleApiError(error, undefined, true, true);
       toast.error('Operation failed', formatErrorForToast(message));
@@ -186,7 +173,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         ></div>
 
         {/* Enhanced Modal Content with Scale Animation */}
-        <div className={`modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50 ${postForm.post_type === 'novel' ? 'flex flex-col max-h-[90vh] min-h-0' : ''}`}>
+        <div className="modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50">
           {/* Modern Top Bar with Gradient */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 backdrop-blur-sm sticky top-0 z-10">
             <button
@@ -238,10 +225,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
             </button>
           </div>
 
-          {/* Tab Navigation - Always visible for novel posts, mobile-only for other types */}
+          {/* Mobile Tab Navigation - Only visible on small screens and when not default post */}
           {/* Hide media tab when editing image or video posts */}
           {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
-            <div className={`border-b border-base-300 bg-base-100 ${postForm.post_type === 'novel' ? '' : 'lg:hidden'}`}>
+            <div className="lg:hidden border-b border-base-300 bg-base-100">
               <div className="flex">
                 <button
                   type="button"
@@ -287,19 +274,13 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
           )}
 
           {/* Main Content Area */}
-          <form id="post-form" onSubmit={handleSubmit} className={`flex flex-col ${postForm.post_type === 'novel' ? '' : 'lg:flex-row'} flex-1 ${postForm.post_type === 'novel' ? 'overflow-y-auto min-h-0' : 'max-h-[85vh]'}`}>
+          <form id="post-form" onSubmit={handleSubmit} className="flex flex-col lg:flex-row max-h-[85vh]">
             {/* Left Side - Enhanced Media Preview / Chapters with Gradient Background */}
             {/* Hide media section when editing image or video posts */}
             {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
               <div
-                className={`${postForm.post_type === 'novel' ? 'w-full' : 'lg:w-3/5'} bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 pt-2 lg:min-h-[550px] relative ${
-                  postForm.post_type === 'novel' 
-                    ? 'overflow-hidden' // Keep overflow-hidden for background pattern
-                    : 'overflow-hidden'
-                } ${
-                  postForm.post_type === 'novel' 
-                    ? (mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden')
-                    : (mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex')
+                className={`lg:w-3/5 bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 lg:p-8 lg:min-h-[550px] relative overflow-hidden ${
+                  mobileView === 'media' ? 'block min-h-[60vh]' : 'hidden lg:flex'
                 }`}
               >
                 {/* Animated Background Pattern */}
@@ -309,21 +290,30 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                 </div>
 
                 {/* Media/Chapter Badge - Hidden on mobile */}
-                {postForm.post_type !== 'novel' && (
                 <div className="absolute top-4 left-4 z-10 hidden lg:block">
                   <div className="badge badge-primary badge-lg gap-2 shadow-lg hover:scale-105 transition-transform">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
-                        <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
-                      </svg>
-                      Media Preview
+                    {postForm.post_type === 'novel' ? (
+                      <>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                        </svg>
+                        Chapters
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                          <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Media Preview
+                      </>
+                    )}
                   </div>
                 </div>
-                )}
 
-                <div className={`w-full ${postForm.post_type === 'novel' ? 'flex flex-col min-h-0' : 'h-full'} relative z-10`}>
+                <div className="w-full h-full relative z-10">
                   {postForm.post_type === 'novel' ? (
-                    <div className="w-full flex flex-col pt-4 px-4 pb-4 min-h-0">
+                    <div className="w-full h-full p-4 lg:p-6 overflow-y-auto max-h-[60vh] lg:max-h-[550px]">
                       <AddChapterRenderer postForm={postForm} setPostForm={setPostForm} />
                     </div>
                   ) : (
@@ -339,15 +329,13 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
               className={`${
                 postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
                   ? 'w-full'
-                  : postForm.post_type === 'novel'
-                  ? 'w-full'
                   : 'lg:w-2/5'
               } flex flex-col overflow-y-auto max-h-[85vh] bg-base-100 ${
                 postForm.post_type === 'default' || (editing && (postForm.post_type === 'image' || postForm.post_type === 'video'))
                   ? 'block'
-                  : postForm.post_type === 'novel'
-                  ? (mobileView === 'details' ? 'block' : 'hidden')
-                  : (mobileView === 'details' ? 'block' : 'hidden lg:flex')
+                  : mobileView === 'details'
+                  ? 'block'
+                  : 'hidden lg:flex'
               }`}
             >
               {/* Post Type Selection with Enhanced Design */}
@@ -429,9 +417,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                           type="button"
                           onClick={() => setShowPreview(!showPreview)}
                           className={`btn btn-sm btn-ghost gap-2 transition-all ${
-                            showPreview 
-                              ? 'bg-primary/20 text-primary' 
-                              : 'hover:bg-primary/10 hover:text-primary'
+                            showPreview ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10 hover:text-primary'
                           }`}
                           title="Preview markdown"
                         >
@@ -443,10 +429,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* Markdown Toolbar */}
-                    <MarkdownToolbar 
-                      textareaRef={textareaRef} 
+                    <MarkdownToolbar
+                      textareaRef={textareaRef}
                       isVisible={showMarkdownToolbar}
                       onFormat={(newValue) => {
                         undoRedo.setValue(newValue, true);
@@ -454,17 +440,14 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                         setPostForm((prev) => ({ ...prev, description: newValue }));
                       }}
                     />
-                    
+
+                    {/* Preview or Textarea */}
                     {showPreview ? (
                       <div className="w-full bg-base-200 border border-base-300 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
                         {(() => {
-                          // Always read the current textarea value to ensure we have the latest
                           const currentText = textareaRef.current?.value || localDescription;
                           return currentText ? (
-                            <MarkdownRenderer 
-                              content={currentText} 
-                              className="text-base text-base-content"
-                            />
+                            <MarkdownRenderer content={currentText} className="text-base text-base-content" />
                           ) : (
                             <p className="text-base-content/50 italic">Preview will appear here...</p>
                           );
@@ -511,17 +494,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                           </svg>
                         </button>
-                        <button type="button" className="btn btn-ghost btn-sm btn-circle hover:bg-accent/10 hover:text-accent transition-all" title="Add mention">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                          </svg>
-                        </button>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className={`btn btn-ghost btn-sm btn-circle transition-all ${
-                            showMarkdownToolbar 
-                              ? 'bg-primary/20 text-primary' 
-                              : 'hover:bg-primary/10 hover:text-primary'
+                            showMarkdownToolbar ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10 hover:text-primary'
                           }`}
                           title="Markdown formatting"
                           onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}

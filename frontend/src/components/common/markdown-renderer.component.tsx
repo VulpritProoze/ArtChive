@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Link } from 'react-router-dom';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import useToggleTheme from '@hooks/use-theme';
@@ -14,7 +13,7 @@ interface MarkdownRendererProps {
 
 /**
  * MarkdownRenderer Component
- * Renders markdown content with support for @mentions, links, GitHub Flavored Markdown,
+ * Renders markdown content with support for links, GitHub Flavored Markdown,
  * and syntax highlighting for code blocks (Python, Java, JavaScript)
  */
 export function MarkdownRenderer({ 
@@ -29,9 +28,6 @@ export function MarkdownRenderer({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Convert @mentions to markdown links before rendering
-  const processedContent = content.replace(/@(\w+)/g, '[@$1](/profile/$1)');
 
   // Supported languages for syntax highlighting (expanded list)
   const supportedLanguages = [
@@ -76,21 +72,8 @@ export function MarkdownRenderer({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-        // Custom link component for @mentions and regular links
+        // Custom link component for regular links
         a: ({ node, href, children, ...props }) => {
-          // Check if it's a mention link (e.g., /profile/username)
-          if (href?.startsWith('/profile/')) {
-            const username = href.replace('/profile/', '');
-            return (
-              <Link
-                to={`/profile/${username}`}
-                className="text-primary hover:underline font-medium"
-                {...props}
-              >
-                {children}
-              </Link>
-            );
-          }
           // Regular external links
           return (
             <a 
@@ -194,7 +177,7 @@ export function MarkdownRenderer({
         ),
       }}
       >
-        {processedContent}
+        {content}
       </ReactMarkdown>
     </Wrapper>
   );

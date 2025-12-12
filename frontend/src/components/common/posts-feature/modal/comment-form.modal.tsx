@@ -5,10 +5,10 @@ import { useCommentForm } from "@hooks/forms/use-comment-form";
 import { useCreateComment, useUpdateComment, useUpdateReply } from "@hooks/mutations/use-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
-import { MarkdownToolbar } from '@components/common/posts-feature/markdown-toolbar.component';
-import { MarkdownRenderer } from '@components/common/markdown-renderer.component';
-import { useTextUndoRedo } from '@hooks/use-undo-redo.hook';
-import { Undo2, Redo2 } from 'lucide-react';
+import { MarkdownToolbar } from "@components/common/posts-feature/markdown-toolbar.component";
+import { MarkdownRenderer } from "@components/common/markdown-renderer.component";
+import { useTextUndoRedo } from "@hooks/use-undo-redo.hook";
+import { FileText, Eye, EyeOff } from "lucide-react";
 
 export default function CommentFormModal() {
   const {
@@ -22,12 +22,6 @@ export default function CommentFormModal() {
     setCommentTargetPostId,
   } = usePostUI();
   const { user } = useAuth();
-  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Undo/Redo functionality
-  const undoRedo = useTextUndoRedo(form.text);
 
   const {
     form,
@@ -39,6 +33,13 @@ export default function CommentFormModal() {
     text: selectedComment?.text ?? "",
     post_id: commentTargetPostId ?? "",
   });
+
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Undo/Redo functionality
+  const undoRedo = useTextUndoRedo(form.text);
 
   useEffect(() => {
     if (commentTargetPostId) {
@@ -52,6 +53,18 @@ export default function CommentFormModal() {
     undoRedo.reset(newText);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedComment, setForm]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && !showPreview) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, with min and max constraints
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 120), 400);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [form.text, showPreview]);
 
   const createComment = useCreateComment();
   const updateComment = useUpdateComment();
@@ -195,27 +208,16 @@ export default function CommentFormModal() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        const undoneValue = undoRedo.undo();
-                        handleChange(undoneValue);
-                      }}
-                      disabled={!undoRedo.canUndo}
-                      className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
-                      title="Undo (Ctrl+Z)"
+                      onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
+                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                        showMarkdownToolbar 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title="Toggle markdown toolbar"
                     >
-                      <Undo2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const redoneValue = undoRedo.redo();
-                        handleChange(redoneValue);
-                      }}
-                      disabled={!undoRedo.canRedo}
-                      className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
-                      title="Redo (Ctrl+Y)"
-                    >
-                      <Redo2 className="w-4 h-4" />
+                      <FileText className="w-4 h-4" />
+                      Markdown
                     </button>
                     <button
                       type="button"
@@ -227,26 +229,17 @@ export default function CommentFormModal() {
                       }`}
                       title="Preview markdown"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      {showPreview ? 'Hide Preview' : 'Preview'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
-                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
-                        showMarkdownToolbar 
-                          ? 'bg-primary/20 text-primary' 
-                          : 'hover:bg-primary/10 hover:text-primary'
-                      }`}
-                      title="Markdown formatting"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Format
+                      {showPreview ? (
+                        <>
+                          <EyeOff className="w-4 h-4" />
+                          Hide Preview
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4" />
+                          Preview
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -262,19 +255,15 @@ export default function CommentFormModal() {
                 />
 
                 {showPreview ? (
-                  <div className="w-full bg-base-200 border border-base-300 rounded-lg p-3 min-h-[120px] max-h-[400px] overflow-y-auto">
-                    {(() => {
-                      // Always read the current textarea value to ensure we have the latest
-                      const currentText = textareaRef.current?.value || form.text;
-                      return currentText ? (
-                        <MarkdownRenderer 
-                          content={currentText} 
-                          className="text-base text-base-content"
-                        />
-                      ) : (
-                        <p className="text-base-content/50 italic">Preview will appear here...</p>
-                      );
-                    })()}
+                  <div className="w-full bg-base-200 border border-base-300 rounded-lg p-4 min-h-[120px] max-h-[400px] overflow-y-auto">
+                    {form.text ? (
+                      <MarkdownRenderer 
+                        content={form.text} 
+                        className="text-base text-base-content"
+                      />
+                    ) : (
+                      <p className="text-base-content/50 italic">Preview will appear here...</p>
+                    )}
                   </div>
                 ) : (
                   <textarea
@@ -284,8 +273,8 @@ export default function CommentFormModal() {
                     value={form.text}
                     onChange={(e) => {
                       const newValue = e.target.value;
-                      undoRedo.setValue(newValue, true);
                       handleChange(newValue);
+                      undoRedo.setValue(newValue, true);
                     }}
                     onKeyDown={(e) => {
                       // Handle Ctrl+Z (Undo) and Ctrl+Y or Ctrl+Shift+Z (Redo)

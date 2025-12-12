@@ -14,6 +14,7 @@ import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { SkeletonComment } from "@components/common/skeleton/skeleton-comment.component";
 import UserHoverModal from "@components/post/user-hover-modal.component";
+import { MarkdownRenderer } from "@components/common/markdown-renderer.component";
 
 interface GalleryReplyComponentProps {
   comment: Comment;
@@ -226,9 +227,9 @@ const GalleryReplyComponent: React.FC<GalleryReplyComponentProps> = ({
                   <div className="skeleton h-4 w-3/4"></div>
                 </div>
               ) : (
-                <span className="text-sm whitespace-pre-wrap break-words">
-                  {comment.text}
-                </span>
+                <div className="text-sm">
+                  <MarkdownRenderer content={comment.text} />
+                </div>
               )}
 
               {/* Time and Actions */}

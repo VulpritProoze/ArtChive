@@ -47,7 +47,6 @@ from notification.utils import (
     create_praise_notification,
     create_trophy_notification,
 )
-from .utils import create_mention_notifications, get_new_mentions
 
 from .cache_utils import (
     get_post_heart_count_cache_key,
@@ -111,15 +110,7 @@ class PostCreateView(generics.CreateAPIView):
 
     # Allow only the authenticated user to post
     def perform_create(self, serializer):
-        post = serializer.save(author=self.request.user)
-        
-        # Create notifications for mentioned users
-        if post.description:
-            create_mention_notifications(
-                post=post,
-                description=post.description,
-                author=self.request.user
-            )
+        serializer.save(author=self.request.user)
 
 
 class PostListView(generics.ListAPIView):
@@ -782,57 +773,8 @@ class PostUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
     def perform_update(self, serializer):
-        # Get old description before update
-        old_description = serializer.instance.description if serializer.instance else ''
-        
         # Perform update
-        post = serializer.save()
-        
-        # Get new description
-        new_description = post.description or ''
-        
-        # Only create notifications for NEW mentions (not already mentioned)
-        if new_description and new_description != old_description:
-            new_mentions = get_new_mentions(old_description, new_description)
-            
-            if new_mentions:
-                # Create a description containing only new mentions for notification
-                # This ensures we only notify about new mentions, not ones that were already there
-                import re
-                # Build a description with only new mentions
-                new_mentions_pattern = '|'.join(re.escape(m) for m in new_mentions)
-                pattern = rf'@({new_mentions_pattern})\b'
-                matches = re.findall(pattern, new_description, re.IGNORECASE)
-                
-                if matches:
-                    # Create notifications only for new mentions
-                    # We'll manually create notifications for each new mention
-                    from core.models import User
-                    from notification.utils import create_notification
-                    from common.utils.choices import NOTIFICATION_TYPES
-                    
-                    # Get unique new mentions (case-insensitive)
-                    unique_new_mentions = list(set(m.lower() for m in matches))
-                    
-                    # Get User objects for new mentions
-                    mentioned_users = User.objects.filter(
-                        username__in=unique_new_mentions
-                    )
-                    
-                    for mentioned_user in mentioned_users:
-                        # Skip if user mentions themselves
-                        if mentioned_user.id == post.author.id:
-                            continue
-                        
-                        # Create notification
-                        message = f"{post.author.username} mentioned you in a post"
-                        create_notification(
-                            message=message,
-                            notification_object_type=NOTIFICATION_TYPES.post_mention,
-                            notification_object_id=str(post.post_id),
-                            notified_to=mentioned_user,
-                            notified_by=post.author
-                        )
+        serializer.save()
 
 
 class PostDeleteView(generics.DestroyAPIView):
