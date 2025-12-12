@@ -14,10 +14,10 @@ const TROPHY_TYPES = [
     cost: 5,
     description: "Show your appreciation",
     icon: Medal,
-    color: "text-orange-700",
-    bgColor: "bg-orange-100",
-    borderColor: "border-orange-300",
-    hoverColor: "hover:bg-orange-200",
+    color: "text-warning",
+    bgColor: "bg-warning/10 dark:bg-warning/20",
+    borderColor: "border-warning/30 dark:border-warning/40",
+    hoverColor: "hover:bg-warning/20 dark:hover:bg-warning/30",
   },
   {
     name: "golden_bristle",
@@ -25,10 +25,10 @@ const TROPHY_TYPES = [
     cost: 10,
     description: "Award excellence",
     icon: Award,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
-    borderColor: "border-yellow-300",
-    hoverColor: "hover:bg-yellow-200",
+    color: "text-warning",
+    bgColor: "bg-warning/10 dark:bg-warning/20",
+    borderColor: "border-warning/30 dark:border-warning/40",
+    hoverColor: "hover:bg-warning/20 dark:hover:bg-warning/30",
   },
   {
     name: "diamond_canvas",
@@ -36,10 +36,10 @@ const TROPHY_TYPES = [
     cost: 20,
     description: "Celebrate mastery",
     icon: Trophy,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-300",
-    hoverColor: "hover:bg-blue-200",
+    color: "text-primary",
+    bgColor: "bg-primary/10 dark:bg-primary/20",
+    borderColor: "border-primary/30 dark:border-primary/40",
+    hoverColor: "hover:bg-primary/20 dark:hover:bg-primary/30",
   },
 ];
 
@@ -225,7 +225,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
       <div className="modal modal-open">
         <div className="modal-box max-w-3xl">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold text-base-content">
               Award a {finalTargetType === 'gallery' ? 'Gallery Award' : 'Trophy'}
             </h2>
             <button
@@ -269,7 +269,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                   <div className="flex flex-col items-center gap-2">
                     <Icon className={`w-8 h-8 ${trophy.color}`} />
                     <div className="text-center">
-                      <p className={`text-xs font-semibold ${trophy.color}`}>
+                      <p className="text-xs font-semibold text-base-content">
                         {trophy.displayName}
                       </p>
                       <p className="text-xs text-base-content/60 mt-0.5">
@@ -308,7 +308,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                     return <Icon className={`w-6 h-6 ${selectedTrophy.color}`} />;
                   })()}
                   <div>
-                    <p className="font-semibold">{selectedTrophy.displayName}</p>
+                    <p className="font-semibold text-base-content">{selectedTrophy.displayName}</p>
                     <p className="text-sm text-base-content/70">{selectedTrophy.description}</p>
                     <p className="text-xs text-base-content/60 mt-1">
                       Cost: <span className="font-semibold text-warning">{selectedTrophy.cost} Brush Drips</span>
@@ -359,7 +359,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
       {showConfirmDialog && selectedTrophy && (
         <div className="modal modal-open">
           <div className="modal-box max-w-md">
-            <h3 className="font-bold text-lg mb-4">Confirm Award</h3>
+            <h3 className="font-bold text-lg mb-4 text-base-content">Confirm Award</h3>
             <div className="space-y-4">
               <div className={`p-4 rounded-lg border-2 ${selectedTrophy.bgColor} ${selectedTrophy.borderColor}`}>
                 <div className="flex items-center gap-3">
@@ -368,7 +368,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                     return <Icon className={`w-8 h-8 ${selectedTrophy.color}`} />;
                   })()}
                   <div>
-                    <p className="font-semibold">{selectedTrophy.displayName}</p>
+                    <p className="font-semibold text-base-content">{selectedTrophy.displayName}</p>
                     <p className="text-sm text-base-content/70">{selectedTrophy.description}</p>
                   </div>
                 </div>

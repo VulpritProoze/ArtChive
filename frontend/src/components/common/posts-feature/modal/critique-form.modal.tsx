@@ -7,9 +7,9 @@ import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
 
 const impressionColors = {
-  positive: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
-  negative: 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100',
-  neutral: 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100',
+  positive: 'bg-success/10 border-success/30 text-success hover:bg-success/20 dark:bg-success/20 dark:border-success/40 dark:text-success',
+  negative: 'bg-error/10 border-error/30 text-error hover:bg-error/20 dark:bg-error/20 dark:border-error/40 dark:text-error',
+  neutral: 'bg-base-200 border-base-300 text-base-content hover:bg-base-300',
 };
 
 export const CritiqueFormModal: React.FC = () => {
@@ -103,10 +103,10 @@ export const CritiqueFormModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeModal} />
+      <div className="absolute inset-0 bg-base-content/50 backdrop-blur-sm" onClick={closeModal} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full animate-in zoom-in-95 duration-200">
-        <div className="relative px-6 pt-6 pb-4 border-b border-slate-200">
+      <div className="relative bg-base-100 rounded-2xl shadow-2xl max-w-lg w-full animate-in zoom-in-95 duration-200 border border-base-300">
+        <div className="relative px-6 pt-6 pb-4 border-b border-base-300">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500">
               {editingCritiqueForm ? (
@@ -115,26 +115,26 @@ export const CritiqueFormModal: React.FC = () => {
                 <MessageSquare className="w-5 h-5 text-white" />
               )}
             </div>
-            <h3 className="text-2xl font-bold text-slate-800">
+            <h3 className="text-2xl font-bold text-base-content">
               {editingCritiqueForm ? 'Edit Critique' : 'Add Critique'}
             </h3>
           </div>
 
           <button
             onClick={closeModal}
-            className="absolute top-6 right-6 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            className="absolute top-6 right-6 p-2 rounded-lg hover:bg-base-200 transition-colors"
             aria-label="Close modal"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5 text-base-content/60" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className="text-sm font-semibold text-base-content">
               Overall Impression
               {editingCritiqueForm && (
-                <span className="ml-2 text-xs font-normal text-slate-500">(Cannot be changed)</span>
+                <span className="ml-2 text-xs font-normal text-base-content/60">(Cannot be changed)</span>
               )}
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -150,7 +150,7 @@ export const CritiqueFormModal: React.FC = () => {
                     ${
                       form.impression === type
                         ? 'scale-105 shadow-md ' + impressionColors[type]
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        : 'bg-base-100 border-base-300 text-base-content hover:border-base-content/30'
                     }
                     ${editingCritiqueForm ? 'opacity-60 cursor-not-allowed' : ''}
                   `}
@@ -162,18 +162,19 @@ export const CritiqueFormModal: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Your Critique</label>
+            <label className="text-sm font-semibold text-base-content">Your Critique</label>
             <textarea
               value={form.text}
               onChange={(e) => handleFieldChange('text', e.target.value)}
-              className="w-full h-36 px-4 py-3 rounded-xl border-2 border-slate-200 
-                       focus:border-purple-400 focus:ring-4 focus:ring-purple-100 
+              className="w-full h-36 px-4 py-3 rounded-xl border-2 border-base-300 
+                       bg-base-100 text-base-content
+                       focus:border-primary focus:ring-4 focus:ring-primary/20 
                        transition-all duration-200 resize-none
-                       placeholder:text-slate-400 text-slate-700"
+                       placeholder:text-base-content/50"
               placeholder="Share your detailed thoughts and feedback..."
               required
             />
-            <p className="text-xs text-slate-500">Be constructive and specific in your feedback</p>
+            <p className="text-xs text-base-content/60">Be constructive and specific in your feedback</p>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -200,8 +201,8 @@ export const CritiqueFormModal: React.FC = () => {
               type="button"
               onClick={closeModal}
               className="py-3 px-6 rounded-xl font-semibold
-                       bg-slate-100 text-slate-700
-                       hover:bg-slate-200
+                       bg-base-200 text-base-content
+                       hover:bg-base-300
                        transition-colors duration-200"
             >
               Cancel
