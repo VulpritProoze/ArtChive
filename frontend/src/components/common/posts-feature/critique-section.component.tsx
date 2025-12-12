@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@context/auth-context';
 import type { Critique } from '@types';
-import { MessageSquare, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ThumbsDown, Minus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
 import { usePostUI } from '@context/post-ui-context';
@@ -406,7 +407,15 @@ const CritiqueCard: React.FC<{
               </div>
 
               {/* Author Card (right) */}
-              <div className="bg-primary/5 border border-primary/10 rounded px-2 py-1.5">
+              <Link
+                to={critique.author_username ? `/profile/@${critique.author_username}` : '#'}
+                onClick={(e) => {
+                  if (!critique.author_username) {
+                    e.preventDefault();
+                  }
+                }}
+                className="bg-primary/5 border border-primary/10 rounded px-2 py-1.5 hover:bg-primary/10 transition-colors"
+              >
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-base-content/60">answered</span>
                   <span className="text-base-content/70">
@@ -430,9 +439,36 @@ const CritiqueCard: React.FC<{
                     <p className="font-medium text-sm text-primary truncate">
                       {critique.author_fullname || critique.author_username}
                     </p>
+                    {/* Reputation Display */}
+                    {critique.author_reputation !== undefined && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {critique.author_reputation > 0 ? (
+                          <>
+                            <ArrowUp className="w-3 h-3 text-success" />
+                            <span className="text-xs font-semibold text-success">
+                              {critique.author_reputation}
+                            </span>
+                          </>
+                        ) : critique.author_reputation < 0 ? (
+                          <>
+                            <ArrowDown className="w-3 h-3 text-error" />
+                            <span className="text-xs font-semibold text-error">
+                              {critique.author_reputation}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpDown className="w-3 h-3 text-base-content/60" />
+                            <span className="text-xs font-semibold text-base-content/60">
+                              {critique.author_reputation}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </div>

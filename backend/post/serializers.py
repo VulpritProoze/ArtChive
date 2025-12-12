@@ -828,6 +828,7 @@ class CritiqueSerializer(ModelSerializer):
     author_picture = serializers.ImageField(
         source="author.profile_picture", read_only=True
     )
+    author_reputation = serializers.IntegerField(source="author.reputation", read_only=True)
     post_title = serializers.SerializerMethodField()
     gallery_title = serializers.SerializerMethodField()
     author_artist_types = serializers.SerializerMethodField()

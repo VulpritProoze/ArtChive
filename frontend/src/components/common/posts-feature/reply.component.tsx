@@ -166,17 +166,21 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
           <div 
             className="relative"
             ref={userInfoRef}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
           >
           {comment.author_picture ? (
             <img
               src={comment.author_picture}
               alt="author_pic"
-                className="w-8 h-8 rounded-full border border-base-300 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+              className="w-8 h-8 rounded-full border border-base-300 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             />
           ) : (
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+              <div 
+                className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
               {comment.author_username?.charAt(0).toUpperCase() || "U"}
             </div>
           )}
@@ -188,6 +192,8 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                   left: 0,
                   zIndex: 50,
                 }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
               >
                 <UserHoverModal
                   userId={comment.author}

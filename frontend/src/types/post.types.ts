@@ -98,6 +98,7 @@ export interface Critique {
   author_picture?: string;
   author_fullname?: string;
   author_artist_types?: string[];
+  author_reputation?: number;
   post_title: string;
   reply_count: number;
   is_deleted: boolean;
