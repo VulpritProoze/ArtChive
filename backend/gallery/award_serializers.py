@@ -67,20 +67,20 @@ class GalleryAwardCreateSerializer(serializers.ModelSerializer):
         # Check if user already awarded this gallery with the same award type
         if user and gallery and award_type_name:
             # Get the AwardType object for the award type name
-            try:
-                award_type_obj = AwardType.objects.get(award=award_type_name)
-                if GalleryAward.objects.filter(
-                    gallery_id=gallery,
-                    author=user,
-                    gallery_award_type=award_type_obj,
-                    is_deleted=False
-                ).exists():
-                    raise serializers.ValidationError(
-                        f"You have already awarded this gallery with {award_type_name}"
-                    )
-            except AwardType.DoesNotExist:
-                # AwardType validation should have caught this, but handle gracefully
-                pass
+            award_type_obj = AwardType.objects.filter(award=award_type_name).first()
+            if not award_type_obj:
+                raise serializers.ValidationError(
+                    f"Award type '{award_type_name}' not found"
+                )
+            if GalleryAward.objects.filter(
+                gallery_id=gallery,
+                author=user,
+                gallery_award_type=award_type_obj,
+                is_deleted=False
+            ).exists():
+                raise serializers.ValidationError(
+                    f"You have already awarded this gallery with {award_type_name}"
+                )
 
         # Check if user has sufficient Brush Drips
         if user:
@@ -101,7 +101,11 @@ class GalleryAwardCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create gallery award"""
         award_type_name = validated_data.pop("award_type")
-        award_type_obj = AwardType.objects.get(award=award_type_name)
+        award_type_obj = AwardType.objects.filter(award=award_type_name).first()
+        if not award_type_obj:
+            raise serializers.ValidationError(
+                f"Award type '{award_type_name}' not found"
+            )
         validated_data["gallery_award_type"] = award_type_obj
         return super().create(validated_data)
 
