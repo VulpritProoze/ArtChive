@@ -6,6 +6,8 @@ import { useAuth } from "@context/auth-context";
 import {
   PostFormModal,
   CommentFormModal,
+  CritiqueFormModal,
+  TrophySelectionModal,
 } from "@components/common/posts-feature/modal";
 import {
   ChannelCreateModal,
@@ -36,7 +38,7 @@ import { useMemo } from "react";
 
 const CollectiveHome = () => {
   const { collectiveId } = useParams<{ collectiveId: string }>();
-  const { showCommentForm, showPostForm, setShowPostForm } = usePostUI();
+  const { showCommentForm, showPostForm, setShowPostForm, showCritiqueForm } = usePostUI();
   const { user, isMemberOfACollective } = useAuth();
   
   // Use React Query hook for collective data (prevents infinite loop)
@@ -242,6 +244,8 @@ const CollectiveHome = () => {
       {showCreateChannelModal && <ChannelCreateModal />}
       {showPostForm && <PostFormModal channel_id={selectedChannel?.channel_id} />}
       {showCommentForm && <CommentFormModal />}
+      {showCritiqueForm && <CritiqueFormModal />}
+      <TrophySelectionModal />
 
       <CollectiveLayout
         showSidebar={true}
