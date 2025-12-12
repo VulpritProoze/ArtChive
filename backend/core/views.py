@@ -45,6 +45,7 @@ from .serializers import (
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    BuyBrushDripsSerializer,
     ChangePasswordSerializer,
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
@@ -1099,6 +1100,78 @@ class BrushDripTransactionStatsView(APIView):
 
         serializer = BrushDripTransactionStatsSerializer(stats)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Brush Drips"],
+    description="Buy brush drips (TEST ONLY - For testing purposes only)",
+    request=BuyBrushDripsSerializer,
+    responses={
+        200: BrushDripWalletSerializer,
+        400: OpenApiResponse(description="Bad Request"),
+        401: OpenApiResponse(description="Unauthorized"),
+        429: OpenApiResponse(description="Too many requests - Maximum 5 purchases per 3 hours"),
+    },
+)
+class BuyBrushDripsView(APIView):
+    """
+    POST: Buy brush drips (TEST ONLY)
+    
+    WARNING: This endpoint is for testing purposes only.
+    It allows users to add brush drips to their wallet without any payment processing.
+    In production, this should be replaced with actual payment gateway integration.
+    
+    Body:
+    - amount: Amount of brush drips to purchase (positive integer, max 1,000,000)
+    
+    Returns:
+    - Updated wallet information
+    """
+
+    permission_classes = [IsAuthenticated]
+    throttle_scope = "buy_brush_drips"
+    throttle_classes = [ScopedRateThrottle]
+
+    def post(self, request):
+        # TEST ONLY - This endpoint is for testing purposes only
+        serializer = BuyBrushDripsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        amount = serializer.validated_data['amount']
+        user = request.user
+
+        try:
+            with transaction.atomic():
+                # Lock wallet for update to prevent race conditions
+                wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+
+                # Update balance
+                wallet.balance += amount
+                wallet.save()
+
+                # Create transaction record (TEST ONLY - using admin_override type)
+                BrushDripTransaction.objects.create(
+                    amount=amount,
+                    transaction_object_type='admin_override',  # TEST ONLY
+                    transaction_object_id='test_purchase',  # TEST ONLY
+                    transacted_by=None,  # No sender for purchases
+                    transacted_to=user,
+                )
+
+                # Return updated wallet
+                wallet_serializer = BrushDripWalletSerializer(wallet, context={"request": request})
+                return Response(wallet_serializer.data, status=status.HTTP_200_OK)
+
+        except BrushDripWallet.DoesNotExist:
+            return Response(
+                {"error": "Wallet not found. Please contact support."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Purchase failed: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 # ============================================================================

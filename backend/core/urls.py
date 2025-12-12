@@ -20,6 +20,7 @@ from .views import (
     BrushDripTransactionStatsView,
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
+    BuyBrushDripsView,
     CancelFriendRequestView,
     ChangePasswordView,
     CheckFriendRequestStatusView,
@@ -130,6 +131,11 @@ urlpatterns = [
         "brushdrips/transactions/stats/",
         BrushDripTransactionStatsView.as_view(),
         name="brushdrip-transaction-stats",
+    ),
+    path(
+        "brushdrips/buy/",
+        BuyBrushDripsView.as_view(),
+        name="brushdrip-buy",
     ),
     # Fellows (Friends) endpoints
     path(

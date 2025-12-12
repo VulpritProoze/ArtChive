@@ -14,15 +14,18 @@ import {
     faChartLine,
     faHistory,
     faCoins,
+    faShoppingCart,
 } from "@fortawesome/free-solid-svg-icons";
 import { LoadingSpinner } from "@components/loading-spinner";
 import { MainLayout } from "../common/layout";
+import BuyBrushDripsModal from "./buy-brush-drips.modal";
 
 export default function Index() {
     const { user } = useAuth();
     const [wallet, setWallet] = useState<BrushDripWallet | null>(null);
     const [stats, setStats] = useState<BrushDripTransactionStats | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showBuyModal, setShowBuyModal] = useState(false);
 
     useEffect(() => {
         fetchWalletData();
@@ -56,6 +59,11 @@ export default function Index() {
         if (!wallet) return user?.fullname || user?.username || "";
         const parts = [wallet.first_name, wallet.last_name].filter(Boolean);
         return parts.length > 0 ? parts.join(" ") : wallet.username;
+    };
+
+    const handleBuySuccess = (updatedWallet: BrushDripWallet) => {
+        setWallet(updatedWallet);
+        fetchStats(); // Refresh stats after purchase
     };
 
     return (
@@ -114,7 +122,14 @@ export default function Index() {
                                         </div>
                                     </div>
 
-                                    <div className="card-actions justify-end mt-4">
+                                    <div className="card-actions justify-end mt-4 gap-2">
+                                        <button
+                                            onClick={() => setShowBuyModal(true)}
+                                            className="btn btn-primary"
+                                        >
+                                            <FontAwesomeIcon icon={faShoppingCart} />
+                                            Buy Brush Drips
+                                        </button>
                                         <Link to="/drips/transactions" className="btn btn-neutral">
                                             <FontAwesomeIcon icon={faHistory} />
                                             View All Transactions
@@ -246,6 +261,11 @@ export default function Index() {
                 )
                 }
             </MainLayout>
+            <BuyBrushDripsModal
+                isOpen={showBuyModal}
+                onClose={() => setShowBuyModal(false)}
+                onSuccess={handleBuySuccess}
+            />
         </>
     );
 }

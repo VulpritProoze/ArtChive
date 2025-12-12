@@ -39,6 +39,7 @@ REST_FRAMEWORK = {
         'anon': '1000/hr',
         'user': '1000/hr',
         'login': '10/m',
+        'buy_brush_drips': '5/hr',  # 5 purchases per 3 hours
         # 'register': '5/hr',
     },
 }
