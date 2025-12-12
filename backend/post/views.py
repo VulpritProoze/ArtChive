@@ -1184,7 +1184,7 @@ class CritiqueReplyListView(generics.ListAPIView):
         return (
             Comment.objects.get_active_objects()
             .filter(critique_id=critique_id, is_critique_reply=True)
-            .select_related("author", "post_id", "critique_id")
+            .select_related("author", "post_id", "gallery", "critique_id")
         )
 
     def list(self, request, *args, **kwargs):
@@ -1228,7 +1228,7 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
         return (
             Comment.objects.get_active_objects()
             .filter(is_critique_reply=True)
-            .select_related("author", "post_id", "critique_id")
+            .select_related("author", "post_id", "gallery", "critique_id")
         )
 
 

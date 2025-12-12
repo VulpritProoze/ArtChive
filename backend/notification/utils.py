@@ -274,14 +274,39 @@ def create_critique_reply_notification(reply, critique_author):
 
     message = f"{reply.author.username} replied to your critique"
 
-    # Use just the post ID (like praise/trophy notifications)
-    # Navigation will go to the post, and hash navigation can handle scrolling to the reply
-    notification_object_id = str(reply.post_id.post_id)
+    # Determine if it's a post or gallery critique reply
+    # Check the critique to determine the type (more reliable than checking reply fields)
+    if reply.critique_id:
+        if reply.critique_id.post_id:
+            # Post critique reply
+            # Use just the post ID (like praise/trophy notifications)
+            # Navigation will go to the post, and hash navigation can handle scrolling to the reply
+            notification_object_id = str(reply.critique_id.post_id.post_id)
+            notification_type = NOTIFICATION_TYPES.post_critique
+        elif reply.critique_id.gallery_id:
+            # Gallery critique reply
+            # Use creator's user ID for navigation to /gallery/:userid
+            notification_object_id = str(reply.critique_id.gallery_id.creator.id)
+            notification_type = NOTIFICATION_TYPES.gallery_critique
+        else:
+            # Should not happen, but handle gracefully
+            return None
+    else:
+        # Fallback: check reply fields directly if critique_id is not available
+        if reply.post_id:
+            notification_object_id = str(reply.post_id.post_id)
+            notification_type = NOTIFICATION_TYPES.post_critique
+        elif reply.gallery:
+            notification_object_id = str(reply.gallery.creator.id)
+            notification_type = NOTIFICATION_TYPES.gallery_critique
+        else:
+            # Should not happen, but handle gracefully
+            return None
 
     # Only notify the critique author (notified_to), never the reply author (notified_by)
     return create_notification(
         message=message,
-        notification_object_type=NOTIFICATION_TYPES.post_critique,
+        notification_object_type=notification_type,
         notification_object_id=notification_object_id,
         notified_to=critique_author,  # Only the critique author receives this notification
         notified_by=reply.author  # The reply author triggered it, but doesn't receive it
