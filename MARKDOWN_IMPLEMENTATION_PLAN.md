@@ -8,8 +8,8 @@ This plan outlines the implementation of markdown text formatting with @mentions
 ## Phase 1: Core Markdown Infrastructure
 
 ### 1.1 Frontend Dependencies
-- [ ] Install `react-markdown` package
-- [ ] Install `remark-gfm` (GitHub Flavored Markdown support)
+- [x] Install `react-markdown` package
+- [x] Install `remark-gfm` (GitHub Flavored Markdown support)
 - [ ] Install `rehype-raw` (optional, for HTML support if needed)
 - [ ] Install `rehype-sanitize` (optional, for additional security)
 
@@ -22,12 +22,12 @@ npm install react-markdown remark-gfm
 **File:** `frontend/src/components/common/markdown-renderer.component.tsx`
 
 **Features:**
-- [ ] Basic markdown rendering with react-markdown
-- [ ] Custom link component for @mentions (convert `@username` to profile links)
-- [ ] Custom link component for regular URLs
-- [ ] Styling with Tailwind prose classes
+- [x] Basic markdown rendering with react-markdown
+- [x] Custom link component for @mentions (convert `@username` to profile links)
+- [x] Custom link component for regular URLs
+- [x] Styling with Tailwind prose classes
 - [ ] Support for code blocks with syntax highlighting (optional)
-- [ ] Support for tables, lists, blockquotes (via remark-gfm)
+- [x] Support for tables, lists, blockquotes (via remark-gfm)
 
 **Props:**
 ```typescript
@@ -42,9 +42,9 @@ interface MarkdownRendererProps {
 **File:** `frontend/src/utils/mention-parser.util.ts`
 
 **Functions:**
-- [ ] `parseMentions(text: string): Mention[]` - Extract all @mentions from text
-- [ ] `convertMentionsToMarkdown(text: string): string` - Convert @username to markdown links
-- [ ] `validateMentions(text: string, existingUsers: User[]): ValidationResult` - Validate mentions exist
+- [x] `parseMentions(text: string): Mention[]` - Extract all @mentions from text
+- [x] `convertMentionsToMarkdown(text: string): string` - Convert @username to markdown links
+- [x] `validateMentions(text: string, existingUsers: User[]): ValidationResult` - Validate mentions exist
 
 **Types:**
 ```typescript
@@ -63,9 +63,9 @@ interface Mention {
 **File:** `frontend/src/components/common/posts-feature/markdown-toolbar.component.tsx`
 
 **Features:**
-- [ ] Toggle visibility state (shown/hidden)
-- [ ] Grid layout with markdown formatting buttons
-- [ ] Button categories:
+- [x] Toggle visibility state (shown/hidden)
+- [x] Grid layout with markdown formatting buttons
+- [x] Button categories:
   - **Text Formatting:**
     - Bold (`**text**`)
     - Italic (`*text*`)
@@ -90,18 +90,17 @@ interface Mention {
 ```typescript
 interface MarkdownToolbarProps {
   textareaRef: React.RefObject<HTMLTextAreaElement>;
-  onFormat: (format: string, selectedText?: string) => void;
   isVisible: boolean;
 }
 ```
 
 **Functionality:**
-- [ ] When text is selected and a format button is clicked:
+- [x] When text is selected and a format button is clicked:
   - Get selected text from textarea
   - Apply markdown formatting to selected text
   - Replace selection with formatted text
   - Maintain cursor position after insertion
-- [ ] When no text is selected:
+- [x] When no text is selected:
   - Insert markdown syntax at cursor position
   - Place cursor between syntax markers (e.g., `**|**`)
 
@@ -109,21 +108,23 @@ interface MarkdownToolbarProps {
 **File:** `frontend/src/utils/text-selection.util.ts`
 
 **Functions:**
-- [ ] `getSelectedText(textarea: HTMLTextAreaElement): { text: string, start: number, end: number }`
-- [ ] `replaceSelectedText(textarea: HTMLTextAreaElement, replacement: string): void`
-- [ ] `insertTextAtCursor(textarea: HTMLTextAreaElement, text: string): void`
-- [ ] `wrapSelectedText(textarea: HTMLTextAreaElement, prefix: string, suffix: string): void`
+- [x] `getSelectedText(textarea: HTMLTextAreaElement): { text: string, start: number, end: number }`
+- [x] `replaceSelectedText(textarea: HTMLTextAreaElement, replacement: string): void`
+- [x] `insertTextAtCursor(textarea: HTMLTextAreaElement, text: string): void`
+- [x] `wrapSelectedText(textarea: HTMLTextAreaElement, prefix: string, suffix: string): void`
 
 ### 2.3 Modify Post Form Modal
 **File:** `frontend/src/components/common/posts-feature/modal/post-form.modal.tsx`
 
 **Changes:**
-- [ ] Add state for markdown toolbar visibility
-- [ ] Add ref for textarea element
-- [ ] Add markdown button next to hashtag/@ buttons (line ~394)
-- [ ] Add MarkdownToolbar component above textarea (conditionally rendered)
-- [ ] Implement toolbar toggle functionality
-- [ ] Connect toolbar format actions to textarea
+- [x] Add state for markdown toolbar visibility
+- [x] Add ref for textarea element
+- [x] Add markdown button next to hashtag/@ buttons (line ~394)
+- [x] Add MarkdownToolbar component above textarea (conditionally rendered)
+- [x] Implement toolbar toggle functionality
+- [x] Connect toolbar format actions to textarea
+- [x] Add preview button beside user header
+- [x] Add preview mode that shows rendered markdown
 
 **Button Placement:**
 ```
@@ -150,16 +151,16 @@ const textareaRef = useRef<HTMLTextAreaElement>(null);
 **File:** `backend/common/utils/choices.py`
 
 **Changes:**
-- [ ] Add `'post_mention'` to `NOTIFICATION_OBJECT_CHOICES`
-- [ ] Add `post_mention='Post Mention'` to `NOTIFICATION_TYPES`
+- [x] Add `'post_mention'` to `NOTIFICATION_OBJECT_CHOICES`
+- [x] Add `post_mention='Post Mention'` to `NOTIFICATION_TYPES`
 
 ### 3.2 Create Mention Utilities
 **File:** `backend/post/utils.py` (create new file or add to existing)
 
 **Functions:**
-- [ ] `extract_mentions(text: str) -> list[str]` - Extract usernames from @mentions
-- [ ] `validate_mentions(usernames: list[str]) -> dict[str, bool]` - Check which users exist
-- [ ] `create_mention_notifications(post, description: str, author: User) -> list[Notification]` - Create notifications for mentioned users
+- [x] `extract_mentions(text: str) -> list[str]` - Extract usernames from @mentions
+- [x] `validate_mentions(usernames: list[str]) -> dict[str, bool]` - Check which users exist
+- [x] `create_mention_notifications(post, description: str, author: User) -> list[Notification]` - Create notifications for mentioned users
 
 **Logic:**
 - Extract all @mentions using regex: `r'@(\w+)'`
@@ -173,17 +174,17 @@ const textareaRef = useRef<HTMLTextAreaElement>(null);
 **File:** `backend/post/views.py`
 
 **Changes:**
-- [ ] Import mention utilities
-- [ ] In `PostCreateView.perform_create()`:
+- [x] Import mention utilities
+- [x] In `PostCreateView.perform_create()`:
   - After post creation, call `create_mention_notifications()`
   - Pass post, description, and author
-- [ ] In `PostUpdateView.perform_update()`:
+- [x] In `PostUpdateView.perform_update()`:
   - Compare old and new descriptions
   - Only create notifications for NEW mentions (not already mentioned)
   - Call `create_mention_notifications()` for new mentions only
 
 **Considerations:**
-- [ ] Rate limiting: Prevent spam by limiting mentions per post (e.g., max 10)
+- [x] Rate limiting: Prevent spam by limiting mentions per post (e.g., max 10)
 - [ ] Cooldown: Prevent rapid mention spam from same user
 - [ ] Validation: Optionally validate mentions exist before saving post
 
@@ -204,9 +205,9 @@ const textareaRef = useRef<HTMLTextAreaElement>(null);
 **File:** `frontend/src/components/common/posts-feature/post-card.component.tsx`
 
 **Changes:**
-- [ ] Replace plain text description rendering with `MarkdownRenderer`
-- [ ] Update line ~199-202 to use markdown renderer
-- [ ] Ensure proper styling and spacing
+- [x] Replace plain text description rendering with `MarkdownRenderer`
+- [x] Update line ~199-202 to use markdown renderer
+- [x] Ensure proper styling and spacing
 
 **Before:**
 ```tsx
@@ -229,15 +230,15 @@ const textareaRef = useRef<HTMLTextAreaElement>(null);
 - `frontend/src/components/common/posts-feature/reply.component.tsx`
 
 **Changes:**
-- [ ] Replace plain text rendering with `MarkdownRenderer`
-- [ ] Ensure mentions are clickable and navigate to profiles
+- [x] Replace plain text rendering with `MarkdownRenderer`
+- [x] Ensure mentions are clickable and navigate to profiles
 
 ### 4.3 Update Critique Components
 **File:** `frontend/src/components/common/posts-feature/critique-section.component.tsx`
 
 **Changes:**
-- [ ] Replace plain text rendering with `MarkdownRenderer` for critique text
-- [ ] Ensure mentions work in critiques
+- [x] Replace plain text rendering with `MarkdownRenderer` for critique text
+- [x] Ensure mentions work in critiques
 
 ### 4.4 Update Novel Content (Optional)
 **File:** `frontend/src/components/common/posts-feature/novel-renderer.component.tsx`

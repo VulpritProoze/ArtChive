@@ -14,6 +14,7 @@ import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 import { SkeletonComment } from "@components/common/skeleton/skeleton-comment.component";
 import UserHoverModal from "@components/post/user-hover-modal.component";
+import { MarkdownRenderer } from "@components/common/markdown-renderer.component";
 
 interface ReplyComponentProps {
   comment: Comment;
@@ -162,17 +163,45 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
       <div className="flex gap-3">
         {/* User Avatar */}
         <div className="flex-shrink-0">
+          <div 
+            className="relative"
+            ref={userInfoRef}
+          >
           {comment.author_picture ? (
             <img
               src={comment.author_picture}
               alt="author_pic"
-              className="w-8 h-8 rounded-full border border-base-300"
+              className="w-8 h-8 rounded-full border border-base-300 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
             />
           ) : (
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+              <div 
+                className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
               {comment.author_username?.charAt(0).toUpperCase() || "U"}
             </div>
           )}
+            {comment.author && (
+              <div 
+                className="absolute comment-hover-modal-wrapper" 
+                style={{ 
+                  top: 'calc(100% + 4px)', 
+                  left: 0,
+                  zIndex: 50,
+                }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+              >
+                <UserHoverModal
+                  userId={comment.author}
+                  isVisible={showHoverModal}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Comment Body */}
@@ -180,12 +209,6 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
           {/* Username and Text */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div
-                ref={userInfoRef}
-                className="relative -m-2 p-2"
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-              >
                 <Link
                   to={comment.author_username ? `/profile/@${comment.author_username}` : '#'}   // Do not modify the "@"!
                   className="flex items-center gap-2 mb-1 hover:opacity-80 transition-opacity"
@@ -202,27 +225,15 @@ const ReplyComponent: React.FC<ReplyComponentProps> = ({
                     {formatArtistTypesArrToString(comment.author_artist_types)}
                   </p>
                 </Link>
-                {comment.author && (
-                  <div
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <UserHoverModal
-                      userId={comment.author}
-                      isVisible={showHoverModal}
-                    />
-                  </div>
-                )}
-              </div>
               {(isUpdatingComment || isUpdatingReply) ? (
                 <div className="text-sm">
                   <div className="skeleton h-4 w-full mb-1"></div>
                   <div className="skeleton h-4 w-3/4"></div>
                 </div>
               ) : (
-                <span className="text-sm whitespace-pre-wrap break-words">
-                  {comment.text}
-                </span>
+                <div className="text-sm">
+                  <MarkdownRenderer content={comment.text} />
+                </div>
               )}
 
               {/* Time and Actions */}

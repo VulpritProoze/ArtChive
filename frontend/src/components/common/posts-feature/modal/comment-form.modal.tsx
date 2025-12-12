@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@context/auth-context";
 import { usePostUI } from "@context/post-ui-context";
 import { useCommentForm } from "@hooks/forms/use-comment-form";
 import { useCreateComment, useUpdateComment, useUpdateReply } from "@hooks/mutations/use-comment-mutations";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
+import { MarkdownToolbar } from "@components/common/posts-feature/markdown-toolbar.component";
+import { MarkdownRenderer } from "@components/common/markdown-renderer.component";
+import { useTextUndoRedo } from "@hooks/use-undo-redo.hook";
+import { FileText, Eye, EyeOff } from "lucide-react";
 
 export default function CommentFormModal() {
   const {
@@ -30,6 +34,13 @@ export default function CommentFormModal() {
     post_id: commentTargetPostId ?? "",
   });
 
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Undo/Redo functionality
+  const undoRedo = useTextUndoRedo(form.text);
+
   useEffect(() => {
     if (commentTargetPostId) {
       setPostId(commentTargetPostId);
@@ -37,8 +48,23 @@ export default function CommentFormModal() {
   }, [commentTargetPostId, setPostId]);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, text: selectedComment?.text ?? "" }));
+    const newText = selectedComment?.text ?? "";
+    setForm((prev) => ({ ...prev, text: newText }));
+    undoRedo.reset(newText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedComment, setForm]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && !showPreview) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, with min and max constraints
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 120), 400);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [form.text, showPreview]);
 
   const createComment = useCreateComment();
   const updateComment = useUpdateComment();
@@ -52,6 +78,7 @@ export default function CommentFormModal() {
     setEditingComment(false);
     setCommentTargetPostId(null);
     resetForm();
+    undoRedo.reset('');
   };
 
   if (!showCommentForm || !commentTargetPostId) {
@@ -173,22 +200,101 @@ export default function CommentFormModal() {
               </div>
 
               <div className="flex-1">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="font-bold text-base">{user?.username || "User"}</span>
-                  <span className="badge badge-sm badge-primary">@{user?.username || "user"}</span>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base">{user?.username || "User"}</span>
+                    <span className="badge badge-sm badge-primary">@{user?.username || "user"}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
+                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                        showMarkdownToolbar 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title="Toggle markdown toolbar"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Markdown
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                        showPreview 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'hover:bg-primary/10 hover:text-primary'
+                      }`}
+                      title="Preview markdown"
+                    >
+                      {showPreview ? (
+                        <>
+                          <EyeOff className="w-4 h-4" />
+                          Hide Preview
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4" />
+                          Preview
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <textarea
-                  className="w-full bg-transparent border border-base-300 rounded-lg p-3 focus:outline-none focus:border-primary resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[120px] transition-all duration-200"
-                  name="text"
-                  value={form.text}
-                  onChange={(e) => handleChange(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  rows={5}
-                  maxLength={1000}
-                  disabled={isSubmitting}
-                  required
+                {/* Markdown Toolbar */}
+                <MarkdownToolbar 
+                  textareaRef={textareaRef} 
+                  isVisible={showMarkdownToolbar}
+                  onFormat={(newValue) => {
+                    undoRedo.setValue(newValue, true);
+                    handleChange(newValue);
+                  }}
                 />
+
+                {showPreview ? (
+                  <div className="w-full bg-base-200 border border-base-300 rounded-lg p-4 min-h-[120px] max-h-[400px] overflow-y-auto">
+                    {form.text ? (
+                      <MarkdownRenderer 
+                        content={form.text} 
+                        className="text-base text-base-content"
+                      />
+                    ) : (
+                      <p className="text-base-content/50 italic">Preview will appear here...</p>
+                    )}
+                  </div>
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    className="w-full bg-transparent border border-base-300 rounded-lg p-3 focus:outline-none focus:border-primary resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[120px] transition-all duration-200"
+                    name="text"
+                    value={form.text}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      handleChange(newValue);
+                      undoRedo.setValue(newValue, true);
+                    }}
+                    onKeyDown={(e) => {
+                      // Handle Ctrl+Z (Undo) and Ctrl+Y or Ctrl+Shift+Z (Redo)
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        const undoneValue = undoRedo.undo();
+                        handleChange(undoneValue);
+                      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                        e.preventDefault();
+                        const redoneValue = undoRedo.redo();
+                        handleChange(redoneValue);
+                      }
+                    }}
+                    placeholder="Share your thoughts..."
+                    rows={5}
+                    maxLength={1000}
+                    disabled={isSubmitting}
+                    required
+                  />
+                )}
 
                 {/* Character Count */}
                 <div className="flex items-center justify-between mt-2">

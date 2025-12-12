@@ -6,6 +6,7 @@ import {
   CritiqueSection,
   DetailedCommentSection,
 } from "@components/common/posts-feature";
+import { MarkdownRenderer } from "@components/common/markdown-renderer.component";
 import {
   PraiseListModal,
   TrophyListModal,
@@ -196,9 +197,10 @@ export default function PostCard({
         {/* Text-only post (default type) - description shown in post body */}
         {(!postItem.post_type || postItem.post_type === "default") && postItem.description && (
           <div className="px-4 py-3">
-            <p className="text-base text-base-content whitespace-pre-wrap break-words">
-              {postItem.description}
-            </p>
+            <MarkdownRenderer 
+              content={postItem.description} 
+              className="text-base text-base-content"
+            />
           </div>
         )}
 
@@ -385,12 +387,16 @@ export default function PostCard({
            postItem.post_type && 
            postItem.post_type !== "default" && (
             <div className="mb-3">
-              <p className="text-sm text-base-content">
+              <div className="text-sm text-base-content">
                 <span className="font-semibold">
                   {postItem.author_username}
                 </span>{" "}
-                {postItem.description}
-              </p>
+                <MarkdownRenderer 
+                  content={postItem.description} 
+                  inline={true}
+                  className="text-base-content"
+                />
+              </div>
             </div>
           )}
 

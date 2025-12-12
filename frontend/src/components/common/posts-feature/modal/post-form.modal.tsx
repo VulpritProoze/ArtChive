@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AddChapterRenderer, AddMediaRenderer } from '@components/common';
 import { usePostUI } from '@context/post-ui-context';
 import { usePostForm } from '@hooks/forms/use-post-form';
@@ -6,6 +6,10 @@ import { useCreatePost, useUpdatePost } from '@hooks/mutations/use-post-mutation
 import { useAuth } from '@context/auth-context';
 import { toast } from '@utils/toast.util';
 import { handleApiError, formatErrorForToast } from '@utils';
+import { MarkdownToolbar } from '@components/common/posts-feature/markdown-toolbar.component';
+import { MarkdownRenderer } from '@components/common/markdown-renderer.component';
+import { useTextUndoRedo } from '@hooks/use-undo-redo.hook';
+import { Undo2, Redo2 } from 'lucide-react';
 
 interface PostFormModalProps {
   channel_id?: string;
@@ -25,6 +29,12 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
   const { user } = useAuth();
   const [mobileView, setMobileView] = useState<'media' | 'details'>('media');
   const [localDescription, setLocalDescription] = useState(postForm?.description || '');
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Undo/Redo functionality
+  const undoRedo = useTextUndoRedo(localDescription);
 
   // Update form when selectedPost changes (for editing) or reset when creating new post
   useEffect(() => {
@@ -43,7 +53,9 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
           })) ?? [{ chapter: '', content: '' }],
         channel_id: selectedPost.channel_id ?? channel_id,
       });
-      setLocalDescription(selectedPost.description || '');
+      const newDesc = selectedPost.description || '';
+      setLocalDescription(newDesc);
+      undoRedo.reset(newDesc);
     } else if (!selectedPost && !editing) {
       // Reset form for new post
       setPostForm({
@@ -55,6 +67,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         channel_id: channel_id,
       });
       setLocalDescription('');
+      undoRedo.reset('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showPostForm, selectedPost?.post_id, editing, channel_id]);
@@ -66,7 +79,10 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
   const isSubmitting = isCreating || isUpdating;
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLocalDescription(e.target.value);
+    const newValue = e.target.value;
+    undoRedo.setValue(newValue, true);
+    setLocalDescription(newValue);
+    setPostForm((prev) => ({ ...prev, description: newValue }));
   };
 
   const handleTextareaBlur = () => {
@@ -121,6 +137,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         channel_id: channel_id,
       });
       setLocalDescription('');
+      undoRedo.reset('');
     } catch (error) {
       const message = handleApiError(error, undefined, true, true);
       toast.error('Operation failed', formatErrorForToast(message));
@@ -139,6 +156,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
       channel_id: channel_id,
     });
     setLocalDescription('');
+    undoRedo.reset('');
   };
 
   if (!showPostForm || !postForm) {
@@ -363,20 +381,105 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                   </div>
 
                   <div className="flex-1">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="font-bold text-base">{user?.username || 'User'}</span>
-                      <span className="badge badge-sm badge-primary">@{user?.username || 'user'}</span>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-base">{user?.username || 'User'}</span>
+                        <span className="badge badge-sm badge-primary">@{user?.username || 'user'}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const undoneValue = undoRedo.undo();
+                            setLocalDescription(undoneValue);
+                            setPostForm((prev) => ({ ...prev, description: undoneValue }));
+                          }}
+                          disabled={!undoRedo.canUndo}
+                          className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <Undo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const redoneValue = undoRedo.redo();
+                            setLocalDescription(redoneValue);
+                            setPostForm((prev) => ({ ...prev, description: redoneValue }));
+                          }}
+                          disabled={!undoRedo.canRedo}
+                          className="btn btn-sm btn-ghost gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/10 hover:text-primary"
+                          title="Redo (Ctrl+Y)"
+                        >
+                          <Redo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPreview(!showPreview)}
+                          className={`btn btn-sm btn-ghost gap-2 transition-all ${
+                            showPreview ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10 hover:text-primary'
+                          }`}
+                          title="Preview markdown"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {showPreview ? 'Hide Preview' : 'Preview'}
+                        </button>
+                      </div>
                     </div>
-                    <textarea
-                      className="w-full bg-transparent border-0 focus:outline-none resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[200px]"
-                      name="description"
-                      value={localDescription}
-                      onChange={handleTextareaChange}
-                      onBlur={handleTextareaBlur}
-                      placeholder="Share your thoughts, describe your artwork, tell your story..."
-                      rows={10}
-                      maxLength={2200}
+
+                    {/* Markdown Toolbar */}
+                    <MarkdownToolbar
+                      textareaRef={textareaRef}
+                      isVisible={showMarkdownToolbar}
+                      onFormat={(newValue) => {
+                        undoRedo.setValue(newValue, true);
+                        setLocalDescription(newValue);
+                        setPostForm((prev) => ({ ...prev, description: newValue }));
+                      }}
                     />
+
+                    {/* Preview or Textarea */}
+                    {showPreview ? (
+                      <div className="w-full bg-base-200 border border-base-300 rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+                        {(() => {
+                          const currentText = textareaRef.current?.value || localDescription;
+                          return currentText ? (
+                            <MarkdownRenderer content={currentText} className="text-base text-base-content" />
+                          ) : (
+                            <p className="text-base-content/50 italic">Preview will appear here...</p>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={textareaRef}
+                        className="w-full bg-transparent border-0 focus:outline-none resize-none text-base placeholder:text-base-content/50 leading-relaxed min-h-[200px]"
+                        name="description"
+                        value={localDescription}
+                        onChange={handleTextareaChange}
+                        onBlur={handleTextareaBlur}
+                        onKeyDown={(e) => {
+                          // Handle Ctrl+Z (Undo) and Ctrl+Y or Ctrl+Shift+Z (Redo)
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                            e.preventDefault();
+                            const undoneValue = undoRedo.undo();
+                            setLocalDescription(undoneValue);
+                            setPostForm((prev) => ({ ...prev, description: undoneValue }));
+                          } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                            e.preventDefault();
+                            const redoneValue = undoRedo.redo();
+                            setLocalDescription(redoneValue);
+                            setPostForm((prev) => ({ ...prev, description: redoneValue }));
+                          }
+                        }}
+                        placeholder="Share your thoughts, describe your artwork, tell your story..."
+                        rows={10}
+                        maxLength={2200}
+                      />
+                    )}
 
                     {/* Enhanced Footer with Icons and Character Count */}
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
@@ -391,9 +494,16 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                           </svg>
                         </button>
-                        <button type="button" className="btn btn-ghost btn-sm btn-circle hover:bg-accent/10 hover:text-accent transition-all" title="Add mention">
+                        <button
+                          type="button"
+                          className={`btn btn-ghost btn-sm btn-circle transition-all ${
+                            showMarkdownToolbar ? 'bg-primary/20 text-primary' : 'hover:bg-primary/10 hover:text-primary'
+                          }`}
+                          title="Markdown formatting"
+                          onClick={() => setShowMarkdownToolbar(!showMarkdownToolbar)}
+                        >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
                       </div>

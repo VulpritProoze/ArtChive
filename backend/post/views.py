@@ -772,6 +772,10 @@ class PostUpdateView(generics.UpdateAPIView):
     lookup_field = "post_id"
     permission_classes = [IsAuthenticated, IsAuthorOrSuperUser]
 
+    def perform_update(self, serializer):
+        # Perform update
+        serializer.save()
+
 
 class PostDeleteView(generics.DestroyAPIView):
     # Use get_active_objects() to filter out soft-deleted posts
