@@ -28,7 +28,7 @@ interface CanvasStageProps {
   onAttachImageToFrame?: (imageId: string, frameId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
-  onTextEdit?: (textId: string) => void;
+  onTextEdit?: (textId: string | null) => void;
   editingTextId?: string | null;
 }
 
@@ -66,7 +66,15 @@ export function CanvasStage({
   
   // Use external editingTextId if provided, otherwise use internal state
   const currentEditingTextId = externalEditingTextId !== undefined ? externalEditingTextId : editingTextId;
-  const setCurrentEditingTextId = onTextEdit || setEditingTextId;
+  const setCurrentEditingTextId = (id: string | null) => {
+    if (onTextEdit) {
+      // If onTextEdit is provided, call it with the id (which can be null)
+      onTextEdit(id);
+    } else {
+      // Otherwise use internal state setter
+      setEditingTextId(id);
+    }
+  };
   const [rotationInfo, setRotationInfo] = useState<{ angle: number; x: number; y: number; isSnapped: boolean } | null>(null);
   const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
   const [hoveredFrameId, setHoveredFrameId] = useState<string | null>(null);
@@ -280,20 +288,26 @@ export function CanvasStage({
         draggable={false}
       >
         <Layer>
-          {/* Background */}
-          <Rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill="white"
-          />
+          {/* Clipping Group - clips all objects to canvas bounds */}
+          <Group
+            clipFunc={(ctx) => {
+              ctx.rect(0, 0, width, height);
+            }}
+          >
+            {/* Background */}
+            <Rect
+              x={0}
+              y={0}
+              width={width}
+              height={height}
+              fill="white"
+            />
 
-          {/* Grid */}
-          {gridEnabled && <CanvasGrid width={width} height={height} />}
+            {/* Grid */}
+            {gridEnabled && <CanvasGrid width={width} height={height} />}
 
-          {/* Canvas Objects */}
-          {objects.map((obj) => (
+            {/* Canvas Objects */}
+            {objects.map((obj) => (
             <CanvasObjectRenderer
               key={obj.id}
               object={obj}
@@ -354,8 +368,8 @@ export function CanvasStage({
             />
           )}
 
-          {/* Snap Guides - Color-coded for snap type */}
-          {snapGuides.map((guide, index) => {
+            {/* Snap Guides - Color-coded for snap type */}
+            {snapGuides.map((guide, index) => {
             // Choose color and style based on snap type
             const getSnapColor = () => {
               switch (guide.snapType) {
@@ -396,6 +410,7 @@ export function CanvasStage({
               />
             );
           })}
+          </Group>
         </Layer>
       </Stage>
 
@@ -487,7 +502,7 @@ interface CanvasObjectRendererProps {
   onContextMenu?: (e: React.MouseEvent, objectId: string) => void;
   editorMode?: EditorMode;
   isPreviewMode?: boolean;
-  onTextEdit?: (textId: string) => void;
+  onTextEdit?: (textId: string | null) => void;
   onSelectIds?: (ids: string[]) => void; // For child object selection
   onUpdateObjectById?: (id: string, updates: Partial<CanvasObject>) => void; // For child object updates
   draggedImageId?: string | null;

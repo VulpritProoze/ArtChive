@@ -78,6 +78,40 @@ export function renderCanvasObjectToHTML(
     case 'text': {
       const textObj = object as TextObject;
       
+      // Check if text is a hyperlink using isHyperlink property
+      const isHyperlink = textObj.isHyperlink === true;
+      
+      // Extract URL from text and ensure it's an absolute URL
+      const extractUrl = (text: string): string => {
+        const trimmedText = text.trim();
+        
+        // Check if text is already an absolute URL with protocol
+        if (/^https?:\/\//i.test(trimmedText)) {
+          return trimmedText;
+        }
+        
+        // Check if text starts with www.
+        if (/^www\./i.test(trimmedText)) {
+          return `https://${trimmedText}`;
+        }
+        
+        // Check if text looks like a domain (contains dots and no spaces)
+        if (/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(trimmedText) && !trimmedText.includes(' ')) {
+          return `https://${trimmedText}`;
+        }
+        
+        // For relative paths, make them absolute by prepending current origin
+        if (trimmedText.startsWith('/')) {
+          return `${window.location.origin}${trimmedText}`;
+        }
+        
+        // If text doesn't look like a URL or path, don't make it a link
+        // Return empty string to prevent rendering as link
+        return '';
+      };
+
+      const href = isHyperlink ? extractUrl(textObj.text) : undefined;
+      
       // Only use width as a soft constraint (maxWidth) for wrapping, not a hard constraint
       // This allows text to grow naturally but wrap if width is specified
       const textStyles: React.CSSProperties = {
@@ -93,11 +127,27 @@ export function renderCanvasObjectToHTML(
         overflowWrap: 'break-word',
         overflow: 'visible',
         lineHeight: '1.2',
+        textDecorationColor: isHyperlink ? textObj.fill : undefined,
       };
 
       // Only set maxWidth if width is specified (for wrapping), but don't constrain with fixed width
       if (textObj.width) {
         textStyles.maxWidth = `${textObj.width * scale}px`;
+      }
+
+      // Render as <a> tag if hyperlink and valid URL extracted, otherwise <div>
+      if (isHyperlink && href) {
+        return (
+          <a
+            key={object.id}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={textStyles}
+          >
+            {textObj.text}
+          </a>
+        );
       }
 
       return (
