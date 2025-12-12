@@ -87,8 +87,10 @@ class PostCreateSerializer(ModelSerializer):
             return value
 
         max_file_size = 100 * 1000000  # 100MB
+        max_file_size = 10 * 1000000# 10MB
         if value.size > max_file_size:
-            raise serializers.ValidationError("Video file size must not exceed 100MB")
+            # raise serializers.ValidationError("Video file size must not exceed 100MB")
+            raise serializers.ValidationError("Video file size must not exceed 10MB")
         return value
 
     def validate_image_url(self, value):
