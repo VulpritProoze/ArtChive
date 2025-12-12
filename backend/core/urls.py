@@ -7,19 +7,12 @@ from .reputation_views import (
     UserReputationView,
 )
 from .views import (
+    AcceptFriendRequestView,
+    ActiveFellowsListView,
     ArtistCountsAPIView,
     ArtistGrowthAPIView,
     ArtistTypesAPIView,
-    TransactionCountsAPIView,
-    TransactionTypesAPIView,
-    TransactionVolumeAPIView,
-    UserCountsAPIView,
-    UserGrowthAPIView,
-    AcceptFriendRequestView,
-    ActiveFellowsListView,
     BlockUserView,
-    ChangePasswordView,
-    DebugPresenceView,
     BrushDripMyTransactionsView,
     BrushDripTransactionCreateView,
     BrushDripTransactionDetailView,
@@ -27,22 +20,32 @@ from .views import (
     BrushDripTransactionStatsView,
     BrushDripWalletDetailView,
     BrushDripWalletRetrieveView,
+    BuyBrushDripsView,
     CancelFriendRequestView,
+    ChangePasswordView,
     CheckFriendRequestStatusView,
     CookieTokenRefreshView,
     CreateFriendRequestView,
+    DebugPresenceView,
     FellowsListView,
     FriendRequestCountView,
     GetCSRFTokenView,
     LoginView,
     LogoutView,
     PendingFriendRequestsListView,
+    PostgresHealthCheckView,
     ProfileRetrieveUpdateView,
+    RedisHealthCheckView,
     RegistrationView,
     RejectFriendRequestView,
     SearchFellowsView,
+    TransactionCountsAPIView,
+    TransactionTypesAPIView,
+    TransactionVolumeAPIView,
     UnfriendView,
+    UserCountsAPIView,
     UserFellowsListView,
+    UserGrowthAPIView,
     UserInfoView,
     UserProfileByUsernameView,
     UserSearchView,
@@ -50,6 +53,10 @@ from .views import (
 )
 
 urlpatterns = [
+    # Monitoring endpoints
+    path("health/redis/", RedisHealthCheckView.as_view(), name="health-redis"),
+    path("health/postgres/", PostgresHealthCheckView.as_view(), name="health-postgresql"),
+
     # Authentication endpoints
     path("auth/csrf/", GetCSRFTokenView.as_view(), name="get-csrf-token"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
@@ -124,6 +131,11 @@ urlpatterns = [
         "brushdrips/transactions/stats/",
         BrushDripTransactionStatsView.as_view(),
         name="brushdrip-transaction-stats",
+    ),
+    path(
+        "brushdrips/buy/",
+        BuyBrushDripsView.as_view(),
+        name="brushdrip-buy",
     ),
     # Fellows (Friends) endpoints
     path(

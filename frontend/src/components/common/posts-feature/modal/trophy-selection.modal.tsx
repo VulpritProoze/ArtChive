@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { X, Medal, Award, Trophy, Check } from "lucide-react";
 import { usePostUI } from "@context/post-ui-context";
 import { useAwardTrophy } from "@hooks/mutations/use-post-mutations";
-import { useCreateGalleryAward } from "@hooks/queries/use-gallery-awards";
+import { useCreateGalleryAward, useGalleryAwards } from "@hooks/queries/use-gallery-awards";
+import { useAuth } from "@context/auth-context";
 import { toast } from "@utils/toast.util";
 import { handleApiError, formatErrorForToast } from "@utils";
 
@@ -13,10 +14,10 @@ const TROPHY_TYPES = [
     cost: 5,
     description: "Show your appreciation",
     icon: Medal,
-    color: "text-orange-700",
-    bgColor: "bg-orange-100",
-    borderColor: "border-orange-300",
-    hoverColor: "hover:bg-orange-200",
+    color: "text-warning",
+    bgColor: "bg-warning/10 dark:bg-warning/20",
+    borderColor: "border-warning/30 dark:border-warning/40",
+    hoverColor: "hover:bg-warning/20 dark:hover:bg-warning/30",
   },
   {
     name: "golden_bristle",
@@ -24,10 +25,10 @@ const TROPHY_TYPES = [
     cost: 10,
     description: "Award excellence",
     icon: Award,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-100",
-    borderColor: "border-yellow-300",
-    hoverColor: "hover:bg-yellow-200",
+    color: "text-warning",
+    bgColor: "bg-warning/10 dark:bg-warning/20",
+    borderColor: "border-warning/30 dark:border-warning/40",
+    hoverColor: "hover:bg-warning/20 dark:hover:bg-warning/30",
   },
   {
     name: "diamond_canvas",
@@ -35,10 +36,10 @@ const TROPHY_TYPES = [
     cost: 20,
     description: "Celebrate mastery",
     icon: Trophy,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-300",
-    hoverColor: "hover:bg-blue-200",
+    color: "text-primary",
+    bgColor: "bg-primary/10 dark:bg-primary/20",
+    borderColor: "border-primary/30 dark:border-primary/40",
+    hoverColor: "hover:bg-primary/20 dark:hover:bg-primary/30",
   },
 ];
 
@@ -57,6 +58,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
     setSelectedPostTrophyAwards,
   } = usePostUI();
   
+  const { user } = useAuth();
   const { mutate: awardTrophy, isPending: isPendingPost, reset: resetPost } = useAwardTrophy();
   const { mutate: awardGalleryAward, isPending: isPendingGallery, reset: resetGallery } = useCreateGalleryAward();
   
@@ -69,6 +71,51 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
   const finalTargetId = targetId || selectedPostForTrophy;
   const isPending = isPendingPost || isPendingGallery;
 
+  // Fetch user's gallery awards if this is a gallery
+  const { data: galleryAwardsData } = useGalleryAwards(
+    finalTargetId || '',
+    { 
+      enabled: finalTargetType === 'gallery' && Boolean(finalTargetId) && showTrophyModal && Boolean(user)
+    }
+  );
+
+  // Extract user's awarded types from gallery awards
+  const userAwardedGalleryTypes = useMemo(() => {
+    if (finalTargetType !== 'gallery' || !galleryAwardsData || !user) return [];
+    
+    const allAwards = galleryAwardsData.pages.flatMap(page => page.results || []);
+    return allAwards
+      .filter(award => award.author === user.id && !award.is_deleted)
+      .map(award => award.award_type);
+  }, [galleryAwardsData, finalTargetType, user]);
+
+  // Track previous target to detect changes
+  const prevTargetRef = useRef<string | null>(null);
+
+  // Initialize selectedPostTrophyAwards from user's awards when modal opens
+  useEffect(() => {
+    if (showTrophyModal && finalTargetId) {
+      // If target changed, clear awards first
+      if (prevTargetRef.current !== finalTargetId) {
+        setSelectedPostTrophyAwards([]);
+        prevTargetRef.current = finalTargetId;
+      }
+
+      // For galleries, fetch and set user's awarded types
+      if (finalTargetType === 'gallery') {
+        // Set user's awarded types when modal opens for gallery
+        // This will update when userAwardedGalleryTypes changes (after fetch completes)
+        // Always set it (even if empty) to ensure we have the latest state
+        setSelectedPostTrophyAwards(userAwardedGalleryTypes);
+      }
+      // For posts, PostCard component will set it via handleOpenTrophyModal
+    } else if (!showTrophyModal) {
+      // When modal closes, reset the previous target ref so next open will be treated as new
+      // But don't clear the awards - they'll be cleared when a new target is selected
+      prevTargetRef.current = null;
+    }
+  }, [showTrophyModal, finalTargetId, finalTargetType, userAwardedGalleryTypes, setSelectedPostTrophyAwards]);
+
   if (!showTrophyModal || !finalTargetId) return null;
 
   const closeModal = () => {
@@ -79,7 +126,9 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
     
     setShowTrophyModal(false);
     setSelectedPostForTrophy(null);
-    setSelectedPostTrophyAwards([]);
+    // Don't clear awards on close - preserve state for when modal reopens
+    // The useEffect will handle clearing when target changes
+    // setSelectedPostTrophyAwards([]);
     setSelectedAward(null);
     setShowConfirmDialog(false);
     isCancelledRef.current = false;
@@ -176,7 +225,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
       <div className="modal modal-open">
         <div className="modal-box max-w-3xl">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-2xl font-bold text-base-content">
               Award a {finalTargetType === 'gallery' ? 'Gallery Award' : 'Trophy'}
             </h2>
             <button
@@ -220,7 +269,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                   <div className="flex flex-col items-center gap-2">
                     <Icon className={`w-8 h-8 ${trophy.color}`} />
                     <div className="text-center">
-                      <p className={`text-xs font-semibold ${trophy.color}`}>
+                      <p className="text-xs font-semibold text-base-content">
                         {trophy.displayName}
                       </p>
                       <p className="text-xs text-base-content/60 mt-0.5">
@@ -259,7 +308,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                     return <Icon className={`w-6 h-6 ${selectedTrophy.color}`} />;
                   })()}
                   <div>
-                    <p className="font-semibold">{selectedTrophy.displayName}</p>
+                    <p className="font-semibold text-base-content">{selectedTrophy.displayName}</p>
                     <p className="text-sm text-base-content/70">{selectedTrophy.description}</p>
                     <p className="text-xs text-base-content/60 mt-1">
                       Cost: <span className="font-semibold text-warning">{selectedTrophy.cost} Brush Drips</span>
@@ -310,7 +359,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
       {showConfirmDialog && selectedTrophy && (
         <div className="modal modal-open">
           <div className="modal-box max-w-md">
-            <h3 className="font-bold text-lg mb-4">Confirm Award</h3>
+            <h3 className="font-bold text-lg mb-4 text-base-content">Confirm Award</h3>
             <div className="space-y-4">
               <div className={`p-4 rounded-lg border-2 ${selectedTrophy.bgColor} ${selectedTrophy.borderColor}`}>
                 <div className="flex items-center gap-3">
@@ -319,7 +368,7 @@ export default function TrophySelectionModal({ targetType = 'post', targetId }: 
                     return <Icon className={`w-8 h-8 ${selectedTrophy.color}`} />;
                   })()}
                   <div>
-                    <p className="font-semibold">{selectedTrophy.displayName}</p>
+                    <p className="font-semibold text-base-content">{selectedTrophy.displayName}</p>
                     <p className="text-sm text-base-content/70">{selectedTrophy.description}</p>
                   </div>
                 </div>

@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -45,13 +45,11 @@ from .serializers import (
     BrushDripTransactionListSerializer,
     BrushDripTransactionStatsSerializer,
     BrushDripWalletSerializer,
+    BuyBrushDripsSerializer,
     ChangePasswordSerializer,
     CreateFriendRequestSerializer,
     FriendRequestCountSerializer,
     LoginSerializer,
-    ReputationHistorySerializer,
-    ReputationLeaderboardEntrySerializer,
-    ReputationSerializer,
     ProfileViewUpdateSerializer,
     RegistrationSerializer,
     UserFellowSerializer,
@@ -115,7 +113,7 @@ class LoginView(APIView):
             # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
             cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
             cookie_samesite = "None" if cookie_secure else "Lax"
-            
+
             cookie_kwargs = {
                 "httponly": True,
                 "secure": cookie_secure,
@@ -256,7 +254,7 @@ class CookieTokenRefreshView(TokenRefreshView):
             # SameSite='None' requires Secure=True (HTTPS), use 'Lax' for HTTP
             cookie_secure = config("AUTH_COOKIE_SECURE", default=False, cast=bool)
             cookie_samesite = "None" if cookie_secure else "Lax"
-            
+
             cookie_kwargs = {
                 "httponly": True,
                 "secure": cookie_secure,
@@ -530,9 +528,9 @@ class RegistrationView(APIView):
                         username=validated_data["username"],
                         email=validated_data["email"],
                         password=validated_data["password"],
-                        first_name=validated_data.get("firstName", ""),
-                        middle_name=validated_data.get("middleName", ""),
-                        last_name=validated_data.get("lastName", ""),
+                        first_name=validated_data.get("first_name", ""),
+                        middle_name=validated_data.get("middle_name", ""),
+                        last_name=validated_data.get("last_name", ""),
                         city=validated_data.get("city", ""),
                         country=validated_data.get("country", ""),
                         birthday=validated_data.get("birthday", None),
@@ -1102,6 +1100,78 @@ class BrushDripTransactionStatsView(APIView):
 
         serializer = BrushDripTransactionStatsSerializer(stats)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Brush Drips"],
+    description="Buy brush drips (TEST ONLY - For testing purposes only)",
+    request=BuyBrushDripsSerializer,
+    responses={
+        200: BrushDripWalletSerializer,
+        400: OpenApiResponse(description="Bad Request"),
+        401: OpenApiResponse(description="Unauthorized"),
+        429: OpenApiResponse(description="Too many requests - Maximum 5 purchases per 3 hours"),
+    },
+)
+class BuyBrushDripsView(APIView):
+    """
+    POST: Buy brush drips (TEST ONLY)
+    
+    WARNING: This endpoint is for testing purposes only.
+    It allows users to add brush drips to their wallet without any payment processing.
+    In production, this should be replaced with actual payment gateway integration.
+    
+    Body:
+    - amount: Amount of brush drips to purchase (positive integer, max 1,000,000)
+    
+    Returns:
+    - Updated wallet information
+    """
+
+    permission_classes = [IsAuthenticated]
+    throttle_scope = "buy_brush_drips"
+    throttle_classes = [ScopedRateThrottle]
+
+    def post(self, request):
+        # TEST ONLY - This endpoint is for testing purposes only
+        serializer = BuyBrushDripsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        amount = serializer.validated_data['amount']
+        user = request.user
+
+        try:
+            with transaction.atomic():
+                # Lock wallet for update to prevent race conditions
+                wallet = BrushDripWallet.objects.select_for_update().get(user=user)
+
+                # Update balance
+                wallet.balance += amount
+                wallet.save()
+
+                # Create transaction record (TEST ONLY - using admin_override type)
+                BrushDripTransaction.objects.create(
+                    amount=amount,
+                    transaction_object_type='admin_override',  # TEST ONLY
+                    transaction_object_id='test_purchase',  # TEST ONLY
+                    transacted_by=None,  # No sender for purchases
+                    transacted_to=user,
+                )
+
+                # Return updated wallet
+                wallet_serializer = BrushDripWalletSerializer(wallet, context={"request": request})
+                return Response(wallet_serializer.data, status=status.HTTP_200_OK)
+
+        except BrushDripWallet.DoesNotExist:
+            return Response(
+                {"error": "Wallet not found. Please contact support."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Purchase failed: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 # ============================================================================
@@ -2303,4 +2373,120 @@ class TransactionVolumeAPIView(APIView):
 
         return Response(data)
 
+# ============================================================================
+# Monitoring Views
+# ============================================================================
+class RedisHealthCheckView(APIView):
+    """
+    Health check endpoint for Redis connectivity using Redis PING command.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
+    def head(self, request):
+        """
+        Handle HEAD requests (used by monitoring services like UptimeRobot).
+        Returns same status code as GET but without body.
+        """
+        response = self.get(request)
+        # Return empty response with same status code
+        return Response(status=response.status_code)
+
+    @extend_schema(
+        tags=["Health"],
+        description="Check Redis connectivity using built-in PING command",
+        responses={
+            200: OpenApiResponse(description="Redis is healthy"),
+            503: OpenApiResponse(description="Redis is unavailable"),
+        },
+    )
+    def get(self, request):
+        try:
+            # Get the raw Redis client from django-redis
+            if hasattr(cache, 'client'):
+                redis_client = cache.client.get_client()
+
+                # Use Redis PING command - returns True if Redis is responding
+                response = redis_client.ping()
+
+                if response:
+                    return Response({
+                        "status": "healthy",
+                        "service": "redis",
+                        "message": "Redis is responding correctly"
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        "status": "unhealthy",
+                        "service": "redis",
+                        "message": "Redis PING returned False"
+                    }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            else:
+                return Response({
+                    "status": "unhealthy",
+                    "service": "redis",
+                    "message": "Cache backend does not support Redis client access"
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            return Response({
+                "status": "unhealthy",
+                "service": "redis",
+                "message": f"Redis connection error: {str(e)}"
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class PostgresHealthCheckView(APIView):
+    """
+    Health check endpoint for PostgreSQL connectivity.
+    Tests database connection by executing a simple query.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def head(self, request):
+        """
+        Handle HEAD requests (used by monitoring services like UptimeRobot).
+        Returns same status code as GET but without body.
+        """
+        response = self.get(request)
+        # Return empty response with same status code
+        return Response(status=response.status_code)
+
+    @extend_schema(
+        tags=["Health"],
+        description="Check PostgreSQL connectivity",
+        responses={
+            200: OpenApiResponse(description="PostgreSQL is healthy"),
+            503: OpenApiResponse(description="PostgreSQL is unavailable"),
+        },
+    )
+    def get(self, request):
+
+        try:
+            # Ensure connection is active
+            connection.ensure_connection()
+
+            # Execute a simple query to verify database is responding
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+
+            if result and result[0] == 1:
+                return Response({
+                    "status": "healthy",
+                    "service": "postgresql",
+                    "message": "PostgreSQL is responding correctly"
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "status": "unhealthy",
+                    "service": "postgresql",
+                    "message": "PostgreSQL query returned unexpected result"
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            return Response({
+                "status": "unhealthy",
+                "service": "postgresql",
+                "message": f"PostgreSQL connection error: {str(e)}"
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)

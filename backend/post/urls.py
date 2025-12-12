@@ -29,6 +29,7 @@ from .views import (
     CritiqueSearchView,
     CritiqueUpdateView,
     EngagementCountsAPIView,
+    GenerateTopPostsViaApiKeyView,
     GenerateTopPostsView,
     GlobalTopPostsView,
     NovelCountsAPIView,
@@ -72,9 +73,13 @@ Some notes:
 2. PostPraise and PostTrophy cannot be updated or deleted - they're permanent once created.
 """
 urlpatterns = [
+    # Top Posts Generation
+    path("top/generate/", GenerateTopPostsView.as_view(), name="generate-top-posts"),
+    path("top/generate/api-key/", GenerateTopPostsViaApiKeyView.as_view(), name="generate-top-posts-via-api-key"),
+
+    # Post CRUD
     path("", PostListView.as_view(), name="post-list"),
     path("top/", GlobalTopPostsView.as_view(), name="global-top-posts"),
-    path("top/generate/", GenerateTopPostsView.as_view(), name="generate-top-posts"),
     path("search/", PostSearchView.as_view(), name="post-search"),
     path("bulk-meta/", PostBulkMetaView.as_view(), name="post-bulk-meta"),
     path("me/<int:id>/", OwnPostsListView.as_view(), name="post-list-me"),

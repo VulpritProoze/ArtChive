@@ -1,5 +1,5 @@
 // frontend/src/components/account/register.component.tsx
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,11 @@ export default function Register() {
   const { register: registerRoute } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [stepValidations, setStepValidations] = useState<Record<number, boolean>>({
+    1: false,
+    2: true, // Step 2 is optional, so it's valid by default
+    3: false,
+  });
 
   const registrationSchema = z
     .object({
@@ -94,7 +99,48 @@ export default function Register() {
   const [allowSubmission, setAllowSubmission] = useState(false);
   const formValues = watch();
 
-  const handleArtistTypeChange = (type: string) => {
+  // Validate current step fields
+  const validateCurrentStep = useCallback(async () => {
+    let fieldsToValidate: (keyof FormFields)[] = [];
+
+    if (currentStep === 1) {
+      fieldsToValidate = ["username", "email", "password", "confirmPassword"];
+    } else if (currentStep === 2) {
+      fieldsToValidate = ["firstName", "middleName", "lastName", "city", "country", "birthday"];
+    } else if (currentStep === 3) {
+      fieldsToValidate = ["artistTypes"];
+    }
+
+    if (fieldsToValidate.length > 0) {
+      const isValid = await trigger(fieldsToValidate);
+      setStepValidations((prev) => ({ ...prev, [currentStep]: isValid }));
+      return isValid;
+    }
+    return true;
+  }, [currentStep, trigger]);
+
+  // Validate step when fields change
+  useEffect(() => {
+    if (currentStep === 1) {
+      // Validate step 1 fields on change
+      validateCurrentStep();
+    } else if (currentStep === 2) {
+      // Step 2 fields are optional, so always valid
+      setStepValidations((prev) => ({ ...prev, [currentStep]: true }));
+    } else if (currentStep === 3) {
+      // Validate step 3 when artist types change
+      validateCurrentStep();
+    }
+  }, [currentStep, selectedArtistTypes, validateCurrentStep]);
+
+  // Validate step 1 fields when they change
+  useEffect(() => {
+    if (currentStep === 1) {
+      validateCurrentStep();
+    }
+  }, [formValues.username, formValues.email, formValues.password, formValues.confirmPassword, currentStep, validateCurrentStep]);
+
+  const handleArtistTypeChange = async (type: string) => {
     let updatedTypes;
     if (selectedArtistTypes.includes(type)) {
       updatedTypes = selectedArtistTypes.filter((t) => t !== type);
@@ -107,6 +153,9 @@ export default function Register() {
     }
     setSelectedArtistTypes(updatedTypes);
     setValue("artistTypes", updatedTypes as any);
+    // Trigger validation after updating
+    await trigger("artistTypes");
+    await validateCurrentStep();
   };
 
   const nextStep = async (e?: React.MouseEvent) => {
@@ -116,15 +165,8 @@ export default function Register() {
       e.stopPropagation();
     }
 
-    let fieldsToValidate: (keyof FormFields)[] = [];
-
-    if (currentStep === 1) {
-      fieldsToValidate = ["username", "email", "password", "confirmPassword"];
-    } else if (currentStep === 2) {
-      fieldsToValidate = ["firstName", "middleName", "lastName", "city", "country"];
-    }
-
-    const isValid = await trigger(fieldsToValidate);
+    // Validate current step before proceeding
+    const isValid = await validateCurrentStep();
     if (isValid) {
       // Reset submission flag when moving to next step
       setAllowSubmission(false);
@@ -276,7 +318,12 @@ export default function Register() {
                     type="text"
                     placeholder="Enter your username"
                     className="input input-sm input-bordered w-full bg-base-200"
-                    {...register("username")}
+                    {...register("username", {
+                      onChange: async () => {
+                        await trigger(["username", "confirmPassword"]);
+                        await validateCurrentStep();
+                      },
+                    })}
                   />
                   {errors.username && (
                     <p className="text-xs text-error mt-1">
@@ -293,7 +340,12 @@ export default function Register() {
                     type="email"
                     placeholder="Enter your email"
                     className="input input-sm input-bordered w-full bg-base-200"
-                    {...register("email")}
+                    {...register("email", {
+                      onChange: async () => {
+                        await trigger("email");
+                        await validateCurrentStep();
+                      },
+                    })}
                   />
                   {errors.email && (
                     <p className="text-xs text-error mt-1">{errors.email.message}</p>
@@ -308,7 +360,12 @@ export default function Register() {
                     type="password"
                     placeholder="Enter your password"
                     className="input input-sm input-bordered w-full bg-base-200"
-                    {...register("password")}
+                    {...register("password", {
+                      onChange: async () => {
+                        await trigger(["password", "confirmPassword"]);
+                        await validateCurrentStep();
+                      },
+                    })}
                   />
                   {errors.password && (
                     <p className="text-xs text-error mt-1">
@@ -325,7 +382,12 @@ export default function Register() {
                     type="password"
                     placeholder="Confirm your password"
                     className="input input-sm input-bordered w-full bg-base-200"
-                    {...register("confirmPassword")}
+                    {...register("confirmPassword", {
+                      onChange: async () => {
+                        await trigger("confirmPassword");
+                        await validateCurrentStep();
+                      },
+                    })}
                   />
                   {errors.confirmPassword && (
                     <p className="text-xs text-error mt-1">
@@ -405,6 +467,27 @@ export default function Register() {
                     className="input input-sm input-bordered w-full bg-base-200"
                     {...register("country")}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1 text-base-content/70 flex items-center gap-1">
+                    <i className="fas fa-calendar text-xs"></i> Birthday
+                  </label>
+                  <input
+                    type="date"
+                    className="input input-sm input-bordered w-full bg-base-200"
+                    {...register("birthday", {
+                      onChange: async () => {
+                        await trigger("birthday");
+                        await validateCurrentStep();
+                      },
+                    })}
+                  />
+                  {errors.birthday && (
+                    <p className="text-xs text-error mt-1">
+                      {errors.birthday.message}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -534,7 +617,8 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={(e) => nextStep(e)}
-                  className="btn btn-primary gap-2 ml-auto shadow-md hover:shadow-lg transition-all"
+                  disabled={!stepValidations[currentStep]}
+                  className="btn btn-primary gap-2 ml-auto shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Next</span>
                   <i className="fas fa-arrow-right"></i>

@@ -7,36 +7,42 @@ from .award_views import (
     GalleryAwardsBulkView,
 )
 from .views import (
+    BulkGalleryDetailsView,
+    FellowsGalleriesView,
+    GalleryActiveView,
     GalleryCommentCreateView,
     GalleryCommentDeleteView,
     GalleryCommentDetailView,
     GalleryCommentListView,
     GalleryCommentReplyCreateView,
-    GalleryCommentUpdateView,
     GalleryCommentsReplyDetailView,
     GalleryCommentsView,
+    GalleryCommentUpdateView,
     GalleryCountsAPIView,
-    GalleryGrowthAPIView,
-    GalleryActiveView,
-    GalleryHasActiveView,
-    BulkGalleryDetailsView,
     GalleryDetailView,
-    GalleryPublicDetailView,
+    GalleryGrowthAPIView,
+    GalleryHasActiveView,
     GalleryListCreateView,
     GalleryListView,
+    GalleryPublicDetailView,
     GalleryStatusUpdateView,
     GalleryUserListView,
+    GenerateTopGalleriesViaApiKeyView,
+    GenerateTopGalleriesView,
     GlobalTopGalleriesView,
     MediaUploadView,
-    FellowsGalleriesView,
 )
 
 urlpatterns = [
+    # Top Galleries Generation
+    path("top/generate/", GenerateTopGalleriesView.as_view(), name="generate-top-galleries"),
+    path("top/generate/api-key/", GenerateTopGalleriesViaApiKeyView.as_view(), name="generate-top-galleries-via-api-key"),
+
     # Gallery CRUD
     path('', GalleryListCreateView.as_view(), name='gallery-list-create'),
     path('list/', GalleryListView.as_view(), name='gallery-list'),
-    path('bulk/', BulkGalleryDetailsView.as_view(), name='bulk-gallery-details'),
     path('top/', GlobalTopGalleriesView.as_view(), name='global-top-galleries'),
+    path('bulk/', BulkGalleryDetailsView.as_view(), name='bulk-gallery-details'),
     path('fellows/', FellowsGalleriesView.as_view(), name='gallery-fellows'),
     path('<uuid:gallery_id>/', GalleryDetailView.as_view(), name='gallery-detail'),
     path('<uuid:gallery_id>/public/', GalleryPublicDetailView.as_view(), name='gallery-public-detail'),
@@ -47,7 +53,7 @@ urlpatterns = [
 
     # Media upload
     path('media/upload/', MediaUploadView.as_view(), name='media-upload'),
-    
+
     # Gallery Comments
     path('<uuid:gallery_id>/comments/', GalleryCommentsView.as_view(), name='gallery-comments'),
     path('comment/create/', GalleryCommentCreateView.as_view(), name='gallery-comment-create'),
@@ -57,13 +63,13 @@ urlpatterns = [
     path('comment/reply/create/', GalleryCommentReplyCreateView.as_view(), name='gallery-comment-reply-create'),
     path('comment/<uuid:comment_id>/replies/', GalleryCommentsReplyDetailView.as_view(), name='gallery-comment-replies'),
     path('comments/', GalleryCommentListView.as_view(), name='gallery-comment-list'),
-    
+
     # Gallery Awards
     path('award/create/', GalleryAwardCreateView.as_view(), name='gallery-award-create'),
     path('award/<int:award_id>/delete/', GalleryAwardDeleteView.as_view(), name='gallery-award-delete'),
     path('<uuid:gallery_id>/awards/', GalleryAwardListView.as_view(), name='gallery-award-list'),
     path('awards/bulk/', GalleryAwardsBulkView.as_view(), name='gallery-awards-bulk'),
-    
+
     # Dashboard API endpoints
     path(
         "dashboard/gallery/galleries/counts/",

@@ -1,5 +1,5 @@
 from django.core.validators import FileExtensionValidator
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
@@ -104,7 +104,7 @@ class PostCreateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification
             value.seek(0)
-            
+
             # Process image: resize and compress
             from common.utils.image_processing import process_post_image
             return process_post_image(value)
@@ -288,7 +288,7 @@ class PostUpdateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification
             value.seek(0)
-            
+
             # Process image: resize and compress
             from common.utils.image_processing import process_post_image
             return process_post_image(value)
@@ -679,6 +679,9 @@ class CommentReplyCreateSerializer(serializers.ModelSerializer):
 
 
 class CritiqueReplySerializer(CommentSerializer):
+    gallery_id = serializers.UUIDField(source="gallery.gallery_id", read_only=True, allow_null=True)
+    gallery_title = serializers.SerializerMethodField()
+
     class Meta:
         model = Comment
         fields = [
@@ -691,10 +694,16 @@ class CritiqueReplySerializer(CommentSerializer):
             "author_artist_types",
             "post_title",
             "post_id",
+            "gallery_id",
+            "gallery_title",
             "author",
             "is_critique_reply",
             "critique_id",
         ]
+
+    def get_gallery_title(self, obj):
+        """Safely get gallery title, returning None if gallery is None"""
+        return obj.gallery.title if obj.gallery else None
 
     def get_reply_count(self, obj):
         """Get reply counts (excluding critique replies)"""
@@ -721,9 +730,10 @@ class CritiqueReplyCreateSerializer(ModelSerializer):
         request = self.context["request"]
         critique = data["critique_id"]
 
-        # Auto-set author, post_id from critique, and set as critique reply
+        # Auto-set author, post_id/gallery from critique, and set as critique reply
         data["author"] = request.user
-        data["post_id"] = critique.post_id  # inherit post from critique
+        data["post_id"] = critique.post_id  # inherit post from critique (can be None)
+        data["gallery"] = critique.gallery_id  # inherit gallery from critique (can be None)
         data["is_critique_reply"] = True  # Explicitly set as critique reply
         data["replies_to"] = None  # Ensure no reply chain for critique replies
 

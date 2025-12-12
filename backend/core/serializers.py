@@ -506,6 +506,19 @@ class BrushDripTransactionStatsSerializer(serializers.Serializer):
     total_transaction_count = serializers.IntegerField()
 
 
+class BuyBrushDripsSerializer(serializers.Serializer):
+    """Serializer for buying brush drips (TEST ONLY)"""
+    amount = serializers.IntegerField()
+
+    def validate_amount(self, value):
+        """Validate purchase amount"""
+        if value <= 0:
+            raise serializers.ValidationError("Purchase amount must be greater than 0.")
+        if value > 1000000:
+            raise serializers.ValidationError("Purchase amount cannot exceed 1,000,000 brush drips.")
+        return value
+
+
 class UserFellowSerializer(ModelSerializer):
     """Serializer for UserFellow relationships"""
     user_info = UserSummarySerializer(source='user', read_only=True)

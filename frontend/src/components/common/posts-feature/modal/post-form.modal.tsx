@@ -186,7 +186,7 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
         ></div>
 
         {/* Enhanced Modal Content with Scale Animation */}
-        <div className={`modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50 ${postForm.post_type === 'novel' ? 'flex flex-col max-h-[90vh]' : ''}`}>
+        <div className={`modal-box max-w-6xl p-0 overflow-hidden relative bg-base-100 rounded-3xl shadow-2xl animate-scale-in border border-base-300/50 ${postForm.post_type === 'novel' ? 'flex flex-col max-h-[90vh] min-h-0' : ''}`}>
           {/* Modern Top Bar with Gradient */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-base-300 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 backdrop-blur-sm sticky top-0 z-10">
             <button
@@ -287,12 +287,12 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
           )}
 
           {/* Main Content Area */}
-          <form id="post-form" onSubmit={handleSubmit} className={`flex flex-col ${postForm.post_type === 'novel' ? '' : 'lg:flex-row'} flex-1 overflow-y-auto ${postForm.post_type === 'novel' ? 'min-h-0' : 'max-h-[85vh]'}`}>
+          <form id="post-form" onSubmit={handleSubmit} className={`flex flex-col ${postForm.post_type === 'novel' ? '' : 'lg:flex-row'} flex-1 ${postForm.post_type === 'novel' ? 'overflow-y-auto min-h-0' : 'max-h-[85vh]'}`}>
             {/* Left Side - Enhanced Media Preview / Chapters with Gradient Background */}
             {/* Hide media section when editing image or video posts */}
             {postForm.post_type !== 'default' && !(editing && (postForm.post_type === 'image' || postForm.post_type === 'video')) && (
               <div
-                className={`${postForm.post_type === 'novel' ? 'w-full' : 'lg:w-3/5'} bg-gradient-to-br overflow-y-auto from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 pt-2 lg:min-h-[550px] relative ${
+                className={`${postForm.post_type === 'novel' ? 'w-full' : 'lg:w-3/5'} bg-gradient-to-br from-base-200 via-base-300 to-base-200 flex items-center justify-center p-0 pt-2 lg:min-h-[550px] relative ${
                   postForm.post_type === 'novel' 
                     ? 'overflow-hidden' // Keep overflow-hidden for background pattern
                     : 'overflow-hidden'
@@ -321,9 +321,9 @@ export default function PostFormModal({ channel_id }: PostFormModalProps) {
                 </div>
                 )}
 
-                <div className={`w-full ${postForm.post_type === 'novel' ? 'h-full flex flex-col' : 'h-full'} relative z-10`}>
+                <div className={`w-full ${postForm.post_type === 'novel' ? 'flex flex-col min-h-0' : 'h-full'} relative z-10`}>
                   {postForm.post_type === 'novel' ? (
-                    <div className="w-full h-full flex flex-col pt-4 px-4 pb-4 min-h-0">
+                    <div className="w-full flex flex-col pt-4 px-4 pb-4 min-h-0">
                       <AddChapterRenderer postForm={postForm} setPostForm={setPostForm} />
                     </div>
                   ) : (

@@ -1,17 +1,23 @@
+import atexit
 import os
 import threading
 
 from django.apps import AppConfig
 
+# Cache generation interval (in minutes)
+CACHE_GENERATION_INTERVAL_MINUTES = 60
+
 # Thread lock to prevent concurrent execution
 _generate_top_posts_lock = threading.Lock()
 _generate_top_posts_thread = None
+_scheduler = None
 
 
 class PostConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'post'
     _top_posts_generation_started = False  # Class attribute to track if generation has started
+    _scheduler_started = False
 
     def ready(self):
         """Import signal handlers when the app is ready."""
@@ -60,3 +66,66 @@ class PostConfig(AppConfig):
                 os.environ['ARTCHIVE_TOP_POSTS_GENERATION_STARTED'] = '1'
                 _generate_top_posts_thread = threading.Thread(target=generate_top_posts_async, daemon=True)
                 _generate_top_posts_thread.start()
+
+                # Set up APScheduler for periodic cache generation (every hour)
+                self._start_scheduler()
+
+    def _start_scheduler(self):
+        """Start APScheduler to run cache generation every hour."""
+        global _scheduler
+
+        # Prevent multiple scheduler instances
+        if _scheduler is not None and _scheduler.running:
+            return
+
+        if PostConfig._scheduler_started:
+            return
+
+        try:
+            import logging
+
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from apscheduler.triggers.interval import IntervalTrigger
+
+            logger = logging.getLogger(__name__)
+
+            _scheduler = BackgroundScheduler()
+            _scheduler.daemon = True
+
+            # Add job to generate top posts cache at configured interval
+            _scheduler.add_job(
+                self._generate_top_posts_cache,
+                trigger=IntervalTrigger(minutes=CACHE_GENERATION_INTERVAL_MINUTES),
+                id='generate_top_posts',
+                name='Generate Top Posts Cache',
+                replace_existing=True,
+                max_instances=1,  # Prevent concurrent executions
+            )
+
+            _scheduler.start()
+            PostConfig._scheduler_started = True
+            logger.info(f'APScheduler started for top posts cache generation (every {CACHE_GENERATION_INTERVAL_MINUTES} minute(s))')
+
+            # Register shutdown handler
+            atexit.register(lambda: _scheduler.shutdown() if _scheduler and _scheduler.running else None)
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to start APScheduler: {str(e)}')
+
+    @staticmethod
+    def _generate_top_posts_cache():
+        """Generate top posts cache (called by scheduler)."""
+        try:
+            import logging
+
+            from django.core.management import call_command
+            logger = logging.getLogger(__name__)
+            logger.info('Starting scheduled top posts cache generation...')
+            call_command('generate_top_posts', '--limit=100', verbosity=0)
+            logger.info('Successfully completed scheduled top posts cache generation')
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Failed to generate top posts cache in scheduler: {str(e)}')

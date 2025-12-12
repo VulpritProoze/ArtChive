@@ -38,7 +38,7 @@ from common.utils.choices import TROPHY_BRUSH_DRIP_COSTS
 from common.utils.profiling import silk_profile
 from core.cache_utils import get_dashboard_cache_key
 from core.models import BrushDripTransaction, BrushDripWallet, User
-from core.permissions import IsAdminUser, IsAuthorOrSuperUser
+from core.permissions import HasAPIKey, IsAdminUser, IsAuthorOrSuperUser
 from notification.utils import (
     create_comment_notification,
     create_comment_reply_notification,
@@ -1246,7 +1246,7 @@ class CritiqueReplyListView(generics.ListAPIView):
         return (
             Comment.objects.get_active_objects()
             .filter(critique_id=critique_id, is_critique_reply=True)
-            .select_related("author", "post_id", "critique_id")
+            .select_related("author", "post_id", "gallery", "critique_id")
         )
 
     def list(self, request, *args, **kwargs):
@@ -1290,7 +1290,7 @@ class CritiqueReplyDetailView(generics.RetrieveAPIView):
         return (
             Comment.objects.get_active_objects()
             .filter(is_critique_reply=True)
-            .select_related("author", "post_id", "critique_id")
+            .select_related("author", "post_id", "gallery", "critique_id")
         )
 
 
@@ -2678,11 +2678,11 @@ class GenerateTopPostsView(APIView):
     """
     Manually trigger generation of top posts cache.
     POST /api/posts/top/generate/?limit=100&post_type=image
-    
+
     Query Parameters:
         limit: Number of posts to generate (default: 100, max: 100)
         post_type: Optional filter by post type (default, novel, image, video)
-    
+
     Note: This endpoint can be called to refresh the cache manually.
     """
     permission_classes = [IsAuthenticated]  # Require authentication
@@ -2726,4 +2726,55 @@ class GenerateTopPostsView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+class GenerateTopPostsViaApiKeyView(APIView):
+    """
+    Manually trigger generation of top posts cache.
+    Requires API key in header.
+    POST /api/posts/top/generate/?limit=100&post_type=image
 
+    Query Parameters:
+        limit: Number of posts to generate (default: 100, max: 100)
+        post_type: Optional filter by post type (default, novel, image, video)
+
+    Note: This endpoint can be called to refresh the cache manually.
+    """
+    permission_classes = [HasAPIKey]  # Require authentication
+
+    def post(self, request):
+        # Get limit from query params
+        limit = request.query_params.get('limit', '100')
+        post_type = request.query_params.get('post_type', None)
+
+        try:
+            limit = int(limit)
+        except (ValueError, TypeError):
+            limit = 100
+
+        # Cap at 100
+        limit = min(limit, 100)
+
+        # Validate post_type if provided
+        if post_type:
+            from common.utils.choices import POST_TYPE_CHOICES
+            valid_types = [choice[0] for choice in POST_TYPE_CHOICES]
+            if post_type not in valid_types:
+                return Response(
+                    {'error': f'Invalid post_type. Valid types: {", ".join(valid_types)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            from post.algorithm import generate_top_posts_cache
+            posts_data = generate_top_posts_cache(limit=limit, post_type=post_type)
+
+            return Response({
+                'message': f'Successfully generated {len(posts_data)} top posts',
+                'count': len(posts_data),
+                'limit': limit,
+                'post_type': post_type
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to generate top posts: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

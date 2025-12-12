@@ -39,6 +39,7 @@ REST_FRAMEWORK = {
         'anon': '1000/hr',
         'user': '1000/hr',
         'login': '10/m',
+        'buy_brush_drips': '5/hr',  # 5 purchases per 3 hours
         # 'register': '5/hr',
     },
 }
@@ -164,7 +165,7 @@ USE_I18N = True
 USE_TZ = True
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Reduced from 3 days for better security
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),  # Reduced from 3 days for better security
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,  # Creates new refresh token everytime access token expires
     'BLACKLIST_AFTER_ROTATION': True,

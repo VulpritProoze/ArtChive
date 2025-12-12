@@ -349,14 +349,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   </button>
                 )}
 
-                <button
-                  className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 relative"
-                  title="Messages (coming soon)"
-                  disabled
-                >
-                  <MessageCircle className="w-5 h-5 flex-shrink-0" />
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
-                </button>
+                <div title="Messages (coming soon)">
+                  <button
+                    className="btn btn-ghost btn-circle btn-sm hover:bg-base-200 relative"
+                    title="Messages (coming soon)"
+                    disabled
+                  >
+                    <MessageCircle className="w-5 h-5 flex-shrink-0" />
+                    <span className="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+                  </button>
+                </div>
 
                 {/* Mobile: Navigate directly, Desktop: Show dropdown */}
                 <div className="md:hidden">
@@ -602,7 +604,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                         <button
                           onClick={prevPost}
                           onMouseDown={(e) => e.stopPropagation()}
-                          className="absolute left-2 top-1/2 -translate-y-[35%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                          className="absolute left-2 top-1/2 -translate-y-[20%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
                           type="button"
                         >
                           <ChevronLeft className="w-4 h-4" />
@@ -610,7 +612,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                         <button
                           onClick={nextPost}
                           onMouseDown={(e) => e.stopPropagation()}
-                          className="absolute right-2 top-1/2 -translate-y-[35%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                          className="absolute right-2 top-1/2 -translate-y-[20%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
                           type="button"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -792,7 +794,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                           <button
                             onClick={prevPost}
                             onMouseDown={(e) => e.stopPropagation()}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                            className="absolute left-2 top-1/2 -translate-y-[20%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
                             type="button"
                           >
                             <ChevronLeft className="w-4 h-4" />
@@ -800,7 +802,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                           <button
                             onClick={nextPost}
                             onMouseDown={(e) => e.stopPropagation()}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
+                            className="absolute right-2 top-1/2 -translate-y-[20%] z-10 btn btn-sm btn-circle bg-base-100/90 hover:bg-base-100 border border-base-300 shadow-md scale-100 hover:scale-105 transition-transform"
                             type="button"
                           >
                             <ChevronRight className="w-4 h-4" />
