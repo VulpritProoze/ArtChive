@@ -47,6 +47,7 @@ export interface TextObject extends BaseCanvasObject {
   textDecoration?: string;
   align?: string;
   width?: number;
+  isHyperlink?: boolean;
 }
 
 export interface ImageObject extends BaseCanvasObject {

@@ -460,16 +460,12 @@ export default function GalleryEditor() {
   return (
     <LoadingOverlay isLoading={isLoading} loadingText={randomPhrase}>
       <div
-        className="h-screen flex flex-col bg-base-100"
+        className="h-screen bg-base-100"
         style={{ cursor: isResizing ? 'ew-resize' : 'default' }}
       >
-      {/* Main Content Area */}
-      <div 
-        className="flex-1 flex flex-col overflow-hidden relative min-h-0"
-      >
-        {/* Toolbar */}
-        <div className="bg-base-200 border-b border-base-300 flex-shrink-0">
-          <Toolbar
+      {/* Toolbar - Fixed at top */}
+      <div className="fixed top-0 left-0 right-0 bg-base-200 border-b border-base-300 z-30">
+        <Toolbar
           onAddText={handleAddText}
           onAddImage={handleAddImage}
           onUndo={editorState.undo}
@@ -511,11 +507,11 @@ export default function GalleryEditor() {
           />
         </div>
 
-        {/* Canvas and Sidebars Container */}
-        <div className="flex-1 flex overflow-hidden relative min-h-0">
-        {/* Left Sidebar - Toggle Panels */}
+      {/* Main Content Area - with padding for fixed toolbar */}
+      <div className="fixed inset-0 pt-16 flex overflow-hidden">
+        {/* Left Sidebar - Fixed on left */}
         {!isPreviewMode && (
-          <div className="bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 shrink-0">
+          <div className="fixed left-0 top-16 bottom-0 bg-base-200 border-r border-base-300 p-2 flex flex-col gap-2 z-20">
             <button
               onClick={() => {
                 const newShowLayers = !showLayers;
@@ -554,8 +550,16 @@ export default function GalleryEditor() {
           </div>
         )}
 
-        {/* Canvas Area */}
-        <div className="flex-1 relative overflow-hidden">
+        {/* Canvas Area - with margins for fixed sidebars */}
+        <div 
+          className="absolute inset-0 overflow-hidden"
+          style={{
+            left: !isPreviewMode ? '48px' : '0',
+            top: '64px',
+            right: (!isPreviewMode && (showLayers || showProperties) && sidebarWidth > 0) ? `${sidebarWidth}px` : '0',
+            bottom: '0',
+          }}
+        >
           <CanvasStage
             objects={editorState.objects.filter(obj => obj.visible !== false)}
             selectedIds={isPreviewMode ? [] : editorState.selectedIds}
@@ -576,7 +580,7 @@ export default function GalleryEditor() {
             onAttachImageToFrame={editorState.attachImageToFrame}
             editorMode={editorMode}
             isPreviewMode={isPreviewMode}
-            onTextEdit={setEditingTextId}
+            onTextEdit={(id) => setEditingTextId(id)}
             editingTextId={editingTextId}
           />
 
@@ -603,10 +607,10 @@ export default function GalleryEditor() {
           )}
         </div>
 
-        {/* Right Sidebar - Combined Panels */}
+        {/* Right Sidebar - Fixed on right */}
         {!isPreviewMode && (showLayers || showProperties) && sidebarWidth > 0 && (
           <div
-            className="shrink-0 border-l border-1 border-base-300 flex flex-col overflow-hidden relative"
+            className="fixed right-0 top-16 bottom-0 border-l border-1 border-base-300 flex flex-col overflow-hidden z-20"
             style={{ width: `${sidebarWidth}px` }}
           >
             {/* Resize Handle */}
@@ -672,7 +676,6 @@ export default function GalleryEditor() {
             )}
           </div>
         )}
-        </div>
       </div>
 
       {/* Template Library Modal */}

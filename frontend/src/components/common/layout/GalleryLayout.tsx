@@ -35,9 +35,9 @@ export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children, sidebarM
   const settingsItems = [...defaultSettingsItems, ...sidebarMenuItems];
 
   return (
-    <div className="min-h-screen bg-base-100">
+    <div className="min-h-screen bg-base-400">
       {/* Small Header */}
-      <header className="sticky top-0 z-50 bg-base-100/80 backdrop-blur-lg border-b border-base-300 shadow-sm">
+      <header className="relative z-50 bg-base-100/80 backdrop-blur-lg border-b border-base-300 shadow-sm">
         <div className="container max-w-7xl mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-12">
             {/* Logo */}
@@ -134,7 +134,7 @@ export const GalleryLayout: React.FC<GalleryLayoutProps> = ({ children, sidebarM
       </div>
 
       {/* Main Content */}
-      <main className="w-full">
+      <main className="w-full p-8 lg:p-12 overflow-hidden">
         {children}
       </main>
     </div>

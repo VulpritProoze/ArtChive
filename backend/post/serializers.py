@@ -1,5 +1,5 @@
 from django.core.validators import FileExtensionValidator
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
@@ -86,16 +86,17 @@ class PostCreateSerializer(ModelSerializer):
         if value is None:
             return value
 
-        max_file_size = 100 * 1000000  # 100MB
+        # max_file_size = 100 * 1000000  # 100MB
+        max_file_size = 10 * 1024 * 1024 # 10MB
         if value.size > max_file_size:
-            raise serializers.ValidationError("Video file size must not exceed 100MB")
+            # raise serializers.ValidationError("Video file size must not exceed 100MB")
+            raise serializers.ValidationError("Video file size must not exceed 10MB")
         return value
 
     def validate_image_url(self, value):
         if value is None:
             return value
-
-        max_file_size = 2 * 1000000  # 5MB
+        max_file_size = 5 * 1024 * 1024  # 5MB
         if value.size > max_file_size:
             raise serializers.ValidationError("Image size must not exceed 5MB")
 
@@ -104,7 +105,7 @@ class PostCreateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification
             value.seek(0)
-            
+
             # Process image: resize and compress
             from common.utils.image_processing import process_post_image
             return process_post_image(value)
@@ -288,7 +289,7 @@ class PostUpdateSerializer(ModelSerializer):
             img.verify()
             # Reset file pointer after verification
             value.seek(0)
-            
+
             # Process image: resize and compress
             from common.utils.image_processing import process_post_image
             return process_post_image(value)
@@ -679,6 +680,9 @@ class CommentReplyCreateSerializer(serializers.ModelSerializer):
 
 
 class CritiqueReplySerializer(CommentSerializer):
+    gallery_id = serializers.UUIDField(source="gallery.gallery_id", read_only=True, allow_null=True)
+    gallery_title = serializers.SerializerMethodField()
+
     class Meta:
         model = Comment
         fields = [
@@ -691,10 +695,16 @@ class CritiqueReplySerializer(CommentSerializer):
             "author_artist_types",
             "post_title",
             "post_id",
+            "gallery_id",
+            "gallery_title",
             "author",
             "is_critique_reply",
             "critique_id",
         ]
+
+    def get_gallery_title(self, obj):
+        """Safely get gallery title, returning None if gallery is None"""
+        return obj.gallery.title if obj.gallery else None
 
     def get_reply_count(self, obj):
         """Get reply counts (excluding critique replies)"""
@@ -721,9 +731,10 @@ class CritiqueReplyCreateSerializer(ModelSerializer):
         request = self.context["request"]
         critique = data["critique_id"]
 
-        # Auto-set author, post_id from critique, and set as critique reply
+        # Auto-set author, post_id/gallery from critique, and set as critique reply
         data["author"] = request.user
-        data["post_id"] = critique.post_id  # inherit post from critique
+        data["post_id"] = critique.post_id  # inherit post from critique (can be None)
+        data["gallery"] = critique.gallery_id  # inherit gallery from critique (can be None)
         data["is_critique_reply"] = True  # Explicitly set as critique reply
         data["replies_to"] = None  # Ensure no reply chain for critique replies
 

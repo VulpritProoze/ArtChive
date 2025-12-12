@@ -1,4 +1,4 @@
-import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Type, Image, Undo2, Redo2, Grid, Magnet, Group as GroupIcon, Ungroup, MousePointer2, X, Move, Hand, Shapes, Save, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Link } from 'lucide-react';
 import { useUploadImage } from '@hooks/gallery/editor/use-upload-image.hook';
 import { toast } from '@utils/toast.util';
 import type { CanvasObject, TextObject } from '@types';
@@ -225,10 +225,37 @@ export function Toolbar({
             </button>
             <button
               onClick={() => handleTextFormat('textDecoration', 'underline')}
-              className={`btn btn-sm ${selectedText.textDecoration === 'underline' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              className={`btn btn-sm ${selectedText.textDecoration === 'underline' && selectedText.fill !== '#0066CC' ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
               data-tip="Underline (Ctrl+U)"
             >
               <Underline className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (!selectedText || !onUpdateObject) return;
+                // Check if text is already a hyperlink using isHyperlink property
+                const isHyperlink = selectedText.isHyperlink === true;
+                
+                if (isHyperlink) {
+                  // Remove hyperlink: clear isHyperlink flag, set color back to default black and remove underline
+                  onUpdateObject(selectedText.id, { 
+                    isHyperlink: false,
+                    fill: '#000000',
+                    textDecoration: undefined
+                  });
+                } else {
+                  // Apply hyperlink: set isHyperlink flag, blue color + underline
+                  onUpdateObject(selectedText.id, { 
+                    isHyperlink: true,
+                    fill: '#0328FC',
+                    textDecoration: 'underline'
+                  });
+                }
+              }}
+              className={`btn btn-sm ${selectedText.isHyperlink === true ? 'btn-primary' : 'btn-ghost'} tooltip tooltip-bottom`}
+              data-tip="Hyperlink"
+            >
+              <Link className="w-4 h-4" />
             </button>
             <div className="divider divider-horizontal mx-0"></div>
             <button

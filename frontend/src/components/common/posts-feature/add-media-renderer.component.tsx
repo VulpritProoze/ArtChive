@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import type { PostForm } from '@types';
+import { toast } from '@utils/toast.util';
 
 type AddMediaRendererType = {
     postForm: PostForm,
@@ -11,14 +12,41 @@ const AddMediaRenderer: React.FC<AddMediaRendererType> = ({ postForm, setPostFor
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [videoPreview, setVideoPreview] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [videoError, setVideoError] = useState<string | null>(null);
+
+    // Maximum video file size: 10MB
+    const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+
+    const validateVideoFile = (file: File): boolean => {
+        if (file.size > MAX_VIDEO_SIZE) {
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const maxSizeMB = (MAX_VIDEO_SIZE / (1024 * 1024)).toFixed(0);
+            setVideoError(`Video file is too large (${fileSizeMB}MB). Maximum size is ${maxSizeMB}MB.`);
+            toast.error(
+                'File Too Large',
+                `The video file (${fileSizeMB}MB) exceeds the maximum allowed size of ${maxSizeMB}MB. This is a temporary limitation due to upload size constraints.`
+            );
+            return false;
+        }
+        setVideoError(null);
+        return true;
+    };
 
     const handlePostFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, files } = e.target;
         if (files?.[0]) {
-          setPostForm(prev => ({ ...prev, [name]: files[0] }));
+          const file = files[0];
+          
+          // Validate video file size
+          if (name === 'video_url' && !validateVideoFile(file)) {
+            // Reset the input
+            e.target.value = '';
+            return;
+          }
+
+          setPostForm(prev => ({ ...prev, [name]: file }));
 
           // Create preview
-          const file = files[0];
           const reader = new FileReader();
           reader.onloadend = () => {
             if (name === 'image_url') {
@@ -47,9 +75,15 @@ const AddMediaRenderer: React.FC<AddMediaRendererType> = ({ postForm, setPostFor
 
       const files = e.dataTransfer.files;
       if (files?.[0]) {
-        setPostForm(prev => ({ ...prev, [fieldName]: files[0] }));
-
         const file = files[0];
+        
+        // Validate video file size
+        if (fieldName === 'video_url' && !validateVideoFile(file)) {
+          return;
+        }
+
+        setPostForm(prev => ({ ...prev, [fieldName]: file }));
+
         const reader = new FileReader();
         reader.onloadend = () => {
           if (fieldName === 'image_url') {
@@ -63,14 +97,15 @@ const AddMediaRenderer: React.FC<AddMediaRendererType> = ({ postForm, setPostFor
     };
 
     const removeMedia = (type: 'image' | 'video') => {
-      if (type === 'image') {
-        setPostForm(prev => ({ ...prev, image_url: null }));
-        setImagePreview(null);
-      } else {
-        setPostForm(prev => ({ ...prev, video_url: null }));
-        setVideoPreview(null);
-      }
-    };
+        if (type === 'image') {
+          setPostForm(prev => ({ ...prev, image_url: null }));
+          setImagePreview(null);
+        } else {
+          setPostForm(prev => ({ ...prev, video_url: null }));
+          setVideoPreview(null);
+          setVideoError(null);
+        }
+      };
 
     // Load existing media preview when editing
     useEffect(() => {
@@ -195,6 +230,29 @@ const AddMediaRenderer: React.FC<AddMediaRendererType> = ({ postForm, setPostFor
         <div className="w-full h-full flex items-center justify-center p-0 lg:p-8">
           {videoPreview ? (
             <div className="relative w-full h-full min-h-[400px] lg:min-h-[400px] group">
+              {/* Warning banner at top */}
+              <div className="absolute top-2 left-2 right-2 z-20 lg:top-4 lg:left-4 lg:right-4">
+                <div className="alert alert-warning py-1.5 px-3 text-xs shadow-lg">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div className="flex-1">
+                    <div className="font-semibold">Max 10MB (Temporary)</div>
+                    <div className="text-xs opacity-80">Temporary limitation due to upload size constraints</div>
+                  </div>
+                </div>
+              </div>
+              {/* Error message if present */}
+              {videoError && (
+                <div className="absolute top-16 left-2 right-2 z-20 lg:top-20 lg:left-4 lg:right-4">
+                  <div className="alert alert-error py-1.5 px-3 text-xs shadow-lg">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>{videoError}</span>
+                  </div>
+                </div>
+              )}
               <video
                 src={videoPreview}
                 controls
@@ -278,12 +336,31 @@ const AddMediaRenderer: React.FC<AddMediaRendererType> = ({ postForm, setPostFor
                   <span className="lg:hidden">Tap to </span>
                   <span className="hidden lg:inline">click to </span>browse
                 </p>
-                <div className="badge badge-secondary badge-md lg:badge-lg gap-2 shadow-lg">
+                <div className="badge badge-secondary badge-md lg:badge-lg gap-2 shadow-lg mb-2">
                   <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                   <span className="text-xs lg:text-sm">MP4, WEBM, OGG</span>
                 </div>
+                {/* Warning about file size limitation */}
+                <div className="alert alert-warning py-2 px-3 mt-2 text-xs">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <div className="font-semibold">Max 10MB (Temporary)</div>
+                    <div className="text-xs opacity-80">This is a temporary limitation due to upload size constraints.</div>
+                  </div>
+                </div>
+                {/* Error message */}
+                {videoError && (
+                  <div className="alert alert-error py-2 px-3 mt-2 text-xs">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>{videoError}</span>
+                  </div>
+                )}
               </div>
               <input
                 type="file"

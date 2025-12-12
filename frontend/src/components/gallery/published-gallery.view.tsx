@@ -186,11 +186,11 @@ export default function PublishedGalleryView() {
         ref={containerRef}
         style={{
           position: 'relative',
-          width: '100vw',
+          width: '100%',
           height: `${containerHeight}px`,
           minHeight: `${containerHeight}px`,
           backgroundColor: gallery.canvas_json?.background || '#ffffff',
-          overflow: 'visible',
+          overflow: 'hidden',
         }}
       >
         {sortedObjects.map((object) => renderCanvasObjectToHTML(object, scale))}

@@ -225,13 +225,13 @@ const Timeline: React.FC = () => {
   const mainTabs = (isOwnProfile 
     ? [
         { id: 'timeline' as const, label: 'Timeline', icon: '📝' },
-        { id: 'works' as const, label: 'Works', icon: '🎨' },
+        // { id: 'works' as const, label: 'Works', icon: '🎨' },
         { id: 'avatar' as const, label: 'Avatar', icon: '👤' },
         { id: 'collectives' as const, label: 'Collectives', icon: '👥' },
       ]
     : [
         { id: 'timeline' as const, label: 'Timeline', icon: '📝' },
-        { id: 'works' as const, label: 'Works', icon: '🎨' },
+        // { id: 'works' as const, label: 'Works', icon: '🎨' },
         { id: 'collectives' as const, label: 'Collectives', icon: '👥' },
       ]
   );
