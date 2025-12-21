@@ -10,6 +10,7 @@ import { TrophySelectionModal } from '@components/common/posts-feature/modal';
 import { usePostUI } from '@context/post-ui-context';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComment, faTrophy } from '@fortawesome/free-solid-svg-icons';
+import GallerySidebarSection from '@components/common/gallery-feature/gallery-sidebar-section.component';
 
 export default function PublishedGalleryView() {
   const { userId } = useParams<{ userId: string }>();
@@ -207,6 +208,26 @@ export default function PublishedGalleryView() {
           <FontAwesomeIcon icon={faComment} className="w-6 h-6" />
         </button>
       </div>
+
+      {/* Sidebar with Gallery Details */}
+      {isCommentsModalOpen && gallery && (
+        <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-base-100 shadow-2xl z-50 overflow-y-auto">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4 sticky top-0 bg-base-100 pb-2 border-b border-base-300">
+              <h2 className="text-xl font-bold">Gallery Details</h2>
+              <button
+                onClick={() => setIsCommentsModalOpen(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                ✕
+              </button>
+            </div>
+            <GallerySidebarSection 
+              galleryId={gallery.gallery_id}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Comments Modal */}
       <GalleryCommentsModal

@@ -31,6 +31,8 @@ const CollectiveAdmin = lazy(() => import("@components/collective/collective-adm
 const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
 const GalleryEditor = lazy(() => import("@components/gallery/editor.component"));
 const MyGalleries = lazy(() => import("@components/gallery/galleries.component"));
+const Exhibits = lazy(() => import("@components/gallery/exhibits.component"));
+const PublishedExhibitView = lazy(() => import("@components/gallery/published-exhibit.component"));
 const AvatarListPage = lazy(() => import("@components/avatar/avatar-list.component"));
 const AvatarEditorPage = lazy(() => import("@components/avatar/avatar-editor.component"));
 const ReputationPage = lazy(() => import("@components/reputation/reputation.component"));
@@ -133,6 +135,8 @@ function AppRoutes() {
 
               <Route path="/gallery" element={<GalleryIndex />} />
               <Route path="/gallery/me" element={<MyGalleries />} />
+              <Route path="/gallery/exhibits" element={<Exhibits />} />
+              <Route path="/gallery/exhibit/:userId" element={<PublishedExhibitView />} />
               <Route path="/gallery/:userId" element={<PublishedGalleryView />} />
               <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
 

@@ -4,7 +4,7 @@ from django.db import models
 
 from common.utils import choices
 from core.models import User
-from gallery.manager import GalleryManager
+from gallery.manager import ExhibitManager, GalleryManager
 
 
 class Gallery(models.Model):
@@ -55,6 +55,39 @@ class GalleryAward(models.Model):
         """Override delete to perform soft deletion"""
         self.is_deleted = True
         self.save()
+
+class Exhibit(models.Model):
+    exhibit_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name='exhibits')
+    organizer_name = models.CharField(max_length=256)
+    city = models.CharField(max_length=512)
+    country = models.CharField(max_length=512)
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ExhibitManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['gallery', 'is_deleted', 'start_date'], name='exhibit_gal_del_start_idx'),
+            models.Index(fields=['is_deleted', 'start_date', 'end_date'], name='exhibit_del_dates_idx'),
+            models.Index(fields=['organizer_name', 'is_deleted'], name='exhibit_org_del_idx'),
+            models.Index(fields=['city', 'country', 'is_deleted'], name='exhibit_city_country_del_idx'),
+            models.Index(fields=['city', 'is_deleted'], name='exhibit_city_del_idx'),
+            models.Index(fields=['country', 'is_deleted'], name='exhibit_country_del_idx'),
+        ]
+
+    def __str__(self):
+        return f"Exhibit for {self.gallery.title} by {self.organizer_name}"
+
+    def delete(self, *args, **kwargs):
+        """Override delete to perform soft deletion"""
+        self.is_deleted = True
+        self.save()
+
 
 class AwardType(models.Model):
     award = models.CharField(max_length=100, choices=choices.GALLERY_AWARD_CHOICES)

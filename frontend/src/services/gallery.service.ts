@@ -388,4 +388,120 @@ export const galleryService = {
     });
     return response.data;
   },
+
+  // ============================================================================
+  // Exhibit Methods
+  // ============================================================================
+
+  /**
+   * Get currently ongoing exhibits (paginated)
+   * GET /api/exhibit/ongoing/
+   */
+  async getOngoingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('exhibit/ongoing/', {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get upcoming exhibits (paginated)
+   * GET /api/exhibit/upcoming/
+   */
+  async getUpcomingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedGalleryListResponse> {
+    const response = await gallery.get('exhibit/upcoming/', {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get exhibits near you (paginated)
+   * GET /api/exhibit/near-you/
+   */
+  async getExhibitsNearYou(
+    page: number = 1,
+    pageSize: number = 10,
+    city?: string,
+    country?: string
+  ): Promise<PaginatedGalleryListResponse> {
+    const params: { page: number; page_size: number; city?: string; country?: string } = {
+      page,
+      page_size: pageSize,
+    };
+    if (city) params.city = city;
+    if (country) params.country = country;
+    const response = await gallery.get('exhibit/near-you/', { params });
+    return response.data;
+  },
+
+  /**
+   * Create an exhibit
+   * POST /api/exhibit/
+   */
+  async createExhibit(data: {
+    gallery: string;
+    organizer_name: string;
+    city: string;
+    country: string;
+    start_date: string;
+    end_date: string;
+  }): Promise<any> {
+    const response = await gallery.post('exhibit/', data);
+    return response.data;
+  },
+
+  /**
+   * Get exhibit for a specific gallery
+   * GET /api/exhibit/gallery/<galleryId>/
+   */
+  async getExhibitByGallery(galleryId: string): Promise<any> {
+    const response = await gallery.get(`exhibit/gallery/${galleryId}/`);
+    return response.data;
+  },
+
+  /**
+   * Get exhibit details by exhibit ID
+   * GET /api/exhibit/<exhibitId>/
+   */
+  async getExhibit(exhibitId: string): Promise<any> {
+    const response = await gallery.get(`exhibit/${exhibitId}/`);
+    return response.data;
+  },
+
+  /**
+   * Update an exhibit
+   * PATCH /api/exhibit/<exhibitId>/
+   */
+  async updateExhibit(exhibitId: string, data: {
+    organizer_name?: string;
+    city?: string;
+    country?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<any> {
+    const response = await gallery.patch(`exhibit/${exhibitId}/`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete an exhibit
+   * DELETE /api/exhibit/<exhibitId>/delete/
+   */
+  async deleteExhibit(exhibitId: string): Promise<void> {
+    await gallery.delete(`exhibit/${exhibitId}/delete/`);
+  },
+
+  /**
+   * Check if a gallery has an exhibit
+   * Note: This checks by trying to get the exhibit
+   */
+  async hasExhibit(galleryId: string): Promise<boolean> {
+    try {
+      await this.getExhibitByGallery(galleryId);
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };

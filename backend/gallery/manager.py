@@ -11,3 +11,15 @@ class GalleryManager(Manager):
     def get_inactive_objects(self):
         """Fetch all objects that are soft-deleted (is_deleted=True)"""
         return self.get_queryset().filter(is_deleted=True)
+
+
+class ExhibitManager(Manager):
+    """Custom manager for Exhibit"""
+
+    def get_active_objects(self):
+        """Fetch all exhibits that are not soft-deleted"""
+        return self.get_queryset().filter(is_deleted=False)
+
+    def get_inactive_objects(self):
+        """Fetch all exhibits that are soft-deleted"""
+        return self.get_queryset().filter(is_deleted=True)

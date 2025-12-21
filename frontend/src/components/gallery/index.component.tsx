@@ -219,8 +219,17 @@ const GalleryIndex = () => {
   return (
     <MainLayout showRightSidebar={false}>
       <div ref={containerRef} className="container mx-auto px-4 lg:px-8 py-8 gallery-index-container">
-        {/* Navigation Button to My Galleries */}
-        <div className="mb-6 flex justify-end">
+        {/* Navigation Buttons */}
+        <div className="mb-6 flex justify-end gap-3">
+          <button
+            onClick={() => navigate('/gallery/exhibits')}
+            className="btn gap-2 text-primary-content hover:gap-3 transition-all duration-200"
+            style={{ backgroundColor: 'var(--local-primary, var(--color-primary))' }}
+          >
+            <Images className="w-4 h-4" />
+            <span>Exhibits</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
           <button
             onClick={() => navigate('/gallery/me')}
             className="btn gap-2 text-primary-content hover:gap-3 transition-all duration-200"

@@ -36,9 +36,13 @@ from notification.utils import create_notification
 from post.models import Comment
 from post.pagination import CommentPagination
 
-from .models import Gallery
+from .models import Exhibit, Gallery
 from .pagination import GalleryPagination
 from .serializers import (
+    ExhibitCreateSerializer,
+    ExhibitListSerializer,
+    ExhibitSerializer,
+    ExhibitUpdateSerializer,
     GalleryCommentCreateSerializer,
     GalleryCommentDeleteSerializer,
     GalleryCommentReplyCreateSerializer,
@@ -1133,5 +1137,343 @@ class GalleryGrowthAPIView(APIView):
         cache.set(cache_key, data, 300)
 
         return Response(data)
+
+
+# ============================================================================
+# Exhibit Views
+# ============================================================================
+
+class ExhibitCreateView(APIView):
+    """
+    POST /api/exhibit/ - Create a new exhibit
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        """Create a new exhibit"""
+        serializer = ExhibitCreateSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            # Verify user owns the gallery
+            gallery = serializer.validated_data.get('gallery')
+            if gallery.creator != request.user:
+                return Response(
+                    {'error': 'You can only create exhibits for your own galleries'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            exhibit = serializer.save()
+            response_serializer = ExhibitSerializer(exhibit)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExhibitUpdateView(APIView):
+    """
+    GET    /api/exhibit/<exhibit_id>/ - Get exhibit details
+    PATCH  /api/exhibit/<exhibit_id>/ - Update an exhibit
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get_object(self, exhibit_id):
+        """Get exhibit object ensuring user owns the gallery"""
+        try:
+            exhibit = Exhibit.objects.get_active_objects().select_related('gallery', 'gallery__creator').get(
+                exhibit_id=exhibit_id
+            )
+            # Check if user owns the gallery
+            if exhibit.gallery.creator != self.request.user:
+                return None
+            return exhibit
+        except ObjectDoesNotExist:
+            return None
+
+    def get(self, request, exhibit_id):
+        """Get exhibit details"""
+        exhibit = self.get_object(exhibit_id)
+        if not exhibit:
+            return Response(
+                {'error': 'Exhibit not found or you do not have permission to view it'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ExhibitSerializer(exhibit)
+        return Response(serializer.data)
+
+    def patch(self, request, exhibit_id):
+        """Update an exhibit"""
+        exhibit = self.get_object(exhibit_id)
+        if not exhibit:
+            return Response(
+                {'error': 'Exhibit not found or you do not have permission to update it'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ExhibitUpdateSerializer(exhibit, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            response_serializer = ExhibitSerializer(exhibit)
+            return Response(response_serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExhibitDeleteView(APIView):
+    """
+    DELETE /api/exhibit/<exhibit_id>/ - Delete an exhibit (soft delete)
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get_object(self, exhibit_id):
+        """Get exhibit object ensuring user owns the gallery"""
+        try:
+            exhibit = Exhibit.objects.get_active_objects().select_related('gallery', 'gallery__creator').get(
+                exhibit_id=exhibit_id
+            )
+            # Check if user owns the gallery
+            if exhibit.gallery.creator != self.request.user:
+                return None
+            return exhibit
+        except ObjectDoesNotExist:
+            return None
+
+    def delete(self, request, exhibit_id):
+        """Soft delete an exhibit"""
+        exhibit = self.get_object(exhibit_id)
+        if not exhibit:
+            return Response(
+                {'error': 'Exhibit not found or you do not have permission to delete it'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        exhibit.delete()  # Uses model's soft delete
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ExhibitTopListView(APIView):
+    """
+    GET /api/exhibit/top/ - Get top exhibits (paginated)
+    Returns exhibits ordered by creation date (newest first)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of exhibits per page (default: 10, max: 50)
+    - filter: Filter by date status - 'upcoming', 'ongoing', 'past' (optional)
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get top exhibits (paginated)"""
+        # Get all non-deleted exhibits with related data
+        exhibits = Exhibit.objects.get_active_objects().select_related(
+            'gallery',
+            'gallery__creator',
+        ).order_by('-created_at')
+
+        # Filter by date range if provided
+        now = timezone.now()
+        date_filter = request.query_params.get('filter', None)
+
+        if date_filter == 'upcoming':
+            exhibits = exhibits.filter(start_date__gt=now)
+        elif date_filter == 'ongoing':
+            exhibits = exhibits.filter(start_date__lte=now, end_date__gte=now)
+        elif date_filter == 'past':
+            exhibits = exhibits.filter(end_date__lt=now)
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_exhibits = paginator.paginate_queryset(exhibits, request)
+
+        # Serialize paginated results
+        serializer = ExhibitListSerializer(paginated_exhibits, many=True)
+
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ExhibitByGalleryView(APIView):
+    """
+    GET /api/exhibit/gallery/<gallery_id>/ - Get exhibit for a specific gallery
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def get(self, request, gallery_id):
+        """Get exhibit for a specific gallery"""
+        try:
+            # Verify user owns the gallery
+            gallery = Gallery.objects.get_active_objects().get(
+                gallery_id=gallery_id,
+                creator=request.user
+            )
+
+            # Get the exhibit for this gallery
+            exhibit = Exhibit.objects.get_active_objects().filter(
+                gallery=gallery
+            ).select_related('gallery', 'gallery__creator').first()
+
+            if not exhibit:
+                return Response(
+                    {'error': 'No exhibit found for this gallery'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = ExhibitSerializer(exhibit)
+            return Response(serializer.data)
+        except ObjectDoesNotExist:
+            return Response(
+                {'error': 'Gallery not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class ExhibitNearYouView(APIView):
+    """
+    GET /api/exhibit/near-you/ - Get exhibits near the user's location (paginated)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of exhibits per page (default: 10, max: 50)
+    - city: Filter by city (optional, uses user's city if authenticated and not provided)
+    - country: Filter by country (optional, uses user's country if authenticated and not provided)
+    
+    Filters by city and/or country. If both are provided, matches exhibits in that city AND country.
+    If only one is provided, matches exhibits in that city OR country.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get exhibits near the user's location"""
+        user = request.user
+
+        # Get all non-deleted exhibits
+        exhibits = Exhibit.objects.get_active_objects().select_related(
+            'gallery',
+            'gallery__creator',
+        )
+
+        # Get location filters from query params or user profile
+        city = request.query_params.get('city', None)
+        country = request.query_params.get('country', None)
+
+        # If not provided in query params, use user's profile data
+        if city is None and hasattr(user, 'city') and user.city and user.city != 'N/A':
+            city = user.city
+
+        if country is None and hasattr(user, 'country') and user.country and user.country != 'N/A':
+            country = user.country
+
+        # Apply location filters
+        # If both city and country are provided, match both
+        # If only one is provided, match that one
+        if city and country:
+            # Match exhibits in the specified city AND country
+            exhibits = exhibits.filter(city__iexact=city, country__iexact=country)
+        elif city:
+            # Match exhibits in the specified city
+            exhibits = exhibits.filter(city__iexact=city)
+        elif country:
+            # Match exhibits in the specified country
+            exhibits = exhibits.filter(country__iexact=country)
+        # If neither is provided and user has no location data, return empty or all exhibits
+        # For now, we'll return all exhibits if no location filter is available
+
+        # Filter to only upcoming and ongoing exhibits (not past)
+        now = timezone.now()
+        exhibits = exhibits.filter(end_date__gte=now)
+
+        # Order by start date (upcoming first)
+        exhibits = exhibits.order_by('start_date', '-created_at')
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_exhibits = paginator.paginate_queryset(exhibits, request)
+
+        # Serialize paginated results
+        serializer = ExhibitListSerializer(paginated_exhibits, many=True)
+
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ExhibitOngoingView(APIView):
+    """
+    GET /api/exhibit/ongoing/ - Get exhibits that are currently ongoing (paginated)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of exhibits per page (default: 10, max: 50)
+    
+    Returns exhibits where current date is between start_date and end_date.
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get currently ongoing exhibits"""
+        now = timezone.now()
+
+        # Get all non-deleted exhibits that are currently ongoing
+        exhibits = Exhibit.objects.get_active_objects().select_related(
+            'gallery',
+            'gallery__creator',
+        ).filter(
+            start_date__lte=now,
+            end_date__gte=now
+        ).order_by('start_date', '-created_at')
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_exhibits = paginator.paginate_queryset(exhibits, request)
+
+        # Serialize paginated results
+        serializer = ExhibitListSerializer(paginated_exhibits, many=True)
+
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ExhibitUpcomingView(APIView):
+    """
+    GET /api/exhibit/upcoming/ - Get upcoming exhibits (paginated)
+    
+    Query Parameters:
+    - page: Page number (default: 1)
+    - page_size: Number of exhibits per page (default: 10, max: 50)
+    
+    Returns exhibits where start_date is in the future.
+    """
+    permission_classes = [AllowAny]
+    parser_classes = [JSONParser]
+    pagination_class = GalleryPagination
+
+    def get(self, request):
+        """Get upcoming exhibits"""
+        now = timezone.now()
+
+        # Get all non-deleted exhibits that are upcoming
+        exhibits = Exhibit.objects.get_active_objects().select_related(
+            'gallery',
+            'gallery__creator',
+        ).filter(
+            start_date__gt=now
+        ).order_by('start_date', '-created_at')
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        paginated_exhibits = paginator.paginate_queryset(exhibits, request)
+
+        # Serialize paginated results
+        serializer = ExhibitListSerializer(paginated_exhibits, many=True)
+
+        # Return paginated response
+        return paginator.get_paginated_response(serializer.data)
 
 
