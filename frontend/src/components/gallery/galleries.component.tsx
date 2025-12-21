@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@utils/toast.util';
-import { Plus, Upload, Eye, MoreVertical, ArrowLeft } from 'lucide-react';
+import { Plus, Upload, Eye, MoreVertical, ArrowLeft, Calendar } from 'lucide-react';
 import { MainLayout } from '../common/layout';
 import { useAuth } from '@context/auth-context';
 import { galleryService, type Gallery } from '@services/gallery.service';
 import { GalleryCreationModal, type GalleryFormData } from '@components/common/gallery-feature/modal/gallery-creation.modal';
+import { ExhibitCreationModal, type ExhibitFormData } from '@components/common/gallery-feature/modal/exhibit-creation.modal';
+import { ExhibitEditModal, type ExhibitFormData as ExhibitEditFormData } from '@components/common/gallery-feature/modal/exhibit-edit.modal';
+import { ExhibitDetailModal } from '@components/common/gallery-feature/modal/exhibit-detail.modal';
 import { GalleryCard } from '@components/common/gallery-feature/cards/gallery-card.card';
 import { PublishGalleryModal } from '@components/common/gallery-feature/modal/publish-gallery.modal';
 import { SkeletonCard } from '../common/skeleton';
@@ -18,6 +21,13 @@ const MyGalleries = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showExhibitModal, setShowExhibitModal] = useState(false);
+  const [showExhibitDetailModal, setShowExhibitDetailModal] = useState(false);
+  const [showExhibitEditModal, setShowExhibitEditModal] = useState(false);
+  const [selectedGallery, setSelectedGallery] = useState<Gallery | null>(null);
+  const [selectedExhibit, setSelectedExhibit] = useState<any>(null);
+  const [isLoadingExhibit, setIsLoadingExhibit] = useState(false);
+  const [galleryExhibits, setGalleryExhibits] = useState<Record<string, { hasExhibit: boolean; exhibitId: string | null }>>({});
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -31,6 +41,8 @@ const MyGalleries = () => {
       setIsLoading(true);
       const data = await galleryService.userListGalleries();
       setGalleries(data);
+      // Note: Exhibit status will be checked when user tries to create an exhibit
+      // This avoids making multiple API calls on page load
     } catch (error) {
       toast.error('Failed to load galleries', 'An error occurred while loading your galleries');
     } finally {
@@ -77,6 +89,9 @@ const MyGalleries = () => {
   // Check if user has active galleries
   const hasActiveGallery = galleries.some((g) => g.status === 'active');
   const activeGallery = galleries.find((g) => g.status === 'active');
+  
+  // Find gallery with exhibit
+  const galleryWithExhibit = galleries.find((g) => galleryExhibits[g.gallery_id]?.hasExhibit);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -104,6 +119,13 @@ const MyGalleries = () => {
     }
   };
 
+  const handleViewExhibitGallery = () => {
+    setShowActionsDropdown(false);
+    if (galleryWithExhibit && user?.id) {
+      navigate(`/gallery/exhibit/${user.id}`);
+    }
+  };
+
   const handlePublish = async (galleryId: string) => {
     try {
       await galleryService.updateGalleryStatus(galleryId, 'active');
@@ -112,6 +134,149 @@ const MyGalleries = () => {
       loadGalleries(); // Refresh list
     } catch (error) {
       toast.error('Failed to publish gallery', 'An error occurred while publishing your gallery');
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
+  const handleExhibitClick = async (gallery: Gallery) => {
+    const exhibitInfo = galleryExhibits[gallery.gallery_id];
+    
+    // If gallery has exhibit, show detail modal
+    if (exhibitInfo?.hasExhibit && exhibitInfo.exhibitId) {
+      try {
+        setIsLoadingExhibit(true);
+        setShowExhibitDetailModal(true);
+        const exhibit = await galleryService.getExhibit(exhibitInfo.exhibitId);
+        setSelectedExhibit(exhibit);
+      } catch (error) {
+        toast.error('Failed to load exhibit', 'An error occurred while loading exhibit details');
+        setShowExhibitDetailModal(false);
+      } finally {
+        setIsLoadingExhibit(false);
+      }
+    } else {
+      // Otherwise, open create modal
+      setSelectedGallery(gallery);
+      // Check if gallery already has an exhibit
+      try {
+        const exhibit = await galleryService.getExhibitByGallery(gallery.gallery_id);
+        setGalleryExhibits((prev) => ({ 
+          ...prev, 
+          [gallery.gallery_id]: { hasExhibit: true, exhibitId: exhibit.exhibit_id } 
+        }));
+      } catch {
+        // If check fails, assume no exhibit (backend will validate on creation)
+        setGalleryExhibits((prev) => ({ 
+          ...prev, 
+          [gallery.gallery_id]: { hasExhibit: false, exhibitId: null } 
+        }));
+      }
+      setShowExhibitModal(true);
+    }
+  };
+
+  // Load exhibit info for all galleries
+  useEffect(() => {
+    const loadExhibitInfo = async () => {
+      if (galleries.length === 0) return;
+      
+      const exhibitInfo: Record<string, { hasExhibit: boolean; exhibitId: string | null }> = {};
+      
+      for (const gallery of galleries) {
+        try {
+          const exhibit = await galleryService.getExhibitByGallery(gallery.gallery_id);
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: true, exhibitId: exhibit.exhibit_id };
+        } catch {
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: false, exhibitId: null };
+        }
+      }
+      
+      setGalleryExhibits(exhibitInfo);
+    };
+
+    if (!isLoading) {
+      loadExhibitInfo();
+    }
+  }, [galleries, isLoading]);
+
+  const handleCreateExhibit = async (formData: ExhibitFormData) => {
+    if (!selectedGallery) return;
+    
+    try {
+      await galleryService.createExhibit(formData);
+      toast.success('Exhibit created', 'Your exhibit has been created successfully');
+      setShowExhibitModal(false);
+      setSelectedGallery(null);
+      loadGalleries(); // Refresh to update exhibit status
+    } catch (error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to create exhibit', formatErrorForToast(message));
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
+  const handleDeleteExhibit = async (exhibitId: string) => {
+    try {
+      await galleryService.deleteExhibit(exhibitId);
+      toast.success('Exhibit deleted', 'The exhibit has been deleted successfully');
+      // Refresh galleries to update exhibit status
+      await loadGalleries();
+      // Reload exhibit info for all galleries
+      const exhibitInfo: Record<string, { hasExhibit: boolean; exhibitId: string | null }> = {};
+      for (const gallery of galleries) {
+        try {
+          const exhibit = await galleryService.getExhibitByGallery(gallery.gallery_id);
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: true, exhibitId: exhibit.exhibit_id };
+        } catch {
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: false, exhibitId: null };
+        }
+      }
+      setGalleryExhibits(exhibitInfo);
+    } catch (error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to delete exhibit', formatErrorForToast(message));
+      throw error; // Re-throw so modal can handle it
+    }
+  };
+
+  const handleEditExhibit = (exhibit: any) => {
+    setSelectedExhibit(exhibit);
+    setShowExhibitEditModal(true);
+  };
+
+  const handleUpdateExhibit = async (formData: ExhibitEditFormData) => {
+    if (!selectedExhibit) return;
+
+    try {
+      await galleryService.updateExhibit(selectedExhibit.exhibit_id, formData);
+      toast.success('Exhibit updated', 'The exhibit has been updated successfully');
+      setShowExhibitEditModal(false);
+      // Refresh exhibit details if detail modal is open
+      if (showExhibitDetailModal && selectedExhibit) {
+        try {
+          setIsLoadingExhibit(true);
+          const updatedExhibit = await galleryService.getExhibit(selectedExhibit.exhibit_id);
+          setSelectedExhibit(updatedExhibit);
+        } catch (error) {
+          console.error('Failed to refresh exhibit:', error);
+        } finally {
+          setIsLoadingExhibit(false);
+        }
+      }
+      // Reload exhibit info for all galleries
+      const exhibitInfo: Record<string, { hasExhibit: boolean; exhibitId: string | null }> = {};
+      for (const gallery of galleries) {
+        try {
+          const exhibit = await galleryService.getExhibitByGallery(gallery.gallery_id);
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: true, exhibitId: exhibit.exhibit_id };
+        } catch {
+          exhibitInfo[gallery.gallery_id] = { hasExhibit: false, exhibitId: null };
+        }
+      }
+      setGalleryExhibits(exhibitInfo);
+    } catch (error) {
+      const message = handleApiError(error, {}, true, true);
+      toast.error('Failed to update exhibit', formatErrorForToast(message));
       throw error; // Re-throw so modal can handle it
     }
   };
@@ -161,18 +326,18 @@ const MyGalleries = () => {
                 </button>
                 
                 {showActionsDropdown && (
-                  <ul className="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-box w-56 border border-base-300 mt-2 z-50">
+                  <ul className="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-box w-64 border border-base-300 mt-2 z-50">
                     <li className="menu-title">
                       <span>Actions</span>
                     </li>
                     {hasActiveGallery && (
-                      <li>
+                      <li title="View your published gallery">
                         <button
                           onClick={handleViewPublishedGallery}
                           className="gap-3"
                         >
                           <Eye className="w-4 h-4" />
-                          <span>View Published Gallery</span>
+                          <span className="truncate">View Published Gallery</span>
                           {activeGallery && (
                             <span className="badge badge-accent ml-auto">
                               Active
@@ -181,7 +346,21 @@ const MyGalleries = () => {
                         </button>
                       </li>
                     )}
-                    <li>
+                    {galleryWithExhibit && (
+                      <li title={`View exhibit gallery: ${galleryWithExhibit.title}`}>
+                        <button
+                          onClick={handleViewExhibitGallery}
+                          className="gap-3"
+                        >
+                          <Calendar className="w-4 h-4" />
+                          <span className="truncate">View Exhibit Gallery</span>
+                          <span className="badge badge-info ml-auto">
+                            Exhibit
+                          </span>
+                        </button>
+                      </li>
+                    )}
+                    <li title={hasActiveGallery ? 'You already have an active gallery. Archive it first to publish another.' : 'Publish a gallery'}>
                       <button
                         onClick={() => {
                           setShowActionsDropdown(false);
@@ -189,14 +368,9 @@ const MyGalleries = () => {
                         }}
                         disabled={hasActiveGallery}
                         className={hasActiveGallery ? 'opacity-50 cursor-not-allowed' : ''}
-                        title={
-                          hasActiveGallery
-                            ? 'You already have an active gallery. Archive it first to publish another.'
-                            : 'Publish a gallery'
-                        }
                       >
                         <Upload className="w-4 h-4" />
-                        <span>Publish Gallery</span>
+                        <span className="truncate">Publish Gallery</span>
                         {hasActiveGallery && (
                           <span className="badge badge-warning ml-auto">
                             Max 1
@@ -246,7 +420,7 @@ const MyGalleries = () => {
         {isLoading ? (
           <SkeletonCard
             count={8}
-            containerClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            containerClassName="grid grid-cols-1 md:grid-cols-2 gap-6"
           />
         ) : galleries.length === 0 ? (
           /* Empty State */
@@ -273,15 +447,21 @@ const MyGalleries = () => {
           </div>
         ) : (
           /* Gallery Grid */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {galleries.map((gallery) => (
-              <GalleryCard
-                key={gallery.gallery_id}
-                gallery={gallery}
-                onUpdate={loadGalleries}
-                onDelete={handleDeleteGallery}
-              />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {galleries.map((gallery) => {
+              const exhibitInfo = galleryExhibits[gallery.gallery_id] || { hasExhibit: false, exhibitId: null };
+              return (
+                <GalleryCard
+                  key={gallery.gallery_id}
+                  gallery={gallery}
+                  onUpdate={loadGalleries}
+                  onDelete={handleDeleteGallery}
+                  onExhibit={handleExhibitClick}
+                  hasExhibit={exhibitInfo.hasExhibit}
+                  exhibitId={exhibitInfo.exhibitId}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -299,6 +479,45 @@ const MyGalleries = () => {
           galleries={galleries}
           onPublish={handlePublish}
         />
+
+        {/* Exhibit Creation Modal */}
+        {selectedGallery && (
+          <ExhibitCreationModal
+            isOpen={showExhibitModal}
+            onClose={() => {
+              setShowExhibitModal(false);
+              setSelectedGallery(null);
+            }}
+            onSubmit={handleCreateExhibit}
+            gallery={selectedGallery}
+            hasExistingExhibit={galleryExhibits[selectedGallery.gallery_id]?.hasExhibit || false}
+          />
+        )}
+
+        {/* Exhibit Detail Modal */}
+        <ExhibitDetailModal
+          isOpen={showExhibitDetailModal}
+          onClose={() => {
+            setShowExhibitDetailModal(false);
+            setSelectedExhibit(null);
+          }}
+          exhibit={selectedExhibit}
+          isLoading={isLoadingExhibit}
+          onDelete={handleDeleteExhibit}
+          onEdit={handleEditExhibit}
+        />
+
+        {/* Exhibit Edit Modal */}
+        {selectedExhibit && (
+          <ExhibitEditModal
+            isOpen={showExhibitEditModal}
+            onClose={() => {
+              setShowExhibitEditModal(false);
+            }}
+            onSubmit={handleUpdateExhibit}
+            exhibit={selectedExhibit}
+          />
+        )}
       </div>
     </MainLayout>
   );

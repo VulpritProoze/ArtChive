@@ -8,6 +8,14 @@ from .award_views import (
 )
 from .views import (
     BulkGalleryDetailsView,
+    ExhibitByGalleryView,
+    ExhibitCreateView,
+    ExhibitDeleteView,
+    ExhibitNearYouView,
+    ExhibitOngoingView,
+    ExhibitTopListView,
+    ExhibitUpcomingView,
+    ExhibitUpdateView,
     FellowsGalleriesView,
     GalleryActiveView,
     GalleryCommentCreateView,
@@ -81,4 +89,14 @@ urlpatterns = [
         GalleryGrowthAPIView.as_view(),
         name="dashboard-gallery-galleries-growth",
     ),
+
+    # Exhibits
+    path('exhibit/', ExhibitCreateView.as_view(), name='exhibit-create'),
+    path('exhibit/top/', ExhibitTopListView.as_view(), name='exhibit-top-list'),
+    path('exhibit/ongoing/', ExhibitOngoingView.as_view(), name='exhibit-ongoing'),
+    path('exhibit/upcoming/', ExhibitUpcomingView.as_view(), name='exhibit-upcoming'),
+    path('exhibit/near-you/', ExhibitNearYouView.as_view(), name='exhibit-near-you'),
+    path('exhibit/gallery/<uuid:gallery_id>/', ExhibitByGalleryView.as_view(), name='exhibit-by-gallery'),
+    path('exhibit/<uuid:exhibit_id>/', ExhibitUpdateView.as_view(), name='exhibit-update'),
+    path('exhibit/<uuid:exhibit_id>/delete/', ExhibitDeleteView.as_view(), name='exhibit-delete'),
 ]

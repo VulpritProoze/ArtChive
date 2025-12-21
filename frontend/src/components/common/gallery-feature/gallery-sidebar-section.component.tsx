@@ -23,6 +23,14 @@ interface GallerySidebarSectionProps {
   highlightedItemId?: string | null;
   enableInitialFetch?: boolean;
   onEditComment?: (comment: Comment) => void;
+  exhibit?: {
+    exhibit_id: string;
+    organizer_name: string;
+    city: string;
+    country: string;
+    start_date: string;
+    end_date: string;
+  } | null;
 }
 
 const GallerySidebarSection = ({ 
@@ -30,6 +38,7 @@ const GallerySidebarSection = ({
   highlightedItemId, 
   enableInitialFetch = true,
   onEditComment,
+  exhibit,
 }: GallerySidebarSectionProps) => {
   const { user } = useAuth();
   const {
@@ -139,13 +148,69 @@ const GallerySidebarSection = ({
     });
   };
 
+  // Format datetime for display
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Get random organizer picture from an API
+  const getOrganizerPicture = (organizerName: string) => {
+    // Using DiceBear API for random avatars based on organizer name
+    const seed = organizerName.replace(/\s+/g, '').toLowerCase();
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+  };
+
+  // Check if exhibit is upcoming
+  const isExhibitUpcoming = () => {
+    if (!exhibit) return false;
+    const now = new Date();
+    const startDate = new Date(exhibit.start_date);
+    return startDate > now;
+  };
+
   return (
     <div className="mt-4">
       {/* Gallery Details Section - Instagram Style */}
       {gallery && (
         <div className="mb-6 pb-6 border-b border-base-300">
-          {/* Creator Info */}
-          {gallery.creator_details && (
+          {/* Organizer Info (if exhibit exists) or Creator Info */}
+          {exhibit ? (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-base-200 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={getOrganizerPicture(exhibit.organizer_name)}
+                    alt={exhibit.organizer_name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(exhibit.organizer_name)}&background=random`;
+                    }}
+                  />
+                </div>
+                <div>
+                  <p className="font-semibold text-base-content">
+                    {exhibit.organizer_name}
+                  </p>
+                  <p className="text-xs text-base-content/60">
+                    Organizer
+                  </p>
+                  {isExhibitUpcoming() && (
+                    <p className="text-xs text-info font-medium mt-1">
+                      Upcoming Exhibit
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : gallery.creator_details ? (
             <div className="flex items-center gap-3 mb-4">
               <Link
                 to={`/profile/@${gallery.creator_details.username}`}
@@ -180,6 +245,32 @@ const GallerySidebarSection = ({
                   )}
                 </div>
               </Link>
+            </div>
+          ) : null}
+
+          {/* Exhibit Dates (if exhibit exists) */}
+          {exhibit && (
+            <div className="mb-4 p-3 bg-base-200 rounded-lg">
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs text-base-content/60 mb-1">Start Date</p>
+                  <p className="text-sm font-medium text-base-content">
+                    {formatDateTime(exhibit.start_date)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-base-content/60 mb-1">End Date</p>
+                  <p className="text-sm font-medium text-base-content">
+                    {formatDateTime(exhibit.end_date)}
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-base-300">
+                  <p className="text-xs text-base-content/60 mb-1">Location</p>
+                  <p className="text-sm font-medium text-base-content">
+                    {exhibit.city}, {exhibit.country}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

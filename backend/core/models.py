@@ -252,3 +252,56 @@ class ReputationHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.amount:+d} reputation from {self.source_type} at {self.created_at}"
+
+
+class WatermarkRecord(models.Model):
+    """
+    Tracks watermark records for all watermarked images.
+    Stores metadata about embedded watermarks for verification and tracking.
+    """
+    watermark_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='watermark_records',
+        help_text='User who owns the watermarked content'
+    )
+    content_type = models.CharField(
+        max_length=50,
+        help_text='Type of content: "post", "gallery", "gallery_editor", etc.'
+    )
+    content_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text='ID of the content (post_id, gallery_id, etc.)'
+    )
+    image_url = models.URLField(
+        max_length=2048,
+        help_text='URL of the watermarked image'
+    )
+    watermark_version = models.IntegerField(
+        default=1,
+        help_text='Version of the watermarking algorithm used'
+    )
+    embedded_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When the watermark was embedded'
+    )
+    watermark_hash = models.CharField(
+        max_length=64,
+        help_text='SHA-256 hash of the watermark payload for integrity verification'
+    )
+
+    class Meta:
+        verbose_name = 'Watermark Record'
+        verbose_name_plural = 'Watermark Records'
+        ordering = ['-embedded_at']
+        indexes = [
+            models.Index(fields=['user', 'embedded_at'], name='watermark_user_embedded_idx'),
+            models.Index(fields=['content_type', 'content_id'], name='watermark_content_idx'),
+            models.Index(fields=['watermark_hash'], name='watermark_hash_idx'),
+            models.Index(fields=['embedded_at'], name='watermark_embedded_at_idx'),
+        ]
+
+    def __str__(self):
+        return f"Watermark {self.watermark_id} for {self.user.username} ({self.content_type})"

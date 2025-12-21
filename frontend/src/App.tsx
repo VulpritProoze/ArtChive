@@ -31,6 +31,8 @@ const CollectiveAdmin = lazy(() => import("@components/collective/collective-adm
 const GalleryIndex = lazy(() => import("@components/gallery/index.component"));
 const GalleryEditor = lazy(() => import("@components/gallery/editor.component"));
 const MyGalleries = lazy(() => import("@components/gallery/galleries.component"));
+const Exhibits = lazy(() => import("@components/gallery/exhibits.component"));
+const PublishedExhibitView = lazy(() => import("@components/gallery/published-exhibit.component"));
 const AvatarListPage = lazy(() => import("@components/avatar/avatar-list.component"));
 const AvatarEditorPage = lazy(() => import("@components/avatar/avatar-editor.component"));
 const ReputationPage = lazy(() => import("@components/reputation/reputation.component"));
@@ -47,6 +49,7 @@ import { FriendRequestProvider } from "@context/friend-request-context";
 import { QueryProvider } from "@providers/query-provider";
 import useToggleTheme from "@hooks/use-theme";
 import { ToastContainer } from "@components/common/toast";
+import { useScreenshotPrevention } from "@hooks/use-screenshot-prevention.hook";
 
 const Index = lazy(() =>
   import("@components/index/index.component").then((module) => {
@@ -133,6 +136,8 @@ function AppRoutes() {
 
               <Route path="/gallery" element={<GalleryIndex />} />
               <Route path="/gallery/me" element={<MyGalleries />} />
+              <Route path="/gallery/exhibits" element={<Exhibits />} />
+              <Route path="/gallery/exhibit/:userId" element={<PublishedExhibitView />} />
               <Route path="/gallery/:userId" element={<PublishedGalleryView />} />
               <Route path="/gallery/:galleryId/editor" element={<GalleryEditor />} />
 
@@ -157,6 +162,19 @@ function AppRoutes() {
 }
 
 function App() {
+  // Enable screenshot prevention globally
+  useScreenshotPrevention({
+    enabled: true,
+    disableRightClick: false, // Disabled to allow context menu
+    disableKeyboardShortcuts: true,
+    detectDevTools: false, // Disabled to allow debugging
+    detectScreenCapture: true,
+    disableTextSelection: true,
+    disableDrag: true,
+    showWarning: true,
+    warningMessage: 'Screenshots are not allowed on this website.',
+  });
+
   return (
     <AuthProvider>
       <QueryProvider>

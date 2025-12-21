@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Trash2, Calendar, Save, X, Upload, Eye, Edit } from 'lucide-react';
+import { Settings, Trash2, Calendar, Save, X, Upload, Eye, Edit, CalendarDays, MapPin } from 'lucide-react';
 import { toast } from '@utils/toast.util';
 import { galleryService, type Gallery } from '@services/gallery.service';
 import { handleApiError, formatErrorForToast } from '@utils';
@@ -9,9 +9,12 @@ interface GalleryCardProps {
   gallery: Gallery;
   onUpdate: () => void;
   onDelete: (galleryId: string, title: string) => void;
+  onExhibit?: (gallery: Gallery) => void;
+  hasExhibit?: boolean;
+  exhibitId?: string | null;
 }
 
-export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) => {
+export const GalleryCard = ({ gallery, onUpdate, onDelete, onExhibit, hasExhibit = false }: GalleryCardProps) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -270,14 +273,14 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
       {showStatusDropdown && !isEditing && (
         <div
           ref={dropdownRef}
-          className="absolute bg-base-100 rounded-box shadow-lg border border-base-300 z-40 w-32"
+          className="absolute bg-base-100 rounded-box shadow-lg border border-base-300 z-40 lg:w-56"
           style={{
             top: `${dropdownPosition.top}px`,
             right: `${dropdownPosition.right}px`,
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <ul className="menu p-2">
+          <ul className="menu p-2 w-full">
             <li>
               <button
                 className="text-sm"
@@ -292,7 +295,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
               </button>
             </li>
             <div className="divider my-1"></div>
-            <li className="menu-title text-xs flex items-center gap-2">
+            <li className="menu-title text-xs flex gap-2">
               Change Status
               {isChangingStatus && (
                 <span className="loading loading-spinner loading-xs"></span>
@@ -331,6 +334,46 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
               </button>
             </li>
             <div className="divider my-1"></div>
+            {/* {hasExhibit && exhibitId && (
+              <li>
+                <button
+                  className="text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowStatusDropdown(false);
+                    if (onExhibit) {
+                      // Trigger view exhibit details - parent will handle opening modal
+                      onExhibit(gallery);
+                    }
+                  }}
+                >
+                  <Eye className="w-4 h-4" />
+                  View Exhibit Details
+                </button>
+              </li>
+            )} */}
+            {onExhibit && (
+              <li>
+                <button
+                  className="text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowStatusDropdown(false);
+                    if (onExhibit) {
+                      onExhibit(gallery);
+                    }
+                  }}
+                  title="Create an exhibit for this gallery"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  Exhibit Gallery
+                  {hasExhibit && (
+                    <span className="badge badge-info badge-xs ml-auto">Active</span>
+                  )}
+                </button>
+              </li>
+            )}
+            <div className="divider my-1"></div>
             <li>
               <button
                 className="text-sm text-error"
@@ -361,28 +404,43 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete }: GalleryCardProps) =
         ) : (
           <div className="flex items-start justify-between gap-2">
             <h2 className="card-title text-xl flex-1 line-clamp-1">{gallery.title}</h2>
-            {(() => {
-              const statusConfig = getStatusConfig(gallery.status);
-              return (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Exhibit Indicator */}
+              {hasExhibit && (
                 <div
-                  className={`
-                    inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                    border ${statusConfig.borderColor}
-                    ${statusConfig.bgColor}
-                    transition-all duration-200
-                  `}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-info/30 bg-info/10 transition-all duration-200"
+                  title="This gallery is exhibited"
                 >
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} ${
-                      gallery.status === 'active' ? 'animate-pulse' : ''
-                    }`}
-                  />
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${statusConfig.textColor}`}>
-                    {getStatusDisplayText(gallery.status)}
+                  <MapPin className="w-3 h-3 text-info" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-info">
+                    Exhibit
                   </span>
                 </div>
-              );
-            })()}
+              )}
+              {/* Status Indicator */}
+              {(() => {
+                const statusConfig = getStatusConfig(gallery.status);
+                return (
+                  <div
+                    className={`
+                      inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                      border ${statusConfig.borderColor}
+                      ${statusConfig.bgColor}
+                      transition-all duration-200
+                    `}
+                  >
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} ${
+                        gallery.status === 'active' ? 'animate-pulse' : ''
+                      }`}
+                    />
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${statusConfig.textColor}`}>
+                      {getStatusDisplayText(gallery.status)}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
 
