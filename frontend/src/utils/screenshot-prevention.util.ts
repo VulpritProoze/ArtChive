@@ -42,11 +42,11 @@ const DEFAULT_CONFIG: Required<ScreenshotPreventionConfig> = {
 
 class ScreenshotPrevention {
   private config: Required<ScreenshotPreventionConfig>;
-  private isEnabled: boolean = false;
+  public isEnabled: boolean = false;
   private eventHandlers: Map<string, EventListener> = new Map();
   private devToolsCheckInterval: number | null = null;
   private overlayElement: HTMLDivElement | null = null;
-  private originalGetDisplayMedia: ((constraints?: DisplayMediaStreamConstraints) => Promise<MediaStream>) | null = null;
+  private originalGetDisplayMedia: ((constraints?: MediaStreamConstraints) => Promise<MediaStream>) | null = null;
   private originalGetUserMedia: ((constraints?: MediaStreamConstraints) => Promise<MediaStream>) | null = null;
 
   constructor(config: ScreenshotPreventionConfig = {}) {
@@ -289,7 +289,7 @@ class ScreenshotPrevention {
 
       try {
         Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', {
-          value: async (constraints?: DisplayMediaStreamConstraints) => {
+          value: async (_constraints?: MediaStreamConstraints) => {
             this.showWarning();
             throw new Error('Screen capture is not allowed');
           },

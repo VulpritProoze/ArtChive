@@ -1,39 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Calendar, MapPin, Clock } from "lucide-react";
 import { MainLayout } from "../common/layout";
-import { useEffect, useRef, useState, useMemo } from "react";
-import { galleryService } from "@services/gallery.service";
+import { useEffect, useRef, useMemo } from "react";
+import { galleryService, type Exhibit } from "@services/gallery.service";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { SkeletonGalleryGridCard } from "@components/common/skeleton";
-import { optimizeGalleryPicture, optimizeProfilePicture } from "@utils/cloudinary-transform.util";
+import { optimizeGalleryPicture } from "@utils/cloudinary-transform.util";
 import { Link } from "react-router-dom";
 
-interface Exhibit {
-  exhibit_id: string;
-  gallery_title: string;
-  gallery_picture: string;
-  gallery_creator_username: string;
-  organizer_name: string;
-  city: string;
-  country: string;
-  start_date: string;
-  end_date: string;
-  is_upcoming: boolean;
-  is_ongoing: boolean;
-  is_past: boolean;
-  created_at: string;
-  creator_details?: {
-    id: number;
-    username: string;
-    first_name: string;
-    middle_name: string | null;
-    last_name: string;
-    profile_picture: string | null;
-    artist_types: string[];
-    brush_drips_count: number;
-    reputation: number;
-  };
-}
 
 interface ExhibitSectionProps {
   title: string;
@@ -53,7 +27,7 @@ const ExhibitSection = ({
   isLoading,
   isFetchingNextPage = false,
   hasNextPage = false,
-  fetchNextPage,
+  fetchNextPage: _fetchNextPage,
   observerTarget,
 }: ExhibitSectionProps) => {
   const formatDate = (dateString: string) => {
@@ -88,7 +62,7 @@ const ExhibitSection = ({
             {exhibits.map((exhibit) => (
               <Link
                 key={exhibit.exhibit_id}
-                to={`/gallery/${exhibit.gallery_creator_username}`}
+                to={`/gallery/exhibit/${exhibit.creator_details?.id}`}
                 className="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group"
               >
                 <figure className="relative h-48 overflow-hidden">
@@ -138,22 +112,20 @@ const ExhibitSection = ({
                     </div>
                   </div>
 
-                  {exhibit.creator_details && (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-base-300">
-                      <img
-                        src={optimizeProfilePicture(exhibit.creator_details.profile_picture)}
-                        alt={exhibit.creator_details.username}
-                        className="w-6 h-6 rounded-full"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/static/images/default-pic-min.jpg';
-                        }}
-                      />
-                      <span className="text-xs text-base-content/60">
-                        {exhibit.creator_details.username}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-base-300">
+                    <img
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(exhibit.organizer_name)}&background=random&size=32`}
+                      alt={exhibit.organizer_name}
+                      className="w-6 h-6 rounded-full"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(exhibit.organizer_name)}&background=random&size=32`;
+                      }}
+                    />
+                    <span className="text-xs text-base-content/60">
+                      {exhibit.organizer_name}
+                    </span>
+                  </div>
                 </div>
               </Link>
             ))}
@@ -240,15 +212,15 @@ const ExhibitsComponent = () => {
 
   // Flatten pages into arrays
   const ongoingExhibits = useMemo(() => {
-    return ongoingData?.pages.flatMap((page) => page.results as Exhibit[]) ?? [];
+    return ongoingData?.pages.flatMap((page) => page.results) ?? [];
   }, [ongoingData]);
 
   const upcomingExhibits = useMemo(() => {
-    return upcomingData?.pages.flatMap((page) => page.results as Exhibit[]) ?? [];
+    return upcomingData?.pages.flatMap((page) => page.results) ?? [];
   }, [upcomingData]);
 
   const nearYouExhibits = useMemo(() => {
-    return nearYouData?.pages.flatMap((page) => page.results as Exhibit[]) ?? [];
+    return nearYouData?.pages.flatMap((page) => page.results) ?? [];
   }, [nearYouData]);
 
   // Infinite scroll for ongoing exhibits

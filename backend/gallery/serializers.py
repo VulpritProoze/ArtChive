@@ -595,6 +595,7 @@ class ExhibitListSerializer(ModelSerializer):
     gallery_title = serializers.CharField(source='gallery.title', read_only=True)
     gallery_picture = serializers.ImageField(source='gallery.picture', read_only=True)
     gallery_creator_username = serializers.CharField(source='gallery.creator.username', read_only=True)
+    creator_details = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     is_ongoing = serializers.SerializerMethodField()
     is_past = serializers.SerializerMethodField()
@@ -606,6 +607,7 @@ class ExhibitListSerializer(ModelSerializer):
             'gallery_title',
             'gallery_picture',
             'gallery_creator_username',
+            'creator_details',
             'organizer_name',
             'city',
             'country',
@@ -616,6 +618,43 @@ class ExhibitListSerializer(ModelSerializer):
             'is_past',
             'created_at',
         ]
+
+    def get_creator_details(self, obj):
+        """Get creator details including artist types, brush drips count, and reputation"""
+        creator = obj.gallery.creator
+
+        # Get artist types if artist profile exists
+        artist_types = []
+        try:
+            artist = getattr(creator, 'artist', None)
+            if artist and artist.artist_types:
+                artist_types = artist.artist_types
+        except AttributeError:
+            artist_types = []
+
+        # Get brush drips balance (count)
+        brush_drips_count = 0
+        try:
+            wallet = getattr(creator, 'user_wallet', None)
+            if wallet:
+                brush_drips_count = wallet.balance
+        except AttributeError:
+            brush_drips_count = 0
+
+        # Get reputation
+        reputation = getattr(creator, 'reputation', 0)
+
+        return {
+            'id': creator.id,
+            'username': creator.username,
+            'first_name': creator.first_name or '',
+            'middle_name': creator.middle_name or None,
+            'last_name': creator.last_name or '',
+            'profile_picture': creator.profile_picture.url if creator.profile_picture else None,
+            'artist_types': artist_types,
+            'brush_drips_count': brush_drips_count,
+            'reputation': reputation,
+        }
 
     def get_is_upcoming(self, obj):
         """Check if exhibit is upcoming"""

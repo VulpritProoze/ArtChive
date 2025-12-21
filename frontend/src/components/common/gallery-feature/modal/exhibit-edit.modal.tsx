@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, AlertTriangle, Search, Calendar as CalendarIcon } from 'lucide-react';
-import { COUNTRIES, CITIES, type Country } from '@types/location.constants';
+import { COUNTRIES, CITIES, type Country } from '@/types/location.constants';
 
 interface ExhibitEditModalProps {
   isOpen: boolean;

@@ -14,7 +14,7 @@ interface GalleryCardProps {
   exhibitId?: string | null;
 }
 
-export const GalleryCard = ({ gallery, onUpdate, onDelete, onExhibit, hasExhibit = false, exhibitId }: GalleryCardProps) => {
+export const GalleryCard = ({ gallery, onUpdate, onDelete, onExhibit, hasExhibit = false }: GalleryCardProps) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

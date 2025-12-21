@@ -65,6 +65,32 @@ export interface PaginatedGalleryResponse {
   results: Gallery[];
 }
 
+export interface Exhibit {
+  exhibit_id: string;
+  gallery: string;
+  gallery_title: string;
+  gallery_picture: string;
+  gallery_creator_username: string;
+  creator_details?: CreatorDetails;
+  organizer_name: string;
+  city: string;
+  country: string;
+  start_date: string;
+  end_date: string;
+  is_upcoming: boolean;
+  is_ongoing: boolean;
+  is_past: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaginatedExhibitListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Exhibit[];
+}
+
 export const galleryService = {
   /**
    * Upload an image to the gallery media endpoint
@@ -397,7 +423,7 @@ export const galleryService = {
    * Get currently ongoing exhibits (paginated)
    * GET /api/exhibit/ongoing/
    */
-  async getOngoingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedGalleryListResponse> {
+  async getOngoingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedExhibitListResponse> {
     const response = await gallery.get('exhibit/ongoing/', {
       params: { page, page_size: pageSize },
     });
@@ -408,7 +434,7 @@ export const galleryService = {
    * Get upcoming exhibits (paginated)
    * GET /api/exhibit/upcoming/
    */
-  async getUpcomingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedGalleryListResponse> {
+  async getUpcomingExhibits(page: number = 1, pageSize: number = 10): Promise<PaginatedExhibitListResponse> {
     const response = await gallery.get('exhibit/upcoming/', {
       params: { page, page_size: pageSize },
     });
@@ -424,7 +450,7 @@ export const galleryService = {
     pageSize: number = 10,
     city?: string,
     country?: string
-  ): Promise<PaginatedGalleryListResponse> {
+  ): Promise<PaginatedExhibitListResponse> {
     const params: { page: number; page_size: number; city?: string; country?: string } = {
       page,
       page_size: pageSize,

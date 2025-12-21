@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Calendar, MapPin, Clock, User, Trash2, AlertTriangle, Edit } from 'lucide-react';
+import { X, Calendar, MapPin, Clock, Trash2, AlertTriangle, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface ExhibitDetail {
@@ -185,8 +185,16 @@ export function ExhibitDetailModal({
               {/* Organizer */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-base-content/70">Organizer</label>
-                <div className="flex items-center gap-2 p-3 bg-base-200 rounded-lg">
-                  <User className="w-5 h-5 text-base-content/60" />
+                <div className="flex items-center gap-3 p-3 bg-base-200 rounded-lg">
+                  <img
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(exhibit.organizer_name)}&background=random&size=40`}
+                    alt={exhibit.organizer_name}
+                    className="w-10 h-10 rounded-full"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(exhibit.organizer_name)}&background=random&size=40`;
+                    }}
+                  />
                   <span className="text-base-content">{exhibit.organizer_name}</span>
                 </div>
               </div>
