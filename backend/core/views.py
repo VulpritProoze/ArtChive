@@ -2490,3 +2490,78 @@ class PostgresHealthCheckView(APIView):
                 "service": "postgresql",
                 "message": f"PostgreSQL connection error: {str(e)}"
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@extend_schema(
+    tags=["Watermark"],
+    description="Verify watermark in an image",
+    request={
+        'application/json': {
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'image_url': {
+                        'type': 'string',
+                        'format': 'uri',
+                        'description': 'URL of the image to verify'
+                    }
+                },
+                'required': ['image_url']
+            }
+        }
+    },
+    responses={
+        200: OpenApiResponse(description="Watermark verification result"),
+        400: OpenApiResponse(description="Invalid request"),
+    },
+)
+class WatermarkVerifyView(APIView):
+    """
+    POST /api/watermark/verify/ - Verify watermark in an image
+    
+    Body: {"image_url": "..."}
+    Response: {
+        "has_watermark": bool,
+        "user_id": UUID (optional),
+        "username": str (optional),
+        "timestamp": ISO8601 (optional),
+        "verified": bool
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        image_url = request.data.get('image_url')
+        
+        if not image_url:
+            return Response(
+                {'error': 'image_url is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from common.utils.watermark import extract_watermark
+            
+            payload = extract_watermark(image_url)
+            
+            if payload:
+                return Response({
+                    'has_watermark': True,
+                    'user_id': payload.get('user_id'),
+                    'username': payload.get('username'),
+                    'timestamp': payload.get('timestamp'),
+                    'platform': payload.get('platform'),
+                    'post_id': payload.get('post_id'),
+                    'gallery_id': payload.get('gallery_id'),
+                    'verified': True
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    'has_watermark': False,
+                    'verified': False
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to verify watermark: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

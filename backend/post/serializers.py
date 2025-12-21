@@ -107,8 +107,26 @@ class PostCreateSerializer(ModelSerializer):
             value.seek(0)
 
             # Process image: resize and compress
-            from common.utils.image_processing import process_post_image
-            return process_post_image(value)
+            from common.utils.image_processing import process_post_image, process_and_watermark_image
+            
+            # Get user from context for watermarking
+            request = self.context.get('request')
+            if request and request.user and request.user.is_authenticated:
+                try:
+                    # Process and watermark image
+                    return process_and_watermark_image(
+                        image_file=value,
+                        user_id=request.user.id,
+                        username=request.user.username,
+                        processing_function=process_post_image,
+                        post_id=None,  # Will be set after post creation
+                    )
+                except Exception:
+                    # If watermarking fails, fall back to regular processing
+                    return process_post_image(value)
+            else:
+                # No user context, just process normally
+                return process_post_image(value)
         except Exception as e:
             if 'Failed to process image' in str(e):
                 raise serializers.ValidationError(str(e))
@@ -208,6 +226,35 @@ class PostCreateSerializer(ModelSerializer):
 
         post = Post.objects.create(**validated_data)
 
+        # Create watermark record if image_url exists
+        if post.image_url:
+            from core.models import WatermarkRecord
+            from common.utils.watermark import generate_watermark_payload
+            import hashlib
+            import json
+            
+            try:
+                user = validated_data.get('author') or self.context['request'].user
+                payload = generate_watermark_payload(
+                    user_id=user.id,
+                    username=user.username,
+                    post_id=post.post_id,
+                )
+                payload_str = json.dumps(payload, sort_keys=True)
+                watermark_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+                
+                WatermarkRecord.objects.create(
+                    user=user,
+                    content_type='post',
+                    content_id=post.post_id,
+                    image_url=str(post.image_url),
+                    watermark_version=1,
+                    watermark_hash=watermark_hash,
+                )
+            except Exception:
+                # Silently fail if watermark record creation fails
+                pass
+
         if post_type == "novel" and chapters_data:
             for chapter_data in chapters_data:
                 NovelPost.objects.create(
@@ -291,8 +338,28 @@ class PostUpdateSerializer(ModelSerializer):
             value.seek(0)
 
             # Process image: resize and compress
-            from common.utils.image_processing import process_post_image
-            return process_post_image(value)
+            from common.utils.image_processing import process_post_image, process_and_watermark_image
+            
+            # Get user from context for watermarking
+            request = self.context.get('request')
+            if request and request.user and request.user.is_authenticated:
+                # Get post_id from instance if updating
+                post_id = self.instance.post_id if self.instance else None
+                try:
+                    # Process and watermark image
+                    return process_and_watermark_image(
+                        image_file=value,
+                        user_id=request.user.id,
+                        username=request.user.username,
+                        processing_function=process_post_image,
+                        post_id=post_id,
+                    )
+                except Exception:
+                    # If watermarking fails, fall back to regular processing
+                    return process_post_image(value)
+            else:
+                # No user context, just process normally
+                return process_post_image(value)
         except Exception as e:
             if 'Failed to process image' in str(e):
                 raise serializers.ValidationError(str(e))

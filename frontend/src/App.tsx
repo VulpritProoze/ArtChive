@@ -49,6 +49,7 @@ import { FriendRequestProvider } from "@context/friend-request-context";
 import { QueryProvider } from "@providers/query-provider";
 import useToggleTheme from "@hooks/use-theme";
 import { ToastContainer } from "@components/common/toast";
+import { useScreenshotPrevention } from "@hooks/use-screenshot-prevention.hook";
 
 const Index = lazy(() =>
   import("@components/index/index.component").then((module) => {
@@ -161,6 +162,19 @@ function AppRoutes() {
 }
 
 function App() {
+  // Enable screenshot prevention globally
+  useScreenshotPrevention({
+    enabled: true,
+    disableRightClick: false, // Disabled to allow context menu
+    disableKeyboardShortcuts: true,
+    detectDevTools: false, // Disabled to allow debugging
+    detectScreenCapture: true,
+    disableTextSelection: true,
+    disableDrag: true,
+    showWarning: true,
+    warningMessage: 'Screenshots are not allowed on this website.',
+  });
+
   return (
     <AuthProvider>
       <QueryProvider>

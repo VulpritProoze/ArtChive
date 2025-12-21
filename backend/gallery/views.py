@@ -592,11 +592,38 @@ class MediaUploadView(APIView):
             # Get user ID for folder organization
             user_id = request.user.id
 
+            # Process and watermark image before upload
+            from common.utils.image_processing import process_and_watermark_image
+            from common.utils.image_processing import resize_and_compress_image
+            from django.core.files.uploadedfile import InMemoryUploadedFile
+            
+            try:
+                # Process image (resize/compress) and watermark
+                processed_image = process_and_watermark_image(
+                    image_file=image_file,
+                    user_id=request.user.id,
+                    username=request.user.username,
+                    processing_function=lambda f: resize_and_compress_image(
+                        f, max_size=(2000, 2000), quality=95, format='JPEG'
+                    ),
+                    gallery_id=None,  # Editor images not associated with gallery yet
+                )
+                image_file = processed_image
+            except Exception:
+                # If watermarking fails, just process normally
+                try:
+                    processed_image = resize_and_compress_image(
+                        image_file, max_size=(2000, 2000), quality=95, format='JPEG'
+                    )
+                    image_file = processed_image
+                except Exception:
+                    pass  # Upload original if processing fails
+
             # Generate a unique public_id for Cloudinary
             unique_id = str(uuid.uuid4())
             public_id = f"gallery/editor/{user_id}/images/{unique_id}"
 
-            # Upload directly to Cloudinary
+            # Upload to Cloudinary
             upload_result = cloudinary.uploader.upload(
                 image_file,
                 public_id=public_id,
@@ -606,6 +633,33 @@ class MediaUploadView(APIView):
 
             # Get the secure URL from Cloudinary (includes version hash)
             url = upload_result.get('secure_url')
+            
+            # Create watermark record for gallery editor image
+            try:
+                from core.models import WatermarkRecord
+                from common.utils.watermark import generate_watermark_payload
+                import hashlib
+                import json
+                
+                payload = generate_watermark_payload(
+                    user_id=request.user.id,
+                    username=request.user.username,
+                    gallery_id=None,
+                )
+                payload_str = json.dumps(payload, sort_keys=True)
+                watermark_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+                
+                WatermarkRecord.objects.create(
+                    user=request.user,
+                    content_type='gallery_editor',
+                    content_id=None,
+                    image_url=url,
+                    watermark_version=1,
+                    watermark_hash=watermark_hash,
+                )
+            except Exception:
+                # Silently fail if watermark record creation fails
+                pass
 
             return Response({
                 'url': url,

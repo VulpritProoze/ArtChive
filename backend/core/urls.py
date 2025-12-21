@@ -50,6 +50,7 @@ from .views import (
     UserProfileByUsernameView,
     UserSearchView,
     UserSummaryView,
+    WatermarkVerifyView,
 )
 
 urlpatterns = [
@@ -269,5 +270,11 @@ urlpatterns = [
         "reputation/leaderboard/me/",
         MyLeaderboardPositionView.as_view(),
         name="my-leaderboard-position",
+    ),
+    # Watermark endpoints
+    path(
+        "watermark/verify/",
+        WatermarkVerifyView.as_view(),
+        name="watermark-verify",
     ),
 ]
