@@ -58,13 +58,36 @@ class GallerySerializer(ModelSerializer):
         return value
 
     def validate_picture(self, value):
-        """Process gallery picture: resize and compress."""
+        """Process gallery picture: resize, compress, and watermark."""
         if value:
-            from common.utils.image_processing import process_gallery_picture
-            try:
-                return process_gallery_picture(value)
-            except Exception as e:
-                raise serializers.ValidationError(f"Failed to process image: {str(e)}")
+            from common.utils.image_processing import process_gallery_picture, process_and_watermark_image
+            
+            # Get user from context for watermarking
+            request = self.context.get('request')
+            if request and request.user and request.user.is_authenticated:
+                # Get gallery_id from instance if updating
+                gallery_id = self.instance.gallery_id if self.instance else None
+                try:
+                    # Process and watermark image
+                    return process_and_watermark_image(
+                        image_file=value,
+                        user_id=request.user.id,
+                        username=request.user.username,
+                        processing_function=process_gallery_picture,
+                        gallery_id=gallery_id,
+                    )
+                except Exception as e:
+                    # If watermarking fails, fall back to regular processing
+                    try:
+                        return process_gallery_picture(value)
+                    except Exception as proc_err:
+                        raise serializers.ValidationError(f"Failed to process image: {str(proc_err)}")
+            else:
+                # No user context, just process normally
+                try:
+                    return process_gallery_picture(value)
+                except Exception as e:
+                    raise serializers.ValidationError(f"Failed to process image: {str(e)}")
         return value
 
     def validate_status(self, value):
@@ -91,6 +114,41 @@ class GallerySerializer(ModelSerializer):
                     )
 
         return value
+
+    def create(self, validated_data):
+        """Create gallery and watermark record if picture exists."""
+        gallery = super().create(validated_data)
+        
+        # Create watermark record if picture exists
+        if gallery.picture:
+            from core.models import WatermarkRecord
+            from common.utils.watermark import generate_watermark_payload
+            import hashlib
+            import json
+            
+            try:
+                user = validated_data.get('creator')
+                payload = generate_watermark_payload(
+                    user_id=user.id,
+                    username=user.username,
+                    gallery_id=gallery.gallery_id,
+                )
+                payload_str = json.dumps(payload, sort_keys=True)
+                watermark_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+                
+                WatermarkRecord.objects.create(
+                    user=user,
+                    content_type='gallery',
+                    content_id=gallery.gallery_id,
+                    image_url=str(gallery.picture),
+                    watermark_version=1,
+                    watermark_hash=watermark_hash,
+                )
+            except Exception:
+                # Silently fail if watermark record creation fails
+                pass
+        
+        return gallery
 
 
 class GalleryPublicSerializer(ModelSerializer):

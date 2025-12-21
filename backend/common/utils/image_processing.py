@@ -2,7 +2,8 @@
 Image processing utilities for resizing and compressing uploaded images.
 """
 import io
-from typing import Tuple
+from typing import Optional, Tuple
+import uuid
 from PIL import Image, ImageOps
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
@@ -214,4 +215,47 @@ def process_gallery_picture(image_file) -> InMemoryUploadedFile:
         maintain_aspect_ratio=True,
         crop_to_fit=False
     )
+
+
+def process_and_watermark_image(
+    image_file: InMemoryUploadedFile,
+    user_id: uuid.UUID,
+    username: str,
+    processing_function,
+    post_id: Optional[uuid.UUID] = None,
+    gallery_id: Optional[uuid.UUID] = None,
+) -> InMemoryUploadedFile:
+    """
+    Process an image (resize/compress) and then apply watermark.
+    
+    Args:
+        image_file: Image file to process
+        user_id: User's UUID for watermarking
+        username: User's username for watermarking
+        processing_function: Function to process image (e.g., process_post_image)
+        post_id: Optional post UUID for watermarking
+        gallery_id: Optional gallery UUID for watermarking
+        
+    Returns:
+        Processed and watermarked image file
+    """
+    # First process the image
+    processed_image = processing_function(image_file)
+    
+    # Then apply watermark
+    from common.utils.watermark import embed_watermark
+    
+    try:
+        watermarked_image = embed_watermark(
+            image_file=processed_image,
+            user_id=user_id,
+            username=username,
+            post_id=post_id,
+            gallery_id=gallery_id,
+        )
+        return watermarked_image
+    except Exception:
+        # If watermarking fails, return processed image without watermark
+        # Log error in production
+        return processed_image
 

@@ -13,6 +13,7 @@ from core.models import (
     InactiveUser,
     User,
     UserFellow,
+    WatermarkRecord,
 )
 
 
@@ -673,6 +674,25 @@ class LogEntryAdmin(ModelAdmin):
         return False
 
 
+# Admin for WatermarkRecord - read-only view
+class WatermarkRecordAdmin(ModelAdmin):
+    list_display = ('watermark_id', 'user', 'content_type', 'content_id', 'embedded_at')
+    list_filter = ('content_type', 'watermark_version', 'embedded_at')
+    search_fields = ('user__username', 'user__email', 'content_id', 'image_url', 'watermark_hash')
+    readonly_fields = ('watermark_id', 'user', 'content_type', 'content_id', 'image_url', 'watermark_version', 'embedded_at', 'watermark_hash')
+    list_per_page = 50
+    date_hierarchy = 'embedded_at'
+
+    def has_add_permission(self, request):  # noqa: ARG002
+        return False
+
+    def has_change_permission(self, request, obj=None):  # noqa: ARG002
+        return False
+
+    def has_delete_permission(self, request, obj=None):  # noqa: ARG002
+        return False
+
+
 # Register models with Unfold admin
 admin.site.register(Artist, ArtistAdmin)
 # admin.site.register(BrushDripWallet, BrushDripWalletAdmin)
@@ -680,4 +700,5 @@ admin.site.register(BrushDripTransaction, BrushDripTransactionAdmin)
 admin.site.register(User, ActiveUserAdmin)
 admin.site.register(InactiveUser, InactiveUserAdmin)
 admin.site.register(LogEntry, LogEntryAdmin)
+admin.site.register(WatermarkRecord, WatermarkRecordAdmin)
 # UserFellow is now shown as inline in User admin, not as separate admin

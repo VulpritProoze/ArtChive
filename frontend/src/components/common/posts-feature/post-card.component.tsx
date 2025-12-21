@@ -28,6 +28,8 @@ import {
   faStar,
 } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
+import { downloadImageWithWatermark } from "@utils/watermark.util";
+import { toast } from "@utils/toast.util";
 
 interface PostCardPostItem extends Post {
   novel_post: NovelPost[];
@@ -156,6 +158,35 @@ export default function PostCard({
     }
   };
 
+  const handleImageDownload = async (e: React.MouseEvent<HTMLImageElement>) => {
+    // Intercept right-click to add watermark on download
+    if (e.button === 2 || e.type === 'contextmenu') {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (postItem.image_url) {
+        try {
+          // Generate filename from post ID or description
+          const filename = postItem.description 
+            ? `${postItem.description.substring(0, 30).replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${postItem.post_id.substring(0, 8)}.jpg`
+            : `artchive-post-${postItem.post_id.substring(0, 8)}.jpg`;
+          
+          await downloadImageWithWatermark(postItem.image_url, filename);
+        } catch (error) {
+          console.error('Error downloading image with watermark:', error);
+          toast.error('Download failed', 'Could not download image. Please try again.');
+        }
+      }
+      return false;
+    }
+  };
+
+  const handleImageContextMenu = (e: React.MouseEvent<HTMLImageElement>) => {
+    e.preventDefault();
+    handleImageDownload(e);
+    return false;
+  };
+
   return (
     <>
       <div
@@ -175,6 +206,8 @@ export default function PostCard({
               src={postItem.image_url}
               alt={postItem.description}
               className="w-full h-auto max-h-[600px] object-contain"
+              onContextMenu={handleImageContextMenu}
+              draggable={false}
             />
           </div>
         )}
