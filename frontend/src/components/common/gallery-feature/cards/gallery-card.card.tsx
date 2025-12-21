@@ -334,7 +334,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete, onExhibit, hasExhibit
               </button>
             </li>
             <div className="divider my-1"></div>
-            {hasExhibit && exhibitId && (
+            {/* {hasExhibit && exhibitId && (
               <li>
                 <button
                   className="text-sm"
@@ -351,7 +351,7 @@ export const GalleryCard = ({ gallery, onUpdate, onDelete, onExhibit, hasExhibit
                   View Exhibit Details
                 </button>
               </li>
-            )}
+            )} */}
             {onExhibit && (
               <li>
                 <button
